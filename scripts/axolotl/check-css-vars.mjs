@@ -129,18 +129,6 @@ allow('runtime-set', [
         'apps/app-frontend/src/pages/LabGradientText.vue :style `--minecraft-text-shadow-color`',
     ],
     [
-        'oobe-card-from',
-        'apps/app-frontend/src/components/ui/oobe/steps/account/AccountArt.vue :style `--oobe-card-from`',
-    ],
-    [
-        'oobe-card-pose',
-        'apps/app-frontend/src/components/ui/oobe/steps/account/AccountArt.vue :style `--oobe-card-pose`',
-    ],
-    [
-        'oobe-card-side',
-        'apps/app-frontend/src/components/ui/oobe/steps/account/AccountArt.vue :style `--oobe-card-side`',
-    ],
-    [
         'property-progress',
         'packages/ui/src/components/image-viewer-editor/controls.vue :style `--property-progress`',
     ],

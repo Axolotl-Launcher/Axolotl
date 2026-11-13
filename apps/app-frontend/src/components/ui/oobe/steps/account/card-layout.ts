@@ -5,9 +5,10 @@ export type CardLayout = Partial<Record<CardSlot, string>>
 
 /**
  * How a card reached its slot: from behind to the front (`rise`) and back (`sink`), drawn
- * out of the hidden card's place (`draw`) and tucked into it (`stow`), or new (`enter`).
+ * out of the hidden card's place (`draw`) and tucked into it (`stow`), from one place
+ * behind to another (`shift`), or new (`enter`).
  */
-export type CardMove = 'rise' | 'sink' | 'draw' | 'stow' | 'enter'
+export type CardMove = 'rise' | 'sink' | 'draw' | 'stow' | 'shift' | 'enter'
 
 export const CARD_SLOTS: readonly CardSlot[] = ['front', 'left', 'right', 'hidden']
 const BEHIND: readonly CardSlot[] = ['left', 'right']
@@ -80,5 +81,5 @@ export function moveOf(previous: CardLayout, next: CardLayout, id: string): Card
     if (!from) return 'enter'
     if (to === 'front') return from === 'hidden' ? 'draw' : 'rise'
     if (from === 'front') return to === 'hidden' ? 'stow' : 'sink'
-    return undefined
+    return 'shift'
 }

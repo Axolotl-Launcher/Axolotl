@@ -12,70 +12,140 @@ import {
     slotOf,
     withPickOnHiddenCard,
 } from './card-layout'
+import {
+    CARD_MOTION_MS,
+    cardKeyframes,
+    type CardPose,
+    LAYER,
+    OPACITY,
+    POSES,
+    restingPose,
+    SIDE,
+} from './card-motion'
 
 /**
  * The selected account's card in front, with Steve's head while there is none. With two
  * or more accounts the cards behind carry the others, and picking one of them slides its
  * card up to the front while the old front card sinks into its place. From four accounts a
  * faint card hides behind the stack; an account without a visible card is drawn out of it.
+ *
+ * Moves can be interrupted: a pick made while cards are still moving sends every card whose
+ * place changed on from wherever it is, and leaves the others to finish their way.
  */
 const { accounts, defaultAccount, headOf } = useOobeAccounts()
 
-/** Each slot's pose, relative to the front card; every pose uses the same functions so they interpolate. */
-const POSES: Record<CardSlot, string> = {
-    front: 'translate(0px, 0px) rotate(0deg) scale(1)',
-    // Fanned out far enough that most of each head shows beside the front card.
-    left: 'translate(-100px, 8px) rotate(-10deg) scale(0.88)',
-    right: 'translate(100px, 8px) rotate(10deg) scale(0.88)',
-    // Only its top edge clears the front card; its head stays covered.
-    hidden: 'translate(0px, -46px) rotate(0deg) scale(0.8)',
-}
-/** The side a card swings toward on its way; the hidden card is drawn out to the right. */
-const SIDE: Record<CardSlot, number> = { front: 0, left: -1, right: 1, hidden: 1 }
+const CARD_MOTION = 'oobe-account-card-motion'
 
 const layout = ref<CardLayout>({})
-/** The last move of each account's card; `run` gives the card a new element so it plays again. */
-const moves = ref(new Map<string, { move: CardMove; from?: CardSlot; run: number }>())
-let runs = 0
+/** Each account card's element, so a move can start from where the card is on screen. */
+const elements = new Map<string, HTMLElement>()
+/** Moves decided before the cards' new slots are rendered, played right after. */
+let queued: { id: string; move: CardMove; from?: CardSlot; start?: CardPose }[] = []
+/** Cards a new move caught mid-flight; their move eases on instead of starting from rest. */
+const movingIds = new Set<string>()
+
+function bindCard(id: string | undefined, element: unknown) {
+    if (!id) return
+    if (element instanceof HTMLElement) elements.set(id, element)
+    else elements.delete(id)
+}
+
+/** Where a card is right now, part way through a move or at rest. */
+function currentPose(element: HTMLElement): CardPose {
+    const style = getComputedStyle(element)
+    return {
+        transform: style.transform === 'none' ? POSES.front : style.transform,
+        opacity: Number(style.opacity),
+        layer: Number(style.zIndex) || 0,
+    }
+}
+
+function isMoving(element: HTMLElement) {
+    return element.getAnimations().some((animation) => animation.id === CARD_MOTION)
+}
 
 watch(
     () => [accounts.value.map((account) => account.account_id), defaultAccount.value] as const,
     ([ids, selected]) => {
-        const before = withPickOnHiddenCard(layout.value, ids, selected)
+        const shown = layout.value
+        const before = withPickOnHiddenCard(shown, ids, selected)
         const next = layoutCards(before, ids, selected)
-        const updated = new Map(moves.value)
+        // Read before the new slots render, so each move starts where its card is now.
+        const now = new Map<string, { pose: CardPose; moving: boolean }>()
+        for (const slot of CARD_SLOTS) {
+            const id = shown[slot]
+            const element = id ? elements.get(id) : undefined
+            if (id && element)
+                now.set(id, { pose: currentPose(element), moving: isMoving(element) })
+        }
+        // The pick took over the hidden card out of sight, so it starts where that card is.
+        if (shown.hidden && before.hidden !== shown.hidden) {
+            const hidden = now.get(shown.hidden)
+            if (hidden && before.hidden) now.set(before.hidden, hidden)
+        }
+        queued = []
         for (const slot of CARD_SLOTS) {
             const id = next[slot]
             const move = id ? moveOf(before, next, id) : undefined
-            if (id && move) updated.set(id, { move, from: slotOf(before, id), run: ++runs })
+            if (id && move) {
+                const from = slotOf(before, id)
+                const start = now.get(id)
+                queued.push({ id, move, from, start: start?.pose })
+                if (start?.moving) movingIds.add(id)
+                else movingIds.delete(id)
+            }
         }
-        moves.value = updated
         layout.value = next
     },
     { immediate: true },
+)
+
+watch(
+    layout,
+    () => {
+        const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        for (const { id, move, from, start } of queued) {
+            const element = elements.get(id)
+            const to = slotOf(layout.value, id)
+            if (!element || !to) continue
+            element.getAnimations().forEach((animation) => {
+                if (animation.id === CARD_MOTION) animation.cancel()
+            })
+            if (reduced) continue
+            // A card coming forward swings toward the side it came from; one going back toward its new side.
+            const side = SIDE[move === 'rise' || move === 'draw' ? (from ?? to) : to]
+            const keyframes = cardKeyframes(
+                start ?? restingPose(from ?? to),
+                to,
+                move,
+                side,
+                movingIds.has(id),
+            )
+            element.animate(keyframes, { id: CARD_MOTION, duration: CARD_MOTION_MS[move] })
+        }
+        queued = []
+    },
+    { flush: 'post' },
 )
 
 const cards = computed(() =>
     // The hidden card exists only while some account has no visible card.
     CARD_SLOTS.filter((slot) => slot !== 'hidden' || layout.value.hidden).map((slot) => {
         const id = layout.value[slot]
-        const motion = id ? moves.value.get(id) : undefined
-        const from = motion?.from ?? slot
-        const leaving = motion?.move === 'rise' || motion?.move === 'draw'
         return {
-            key: id ? `${id}#${motion?.run ?? 0}` : `empty-${slot}`,
+            key: id ?? `empty-${slot}`,
+            id,
             slot,
             head: id
                 ? headOf(accounts.value.find((account) => account.account_id === id))
                 : slot === 'front'
                   ? steveHead
                   : undefined,
-            move: motion?.move,
+            // At rest in its slot; a move animates from wherever the card was to here.
             style: {
-                '--oobe-card-pose': POSES[slot],
-                '--oobe-card-from': POSES[from],
-                // A card coming forward swings toward the side it came from; one going back toward its new side.
-                '--oobe-card-side': SIDE[leaving ? from : slot],
+                transform: POSES[slot],
+                opacity: OPACITY[slot],
+                zIndex: LAYER[slot],
             },
         }
     }),
@@ -99,11 +169,13 @@ const cards = computed(() =>
                         <div
                             v-for="card in cards"
                             :key="card.key"
+                            :ref="(element) => bindCard(card.id, element)"
                             class="oobe-account-card"
-                            :class="[`slot-${card.slot}`, card.move && `move-${card.move}`]"
+                            :class="`slot-${card.slot}`"
                             :style="card.style"
                             data-testid="oobe-account-card"
                             :data-slot="card.slot"
+                            :data-account="card.id"
                         >
                             <svg class="block h-full w-full" viewBox="0 0 192 252" fill="none">
                                 <rect width="192" height="252" rx="26" fill="var(--surface-3)" />
@@ -122,7 +194,6 @@ const cards = computed(() =>
                                 </g>
                                 <image
                                     v-if="card.head"
-                                    :key="card.head"
                                     class="oobe-account-head"
                                     data-testid="oobe-account-head"
                                     :href="card.head"
@@ -208,24 +279,12 @@ const cards = computed(() =>
     top: 96px;
     width: 192px;
     height: 252px;
-    transform: var(--oobe-card-pose);
     transform-origin: 50% 50%;
 }
 
-.slot-front {
-    z-index: 3;
-}
-
-.slot-left,
-.slot-right {
-    z-index: 1;
-    opacity: 0.7;
-}
-
-// Above the side cards, which never reach the strip of it that shows, so it can come out over them.
-.slot-hidden {
-    z-index: 2;
-    opacity: 0.4;
+// The front card's outline and button; a transition, so a reversed pick fades them back smoothly.
+.front-only {
+    transition: opacity 360ms ease 180ms;
 }
 
 .slot-left,
@@ -236,178 +295,13 @@ const cards = computed(() =>
     }
 }
 
-.move-rise {
-    animation: oobe-account-rise 720ms cubic-bezier(0.45, 0, 0.2, 1) both;
-
-    .front-only {
-        animation: oobe-account-front-in 720ms ease-in-out both;
-    }
-}
-
-.move-sink {
-    animation: oobe-account-sink 720ms cubic-bezier(0.45, 0, 0.2, 1) both;
-
-    .front-only {
-        animation: oobe-account-front-out 720ms ease-in-out both;
-    }
-}
-
-.move-draw {
-    animation: oobe-account-draw 820ms cubic-bezier(0.45, 0, 0.2, 1) both;
-
-    .front-only {
-        animation: oobe-account-front-in 820ms ease-in-out both;
-    }
-}
-
-.move-stow {
-    animation: oobe-account-stow 820ms cubic-bezier(0.45, 0, 0.2, 1) both;
-
-    .front-only {
-        animation: oobe-account-front-out 820ms ease-in-out both;
-    }
-}
-
-.move-enter {
-    animation: oobe-account-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
 .oobe-account-head {
     image-rendering: pixelated;
-    // A head that finishes rendering fades in over Steve's.
-    animation: oobe-account-head-in 320ms ease-out both;
-}
-
-// A moving card is a new element but carries its head from the start.
-.move-rise,
-.move-sink,
-.move-draw,
-.move-stow {
-    .oobe-account-head {
-        animation: none;
-    }
 }
 
 .oobe-account-badge {
     transform-origin: 290px 110px;
     animation: oobe-account-pop 700ms 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-// Up and out from behind the front card, in front of it from halfway, then into place.
-@keyframes oobe-account-rise {
-    0% {
-        transform: var(--oobe-card-from);
-        opacity: 0.7;
-        z-index: 1;
-    }
-    50% {
-        transform: translate(calc(var(--oobe-card-side) * 80px), -84px)
-            rotate(calc(var(--oobe-card-side) * 5deg)) scale(0.96);
-        z-index: 1;
-    }
-    51% {
-        z-index: 3;
-    }
-    100% {
-        transform: var(--oobe-card-pose);
-        opacity: 1;
-        z-index: 3;
-    }
-}
-
-// Down and aside, behind the rising card from halfway, then into the slot it left.
-@keyframes oobe-account-sink {
-    0% {
-        transform: var(--oobe-card-from);
-        opacity: 1;
-        z-index: 3;
-    }
-    50% {
-        transform: translate(calc(var(--oobe-card-side) * 40px), 34px)
-            rotate(calc(var(--oobe-card-side) * 4deg)) scale(0.9);
-        z-index: 3;
-    }
-    51% {
-        z-index: 1;
-    }
-    100% {
-        transform: var(--oobe-card-pose);
-        opacity: 0.7;
-        z-index: 1;
-    }
-}
-
-// Pulled up and out of the deck to the side, in front of the old card from halfway, then into place.
-@keyframes oobe-account-draw {
-    0% {
-        transform: var(--oobe-card-from);
-        opacity: 0.4;
-        z-index: 2;
-    }
-    50% {
-        transform: translate(calc(var(--oobe-card-side) * 70px), -100px)
-            rotate(calc(var(--oobe-card-side) * 6deg)) scale(0.88);
-        opacity: 1;
-        z-index: 2;
-    }
-    51% {
-        z-index: 3;
-    }
-    100% {
-        transform: var(--oobe-card-pose);
-        opacity: 1;
-        z-index: 3;
-    }
-}
-
-// Down and away from the drawn card, behind it from halfway, then tucked into the deck.
-@keyframes oobe-account-stow {
-    0% {
-        transform: var(--oobe-card-from);
-        opacity: 1;
-        z-index: 3;
-    }
-    50% {
-        transform: translate(calc(var(--oobe-card-side) * -28px), 26px)
-            rotate(calc(var(--oobe-card-side) * -3deg)) scale(0.9);
-        opacity: 0.9;
-        z-index: 3;
-    }
-    51% {
-        z-index: 2;
-    }
-    100% {
-        transform: var(--oobe-card-pose);
-        opacity: 0.4;
-        z-index: 2;
-    }
-}
-
-@keyframes oobe-account-front-in {
-    0%,
-    40% {
-        opacity: 0;
-    }
-    100% {
-        opacity: 1;
-    }
-}
-
-@keyframes oobe-account-front-out {
-    0% {
-        opacity: 1;
-    }
-    60%,
-    100% {
-        opacity: 0;
-    }
-}
-
-@keyframes oobe-account-enter {
-    from {
-        opacity: 0;
-        transform: translateY(16px) var(--oobe-card-pose);
-    }
 }
 
 @keyframes oobe-account-float {
@@ -417,15 +311,6 @@ const cards = computed(() =>
     }
     50% {
         transform: translateY(-6px);
-    }
-}
-
-@keyframes oobe-account-head-in {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
     }
 }
 
@@ -442,18 +327,12 @@ const cards = computed(() =>
 
 @media (prefers-reduced-motion: reduce) {
     .oobe-account-stack,
-    .oobe-account-head,
-    .oobe-account-badge,
-    .move-rise,
-    .move-rise .front-only,
-    .move-sink,
-    .move-sink .front-only,
-    .move-draw,
-    .move-draw .front-only,
-    .move-stow,
-    .move-stow .front-only,
-    .move-enter {
+    .oobe-account-badge {
         animation: none;
+    }
+
+    .front-only {
+        transition: none;
     }
 }
 </style>

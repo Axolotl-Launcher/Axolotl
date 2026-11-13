@@ -63,7 +63,7 @@
                     :max="count"
                     :placeholder="formatMessage(messages.goToPagePlaceholder)"
                     :aria-label="formatMessage(messages.goToPage)"
-                    @keydown.enter.prevent="commitGapInput"
+                    @keydown.enter="commitGapInput"
                     @keydown.esc.prevent="closeGapInput"
                     @blur="commitGapInput"
                 />
@@ -167,7 +167,7 @@
             :placeholder="formatMessage(messages.goToPagePlaceholder)"
             :aria-label="formatMessage(messages.goToPage)"
             :disabled="loading"
-            @keydown.enter.prevent="commitJumpInput"
+            @keydown.enter="commitJumpInput"
             @keydown.esc.prevent="clearJumpInput"
             @blur="commitJumpInput"
         />
@@ -291,23 +291,40 @@ function closeGapInput() {
     gapInputValue.value = ''
 }
 
-function jumpToPage(value: string) {
-    const parsed = Number.parseInt(value, 10)
-    if (!Number.isFinite(parsed) || parsed < 1 || parsed > props.count || parsed === props.page) {
-        return
-    }
-    switchPage(parsed)
+/**
+ * A keydown that confirms an IME candidate belongs to the IME, not to the field:
+ * the typed value is not in the model yet, and cancelling the default action
+ * would stop the candidate from being confirmed at all.
+ */
+function isImeKeydown(event?: Event) {
+    return event instanceof KeyboardEvent && event.isComposing
 }
 
-function commitGapInput() {
-    if (activeGapIndex.value === null) return
+function fieldValue(event: Event | undefined, modelValue: string) {
+    const element = event?.target
+    return element instanceof HTMLInputElement ? element.value : modelValue
+}
 
-    jumpToPage(gapInputValue.value)
+function jumpToPage(value: string) {
+    const parsed = Number.parseInt(value, 10)
+    if (!Number.isFinite(parsed)) return
+
+    const target = Math.min(Math.max(parsed, 1), props.count)
+    if (target === props.page) return
+    switchPage(target)
+}
+
+function commitGapInput(event?: Event) {
+    if (activeGapIndex.value === null || isImeKeydown(event)) return
+
+    jumpToPage(fieldValue(event, gapInputValue.value))
     closeGapInput()
 }
 
-function commitJumpInput() {
-    jumpToPage(jumpInputValue.value)
+function commitJumpInput(event?: Event) {
+    if (isImeKeydown(event)) return
+
+    jumpToPage(fieldValue(event, jumpInputValue.value))
     jumpInputValue.value = ''
 }
 

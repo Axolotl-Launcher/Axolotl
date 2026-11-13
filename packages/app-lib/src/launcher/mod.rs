@@ -481,51 +481,6 @@ pub async fn get_java_version_from_launch_context(
     Ok(java_version)
 }
 
-/// Finds the Java runtime an install needs, giving a runtime that is still
-/// being downloaded a chance to land.
-///
-/// The pack install starts the Minecraft core install on a parallel task while
-/// the pack files download, and that task reaches this decision point possibly
-/// before the runtime download it triggered has finished. A runtime that is
-/// mid-download is indistinguishable from a missing one at a single glance, so
-/// cancelling on the first negative answer aborts installs that were about to
-/// succeed. Poll instead, then let the caller report a genuine absence.
-async fn find_java_for_install(
-    key: u32,
-    reporter: Option<&InstallProgressReporter>,
-) -> crate::Result<Option<JavaVersion>> {
-    const MAX_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
-    const POLL_INTERVAL: std::time::Duration =
-        std::time::Duration::from_millis(500);
-
-    let started = std::time::Instant::now();
-    loop {
-        if let Some(java) = crate::api::jre::find_java_for_version(key).await? {
-            if started.elapsed() > POLL_INTERVAL {
-                tracing::info!(
-                    elapsed_ms = started.elapsed().as_millis(),
-                    "Found Java {key} after waiting for an in-flight runtime download"
-                );
-            }
-            return Ok(Some(java));
-        }
-        if started.elapsed() >= MAX_WAIT {
-            tracing::warn!(
-                major_version = key,
-                waited = ?MAX_WAIT,
-                "Java runtime did not become available while installing"
-            );
-            return Ok(None);
-        }
-        if let Some(reporter) = reporter
-            && reporter.cancellation_token().is_cancelled()
-        {
-            return Ok(None);
-        }
-        tokio::time::sleep(POLL_INTERVAL).await;
-    }
-}
-
 fn required_java_major(version_info: &VersionInfo) -> u32 {
     if version_uses_liteloader(version_info) {
         8
@@ -1463,7 +1418,8 @@ async fn install_minecraft_with_local_source(
     {
         (std::path::PathBuf::from(java_version.path), false)
     } else if let Some(discovered) =
-        find_java_for_install(key, reporter.as_ref()).await?
+        crate::api::jre::find_java_for_install(key, &database_cancellation)
+            .await?
     {
         tracing::info!(
             "Reusing discovered Java {} at {}",

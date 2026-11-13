@@ -11,7 +11,8 @@ use crate::util::fetch::{
     ContentValidation, DownloadRequest, FetchProgressFn, Integrity,
     ResourceClass, download_to_path, fetch_json,
 };
-use futures::{TryStreamExt, stream};
+use dashmap::DashMap;
+use futures::{StreamExt, TryStreamExt, stream};
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -679,6 +680,110 @@ const JAVA_INSTALL_STEPS: u64 = 4;
 const JAVA_DOWNLOAD_PROGRESS_MIN_BYTES: u64 = 256 * 1024;
 const MOJANG_RUNTIME_INDEX_URL: &str = "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
 
+#[derive(Default)]
+struct JavaInstalls {
+    active: DashMap<uuid::Uuid, (u32, tokio_util::sync::CancellationToken)>,
+}
+
+struct JavaInstall<'a> {
+    installs: &'a JavaInstalls,
+    id: uuid::Uuid,
+    finished: tokio_util::sync::CancellationToken,
+}
+
+impl JavaInstalls {
+    fn begin(&self, major: u32) -> JavaInstall<'_> {
+        let id = uuid::Uuid::new_v4();
+        let finished = tokio_util::sync::CancellationToken::new();
+        self.active.insert(id, (major, finished.clone()));
+        JavaInstall {
+            installs: self,
+            id,
+            finished,
+        }
+    }
+
+    fn pending(
+        &self,
+        major: u32,
+    ) -> HashMap<uuid::Uuid, tokio_util::sync::CancellationToken> {
+        self.active
+            .iter()
+            .filter_map(|entry| {
+                (entry.value().0 == major)
+                    .then(|| (*entry.key(), entry.value().1.clone()))
+            })
+            .collect()
+    }
+}
+
+impl Drop for JavaInstall<'_> {
+    fn drop(&mut self) {
+        self.installs.active.remove(&self.id);
+        // Every exit, including a failed download or a dropped future, wakes
+        // installers waiting for this attempt to publish a usable runtime.
+        self.finished.cancel();
+    }
+}
+
+static JAVA_INSTALLS: LazyLock<JavaInstalls> =
+    LazyLock::new(JavaInstalls::default);
+
+/// Wait only for runtime installations already requested for this major.
+/// Snapshot before discovery so completion during the initial scan is observed.
+pub(crate) async fn find_java_for_install(
+    major: u32,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> crate::Result<Option<JavaVersion>> {
+    find_java_after_downloads(&JAVA_INSTALLS, major, cancellation, || {
+        find_java_for_version(major)
+    })
+    .await
+}
+
+async fn find_java_after_downloads<Lookup, Found>(
+    installs: &JavaInstalls,
+    major: u32,
+    cancellation: &tokio_util::sync::CancellationToken,
+    mut lookup: Lookup,
+) -> crate::Result<Option<JavaVersion>>
+where
+    Lookup: FnMut() -> Found,
+    Found: Future<Output = crate::Result<Option<JavaVersion>>>,
+{
+    loop {
+        let mut pending = installs.pending(major);
+        let found = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => {
+                return Err(crate::ErrorKind::OtherError("Install was canceled".into()).into());
+            }
+            found = lookup() => found?,
+        };
+        if found.is_some() {
+            return Ok(found);
+        }
+        // Include attempts requested while discovery was running, while retaining
+        // attempts that completed during it so a stale miss is checked again.
+        pending.extend(installs.pending(major));
+        let mut pending: stream::FuturesUnordered<_> = pending
+            .into_values()
+            .map(tokio_util::sync::CancellationToken::cancelled_owned)
+            .collect();
+        tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => {
+                return Err(crate::ErrorKind::OtherError("Install was canceled".into()).into());
+            }
+            completed = pending.next() => {
+                if completed.is_none() {
+                    return Ok(None);
+                }
+            },
+        }
+    }
+}
+
 static JAVA_INSTALL_LOCK: LazyLock<tokio::sync::Mutex<()>> =
     LazyLock::new(|| tokio::sync::Mutex::new(()));
 
@@ -835,6 +940,7 @@ async fn auto_install_java_inner(
     show_loading: bool,
     reporter: Option<InstallProgressReporter>,
 ) -> crate::Result<Option<PathBuf>> {
+    let _attempt = JAVA_INSTALLS.begin(java_version);
     let _metadata_usage = crate::storage::usage::lease().await?;
     let state = State::get().await?;
     let _install_guard = JAVA_INSTALL_LOCK.lock().await;
@@ -1052,12 +1158,14 @@ async fn validate_installed_java(
         Some(java_step_progress(4)),
     )
     .await?;
-    if !test_jre(path.clone(), java_version).await? {
+    let java = check_jre(path.clone()).await?;
+    if java.parsed_version != java_version {
         return Err(crate::ErrorKind::LauncherError(format!(
             "Downloaded Java runtime did not report major version {java_version}"
         ))
         .into());
     }
+    register_installed_java(&java).await?;
     if let Some(loading_bar) = loading_bar {
         emit_loading(loading_bar, 10.0, Some("Done installing java"))?;
     }
@@ -1791,6 +1899,7 @@ async fn download_java_from_feed_inner(
     jdk_version_major: u32,
     reporter: Option<InstallProgressReporter>,
 ) -> crate::Result<PathBuf> {
+    let _attempt = JAVA_INSTALLS.begin(jdk_version_major);
     let _metadata_usage = crate::storage::usage::lease().await?;
     let state = State::get().await?;
     let _install_guard = JAVA_INSTALL_LOCK.lock().await;
@@ -2022,15 +2131,7 @@ async fn download_java_from_feed_inner(
     .await?;
 
     let result = check_jre(executable).await?;
-    let documents = documents::Documents::new(&state);
-    if ensure_java_storage_approved(&result).await.is_ok() {
-        result.upsert_as_default(&documents).await?;
-    } else {
-        result.upsert(&documents).await?;
-    }
-    if let Some(discovered) = DiscoveredJava::from_java(result.clone()) {
-        discovered.upsert(&state.derived).await?;
-    }
+    register_installed_java(&result).await?;
 
     // Complete the remaining 10 % of the bar
     if let Some(loading_bar) = &loading_bar {
@@ -2038,6 +2139,20 @@ async fn download_java_from_feed_inner(
     }
 
     Ok(result.path.into())
+}
+
+async fn register_installed_java(java: &JavaVersion) -> crate::Result<()> {
+    let state = State::get().await?;
+    let documents = documents::Documents::new(&state);
+    if ensure_java_storage_approved(java).await.is_ok() {
+        java.upsert_as_default(&documents).await?;
+    } else {
+        java.upsert(&documents).await?;
+    }
+    if let Some(discovered) = DiscoveredJava::from_java(java.clone()) {
+        discovered.upsert(&state.derived).await?;
+    }
+    Ok(())
 }
 
 fn system_memory() -> sysinfo::System {
@@ -2270,6 +2385,149 @@ mod tests {
     use std::cell::{Cell, RefCell};
 
     const GIB: u64 = 1024 * 1024 * 1024;
+
+    #[tokio::test]
+    async fn install_java_lookup_without_a_download_returns_missing_immediately()
+     {
+        let installs = JavaInstalls::default();
+        let _unrelated = installs.begin(17);
+        let result = find_java_after_downloads(
+            &installs,
+            21,
+            &tokio_util::sync::CancellationToken::new(),
+            || async { Ok(None) },
+        )
+        .await
+        .unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn install_java_lookup_observes_published_runtime_after_completion() {
+        let installs = JavaInstalls::default();
+        let attempt = installs.begin(21);
+        let _other_attempt = installs.begin(21);
+        let published = RefCell::new(None);
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let mut lookup = Box::pin(find_java_after_downloads(
+            &installs,
+            21,
+            &cancellation,
+            || async { Ok(published.borrow().clone()) },
+        ));
+        assert!(futures::poll!(&mut lookup).is_pending());
+        let expected = java(21, "/managed/java21/bin/java");
+        *published.borrow_mut() = Some(expected.clone());
+        drop(attempt);
+        assert_eq!(lookup.await.unwrap(), Some(expected));
+    }
+
+    #[tokio::test]
+    async fn install_java_lookup_keeps_waiting_until_download_finishes() {
+        let installs = JavaInstalls::default();
+        let attempt = installs.begin(21);
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let mut lookup = Box::pin(find_java_after_downloads(
+            &installs,
+            21,
+            &cancellation,
+            || async { Ok(None) },
+        ));
+        // No fixed timer turns an active download into a missing runtime.
+        for _ in 0..150 {
+            assert!(futures::poll!(&mut lookup).is_pending());
+            tokio::task::yield_now().await;
+        }
+        drop(attempt);
+        assert!(lookup.await.unwrap().is_none());
+        assert!(installs.pending(21).is_empty());
+    }
+
+    #[tokio::test]
+    async fn install_java_lookup_propagates_cancellation_during_discovery_and_wait()
+     {
+        let installs = JavaInstalls::default();
+        let attempt = installs.begin(21);
+        for blocked_discovery in [false, true] {
+            let cancellation = tokio_util::sync::CancellationToken::new();
+            let mut lookup = Box::pin(find_java_after_downloads(
+                &installs,
+                21,
+                &cancellation,
+                || async {
+                    if blocked_discovery {
+                        std::future::pending::<()>().await;
+                    }
+                    Ok(None)
+                },
+            ));
+            assert!(futures::poll!(&mut lookup).is_pending());
+            cancellation.cancel();
+            assert!(lookup.await.unwrap_err().to_string().contains("canceled"));
+        }
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        cancellation.cancel();
+        drop(attempt);
+        assert!(
+            find_java_after_downloads(&installs, 21, &cancellation, || async {
+                panic!("Canceled lookup must not run discovery")
+            },)
+            .await
+            .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn install_java_lookup_handles_completion_during_initial_discovery() {
+        let installs = JavaInstalls::default();
+        let attempt = RefCell::new(Some(installs.begin(21)));
+        let scans = Cell::new(0);
+        let expected = java(21, "/managed/java21/bin/java");
+        assert_eq!(
+            find_java_after_downloads(
+                &installs,
+                21,
+                &tokio_util::sync::CancellationToken::new(),
+                || async {
+                    scans.set(scans.get() + 1);
+                    if let Some(attempt) = attempt.borrow_mut().take() {
+                        drop(attempt);
+                        Ok(None)
+                    } else {
+                        Ok(Some(expected.clone()))
+                    }
+                },
+            )
+            .await
+            .unwrap(),
+            Some(expected)
+        );
+        assert_eq!(scans.get(), 2);
+    }
+
+    #[tokio::test]
+    async fn install_java_lookup_includes_download_started_during_discovery() {
+        let installs = JavaInstalls::default();
+        let attempt = RefCell::new(None);
+        let scans = Cell::new(0);
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let mut lookup = Box::pin(find_java_after_downloads(
+            &installs,
+            21,
+            &cancellation,
+            || async {
+                scans.set(scans.get() + 1);
+                if scans.get() == 1 {
+                    *attempt.borrow_mut() = Some(installs.begin(21));
+                }
+                Ok(None)
+            },
+        ));
+        assert!(futures::poll!(&mut lookup).is_pending());
+        drop(attempt.borrow_mut().take());
+        assert!(lookup.await.unwrap().is_none());
+        assert_eq!(scans.get(), 2);
+    }
 
     #[test]
     fn external_approval_is_bound_to_runtime_and_volume() {

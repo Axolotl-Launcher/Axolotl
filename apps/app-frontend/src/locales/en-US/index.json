@@ -1,13 +1,4 @@
 {
-  "app.account.modrinth-account": {
-    "message": "Modrinth account"
-  },
-  "app.account.sign-in-modrinth": {
-    "message": "Sign in to a Modrinth account"
-  },
-  "app.account.signed-in-as": {
-    "message": "Signed in as"
-  },
   "app.action-bar.active-backups": {
     "message": "Active backups"
   },
@@ -881,9 +872,6 @@
   "app.auth-servers.unreachable.header": {
     "message": "Cannot reach authentication servers"
   },
-  "app.auth.sign-in-browser": {
-    "message": "Please sign in in the browser window that just opened to continue."
-  },
   "app.backup-exit.body": {
     "message": "{count, plural, one {# backup operation is} other {# backup operations are}} still running. Keep the launcher open or hide it to the tray to let them finish."
   },
@@ -1076,9 +1064,6 @@
   "app.browse.server-source-unavailable": {
     "message": "The server content source is unavailable. Try again later."
   },
-  "app.browse.server.installing": {
-    "message": "Installing"
-  },
   "app.browse.source.all": {
     "message": "All sources"
   },
@@ -1189,9 +1174,6 @@
   },
   "app.content-favorites.no-matches-title": {
     "message": "No matching favorites"
-  },
-  "app.content-favorites.refreshing": {
-    "message": "Updating favorites…"
   },
   "app.content-favorites.remove": {
     "message": "Remove from favorites"
@@ -1420,12 +1402,6 @@
   },
   "app.content-selection.target-changed": {
     "message": "The selected content belongs to another instance. Switch back or clear it first."
-  },
-  "app.content.add-from-file": {
-    "message": "Add from file"
-  },
-  "app.content.install-content": {
-    "message": "Install content"
   },
   "app.crash-analysis.ai.settings.enabled": {
     "message": "Enable local LogAgent"
@@ -2975,9 +2951,6 @@
   "app.home.instances.empty": {
     "message": "No instances yet"
   },
-  "app.home.instances.pin": {
-    "message": "Pin to Home"
-  },
   "app.home.instances.pinned": {
     "message": "Pinned instances"
   },
@@ -2986,9 +2959,6 @@
   },
   "app.home.instances.pinned-empty-title": {
     "message": "No pinned instances"
-  },
-  "app.home.instances.unpin": {
-    "message": "Unpin from Home"
   },
   "app.home.instances.view-all": {
     "message": "View all instances"
@@ -3191,9 +3161,6 @@
   "app.home.playtime.sessions": {
     "message": "{count, plural, one {# successful launch} other {# successful launches}}"
   },
-  "app.home.recent.empty": {
-    "message": "No recent activity yet."
-  },
   "app.home.recent.empty-hint": {
     "message": "Worlds, servers and instances you play show up here."
   },
@@ -3257,17 +3224,11 @@
   "app.home.servers.players-online": {
     "message": "{online}/{max} online"
   },
-  "app.home.servers.stop": {
-    "message": "Stop"
-  },
   "app.home.servers.unlink-local-server": {
     "message": "Unlink local server"
   },
   "app.home.servers.unlinked-toast": {
     "message": "Unlinked the local server"
-  },
-  "app.home.servers.unpin": {
-    "message": "Unpin from Home"
   },
   "app.home.shortcut.kind.instance": {
     "message": "Instance"
@@ -3364,15 +3325,6 @@
   },
   "app.home.widgets.greeting-description": {
     "message": "A personal welcome that changes throughout the day."
-  },
-  "app.home.widgets.group.collections": {
-    "message": "Pinned collections"
-  },
-  "app.home.widgets.group.overview": {
-    "message": "Overview"
-  },
-  "app.home.widgets.group.shortcuts": {
-    "message": "Single-item shortcuts"
   },
   "app.home.widgets.instance": {
     "message": "Single instance"
@@ -11807,24 +11759,6 @@
   "app.lab.seed-map.zoom-to-show": {
     "message": "Zoom in to show {layer}"
   },
-  "app.lab.skin-editor.auto-save.error": {
-    "message": "Auto-save failed"
-  },
-  "app.lab.skin-editor.auto-save.off": {
-    "message": "Auto-save off"
-  },
-  "app.lab.skin-editor.auto-save.saved": {
-    "message": "Draft saved {time}"
-  },
-  "app.lab.skin-editor.auto-save.saving": {
-    "message": "Saving draft…"
-  },
-  "app.lab.skin-editor.auto-save.unsaved": {
-    "message": "Unsaved changes"
-  },
-  "app.lab.skin-editor.auto-save.up-to-date": {
-    "message": "Up to date"
-  },
   "app.lab.skin-editor.description": {
     "message": "Create and edit Minecraft player skins locally."
   },
@@ -11858,26 +11792,17 @@
   "app.lab.skin-editor.retry": {
     "message": "Try again"
   },
-  "app.lab.skin-editor.save": {
-    "message": "Save PNG"
-  },
   "app.lab.skin-editor.settings.auto-save": {
     "message": "Automatically save a recovery draft"
   },
   "app.lab.skin-editor.settings.auto-save-description": {
     "message": "Recovery drafts stay on this device and are separate from exported PNG files."
   },
-  "app.lab.skin-editor.settings.cancel": {
-    "message": "Cancel"
-  },
   "app.lab.skin-editor.settings.interval": {
     "message": "Save interval (seconds)"
   },
   "app.lab.skin-editor.settings.interval-description": {
     "message": "Use a value between 5 and 600 seconds."
-  },
-  "app.lab.skin-editor.settings.save": {
-    "message": "Save settings"
   },
   "app.lab.skin-editor.settings.title": {
     "message": "Editor settings"
@@ -12718,15 +12643,6 @@
   },
   "app.modpack-install.version": {
     "message": "Version"
-  },
-  "app.modpack.change-version": {
-    "message": "Change modpack version"
-  },
-  "app.modpack.version-name": {
-    "message": "Name"
-  },
-  "app.modpack.version-supports": {
-    "message": "Supports"
   },
   "app.multiplayer.back": {
     "message": "Back"
@@ -19748,90 +19664,6 @@
   "drop.help.worlds-title": {
     "message": "World Saves"
   },
-  "friends.action.add-friend": {
-    "message": "Add a friend"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} friend {count, plural, one {request} other {requests}}"
-  },
-  "friends.add-friend.submit": {
-    "message": "Send friend request"
-  },
-  "friends.add-friend.title": {
-    "message": "Adding a friend"
-  },
-  "friends.add-friend.username.description": {
-    "message": "It may be different from their Minecraft username!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Enter Modrinth username..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "What's your friend's Modrinth username?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Add friends</link> to see what they're playing!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Cancel request"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Remove friend"
-  },
-  "friends.friend.request-sent": {
-    "message": "Friend request sent"
-  },
-  "friends.friend.view-profile": {
-    "message": "View profile"
-  },
-  "friends.heading": {
-    "message": "Friends"
-  },
-  "friends.heading.active": {
-    "message": "Active"
-  },
-  "friends.heading.offline": {
-    "message": "Offline"
-  },
-  "friends.heading.online": {
-    "message": "Online"
-  },
-  "friends.heading.pending": {
-    "message": "Pending"
-  },
-  "friends.no-friends-match": {
-    "message": "No friends matching ''{query}''"
-  },
-  "friends.requests.accept": {
-    "message": "Accept"
-  },
-  "friends.requests.cancel": {
-    "message": "Cancel"
-  },
-  "friends.requests.ignore": {
-    "message": "Ignore"
-  },
-  "friends.requests.incoming": {
-    "message": "{username} sent you a friend request"
-  },
-  "friends.requests.none": {
-    "message": "You have no pending friend requests :C"
-  },
-  "friends.requests.outgoing": {
-    "message": "You sent {username} a friend request"
-  },
-  "friends.requests.title": {
-    "message": "View friend requests"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Search friends..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Sign in to a Modrinth account</link> to add friends and see what they're playing!"
-  },
   "instance.add-server.add-and-play": {
     "message": "Add and play"
   },
@@ -20035,9 +19867,6 @@
   },
   "instance.files.studio.edit-deleted": {
     "message": "This file was removed before the edit could be saved."
-  },
-  "instance.files.studio.editor-loading": {
-    "message": "Loading editor..."
   },
   "instance.files.studio.empty-description": {
     "message": "Open any text file from the explorer."

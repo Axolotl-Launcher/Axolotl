@@ -1,7 +1,4 @@
 {
-  "app.account.signed-in-as": {
-    "message": "登入身分："
-  },
   "app.action-bar.downloading-java": {
     "message": "正在下載 Java {version}"
   },
@@ -683,9 +680,6 @@
   "app.auth-servers.unreachable.header": {
     "message": "無法連線到驗證伺服器"
   },
-  "app.auth.sign-in-browser": {
-    "message": "請在剛才開啟的瀏覽器視窗中登入以繼續操作。"
-  },
   "app.browse.add": {
     "message": "新增"
   },
@@ -826,9 +820,6 @@
   },
   "app.browse.server-instance-content-warning": {
     "message": "加入內容可能會導致加入伺服器時發生相容性問題。當你更新伺服器實例內容時，任何新增的內容也會遺失。"
-  },
-  "app.browse.server.installing": {
-    "message": "安裝中"
   },
   "app.browse.source.all": {
     "message": "所有來源"
@@ -1045,12 +1036,6 @@
   },
   "app.content-selection.target-changed": {
     "message": "所選內容屬於另一個例項。請切換回該例項或先清空選擇。"
-  },
-  "app.content.add-from-file": {
-    "message": "從檔案新增"
-  },
-  "app.content.install-content": {
-    "message": "安裝內容"
   },
   "app.crash-analysis.ai.settings.enabled": {
     "message": "啟用 AI 解釋"
@@ -2126,9 +2111,6 @@
   "app.home.instances.empty": {
     "message": "還沒有實例"
   },
-  "app.home.instances.pin": {
-    "message": "固定到首頁"
-  },
   "app.home.instances.pinned": {
     "message": "固定的實例"
   },
@@ -2137,9 +2119,6 @@
   },
   "app.home.instances.pinned-empty-title": {
     "message": "還沒有固定的實例"
-  },
-  "app.home.instances.unpin": {
-    "message": "取消固定"
   },
   "app.home.instances.view-all": {
     "message": "查看全部實例"
@@ -2342,9 +2321,6 @@
   "app.home.playtime.sessions": {
     "message": "成功啟動 {count} 次"
   },
-  "app.home.recent.empty": {
-    "message": "還沒有最近活動。"
-  },
   "app.home.recent.empty-hint": {
     "message": "玩過的世界、伺服器和實例會出現在這裡。"
   },
@@ -2380,12 +2356,6 @@
   },
   "app.home.servers.players-online": {
     "message": "{online}/{max} 人在線"
-  },
-  "app.home.servers.stop": {
-    "message": "停止"
-  },
-  "app.home.servers.unpin": {
-    "message": "取消固定"
   },
   "app.home.shortcut.kind.instance": {
     "message": "例項"
@@ -2482,15 +2452,6 @@
   },
   "app.home.widgets.greeting-description": {
     "message": "隨一天中的時間變化的個性化歡迎語。"
-  },
-  "app.home.widgets.group.collections": {
-    "message": "收藏內容集合"
-  },
-  "app.home.widgets.group.overview": {
-    "message": "概覽"
-  },
-  "app.home.widgets.group.shortcuts": {
-    "message": "單項快捷入口"
   },
   "app.home.widgets.instance": {
     "message": "單個例項入口"
@@ -5222,24 +5183,6 @@
   "app.lab.seed-map.zoom-to-show": {
     "message": "放大以顯示{layer}"
   },
-  "app.lab.skin-editor.auto-save.error": {
-    "message": "自動儲存失敗"
-  },
-  "app.lab.skin-editor.auto-save.off": {
-    "message": "自動儲存已關閉"
-  },
-  "app.lab.skin-editor.auto-save.saved": {
-    "message": "草稿已儲存 {time}"
-  },
-  "app.lab.skin-editor.auto-save.saving": {
-    "message": "正在儲存草稿…"
-  },
-  "app.lab.skin-editor.auto-save.unsaved": {
-    "message": "有未儲存的變更"
-  },
-  "app.lab.skin-editor.auto-save.up-to-date": {
-    "message": "已是最新"
-  },
   "app.lab.skin-editor.description": {
     "message": "在本機建立和編輯 Minecraft 玩家外觀。"
   },
@@ -5273,26 +5216,17 @@
   "app.lab.skin-editor.retry": {
     "message": "再試一次"
   },
-  "app.lab.skin-editor.save": {
-    "message": "儲存 PNG"
-  },
   "app.lab.skin-editor.settings.auto-save": {
     "message": "自動儲存恢復草稿"
   },
   "app.lab.skin-editor.settings.auto-save-description": {
     "message": "恢復草稿僅儲存在本裝置，與匯出的 PNG 檔案相互獨立。"
   },
-  "app.lab.skin-editor.settings.cancel": {
-    "message": "取消"
-  },
   "app.lab.skin-editor.settings.interval": {
     "message": "儲存間隔（秒）"
   },
   "app.lab.skin-editor.settings.interval-description": {
     "message": "請輸入 5 到 600 秒之間的數值。"
-  },
-  "app.lab.skin-editor.settings.save": {
-    "message": "儲存設定"
   },
   "app.lab.skin-editor.settings.title": {
     "message": "編輯器設定"
@@ -5629,15 +5563,6 @@
   },
   "app.minecraft.playing-as": {
     "message": "當前遊玩帳號："
-  },
-  "app.modpack.change-version": {
-    "message": "變更模組包版本"
-  },
-  "app.modpack.version-name": {
-    "message": "名稱"
-  },
-  "app.modpack.version-supports": {
-    "message": "支援"
   },
   "app.multiplayer.back": {
     "message": "返回"
@@ -9011,90 +8936,6 @@
   "drop.help.worlds-title": {
     "message": "存檔"
   },
-  "friends.action.add-friend": {
-    "message": "新增好友"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} 個好友{count, plural, other {邀請}}"
-  },
-  "friends.add-friend.submit": {
-    "message": "送出好友邀請"
-  },
-  "friends.add-friend.title": {
-    "message": "新增好友"
-  },
-  "friends.add-friend.username.description": {
-    "message": "這可能與對方的 Minecraft 使用者名稱不同！"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "輸入 Modrinth 使用者名稱..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "你好友的 Modrinth 使用者名稱是什麼？"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>新增好友</link>即可查看他們正在玩什麼！"
-  },
-  "friends.friend.cancel-request": {
-    "message": "取消請求"
-  },
-  "friends.friend.remove-friend": {
-    "message": "移除好友"
-  },
-  "friends.friend.request-sent": {
-    "message": "已送出好友邀請"
-  },
-  "friends.friend.view-profile": {
-    "message": "查看個人檔案"
-  },
-  "friends.heading": {
-    "message": "好友"
-  },
-  "friends.heading.active": {
-    "message": "活躍中"
-  },
-  "friends.heading.offline": {
-    "message": "離線"
-  },
-  "friends.heading.online": {
-    "message": "線上"
-  },
-  "friends.heading.pending": {
-    "message": "待處理"
-  },
-  "friends.no-friends-match": {
-    "message": "找不到相符「{query}」的好友"
-  },
-  "friends.requests.accept": {
-    "message": "接受"
-  },
-  "friends.requests.cancel": {
-    "message": "取消"
-  },
-  "friends.requests.ignore": {
-    "message": "略過"
-  },
-  "friends.requests.incoming": {
-    "message": "{username} 向你送出了好友邀請"
-  },
-  "friends.requests.none": {
-    "message": "暫無待處理的好友邀請 :C"
-  },
-  "friends.requests.outgoing": {
-    "message": "你向 {username} 送出了好友邀請"
-  },
-  "friends.requests.title": {
-    "message": "查看好友邀請"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "搜尋好友..."
-  },
-  "friends.section.heading": {
-    "message": "{title} — {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>登入 Modrinth 帳號</link>即可新增好友並查看他們正在玩什麼！"
-  },
   "instance.add-server.add-and-play": {
     "message": "新增並遊玩"
   },
@@ -9163,9 +9004,6 @@
   },
   "instance.files.studio.edit-deleted": {
     "message": "此檔案在編輯儲存前已被刪除。"
-  },
-  "instance.files.studio.editor-loading": {
-    "message": "正在載入編輯器……"
   },
   "instance.files.studio.empty-description": {
     "message": "從資源管理器開啟檔案。"

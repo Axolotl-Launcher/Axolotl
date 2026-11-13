@@ -1020,7 +1020,6 @@ pub async fn theme_pack_storage_write<R: Runtime>(
     key: String,
     contents: String,
 ) -> Result<()> {
-    let _guard = THEME_STORAGE_LOCK.lock().await;
     manifest_with_permission(
         &app,
         &pack_id,
@@ -1035,6 +1034,7 @@ pub async fn theme_pack_storage_write<R: Runtime>(
         .parent()
         .ok_or_else(|| theme_error("The theme pack storage path is invalid"))?;
     tokio::fs::create_dir_all(parent).await?;
+    let _guard = THEME_STORAGE_LOCK.lock().await;
     let existing = tokio::fs::metadata(&path).await.ok();
     let exists = existing.as_ref().is_some_and(|metadata| metadata.is_file());
     let previous = existing
@@ -1075,7 +1075,6 @@ pub async fn theme_pack_storage_delete<R: Runtime>(
     pack_id: String,
     key: String,
 ) -> Result<bool> {
-    let _guard = THEME_STORAGE_LOCK.lock().await;
     manifest_with_permission(
         &app,
         &pack_id,
@@ -1083,6 +1082,7 @@ pub async fn theme_pack_storage_delete<R: Runtime>(
     )
     .await?;
     let path = storage_file(&app, &pack_id, &key)?;
+    let _guard = THEME_STORAGE_LOCK.lock().await;
     if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
         return Ok(false);
     }

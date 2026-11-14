@@ -564,7 +564,7 @@ const iconSize = computed(() => {
             v-if="
                 variant === 'stage' && show.recent && launch && target && recentInstances.length > 0
             "
-            class="home-launch-recent"
+            class="home-launch-recent w-full"
             :aria-label="formatMessage(messages.recent)"
         >
             <div class="home-launch-recent-header">

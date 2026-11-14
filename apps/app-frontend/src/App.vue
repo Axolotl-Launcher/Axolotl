@@ -104,6 +104,7 @@ import { createOobeController } from '@/components/ui/oobe/useOobe'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
 import RemoteAnnouncements from '@/components/ui/RemoteAnnouncements.vue'
 import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
+import { themeSuiteMessages } from '@/components/ui/settings/theme-suite/messages'
 import SplashScreen from '@/components/ui/SplashScreen.vue'
 import UnsavedSelectionModal from '@/components/ui/UnsavedSelectionModal.vue'
 import WindowControls from '@/components/ui/WindowControls.vue'
@@ -175,6 +176,12 @@ import {
 import { resolveAllBindings } from '@/helpers/shortcut-bindings'
 import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.ts'
 import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
+import { applyThemeRuntime, reapplyThemeRuntime } from '@/helpers/theme-pack-runtime'
+import {
+    createThemePackPagesRefresher,
+    THEME_SOURCE_CHANGED_EVENT,
+    type ThemePackNavPage,
+} from '@/helpers/theme-packs'
 import { consumeThirdPartyAuthorizationReturn } from '@/helpers/third-party-accounts'
 import { shouldWarnAboutUnsavedSelection } from '@/helpers/unsaved-selection'
 import {
@@ -958,7 +965,35 @@ onUnmounted(async () => {
     downloadManager.dispose()
 })
 
-const { formatMessage } = useVIntl()
+const { formatMessage, locale: intlLocale } = useVIntl()
+
+const themePackPages = ref<ThemePackNavPage[]>([])
+const themePackPagesRefresher = createThemePackPagesRefresher(
+    async () => {
+        const settings = await getSettings().catch(() => null)
+        return settings ? (settings.theme_source ?? 'builtin') : null
+    },
+    () => intlLocale.value,
+)
+
+/** Re-reads the active pack's navigation pages after its source changes. */
+async function refreshThemePackPages(): Promise<void> {
+    await themePackPagesRefresher.refresh((pages) => {
+        themePackPages.value = pages
+    })
+}
+
+function handleThemeSourceChanged(): void {
+    void refreshThemePackPages()
+}
+
+window.addEventListener(THEME_SOURCE_CHANGED_EVENT, handleThemeSourceChanged)
+watch(intlLocale, handleThemeSourceChanged)
+onUnmounted(() => {
+    themePackPagesRefresher.invalidate()
+    window.removeEventListener(THEME_SOURCE_CHANGED_EVENT, handleThemeSourceChanged)
+})
+
 const formatBytes = useFormatBytes()
 
 async function warnIfRunningElevated() {
@@ -1460,6 +1495,30 @@ async function exportNotificationErrorLogs(notification: ExportableNotification)
     }
 }
 
+let missingThemePackNotified: string | null = null
+
+function notifyMissingThemePack(packId: string | null) {
+    if (!packId || missingThemePackNotified === packId) return
+    missingThemePackNotified = packId
+    addNotification({
+        title: formatMessage(themeSuiteMessages.missingPackTitle),
+        text: formatMessage(themeSuiteMessages.missingPackText, { packId }),
+        type: 'warning',
+        autoCloseMs: null,
+    })
+}
+
+async function applyThemeRuntimeFromSettings(
+    s: Awaited<ReturnType<typeof getSettings>>,
+): Promise<void> {
+    const result = await applyThemeRuntime(s.theme, {
+        themeSource: s.theme_source ?? 'builtin',
+        customThemeColors: s.custom_theme_colors ?? null,
+        uiFont: s.ui_font ?? null,
+    })
+    notifyMissingThemePack(result.missingPackId)
+}
+
 // 把设置同步到界面（主题/外观）；深链改完设置后复用同一套应用逻辑
 async function applyThemeFromSettings(s: Awaited<ReturnType<typeof getSettings>>) {
     themeStore.setThemeState(s.theme)
@@ -1483,6 +1542,7 @@ async function applyThemeFromSettings(s: Awaited<ReturnType<typeof getSettings>>
     themeStore.transparentBackgroundBlur = s.transparent_background_blur
     themeStore.setTransparentBackgroundClass()
     themeStore.setCustomBackgroundClass()
+    await applyThemeRuntimeFromSettings(s)
 }
 
 const queryClient = useQueryClient()
@@ -1586,6 +1646,8 @@ async function setupApp() {
     themeStore.transparentBackgroundBlur = transparent_background_blur
     themeStore.setTransparentBackgroundClass()
     themeStore.setCustomBackgroundClass()
+    await applyThemeRuntimeFromSettings(initialSettings)
+    await refreshThemePackPages()
     isMaximized.value = await getCurrentWindow().isMaximized()
     appearanceReady.value = true
     await applyWindowAppearance()
@@ -2151,6 +2213,16 @@ watch(
     { flush: 'post' },
 )
 
+// 主题模式（含跟随系统）切换后，按缓存的选择重新应用 pack 令牌与自定义配色
+watch(
+    () => themeStore.selectedTheme,
+    (theme) => {
+        void reapplyThemeRuntime(theme).then((result) =>
+            notifyMissingThemePack(result.missingPackId),
+        )
+    },
+)
+
 const error = useError()
 
 /**
@@ -2516,6 +2588,7 @@ async function handlePrivilegedCommand(e: AppCommand) {
         if (!applySettingChanges(latest, e.changes ?? [])) return
         await updateSettings(diffSettings(before, latest)).catch(handleError)
         await applyThemeFromSettings(latest)
+        await refreshThemePackPages()
         setFollowSystemLocale(!latest.locale || latest.locale === 'system')
         await applyLocalePreference(latest.locale)
         addNotification({
@@ -3114,6 +3187,28 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     :is-primary="(r) => r.path.startsWith('/lab')"
                 >
                     <LabNavIcon />
+                </NavButton>
+                <NavButton
+                    v-for="page in themePackPages"
+                    :key="`${page.packId}:${page.pageId}`"
+                    v-tooltip.right="page.title"
+                    :to="`/theme-pack/${encodeURIComponent(page.packId)}/${encodeURIComponent(page.pageId)}`"
+                    :is-primary="
+                        (r) =>
+                            r.name === 'ThemePackPage' &&
+                            r.params.packId === page.packId &&
+                            r.params.pageId === page.pageId
+                    "
+                >
+                    <img
+                        v-if="page.iconUrl"
+                        :src="page.iconUrl"
+                        alt=""
+                        class="h-7 w-7 rounded object-contain"
+                    />
+                    <span v-else class="text-base font-semibold">
+                        {{ page.title.slice(0, 1) }}
+                    </span>
                 </NavButton>
             </NavRail>
             <div class="h-px w-6 mx-auto my-2 bg-surface-5"></div>

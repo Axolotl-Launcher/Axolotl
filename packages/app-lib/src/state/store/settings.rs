@@ -82,6 +82,8 @@ pub(crate) struct SettingsRecord {
     pub max_concurrent_downloads: i64,
     pub max_concurrent_writes: i64,
     pub theme: String,
+    pub theme_source: String,
+    pub custom_theme_colors: Option<String>,
     pub default_page: String,
     pub collapsed_navigation: bool,
     pub advanced_rendering: bool,
@@ -312,6 +314,7 @@ impl Collection for Settings {
             "
             SELECT
                 max_concurrent_downloads, max_concurrent_writes, theme,
+                theme_source, custom_theme_colors,
                 default_page, collapsed_navigation, advanced_rendering,
                 native_decorations, telemetry, discord_rpc, developer_mode,
                 onboarded, json(extra_launch_args) AS extra_launch_args,
@@ -430,6 +433,8 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
         max_concurrent_downloads: row.try_get("max_concurrent_downloads")?,
         max_concurrent_writes: row.try_get("max_concurrent_writes")?,
         theme: row.try_get("theme")?,
+        theme_source: row.try_get("theme_source")?,
+        custom_theme_colors: row.try_get("custom_theme_colors")?,
         default_page: row.try_get("default_page")?,
         collapsed_navigation: row.try_get("collapsed_navigation")?,
         advanced_rendering: row.try_get("advanced_rendering")?,
@@ -581,7 +586,8 @@ async fn write_row(
             ui_font, mono_font, backup_repository_path, allow_external_scheme,
             allow_privileged_scheme, doh_enabled, resource_chinese_filenames,
             resource_preserve_filenames, default_game_language,
-            oobe_completed_steps, minecraft_use_console_java, force_multiconnection_downloads, forced_max_concurrent_downloads
+            oobe_completed_steps, minecraft_use_console_java, force_multiconnection_downloads, forced_max_concurrent_downloads,
+            theme_source, custom_theme_colors
         )
         VALUES (
             0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?),
@@ -591,12 +597,14 @@ async fn write_row(
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?), ?,
             jsonb(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT (id) DO UPDATE SET
             max_concurrent_downloads = excluded.max_concurrent_downloads,
             max_concurrent_writes = excluded.max_concurrent_writes,
             theme = excluded.theme,
+            theme_source = excluded.theme_source,
+            custom_theme_colors = excluded.custom_theme_colors,
             default_page = excluded.default_page,
             collapsed_navigation = excluded.collapsed_navigation,
             advanced_rendering = excluded.advanced_rendering,
@@ -793,6 +801,8 @@ async fn write_row(
     .bind(record.minecraft_use_console_java)
     .bind(record.force_multiconnection_downloads)
     .bind(record.forced_max_concurrent_downloads)
+    .bind(&record.theme_source)
+    .bind(&record.custom_theme_colors)
     .execute(&mut *conn)
     .await?;
 

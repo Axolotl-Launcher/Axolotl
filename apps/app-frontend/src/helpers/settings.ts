@@ -152,6 +152,11 @@ export type AppSettings = DohSettings & {
     mojang_auth_source: DownloadSourceMode
 
     theme: ColorTheme
+    theme_source?: 'builtin' | 'custom' | `pack:${string}`
+    custom_theme_colors?: {
+        light?: { background: string; surface: string; text: string }
+        dark?: { background: string; surface: string; text: string }
+    } | null
     accent_color: AccentColorSetting
     locale: string
     default_game_language: string

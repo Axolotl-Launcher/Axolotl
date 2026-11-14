@@ -1,0 +1,443 @@
+import { createContext, type MultiStageModal, useVIntl } from '@modrinth/ui'
+import { save } from '@tauri-apps/plugin-dialog'
+import { computed, ref, type ShallowRef } from 'vue'
+import type { ComponentExposed } from 'vue-component-type-helpers'
+
+import { type AppSettings, get as getSettings, update as updateSettings } from '@/helpers/settings'
+import { applyThemeRuntime, collectCurrentAppearanceSnapshot } from '@/helpers/theme-pack-runtime'
+import {
+    exportThemePackSnapshot,
+    getThemePackLimits,
+    type InstalledThemePack,
+    installThemePack,
+    listThemePacks,
+    notifyThemeSourceChanged,
+    removeThemePack,
+    type ThemePackLimits,
+} from '@/helpers/theme-packs'
+import { applyCustomThemeColors, type ColorTheme } from '@/store/theme'
+
+import { themeSuiteMessages } from './messages'
+
+export type ThemeSuiteSource = 'builtin' | 'custom' | `pack:${string}`
+export type ThemeColorBucket = 'light' | 'dark'
+
+export interface ThemeColorDraft {
+    background: string
+    surface: string
+    text: string
+}
+
+const TOKEN_BACKGROUND = '--surface-1'
+const TOKEN_SURFACE = '--surface-3'
+const TOKEN_TEXT = '--color-text-primary'
+const CUSTOM_COLOR_VARIABLES = [
+    '--surface-1',
+    '--surface-1-5',
+    '--surface-2',
+    '--surface-2-5',
+    '--surface-3',
+    '--surface-4',
+    '--surface-5',
+    '--color-text-primary',
+    '--color-text-default',
+    '--color-text-tertiary',
+]
+
+const FALLBACK_COLORS: Record<ThemeColorBucket, ThemeColorDraft> = {
+    light: { background: '#ebebeb', surface: '#f8f8f8', text: '#1a202c' },
+    dark: { background: '#101215', surface: '#262b34', text: '#ffffff' },
+}
+
+function normalizeHex(value: string): string | null {
+    const trimmed = value.trim()
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed
+    if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
+        const [red, green, blue] = trimmed.slice(1)
+        return `#${red}${red}${green}${green}${blue}${blue}`
+    }
+    return null
+}
+
+/**
+ * Reads the colors currently applied by the active built-in theme. Falls back to
+ * the documented palette values when the variables cannot be resolved (for
+ * example before the document has been styled).
+ */
+export function readColorDefaults(bucket: ThemeColorBucket): ThemeColorDraft {
+    const fallback = FALLBACK_COLORS[bucket]
+    if (typeof document === 'undefined') return { ...fallback }
+    const root = document.documentElement
+    // Live preview writes the draft onto this same element, so temporarily
+    // remove the inline palette and read the active built-in theme instead.
+    const inline = CUSTOM_COLOR_VARIABLES.map(
+        (name) => [name, root.style.getPropertyValue(name)] as const,
+    )
+    for (const [name] of inline) root.style.removeProperty(name)
+    const style = getComputedStyle(root)
+    const read = (name: string, value: string) =>
+        normalizeHex(style.getPropertyValue(name)) ?? value
+    const defaults = {
+        background: read(TOKEN_BACKGROUND, fallback.background),
+        surface: read(TOKEN_SURFACE, fallback.surface),
+        text: read(TOKEN_TEXT, fallback.text),
+    }
+    for (const [name, value] of inline) {
+        if (value) root.style.setProperty(name, value)
+    }
+    return defaults
+}
+
+function colorsFromManifest(
+    pack: InstalledThemePack,
+    bucket: ThemeColorBucket,
+): ThemeColorDraft | null {
+    const tokens = pack.manifest.tokens?.[bucket]
+    if (!tokens) return null
+    const background = normalizeHex(tokens[TOKEN_BACKGROUND] ?? '')
+    const surface = normalizeHex(tokens[TOKEN_SURFACE] ?? '')
+    const text = normalizeHex(tokens[TOKEN_TEXT] ?? '')
+    if (!background || !surface || !text) return null
+    return { background, surface, text }
+}
+
+export function createThemeSuiteContext(
+    modal: ShallowRef<ComponentExposed<typeof MultiStageModal> | null>,
+) {
+    const { formatMessage } = useVIntl()
+
+    const settings = ref<AppSettings | null>(null)
+    const packs = ref<InstalledThemePack[]>([])
+    const limits = ref<ThemePackLimits | null>(null)
+    const loading = ref(false)
+    const error = ref('')
+    const selectedPackId = ref<string | null>(null)
+    const selectingSource = ref<ThemeSuiteSource | null>(null)
+    const removingId = ref<string | null>(null)
+    const importPath = ref<string | null>(null)
+    const installing = ref(false)
+    const installError = ref('')
+    const colorsDraft = ref<ThemeColorDraft>(readColorDefaults('dark'))
+    const colorPreviewActive = ref(false)
+    const snapshotExporting = ref(false)
+    const snapshotError = ref('')
+    const snapshotExported = ref(false)
+    let refreshToken = 0
+    let settingsRevision = 0
+
+    const activeSource = computed<ThemeSuiteSource>(() => settings.value?.theme_source ?? 'builtin')
+
+    const activeTheme = computed<'light' | 'dark' | 'oled'>(() => {
+        const theme = settings.value?.theme
+        if (theme === 'system') {
+            const prefersLight =
+                typeof window !== 'undefined' &&
+                window.matchMedia('(prefers-color-scheme: light)').matches
+            return prefersLight ? 'light' : 'dark'
+        }
+        return theme === 'light' || theme === 'oled' ? theme : 'dark'
+    })
+
+    const colorsBucket = computed<ThemeColorBucket>(() =>
+        activeTheme.value === 'light' ? 'light' : 'dark',
+    )
+
+    function resetColorsDraft() {
+        const bucket = colorsBucket.value
+        const stored = settings.value?.custom_theme_colors?.[bucket]
+        const pack = selectedPackId.value
+            ? packs.value.find((candidate) => candidate.manifest.id === selectedPackId.value)
+            : undefined
+        const fromPack = pack ? colorsFromManifest(pack, bucket) : null
+        colorsDraft.value = { ...(stored ?? fromPack ?? readColorDefaults(bucket)) }
+    }
+
+    /**
+     * Invalidates an in-flight refresh before a local mutation changes the
+     * settings snapshot, so the stale read cannot overwrite the new selection.
+     */
+    function invalidateRefresh() {
+        refreshToken += 1
+        loading.value = false
+    }
+
+    /**
+     * Records a settings write so a refresh that read the store before this
+     * write cannot publish the older snapshot afterwards.
+     */
+    function commitSettings(next: AppSettings) {
+        settings.value = next
+        settingsRevision += 1
+    }
+
+    async function refresh() {
+        const token = ++refreshToken
+        const revision = settingsRevision
+        loading.value = true
+        error.value = ''
+        try {
+            const [nextPacks, nextLimits, nextSettings] = await Promise.all([
+                listThemePacks(),
+                getThemePackLimits(),
+                getSettings(),
+            ])
+            if (token !== refreshToken || revision !== settingsRevision) return
+            packs.value = nextPacks
+            limits.value = nextLimits
+            settings.value = nextSettings
+            const source = nextSettings.theme_source ?? 'builtin'
+            selectedPackId.value = source.startsWith('pack:') ? source.slice('pack:'.length) : null
+            resetColorsDraft()
+        } catch (failure) {
+            if (token !== refreshToken) return
+            error.value = String(failure)
+        } finally {
+            if (token === refreshToken) loading.value = false
+        }
+    }
+
+    /**
+     * Applies the current selection immediately so the settings modal previews
+     * packs and custom colors without waiting for a restart.
+     */
+    function applyRuntimeFromSettings() {
+        const current = settings.value
+        if (!current) return
+        void applyThemeRuntime(current.theme, {
+            themeSource: current.theme_source ?? 'builtin',
+            customThemeColors: current.custom_theme_colors ?? null,
+            uiFont: current.ui_font ?? null,
+        })
+    }
+
+    function notifyActiveSource() {
+        notifyThemeSourceChanged(settings.value?.theme_source ?? 'builtin')
+    }
+
+    function show() {
+        importPath.value = null
+        installError.value = ''
+        snapshotError.value = ''
+        snapshotExported.value = false
+        modal.value?.setStage('overview')
+        modal.value?.show()
+        void refresh()
+    }
+
+    function close() {
+        endColorPreview()
+        importPath.value = null
+        installError.value = ''
+        error.value = ''
+    }
+
+    /**
+     * Paints the color draft on the live document while the picker is open.
+     * The persisted source is restored when the stage closes or the user saves.
+     */
+    function previewColors() {
+        const current = settings.value
+        if (!current) return
+        applyCustomThemeColors(current.theme as ColorTheme, {
+            [colorsBucket.value]: { ...colorsDraft.value },
+        })
+        colorPreviewActive.value = true
+    }
+
+    function endColorPreview() {
+        if (!colorPreviewActive.value) return
+        colorPreviewActive.value = false
+        applyRuntimeFromSettings()
+    }
+
+    function openImport() {
+        importPath.value = null
+        installError.value = ''
+        modal.value?.setStage('import')
+    }
+
+    function openColors() {
+        resetColorsDraft()
+        modal.value?.setStage('colors')
+    }
+
+    async function selectSource(source: ThemeSuiteSource) {
+        if (selectingSource.value || activeSource.value === source) return
+        invalidateRefresh()
+        selectingSource.value = source
+        error.value = ''
+        try {
+            commitSettings(await updateSettings({ theme_source: source }))
+            selectedPackId.value = source.startsWith('pack:') ? source.slice('pack:'.length) : null
+            resetColorsDraft()
+            applyRuntimeFromSettings()
+            notifyActiveSource()
+        } catch (failure) {
+            error.value = String(failure)
+        } finally {
+            selectingSource.value = null
+        }
+    }
+
+    async function install() {
+        const archivePath = importPath.value
+        if (!archivePath || installing.value) return
+        invalidateRefresh()
+        installing.value = true
+        installError.value = ''
+        try {
+            await installThemePack(archivePath, false)
+            importPath.value = null
+            await refresh()
+            applyRuntimeFromSettings()
+            notifyActiveSource()
+            modal.value?.setStage('overview')
+        } catch (failure) {
+            installError.value = String(failure)
+        } finally {
+            installing.value = false
+        }
+    }
+
+    async function remove(pack: InstalledThemePack, removeData = false) {
+        if (removingId.value) return
+        invalidateRefresh()
+        removingId.value = pack.manifest.id
+        error.value = ''
+        try {
+            const wasActive = activeSource.value === `pack:${pack.manifest.id}`
+            await removeThemePack(pack.manifest.id, removeData)
+            if (wasActive) {
+                commitSettings(await updateSettings({ theme_source: 'builtin' }))
+            }
+        } catch (failure) {
+            error.value = String(failure)
+        } finally {
+            // Even when clearing the selection failed, the pack may already be
+            // gone; refresh and repaint from what is actually installed.
+            try {
+                await refresh()
+            } catch {
+                // Keep the removal error as the visible message.
+            }
+            applyRuntimeFromSettings()
+            notifyActiveSource()
+            removingId.value = null
+        }
+    }
+
+    function resetColors() {
+        colorsDraft.value = readColorDefaults(colorsBucket.value)
+    }
+
+    async function saveColors() {
+        if (!settings.value) return
+        invalidateRefresh()
+        const bucket = colorsBucket.value
+        error.value = ''
+        try {
+            commitSettings(
+                await updateSettings({
+                    theme_source: 'custom',
+                    custom_theme_colors: {
+                        ...(settings.value.custom_theme_colors ?? {}),
+                        [bucket]: { ...colorsDraft.value },
+                    },
+                }),
+            )
+            selectedPackId.value = null
+            applyRuntimeFromSettings()
+            notifyActiveSource()
+            modal.value?.setStage('overview')
+        } catch (failure) {
+            error.value = String(failure)
+        }
+    }
+
+    async function exportSnapshot() {
+        const current = settings.value
+        if (snapshotExporting.value || !current) return
+        snapshotExporting.value = true
+        snapshotError.value = ''
+        snapshotExported.value = false
+        try {
+            // Capture the appearance being exported before opening the native
+            // dialog: the user can change the theme while it is open, and the
+            // archive should match the preview they acted on.
+            const source = activeSource.value
+            const snapshot = await collectCurrentAppearanceSnapshot(
+                source,
+                activeTheme.value,
+                {
+                    themeSource: source,
+                    customThemeColors: current.custom_theme_colors ?? null,
+                    uiFont: current.ui_font ?? null,
+                },
+                current.accent_color ?? null,
+            )
+            const now = new Date()
+            const stamp = [
+                now.getFullYear(),
+                String(now.getMonth() + 1).padStart(2, '0'),
+                String(now.getDate()).padStart(2, '0'),
+            ].join('')
+            let destination = await save({
+                defaultPath: `axolotl-theme-${stamp}.zip`,
+                filters: [
+                    {
+                        name: formatMessage(themeSuiteMessages.archiveFilter),
+                        extensions: ['zip'],
+                    },
+                ],
+            })
+            if (!destination) return
+            if (!destination.toLowerCase().endsWith('.zip')) destination += '.zip'
+            await exportThemePackSnapshot(destination, snapshot)
+            snapshotExported.value = true
+        } catch (failure) {
+            snapshotError.value = String(failure)
+        } finally {
+            snapshotExporting.value = false
+        }
+    }
+
+    return {
+        modal,
+        formatMessage,
+        settings,
+        packs,
+        limits,
+        loading,
+        error,
+        selectedPackId,
+        selectingSource,
+        removingId,
+        importPath,
+        installing,
+        installError,
+        colorsDraft,
+        snapshotExporting,
+        snapshotError,
+        snapshotExported,
+        activeSource,
+        activeTheme,
+        colorsBucket,
+        refresh,
+        show,
+        close,
+        openImport,
+        openColors,
+        previewColors,
+        endColorPreview,
+        selectSource,
+        install,
+        remove,
+        resetColors,
+        saveColors,
+        exportSnapshot,
+    }
+}
+
+export type ThemeSuiteContext = ReturnType<typeof createThemeSuiteContext>
+export const [injectThemeSuiteContext, provideThemeSuiteContext] =
+    createContext<ThemeSuiteContext>('ThemeSuiteModal')

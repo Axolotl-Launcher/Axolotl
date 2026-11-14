@@ -1,28 +1,4 @@
 {
-  "app.network.offline.title": {
-    "message": "Unable to connect"
-  },
-  "app.network.offline.description": {
-    "message": "Check your network connection: make sure Wi-Fi is on, your network cable is connected, airplane mode is off, and your proxy settings are correct."
-  },
-  "app.network.offline.settings": {
-    "message": "Network connection settings"
-  },
-  "app.network.offline.settings-failed": {
-    "message": "Unable to open network settings. Open them from your system settings."
-  },
-  "app.network.offline.retry": {
-    "message": "Retry"
-  },
-  "app.network.offline.disconnected": {
-    "message": "Disconnected"
-  },
-  "app.settings.developer.simulate-offline": {
-    "message": "Simulate being offline"
-  },
-  "app.settings.developer.simulate-offline-description": {
-    "message": "Show the offline page and connection indicator for this session. Turn this off to restore normal connectivity."
-  },
   "app.action-bar.active-backups": {
     "message": "Active backups"
   },
@@ -847,6 +823,15 @@
   },
   "app.appearance-settings.skip-non-essential-warnings.title": {
     "message": "Skip non-essential warnings"
+  },
+  "app.appearance-settings.theme-suite.description": {
+    "message": "Import a theme pack to customize colors, fonts, backgrounds, and launcher pages, or tune the colors yourself."
+  },
+  "app.appearance-settings.theme-suite.manage": {
+    "message": "Manage theme suite"
+  },
+  "app.appearance-settings.theme-suite.title": {
+    "message": "Theme suite"
   },
   "app.appearance-settings.toggle-sidebar.description": {
     "message": "Enables the ability to toggle the sidebar."
@@ -13001,6 +12986,24 @@
   "app.navigation.worlds": {
     "message": "Worlds"
   },
+  "app.network.offline.description": {
+    "message": "Check your network connection: make sure Wi-Fi is on, your network cable is connected, airplane mode is off, and your proxy settings are correct."
+  },
+  "app.network.offline.disconnected": {
+    "message": "Disconnected"
+  },
+  "app.network.offline.retry": {
+    "message": "Retry"
+  },
+  "app.network.offline.settings": {
+    "message": "Network connection settings"
+  },
+  "app.network.offline.settings-failed": {
+    "message": "Unable to open network settings. Open them from your system settings."
+  },
+  "app.network.offline.title": {
+    "message": "Unable to connect"
+  },
   "app.notification.error-occurred": {
     "message": "An error occurred"
   },
@@ -15502,6 +15505,12 @@
   },
   "app.settings.developer.preview-with-action": {
     "message": "Include an optional external-link button"
+  },
+  "app.settings.developer.simulate-offline": {
+    "message": "Simulate being offline"
+  },
+  "app.settings.developer.simulate-offline-description": {
+    "message": "Show the offline page and connection indicator for this session. Turn this off to restore normal connectivity."
   },
   "app.settings.downloading": {
     "message": "Downloading v{version}"
@@ -18652,6 +18661,213 @@
   },
   "app.sync-instances-update.choose-source.resource-packs": {
     "message": "Choose which instance to copy your resource packs from. These packs are only used for the initial sync, and you can edit them from any instance afterward."
+  },
+  "app.theme-suite.activate": {
+    "message": "Use"
+  },
+  "app.theme-suite.active-badge": {
+    "message": "Active"
+  },
+  "app.theme-suite.archive-filter": {
+    "message": "Theme pack archive"
+  },
+  "app.theme-suite.archive-hint": {
+    "message": "Select a theme pack archive (.zip) to install."
+  },
+  "app.theme-suite.archive-limit": {
+    "message": "Archives can be up to {size}."
+  },
+  "app.theme-suite.back": {
+    "message": "Back"
+  },
+  "app.theme-suite.background": {
+    "message": "Background"
+  },
+  "app.theme-suite.built-in-description": {
+    "message": "The default Axolotl colors, following the selected light, dark or OLED mode."
+  },
+  "app.theme-suite.built-in-name": {
+    "message": "Built-in theme"
+  },
+  "app.theme-suite.capability-pages": {
+    "message": "Pages"
+  },
+  "app.theme-suite.capability-styles": {
+    "message": "Styles"
+  },
+  "app.theme-suite.capability-tokens": {
+    "message": "Color tokens"
+  },
+  "app.theme-suite.change-archive": {
+    "message": "Change file"
+  },
+  "app.theme-suite.choose-archive": {
+    "message": "Choose file"
+  },
+  "app.theme-suite.close": {
+    "message": "Close"
+  },
+  "app.theme-suite.colors-description": {
+    "message": "Adjust the colors used in {theme} mode. Saving switches the launcher to custom colors."
+  },
+  "app.theme-suite.colors-preview": {
+    "message": "Preview"
+  },
+  "app.theme-suite.colors-preview-text": {
+    "message": "The quick brown fox jumps over the lazy dog."
+  },
+  "app.theme-suite.colors-title": {
+    "message": "Custom colors"
+  },
+  "app.theme-suite.custom-colors": {
+    "message": "Custom colors"
+  },
+  "app.theme-suite.custom-colors-description": {
+    "message": "Pick your own background, surface and text colors."
+  },
+  "app.theme-suite.description": {
+    "message": "Choose how the launcher looks. Theme packs can bring their own colors, styles and pages."
+  },
+  "app.theme-suite.done": {
+    "message": "Done"
+  },
+  "app.theme-suite.engine-label": {
+    "message": "Requires Axolotl {version}"
+  },
+  "app.theme-suite.export-snapshot": {
+    "message": "Export snapshot"
+  },
+  "app.theme-suite.export-snapshot-done": {
+    "message": "Appearance snapshot exported."
+  },
+  "app.theme-suite.export-snapshot-failed": {
+    "message": "The snapshot could not be exported: {error}"
+  },
+  "app.theme-suite.exporting-snapshot": {
+    "message": "Exporting…"
+  },
+  "app.theme-suite.import-description": {
+    "message": "Theme packs are .zip archives that contain a manifest.json file describing their colors, styles and pages."
+  },
+  "app.theme-suite.import-pack": {
+    "message": "Import pack"
+  },
+  "app.theme-suite.import-title": {
+    "message": "Import theme pack"
+  },
+  "app.theme-suite.install": {
+    "message": "Install"
+  },
+  "app.theme-suite.install-failed": {
+    "message": "The theme pack could not be installed."
+  },
+  "app.theme-suite.installed-title": {
+    "message": "Installed packs"
+  },
+  "app.theme-suite.installing": {
+    "message": "Installing…"
+  },
+  "app.theme-suite.invalid-archive": {
+    "message": "Only .zip archives with a valid manifest.json file can be installed."
+  },
+  "app.theme-suite.load-failed": {
+    "message": "Theme packs could not be loaded."
+  },
+  "app.theme-suite.loading": {
+    "message": "Loading theme packs…"
+  },
+  "app.theme-suite.missing-pack-text": {
+    "message": "The theme pack \"{packId}\" is no longer installed. The built-in theme is being used instead."
+  },
+  "app.theme-suite.missing-pack-title": {
+    "message": "Theme pack unavailable"
+  },
+  "app.theme-suite.no-archive-chosen": {
+    "message": "No archive selected yet."
+  },
+  "app.theme-suite.no-description": {
+    "message": "No description provided."
+  },
+  "app.theme-suite.no-packs": {
+    "message": "No theme packs installed yet. Import a pack to get started."
+  },
+  "app.theme-suite.overview-description": {
+    "message": "Pick the colors and styling the launcher uses."
+  },
+  "app.theme-suite.overview-title": {
+    "message": "Theme source"
+  },
+  "app.theme-suite.pack-permissions": {
+    "message": "Permissions"
+  },
+  "app.theme-suite.page.error": {
+    "message": "The theme page could not be loaded."
+  },
+  "app.theme-suite.page.loading": {
+    "message": "Loading theme page…"
+  },
+  "app.theme-suite.page.missing": {
+    "message": "The theme pack or page is not installed."
+  },
+  "app.theme-suite.page.title": {
+    "message": "Theme pack page"
+  },
+  "app.theme-suite.page.unavailable": {
+    "message": "Theme page unavailable"
+  },
+  "app.theme-suite.permission-instances-logs": {
+    "message": "Read instance logs"
+  },
+  "app.theme-suite.permission-instances-read": {
+    "message": "Read instances"
+  },
+  "app.theme-suite.permission-network": {
+    "message": "Network access"
+  },
+  "app.theme-suite.permission-storage": {
+    "message": "Local storage"
+  },
+  "app.theme-suite.preview-title": {
+    "message": "Ready to install"
+  },
+  "app.theme-suite.remove-pack": {
+    "message": "Remove"
+  },
+  "app.theme-suite.remove-pack-cancel": {
+    "message": "Keep pack"
+  },
+  "app.theme-suite.remove-pack-confirm": {
+    "message": "Remove {name}? This cannot be undone."
+  },
+  "app.theme-suite.remove-pack-data": {
+    "message": "Also delete saved pack data"
+  },
+  "app.theme-suite.reset-colors": {
+    "message": "Reset"
+  },
+  "app.theme-suite.save-colors": {
+    "message": "Save"
+  },
+  "app.theme-suite.size-label": {
+    "message": "Size: {size}"
+  },
+  "app.theme-suite.surface": {
+    "message": "Surface"
+  },
+  "app.theme-suite.text": {
+    "message": "Text"
+  },
+  "app.theme-suite.theme-dark": {
+    "message": "dark"
+  },
+  "app.theme-suite.theme-light": {
+    "message": "light"
+  },
+  "app.theme-suite.title": {
+    "message": "Theme suite"
+  },
+  "app.theme-suite.version-label": {
+    "message": "Version {version}"
   },
   "app.third-party.action-failed": {
     "message": "The account operation failed. Please try again."

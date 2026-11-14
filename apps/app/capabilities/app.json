@@ -1,0 +1,7 @@
+{
+  "identifier": "app",
+  "description": "Application commands for the main launcher webview.",
+  "local": true,
+  "webviews": ["main"],
+  "permissions": ["default"]
+}

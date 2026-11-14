@@ -1,5 +1,5 @@
 use std::process::Command;
-use tauri_build::{DefaultPermissionRule, InlinedPlugin};
+use tauri_build::{AppManifest, DefaultPermissionRule, InlinedPlugin};
 
 fn run_command(command: &mut Command, description: &str) {
     let status = command.status().unwrap_or_else(|error| {
@@ -206,6 +206,93 @@ fn build_seed_map_engine() {
     }
 }
 
+/// Commands registered by `tauri::generate_handler!` in `src/main.rs`.
+///
+/// Tauri only enforces the ACL for application commands when an application
+/// manifest is present. Keeping the list in sync with the handler keeps the
+/// main webview privileged while child webviews, such as theme pack pages,
+/// get no application commands at all.
+fn application_commands() -> &'static [&'static str] {
+    println!("cargo:rerun-if-changed=src/main.rs");
+    println!("cargo:rerun-if-changed=permissions/default.toml");
+    let source = std::fs::read_to_string("src/main.rs")
+        .expect("Read src/main.rs for application commands");
+    let marker = "tauri::generate_handler![";
+    let open = source
+        .find(marker)
+        .expect("Find tauri::generate_handler! in src/main.rs")
+        + marker.len()
+        - 1;
+    let mut depth = 0usize;
+    let mut close = None;
+    for (offset, character) in source[open..].char_indices() {
+        match character {
+            '[' => depth += 1,
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(open + offset);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let close = close.expect("Find the end of tauri::generate_handler!");
+    let mut commands = Vec::new();
+    for item in source[open + 1..close].split(',') {
+        let item = item.trim();
+        if item.is_empty() {
+            continue;
+        }
+        let item = if item.starts_with('#') {
+            match item.rfind(']') {
+                Some(index) => item[index + 1..].trim(),
+                None => continue,
+            }
+        } else {
+            item
+        };
+        let name = item.rsplit("::").next().unwrap_or(item).trim();
+        assert!(
+            !name.is_empty()
+                && name
+                    .chars()
+                    .all(|character| character.is_ascii_alphanumeric()
+                        || character == '_'),
+            "Unexpected application command entry: {item}"
+        );
+        commands.push(name);
+    }
+    assert!(
+        !commands.is_empty(),
+        "No application commands were found in src/main.rs"
+    );
+
+    let permissions = std::fs::read_to_string("permissions/default.toml")
+        .expect("Read permissions/default.toml");
+    let missing: Vec<&str> = commands
+        .iter()
+        .copied()
+        .filter(|command| {
+            let permission = format!("\"allow-{}\"", command.replace('_', "-"));
+            !permissions.contains(&permission)
+        })
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "permissions/default.toml is missing application commands: {missing:?}"
+    );
+
+    let leaked: Vec<&'static str> = commands
+        .into_iter()
+        .map(|command| {
+            Box::leak(command.to_string().into_boxed_str()) as &'static str
+        })
+        .collect();
+    Box::leak(leaked.into_boxed_slice())
+}
+
 fn main() {
     println!("cargo:rerun-if-env-changed=CI");
     println!("cargo:rerun-if-changed=tauri.conf.json");
@@ -262,12 +349,12 @@ fn main() {
 
     build_seed_map_engine();
 
-    // Sadly, there is no better way to do it right now
-    // You could try parsing source code here and detecting #[tauri::command]
-    // But I think it's not worth it
-    // https://github.com/tauri-apps/tauri/issues/10075
+    // The application manifest makes Tauri enforce the ACL for app commands.
+    // Without it, any local webview (including theme pack pages) could call
+    // every command registered in main.rs.
     tauri_build::try_build(
         attributes
+            .app_manifest(AppManifest::new().commands(application_commands()))
             .plugin(
                 "auth",
                 InlinedPlugin::new()
@@ -862,6 +949,35 @@ fn main() {
                         "mcp_disconnect",
                         "mcp_ui_claim",
                         "mcp_ui_respond",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
+                "theme-pack",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "theme_pack_list",
+                        "theme_pack_get",
+                        "theme_pack_install",
+                        "theme_pack_remove",
+                        "theme_pack_limits",
+                        "theme_pack_fetch",
+                        "theme_pack_data_dir",
+                        "theme_pack_resolve_page",
+                        "theme_pack_export_snapshot",
+                        "theme_pack_storage_list",
+                        "theme_pack_storage_read",
+                        "theme_pack_storage_write",
+                        "theme_pack_storage_delete",
+                        "theme_pack_instance_list",
+                        "theme_pack_instance_mods",
+                        "theme_pack_instance_logs",
+                        "theme_pack_open_page",
+                        "theme_pack_page_bounds",
+                        "theme_pack_close_page",
+                        "theme_pack_page_request",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

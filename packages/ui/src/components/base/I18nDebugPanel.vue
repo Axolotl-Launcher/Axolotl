@@ -541,6 +541,8 @@ const listMaxHeight = computed(() => `${panelHeight.value - 120}px`)
 
 <style scoped>
 .i18n-debug-panel {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-5) transparent;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
     box-shadow:
@@ -550,22 +552,26 @@ const listMaxHeight = computed(() => `${panelHeight.value - 120}px`)
         0 24px 48px rgba(0, 0, 0, 0.06);
 }
 
-/* Custom scrollbar */
-.i18n-debug-panel ::-webkit-scrollbar {
-    width: 6px;
-}
+@supports not (scrollbar-color: auto) {
+    .i18n-debug-panel ::-webkit-scrollbar {
+        width: 10px;
+    }
 
-.i18n-debug-panel ::-webkit-scrollbar-track {
-    background: transparent;
-}
+    .i18n-debug-panel ::-webkit-scrollbar-track {
+        background: transparent;
+    }
 
-.i18n-debug-panel ::-webkit-scrollbar-thumb {
-    background: var(--surface-5);
-    border-radius: 3px;
-}
+    .i18n-debug-panel ::-webkit-scrollbar-thumb {
+        background: var(--surface-5);
+        border: 2px solid transparent;
+        border-radius: 5px;
+        background-clip: content-box;
+    }
 
-.i18n-debug-panel ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-text-tertiary);
+    .i18n-debug-panel ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-text-tertiary);
+        background-clip: content-box;
+    }
 }
 
 /* Animate the pulse indicator */

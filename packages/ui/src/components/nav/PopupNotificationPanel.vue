@@ -2,7 +2,7 @@
     <div
         class="popup-notification-group"
         role="log"
-        aria-live="polite"
+        :aria-live="notifications.some((item) => item.type === 'error') ? 'assertive' : 'polite'"
         aria-relevant="additions text"
         :class="{
             'has-sidebar': hasSidebar,

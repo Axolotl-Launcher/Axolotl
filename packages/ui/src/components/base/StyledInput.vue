@@ -30,7 +30,7 @@
             :id="id"
             v-bind="nativeAttrs()"
             ref="inputRef"
-            :aria-invalid="ariaInvalid"
+            :aria-invalid="ariaInvalidValue()"
             :value="model"
             :placeholder="placeholder"
             :disabled="disabled"
@@ -60,7 +60,7 @@
             :id="id"
             v-bind="nativeAttrs()"
             ref="inputRef"
-            :aria-invalid="ariaInvalid"
+            :aria-invalid="ariaInvalidValue()"
             :type="type"
             :value="model"
             :placeholder="placeholder"
@@ -228,12 +228,12 @@ const emit = defineEmits<{
     clear: []
 }>()
 
-const ariaInvalid = computed<string | undefined>(() => {
+function ariaInvalidValue(): string | undefined {
     if (props.error) return 'true'
     const supplied = props.inputAttrs?.['aria-invalid'] ?? attrs['aria-invalid']
     if (supplied === undefined || supplied === null || supplied === false) return undefined
     return String(supplied)
-})
+}
 
 const inputRef = ref<HTMLInputElement | HTMLTextAreaElement>()
 const isFocused = ref(false)

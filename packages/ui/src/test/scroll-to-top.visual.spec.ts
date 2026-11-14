@@ -160,7 +160,7 @@ it('publishes clearance from a visible notification panel and lifts the button',
     }
 })
 
-it('exposes every notification once through the polite live region', async () => {
+it('exposes every notification once and asserts errors through the live region', async () => {
     const { panel, group } = await mountNotificationPanel([
         { id: 1, title: 'World imported', text: 'Ready to play' },
         { id: 2, title: 'Import failed', text: 'Check the file', type: 'error' },
@@ -168,7 +168,7 @@ it('exposes every notification once through the polite live region', async () =>
 
     try {
         expect(group.getAttribute('role')).toBe('log')
-        expect(group.getAttribute('aria-live')).toBe('polite')
+        expect(group.getAttribute('aria-live')).toBe('assertive')
         expect(group.getAttribute('aria-relevant')).toBe('additions text')
 
         const notifications = panel.findAll<HTMLElement>('.vue-notification-wrapper')

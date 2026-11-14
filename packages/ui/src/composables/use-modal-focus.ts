@@ -47,7 +47,7 @@ export function useModalFocus(
      */
     function isFocusVisible(element: HTMLElement): boolean {
         if (element.matches('input[type="hidden"], :disabled')) return false
-        if (element.closest('[hidden], [inert]')) return false
+        if (element.closest('[hidden], [inert], [aria-hidden="true"]')) return false
         const style = getComputedStyle(element)
         return (
             style.display !== 'none' &&
@@ -117,6 +117,11 @@ export function useModalFocus(
                 event.preventDefault()
                 last.focus()
             }
+        } else if (!(active instanceof HTMLElement) || !focusable.includes(active)) {
+            // Focus may sit on the modal body after the initial fallback while
+            // async content adds the first focusable control.
+            event.preventDefault()
+            first.focus()
         } else if (active === last) {
             event.preventDefault()
             first.focus()

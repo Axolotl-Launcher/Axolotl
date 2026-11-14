@@ -506,6 +506,37 @@ it('does not retry initial focus after another modal becomes topmost', async () 
     expect(document.activeElement).not.toBe(container)
 })
 
+it('skips controls inside an aria-hidden subtree', async () => {
+    await modal(
+        h('div', [
+            h('div', { 'aria-hidden': 'true' }, [h('button', { id: 'hidden-from-at' }, 'Hidden')]),
+            h('button', { id: 'visible-action' }, 'Visible'),
+        ]),
+        { closable: false },
+    )
+    await waitFor(() => document.activeElement?.id === 'visible-action')
+    expect(document.activeElement?.id).toBe('visible-action')
+})
+
+it('moves focus to the first control when Tab is pressed from the modal body', async () => {
+    const container = document.createElement('div')
+    container.tabIndex = -1
+    document.body.append(container)
+    cleanup.push(() => container.remove())
+    const controller = useModalFocus(ref(container))
+    controller.focusInitial()
+    expect(document.activeElement).toBe(container)
+
+    const button = document.createElement('button')
+    button.textContent = 'Later control'
+    container.append(button)
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    controller.trapTab(event)
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(button)
+})
+
 it('restores focus to the previously focused element when the modal closes', async () => {
     const trigger = document.createElement('button')
     trigger.textContent = 'Open modal'

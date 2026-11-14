@@ -153,6 +153,23 @@ for (const multiline of [false, true]) {
     })
 }
 
+it('updates a caller-supplied aria-invalid passed as a dynamic attribute', async () => {
+    const wrapper = await mountThemed(
+        StyledInput,
+        {
+            modelValue: '',
+            'aria-invalid': 'grammar',
+        },
+        'dark',
+    )
+    cleanup.push(() => wrapper.unmount())
+    const field = wrapper.get<HTMLInputElement>('input')
+    expect(field.attributes('aria-invalid')).toBe('grammar')
+
+    await wrapper.setProps({ 'aria-invalid': 'spelling' })
+    expect(field.attributes('aria-invalid')).toBe('spelling')
+})
+
 it('keeps a caller-supplied aria-invalid unless the field is in error', async () => {
     const wrapper = await mountThemed(
         StyledInput,

@@ -25,6 +25,8 @@ const props = defineProps({
 const i18n = inject(I18N_INJECTION_KEY, null)
 
 function label(message: MessageDescriptor) {
+    // Reading the locale keeps the computed label reactive to language changes.
+    void i18n?.locale.value
     const translated = i18n?.t(message.id)
     return !translated || translated === message.id
         ? (message.defaultMessage ?? message.id)

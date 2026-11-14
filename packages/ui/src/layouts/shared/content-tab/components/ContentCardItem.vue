@@ -76,6 +76,14 @@ const messages = defineMessages({
         id: 'content.card.group.hardcore',
         defaultMessage: 'Hardcore mode',
     },
+    expandGroup: {
+        id: 'button.expand',
+        defaultMessage: 'Expand',
+    },
+    collapseGroup: {
+        id: 'button.collapse',
+        defaultMessage: 'Collapse',
+    },
 })
 
 interface Props {
@@ -492,8 +500,8 @@ const deleteHovered = ref(false)
                 icon-only
                 :label="
                     groupExpanded
-                        ? formatMessage({ id: 'button.collapse', defaultMessage: 'Collapse' })
-                        : formatMessage({ id: 'button.expand', defaultMessage: 'Expand' })
+                        ? formatMessage(messages.collapseGroup)
+                        : formatMessage(messages.expandGroup)
                 "
                 class="flex items-center text-[var(--color-text-tertiary)] hover:text-[var(--color-text-default)] transition-colors"
                 @click.stop="emit('toggleExpand')"

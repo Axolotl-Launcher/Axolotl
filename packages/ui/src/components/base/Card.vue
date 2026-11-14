@@ -2,7 +2,9 @@
 import { DropdownIcon } from '@modrinth/assets'
 import { computed, inject, reactive } from 'vue'
 
+import type { MessageDescriptor } from '../../composables/i18n'
 import { I18N_INJECTION_KEY } from '../../providers/i18n'
+import { commonMessages } from '../../utils/common-messages'
 import Button from './buttons/Button.vue'
 
 const props = defineProps({
@@ -22,13 +24,15 @@ const props = defineProps({
 
 const i18n = inject(I18N_INJECTION_KEY, null)
 
-function label(id: string, fallback: string) {
-    const translated = i18n?.t(id)
-    return !translated || translated === id ? fallback : translated
+function label(message: MessageDescriptor) {
+    const translated = i18n?.t(message.id)
+    return !translated || translated === message.id
+        ? (message.defaultMessage ?? message.id)
+        : translated
 }
 
-const expandLabel = computed(() => label('button.expand', 'Expand'))
-const collapseLabel = computed(() => label('button.collapse', 'Collapse'))
+const expandLabel = computed(() => label(commonMessages.expandButton))
+const collapseLabel = computed(() => label(commonMessages.collapseButton))
 
 const state = reactive({
     collapsed: props.defaultCollapsed,

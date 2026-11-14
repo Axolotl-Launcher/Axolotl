@@ -244,7 +244,9 @@ const { lock: lockBodyScroll, unlock: unlockBodyScroll } = useBodyScrollLock()
 const visible = ref(false)
 const stackDepth = ref(0)
 const modalBodyRef = ref<HTMLElement | null>(null)
-const { captureFocus, focusInitial, restoreFocus, trapTab } = useModalFocus(modalBodyRef)
+const { captureFocus, focusInitial, restoreFocus, trapTab } = useModalFocus(modalBodyRef, {
+    isTopmost: isTopmostModal,
+})
 let phase: 'closed' | 'opening' | 'open' | 'closing' | 'disposed' = 'closed'
 let transitionGeneration = 0
 let showTimer: ReturnType<typeof setTimeout> | undefined

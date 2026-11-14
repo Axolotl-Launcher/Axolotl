@@ -169,7 +169,7 @@ it('exposes every notification once through the polite live region', async () =>
     try {
         expect(group.getAttribute('role')).toBe('log')
         expect(group.getAttribute('aria-live')).toBe('polite')
-        expect(group.getAttribute('aria-relevant')).toBe('additions')
+        expect(group.getAttribute('aria-relevant')).toBe('additions text')
 
         const notifications = panel.findAll<HTMLElement>('.vue-notification-wrapper')
         expect(notifications).toHaveLength(2)

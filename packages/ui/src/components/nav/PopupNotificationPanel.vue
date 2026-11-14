@@ -3,7 +3,7 @@
         class="popup-notification-group"
         role="log"
         aria-live="polite"
-        aria-relevant="additions"
+        aria-relevant="additions text"
         :class="{
             'has-sidebar': hasSidebar,
             'has-modal': hasModalActive,

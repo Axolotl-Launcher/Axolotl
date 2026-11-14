@@ -8,6 +8,7 @@ import MultiStageModal from '../components/base/MultiStageModal.vue'
 import TeleportOverflowMenu from '../components/base/TeleportOverflowMenu.vue'
 import NewModal from '../components/modal/NewModal.vue'
 import { useBodyScrollLock } from '../composables/body-scroll-lock'
+import { useModalFocus } from '../composables/use-modal-focus'
 import { I18N_INJECTION_KEY } from '../providers/i18n'
 import { mountThemed, waitFor } from './visual-harness'
 
@@ -464,6 +465,45 @@ it('skips hidden controls when moving focus into the modal', async () => {
     )
     await waitFor(() => document.activeElement?.id === 'visible-action')
     expect(document.activeElement?.id).toBe('visible-action')
+})
+
+it('focuses editable content when it is the only focusable element', async () => {
+    await modal(h('div', { id: 'editor', contenteditable: 'true' }, 'Edit me'), {
+        closable: false,
+    })
+    await waitFor(() => document.activeElement?.id === 'editor')
+    expect(document.activeElement?.id).toBe('editor')
+})
+
+it('skips controls disabled by an ancestor fieldset', async () => {
+    await modal(
+        h('div', [
+            h('fieldset', { disabled: true }, [h('button', { id: 'disabled-action' }, 'Nope')]),
+            h('button', { id: 'enabled-action' }, 'Enabled'),
+        ]),
+        { closable: false },
+    )
+    await waitFor(() => document.activeElement?.id === 'enabled-action')
+    expect(document.activeElement?.id).toBe('enabled-action')
+})
+
+it('does not retry initial focus after another modal becomes topmost', async () => {
+    const container = document.createElement('div')
+    container.tabIndex = -1
+    container.style.display = 'none'
+    document.body.append(container)
+    cleanup.push(() => container.remove())
+    let topmost = true
+    const controller = useModalFocus(ref(container), { isTopmost: () => topmost })
+
+    controller.focusInitial()
+    topmost = false
+    container.style.display = 'block'
+    await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
+    )
+
+    expect(document.activeElement).not.toBe(container)
 })
 
 it('restores focus to the previously focused element when the modal closes', async () => {

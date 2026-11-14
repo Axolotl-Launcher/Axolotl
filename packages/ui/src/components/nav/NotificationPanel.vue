@@ -4,7 +4,7 @@
         class="vue-notification-group"
         role="log"
         aria-live="polite"
-        aria-relevant="additions"
+        aria-relevant="additions text"
         :class="{
             'intercom-present': isIntercomPresent,
             'location-left': notificationLocation === 'left',

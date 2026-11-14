@@ -2,7 +2,12 @@ import type { Ref } from 'vue'
 
 /** Controls inside a modal that can receive keyboard focus, in document order. */
 export const MODAL_FOCUSABLE_SELECTOR =
-    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    'a[href], area[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), iframe, summary, audio[controls], video[controls], [contenteditable]:not([contenteditable="false"]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])'
+
+export interface ModalFocusOptions {
+    /** Returns whether this modal is the one that should own focus. */
+    isTopmost?: () => boolean
+}
 
 export interface ModalFocusController {
     /** Remembers the element that had focus before the modal opened. */
@@ -22,7 +27,10 @@ export interface ModalFocusController {
  * element, moving focus into the modal, cycling Tab within it and restoring
  * focus when the modal closes. Open and close timing stays with the modal.
  */
-export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusController {
+export function useModalFocus(
+    container: Ref<HTMLElement | null>,
+    options: ModalFocusOptions = {},
+): ModalFocusController {
     let previouslyFocused: HTMLElement | null = null
     let pendingFocusFrame: number | null = null
 
@@ -38,7 +46,7 @@ export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusCon
      * out keeps focus inside the modal instead of leaving it on the trigger.
      */
     function isFocusVisible(element: HTMLElement): boolean {
-        if (element.matches('input[type="hidden"]')) return false
+        if (element.matches('input[type="hidden"], :disabled')) return false
         if (element.closest('[hidden], [inert]')) return false
         const style = getComputedStyle(element)
         return (
@@ -64,6 +72,7 @@ export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusCon
 
     function focusInitial(attempt = 0): void {
         cancelPendingFocus()
+        if (options.isTopmost && !options.isTopmost()) return
         const focusable = getFocusableElements()
         const target = focusable[0] ?? container.value
         if (!target) return
@@ -73,6 +82,7 @@ export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusCon
         if (document.activeElement === target || attempt >= 2) return
         pendingFocusFrame = requestAnimationFrame(() => {
             pendingFocusFrame = null
+            if (options.isTopmost && !options.isTopmost()) return
             focusInitial(attempt + 1)
         })
     }

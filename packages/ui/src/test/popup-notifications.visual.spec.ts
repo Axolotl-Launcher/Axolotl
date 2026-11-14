@@ -31,7 +31,7 @@ it('announces popup notifications through a polite live region', async () => {
         const group = panel.get<HTMLElement>('.popup-notification-group').element
         expect(group.getAttribute('role')).toBe('log')
         expect(group.getAttribute('aria-live')).toBe('polite')
-        expect(group.getAttribute('aria-relevant')).toBe('additions')
+        expect(group.getAttribute('aria-relevant')).toBe('additions text')
     } finally {
         panel.unmount()
     }

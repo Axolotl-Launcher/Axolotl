@@ -487,23 +487,32 @@ it('skips controls disabled by an ancestor fieldset', async () => {
     expect(document.activeElement?.id).toBe('enabled-action')
 })
 
-it('does not retry initial focus after another modal becomes topmost', async () => {
+it('defers initial focus until this modal becomes topmost', async () => {
     const container = document.createElement('div')
     container.tabIndex = -1
-    container.style.display = 'none'
     document.body.append(container)
     cleanup.push(() => container.remove())
-    let topmost = true
+    let topmost = false
     const controller = useModalFocus(ref(container), { isTopmost: () => topmost })
 
     controller.focusInitial()
-    topmost = false
-    container.style.display = 'block'
-    await new Promise((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
-    )
-
+    await new Promise((resolve) => setTimeout(resolve, 80))
     expect(document.activeElement).not.toBe(container)
+
+    topmost = true
+    await waitFor(() => document.activeElement === container)
+})
+
+it('skips controls with a negative tabindex', async () => {
+    await modal(
+        h('div', [
+            h('button', { id: 'skip-action', tabindex: '-1' }, 'Skip'),
+            h('button', { id: 'visible-action' }, 'Visible'),
+        ]),
+        { closable: false },
+    )
+    await waitFor(() => document.activeElement?.id === 'visible-action')
+    expect(document.activeElement?.id).toBe('visible-action')
 })
 
 it('skips controls inside an aria-hidden subtree', async () => {

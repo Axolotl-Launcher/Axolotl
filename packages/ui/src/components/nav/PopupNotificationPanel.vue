@@ -2,7 +2,7 @@
     <div
         class="popup-notification-group"
         role="log"
-        :aria-live="notifications.some((item) => item.type === 'error') ? 'assertive' : 'polite'"
+        aria-live="polite"
         aria-relevant="additions text"
         :class="{
             'has-sidebar': hasSidebar,
@@ -15,6 +15,7 @@
                 v-for="item in notifications"
                 :key="item.id"
                 class="popup-notification-wrapper"
+                :aria-live="item.type === 'error' ? 'off' : undefined"
                 @mouseenter="stopTimer(item)"
                 @mouseleave="setNotificationTimer(item)"
             >
@@ -206,6 +207,9 @@
             </div>
         </transition-group>
     </div>
+    <div class="sr-only" role="alert" aria-live="assertive" aria-atomic="true">
+        {{ latestErrorAnnouncement }}
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -249,6 +253,10 @@ const notifications = computed<PopupNotification[]>(() =>
         .filter((notification) => !notification.collapsed)
         .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
 )
+const latestErrorAnnouncement = computed(() => {
+    const error = notifications.value.find((item) => item.type === 'error')
+    return error ? [error.title, error.text].filter(Boolean).join('. ') : ''
+})
 const { stackCount } = useModalStack()
 const hasModalActive = computed(() => stackCount.value > 0)
 const notificationGroupStyle = computed(() => ({

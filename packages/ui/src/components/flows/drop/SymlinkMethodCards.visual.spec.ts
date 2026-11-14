@@ -24,9 +24,13 @@ vi.mock('#ui/providers', async () => ({
 }))
 vi.mock('#ui/components/modal/NewModal.vue', () => ({
     default: defineComponent({
-        setup: (_, { slots, expose }) => {
+        setup: (_, { slots, expose, attrs }) => {
             expose({ show: vi.fn(), hide: vi.fn() })
-            return () => h('section', [slots.default?.(), slots.actions?.()])
+            return () =>
+                h('section', { 'aria-label': attrs['aria-label'] }, [
+                    slots.default?.(),
+                    slots.actions?.(),
+                ])
         },
     }),
 }))
@@ -75,6 +79,7 @@ it('confirms copying with the detected versions without offering or requiring an
             stubs: { Combobox: true, Chips: true, StyledInput: true },
         },
     })
+    expect(wrapper.get('section').attributes('aria-label')).toBe('Import instances')
     try {
         const path = 'D:\\Minecraft\\.minecraft\\versions\\1.21.1'
         wrapper.vm.show({ instances: [{ name: '1.21.1', path, launcherType: 'Generic' }] })

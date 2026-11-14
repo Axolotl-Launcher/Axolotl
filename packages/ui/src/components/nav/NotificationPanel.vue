@@ -3,7 +3,7 @@
         ref="groupEl"
         class="vue-notification-group"
         role="log"
-        :aria-live="notifications.some((item) => item.type === 'error') ? 'assertive' : 'polite'"
+        aria-live="polite"
         aria-relevant="additions text"
         :class="{
             'intercom-present': isIntercomPresent,
@@ -17,6 +17,7 @@
                 v-for="(item, index) in notifications"
                 :key="item.id"
                 class="vue-notification-wrapper"
+                :aria-live="item.type === 'error' ? 'off' : undefined"
                 @mouseenter="stopTimer(item)"
                 @mouseleave="setNotificationTimer(item)"
             >
@@ -120,6 +121,9 @@
             </div>
         </transition-group>
     </div>
+    <div class="sr-only" role="alert" aria-live="assertive" aria-atomic="true">
+        {{ latestErrorAnnouncement }}
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -160,6 +164,10 @@ const notifications = computed<WebNotification[]>(() =>
         .filter((notification) => !notification.collapsed)
         .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
 )
+const latestErrorAnnouncement = computed(() => {
+    const error = notifications.value.find((item) => item.type === 'error')
+    return error ? createNotifText(error) : ''
+})
 const notificationLocation = computed(() => notificationManager.getNotificationLocation())
 const groupEl = ref<HTMLElement | null>(null)
 

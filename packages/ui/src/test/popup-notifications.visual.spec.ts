@@ -37,7 +37,9 @@ it('announces error popup notifications assertively', async () => {
 
     try {
         const group = panel.get<HTMLElement>('.popup-notification-group').element
-        expect(group.getAttribute('aria-live')).toBe('assertive')
+        expect(group.getAttribute('aria-live')).toBe('polite')
+        expect(panel.get('[role="alert"]').attributes('aria-live')).toBe('assertive')
+        expect(panel.get('[role="alert"]').text()).toContain('Import failed')
     } finally {
         panel.unmount()
     }

@@ -33,11 +33,30 @@ export function useModalFocus(
 ): ModalFocusController {
     let previouslyFocused: HTMLElement | null = null
     let pendingFocusFrame: number | null = null
+    let pendingTopmostTimer: ReturnType<typeof setTimeout> | null = null
 
     function cancelPendingFocus(): void {
-        if (pendingFocusFrame === null) return
-        cancelAnimationFrame(pendingFocusFrame)
-        pendingFocusFrame = null
+        if (pendingFocusFrame !== null) {
+            cancelAnimationFrame(pendingFocusFrame)
+            pendingFocusFrame = null
+        }
+        if (pendingTopmostTimer !== null) {
+            clearTimeout(pendingTopmostTimer)
+            pendingTopmostTimer = null
+        }
+    }
+
+    function focusWhenTopmost(): void {
+        if (pendingTopmostTimer !== null) return
+        pendingTopmostTimer = setTimeout(() => {
+            pendingTopmostTimer = null
+            if (!container.value?.isConnected) return
+            if (options.isTopmost && !options.isTopmost()) {
+                focusWhenTopmost()
+                return
+            }
+            focusInitial()
+        }, 50)
     }
 
     /**
@@ -47,6 +66,7 @@ export function useModalFocus(
      */
     function isFocusVisible(element: HTMLElement): boolean {
         if (element.matches('input[type="hidden"], :disabled')) return false
+        if (element.getAttribute('tabindex') === '-1') return false
         if (element.closest('[hidden], [inert], [aria-hidden="true"]')) return false
         const style = getComputedStyle(element)
         return (
@@ -72,7 +92,10 @@ export function useModalFocus(
 
     function focusInitial(attempt = 0): void {
         cancelPendingFocus()
-        if (options.isTopmost && !options.isTopmost()) return
+        if (options.isTopmost && !options.isTopmost()) {
+            focusWhenTopmost()
+            return
+        }
         const focusable = getFocusableElements()
         const target = focusable[0] ?? container.value
         if (!target) return
@@ -82,7 +105,10 @@ export function useModalFocus(
         if (document.activeElement === target || attempt >= 2) return
         pendingFocusFrame = requestAnimationFrame(() => {
             pendingFocusFrame = null
-            if (options.isTopmost && !options.isTopmost()) return
+            if (options.isTopmost && !options.isTopmost()) {
+                focusWhenTopmost()
+                return
+            }
             focusInitial(attempt + 1)
         })
     }

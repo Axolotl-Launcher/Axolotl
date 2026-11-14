@@ -451,13 +451,13 @@ watch(
                     <StyledInput
                         id="pre-launch"
                         :model-value="settings.hooks.pre_launch ?? ''"
-                        @update:model-value="
-                            (value) => (settings.hooks.pre_launch = String(value ?? ''))
-                        "
                         autocomplete="off"
                         type="text"
                         :placeholder="formatMessage(messages.preLaunchPlaceholder)"
                         wrapper-class="w-full"
+                        @update:model-value="
+                            (value) => (settings.hooks.pre_launch = String(value ?? ''))
+                        "
                     />
                 </template>
             </SettingsRow>
@@ -468,13 +468,13 @@ watch(
                     <StyledInput
                         id="wrapper"
                         :model-value="settings.hooks.wrapper ?? ''"
-                        @update:model-value="
-                            (value) => (settings.hooks.wrapper = String(value ?? ''))
-                        "
                         autocomplete="off"
                         type="text"
                         :placeholder="formatMessage(messages.wrapperPlaceholder)"
                         wrapper-class="w-full"
+                        @update:model-value="
+                            (value) => (settings.hooks.wrapper = String(value ?? ''))
+                        "
                     />
                 </template>
             </SettingsRow>
@@ -485,13 +485,13 @@ watch(
                     <StyledInput
                         id="post-exit"
                         :model-value="settings.hooks.post_exit ?? ''"
-                        @update:model-value="
-                            (value) => (settings.hooks.post_exit = String(value ?? ''))
-                        "
                         autocomplete="off"
                         type="text"
                         :placeholder="formatMessage(messages.postExitPlaceholder)"
                         wrapper-class="w-full"
+                        @update:model-value="
+                            (value) => (settings.hooks.post_exit = String(value ?? ''))
+                        "
                     />
                 </template>
             </SettingsRow>

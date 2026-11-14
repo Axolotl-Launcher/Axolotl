@@ -58,6 +58,10 @@ allow('runtime-set', [
         'packages/ui/src/components/project/card/ProjectCard.vue :style `--_project-color`',
     ],
     [
+        'badge-width',
+        'apps/app-frontend/src/components/home/HomeGameDirectoryBadge.vue :style `--badge-width` measured from the directory badge width',
+    ],
+    [
         'biome-color',
         'apps/app-frontend/src/components/lab/seed-map/SeedMapBiomePicker.vue :style `--biome-color`',
     ],
@@ -123,6 +127,10 @@ allow('runtime-set', [
     [
         'home-widget-bg-opacity',
         'apps/app-frontend/src/store/theme.ts setProperty `--home-widget-bg-opacity`',
+    ],
+    [
+        'home-widget-bg-alpha',
+        'apps/app-frontend/src/store/theme.ts setProperty `--home-widget-bg-alpha`',
     ],
     [
         'minecraft-text-color',

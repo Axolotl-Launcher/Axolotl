@@ -7,7 +7,7 @@
   },
   "app": {
     "security": {
-      "capabilities": ["core", "plugins", "updater"]
+      "capabilities": ["core", "plugins", "updater", "app", "theme-pages"]
     }
   },
   "plugins": {

@@ -614,6 +614,8 @@ async fn scan_with_directories_progress(
             ("icons", StorageNodeType::Icons, 0),
             ("instance-shortcut-icons", StorageNodeType::Icons, 0),
             ("backgrounds", StorageNodeType::LauncherData, 1),
+            ("themes", StorageNodeType::LauncherData, 1),
+            ("theme-pack-data", StorageNodeType::LauncherData, 1),
             ("app-window-state.json", StorageNodeType::LauncherData, 0),
             ("instance_groups.json", StorageNodeType::LauncherData, 0),
             (

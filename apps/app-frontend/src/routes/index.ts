@@ -18,6 +18,7 @@ import { instanceRoutes } from './instance'
 import { labRoutes } from './lab'
 import { libraryRoutes } from './library'
 import { multiplayerRoutes } from './multiplayer'
+import { themePackRoutes } from './theme-pack'
 import { utilityRoutes } from './utility'
 
 /**
@@ -34,6 +35,7 @@ const router = createRouter({
         ...labRoutes,
         ...libraryRoutes,
         ...instanceRoutes,
+        ...themePackRoutes,
     ],
     linkActiveClass: 'router-link-active',
     linkExactActiveClass: 'router-link-exact-active',

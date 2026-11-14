@@ -146,9 +146,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "Maaaring makasisira sa pagkakatugma sa pagsasali ng server ang pagdaragdag ng kontento. Ang anumang kontento ay mawawala sa pag-update ng kontento ng instansiyang pang-server."
   },
-  "app.browse.server.installing": {
-    "message": "Ini-install"
-  },
   "app.export-modal.export-button": {
     "message": "Iluwas"
   },
@@ -307,69 +304,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count} online"
-  },
-  "friends.action.add-friend": {
-    "message": "Magdagdag ng kaibigan"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count, plural, one {{count}} other {{count} na}} hiling na makipagkaibigan"
-  },
-  "friends.add-friend.submit": {
-    "message": "Magpadala ng hiling na makipagkaibigan"
-  },
-  "friends.add-friend.title": {
-    "message": "Pagdaragdag ng kaibigan"
-  },
-  "friends.add-friend.username.description": {
-    "message": "Maaaraing hindi pareho sa kanilang pangalan sa Minecraft!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Ilagay ang username sa Modrinth..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "Ano ang pangalan ng iyong kaibigan sa Modrinth?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Magdagdag ng mga kaibigan</link> upang makita ang kanilang nilalaro!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Kanselahin ang hiling"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Tanggalin ang kaibing"
-  },
-  "friends.friend.request-sent": {
-    "message": "Ipinadala na ang hiling na makipagkaibigan"
-  },
-  "friends.friend.view-profile": {
-    "message": "Tingnan ang profile"
-  },
-  "friends.heading": {
-    "message": "Mga kaibigan"
-  },
-  "friends.heading.active": {
-    "message": "Aktibo"
-  },
-  "friends.heading.offline": {
-    "message": "Offline"
-  },
-  "friends.heading.online": {
-    "message": "Online"
-  },
-  "friends.heading.pending": {
-    "message": "Nakabinbin"
-  },
-  "friends.no-friends-match": {
-    "message": "Walang kaibigang tumugma sa \"{query}\""
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Hanapin ang mga kaibigan..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Mag-sign in sa Modrinth account</link> upang maidagdag ang mga kaibigan at malaman ang kanilang nilalaro!"
   },
   "instance.add-server.add-and-play": {
     "message": "Idagdag at laruin"

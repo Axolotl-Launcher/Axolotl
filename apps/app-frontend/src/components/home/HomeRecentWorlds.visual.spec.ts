@@ -24,6 +24,7 @@ vi.mock('@/components/home/home-dashboard-runtime', async () => {
         useHomeDashboardRuntime: () => ({
             gameVersions: ref([]),
             recentWorlds: ref([world('first', 'First'), world('second', 'Second')]),
+            recentWorldsLoaded: ref(true),
             runningInstanceIds: ref([]),
             getServerData: () => undefined,
             getProtocolVersion: () => null,
@@ -33,25 +34,11 @@ vi.mock('@/components/home/home-dashboard-runtime', async () => {
     }
 })
 
-vi.mock('@/components/ui/world/WorldItem.vue', async () => {
-    const { defineComponent, h } = await import('vue')
-    return {
-        default: defineComponent({
-            props: { world: { type: Object, required: true } },
-            setup: (props) => () =>
-                h(
-                    'div',
-                    { 'data-world-item': (props.world as { name: string }).name },
-                    (props.world as { name: string }).name,
-                ),
-        }),
-    }
-})
-
-vi.mock('@/components/ui/world/InstanceItem.vue', async () => {
-    const { defineComponent, h } = await import('vue')
-    return { default: defineComponent({ setup: () => () => h('div') }) }
-})
+vi.mock('@/components/ui/InstanceIcon.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/components/home/HomeRowMenu.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/components/home/home-row-menu', () => ({
+    useHomeRowMenu: () => ({ instanceMenu: () => [], worldMenu: () => [] }),
+}))
 
 vi.mock('@/helpers/worlds', () => ({
     getWorldIdentifier: (world: { name: string }) => world.name,
@@ -64,21 +51,40 @@ vi.mock('@/helpers/instance', () => ({ kill: vi.fn(), run: vi.fn() }))
 vi.mock('@/helpers/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('@/composables/useMinecraftLaunchError', () => ({ useMinecraftLaunchError: () => vi.fn() }))
 vi.mock('@/store/error', () => ({ handleSevereError: vi.fn() }))
-vi.mock('@modrinth/ui', () => ({
-    GAME_MODES: { survival: 'Survival' },
-    defineMessages: (messages: unknown) => messages,
-    injectNotificationManager: () => ({ handleError: vi.fn() }),
-    useVIntl: () => ({
-        formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
-    }),
-}))
+vi.mock('@modrinth/ui', async () => {
+    const { defineComponent, h } = await import('vue')
+    const passthrough = defineComponent({
+        setup:
+            (_, { slots }) =>
+            () =>
+                h('div', slots.default?.()),
+    })
+    return {
+        Avatar: passthrough,
+        ButtonLink: passthrough,
+        OverflowMenu: passthrough,
+        PopoutMenu: passthrough,
+        GAME_MODES: { survival: 'Survival' },
+        commonMessages: {
+            playButton: { defaultMessage: 'Play' },
+            stopButton: { defaultMessage: 'Stop' },
+        },
+        defineMessages: (messages: unknown) => messages,
+        formatLoaderLabel: (loader: string) => loader,
+        injectNotificationManager: () => ({ handleError: vi.fn() }),
+        useRelativeTime: () => () => 'recently',
+        useVIntl: () => ({
+            formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+        }),
+    }
+})
 
 const instances = [
     { id: 'first', name: 'First', last_played: '2026-01-02T00:00:00.000Z' },
     { id: 'second', name: 'Second', last_played: '2026-01-02T00:00:00.000Z' },
 ]
 
-async function listStyle(size: '2x1' | '2x2' | '3x1') {
+async function mountList(size: '2x1' | '2x2' | '3x1') {
     const wrapper = await mountThemed(
         HomeRecentWorlds,
         {
@@ -90,24 +96,28 @@ async function listStyle(size: '2x1' | '2x2' | '3x1') {
     )
 
     const list = wrapper.find<HTMLElement>('.home-recent-list')
-    const style = getComputedStyle(list.element)
-    const computed = { display: style.display, columns: style.gridTemplateColumns }
+    const result = {
+        display: getComputedStyle(list.element).display,
+        variant: list.attributes('data-variant'),
+        text: list.text(),
+    }
     wrapper.unmount()
-    return computed
+    return result
 }
 
-it('shows two recent worlds per row in narrow widgets', async () => {
-    for (const size of ['2x1', '2x2'] as const) {
-        const style = await listStyle(size)
-        expect(style.display, `${size} should use a grid`).toBe('grid')
-        expect(
-            style.columns.split(' ').filter(Boolean),
-            `${size} should use two columns`,
-        ).toHaveLength(2)
+// The list is a grid at every size, so worlds sit side by side whenever the
+// widget is wide enough; the column count follows the measured width.
+it('lays recent worlds out in a grid at every dashboard size', async () => {
+    for (const size of ['2x1', '2x2', '3x1'] as const) {
+        const list = await mountList(size)
+        expect(list.display, `${size} should use a grid`).toBe('grid')
+        expect(list.text, `${size} should list both worlds`).toContain('First')
+        expect(list.text, `${size} should list both worlds`).toContain('Second')
     }
 })
 
-it('keeps one recent world per row in wider widgets', async () => {
-    const style = await listStyle('3x1')
-    expect(style.display).toBe('flex')
+it('uses tiles in the tall widget and low cards in the one-row widgets', async () => {
+    expect((await mountList('2x2')).variant).toBe('tile')
+    expect((await mountList('2x1')).variant).toBe('card')
+    expect((await mountList('3x1')).variant).toBe('card')
 })

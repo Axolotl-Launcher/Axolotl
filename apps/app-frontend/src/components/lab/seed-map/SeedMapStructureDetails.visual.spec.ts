@@ -623,8 +623,13 @@ it('shows camera-relative positive axes and toggles depth-independent chest high
     expect(wrapper.get('[data-testid="seed-map-chest-loot-preview"]').text()).toContain('3')
     const axis = wrapper.get('[data-testid="seed-map-axis-indicator"]')
     expect(axis.attributes('aria-label')).toContain('+X east')
-    for (const name of ['X', 'Y', 'Z'])
-        expect(axis.find(`[data-testid="seed-map-axis-${name}"]`).exists()).toBe(true)
+    await vi.waitFor(
+        () => {
+            for (const name of ['X', 'Y', 'Z'])
+                expect(axis.find(`[data-testid="seed-map-axis-${name}"]`).exists()).toBe(true)
+        },
+        { timeout: 10000 },
+    )
     expect(wrapper.get('[data-testid="seed-map-chest-xray"]').text()).toContain('(1)')
     expect(wrapper.text()).toContain('2 containers have no known Y coordinates')
     const gl = canvas.getContext('webgl2')!

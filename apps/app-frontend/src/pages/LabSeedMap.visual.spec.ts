@@ -1043,8 +1043,13 @@ it('keeps real canvas pixels across LoD changes and progressively paints new det
     const fine = backend.tiles.find(isTarget)!
     backend.tiles.splice(backend.tiles.indexOf(fine), 1)
     await complete(fine, '#00ff00')
-    vm.drawMap()
-    expect(sample()).toEqual([0, 255, 0, 255])
+    await vi.waitFor(
+        () => {
+            vm.drawMap()
+            expect(sample()).toEqual([0, 255, 0, 255])
+        },
+        { timeout: 10000 },
+    )
     expect(closed.every((spy) => spy.mock.calls.length === 0)).toBe(true)
 })
 

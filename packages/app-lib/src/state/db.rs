@@ -301,13 +301,15 @@ async fn resolve_update_channel(
 ///
 /// Serialized to `update-channel.json` inside the settings directory (see
 /// [`update_channel_state_file_path`]). A missing file, or a file without an
-/// `active_channel` value, means the user has not chosen a channel yet; see
-/// [`default_update_channel`].
+/// `active_channel` value, means the initial channel has not been persisted
+/// yet. Startup pins it so a new build cannot silently select another database.
 #[derive(Default, Deserialize, Serialize)]
 pub struct UpdateChannelState {
     pub active_channel: Option<String>,
     pub immediate_update_fetch: Option<bool>,
     pub updates_paused: Option<bool>,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Path of the update channel state file inside the settings directory.
@@ -342,18 +344,14 @@ pub async fn read_update_channel_state(
 ///
 /// Returns `None` when the user has not made a choice yet: either the
 /// `update-channel.json` file is missing, or it carries no `active_channel`
-/// value. This lets fresh installs fall back to the channel of the current
-/// build (see [`default_update_channel`]) instead of always defaulting to the
-/// Release channel. Unreadable or malformed state files are treated as "no
-/// choice" here to keep startup resilient; strict callers can use
-/// [`read_update_channel_state`] directly.
+/// value. Startup persists the initial choice before opening the database.
+/// Unreadable or malformed state must not silently select another database.
 async fn read_explicit_update_channel(
     settings_dir: &Path,
 ) -> crate::Result<Option<&'static str>> {
     let Some(channel) = read_update_channel_state(settings_dir)
-        .await
-        .ok()
-        .and_then(|state| state.active_channel)
+        .await?
+        .active_channel
     else {
         return Ok(None);
     };
@@ -395,37 +393,19 @@ pub fn default_update_channel() -> &'static str {
     default_update_channel_for(env!("CARGO_PKG_VERSION"))
 }
 
-/// When the user has not explicitly chosen an update channel, keeps an
-/// existing app database aligned with the update channel of the current
-/// build.
-///
-/// Fresh pre-release builds previously fell back to the Release channel and
-/// created their database under `<settings>/release/app.db`. If such a
-/// database exists while the build's own default channel has none, move it
-/// over so the database follows the build instead of silently starting over
-/// with an empty database in the default channel's directory.
-///
-/// The `-wal` and `-shm` sidecars are moved before the main database, making
-/// the main database rename the commit point of the migration. Because a
-/// crashed attempt leaves those sidecars in the target directory without the
-/// main database - a shape that cannot be told apart from foreign leftover
-/// files by name alone - the migration first records which channel it is
-/// moving from in a marker file inside the target directory. The marker lets
-/// a later startup resume an interrupted migration, while target sidecars
-/// without a matching marker are treated as foreign and stop the migration
-/// before databases of different lineages could be mixed. Nothing is ever
-/// deleted or overwritten except the marker file, which this logic owns.
+/// Pin the initial database channel instead of deriving it again after every
+/// program update. An explicit channel change still selects the other database.
 async fn reconcile_default_channel_database(
     settings_dir: &Path,
 ) -> crate::Result<()> {
-    if read_explicit_update_channel(settings_dir).await?.is_some() {
-        return Ok(());
-    }
+    initialize_update_channel(settings_dir, default_update_channel()).await
+}
 
-    // Serialize first-run migrations across processes. The OS releases the
-    // lock automatically if we crash mid-migration, and a waiter re-runs the
-    // whole state machine below once it acquires the lock, so an interrupted
-    // attempt by another process is absorbed the same way a crashed one is.
+async fn initialize_update_channel(
+    settings_dir: &Path,
+    build_channel: &str,
+) -> crate::Result<()> {
+    // Serialize first-run initialization and recovery across processes.
     let lock_path = settings_dir.join(CHANNEL_RECONCILE_LOCK_FILE);
     crate::util::io::create_dir_all(settings_dir).await?;
     let lock_file = tokio::fs::OpenOptions::new()
@@ -441,146 +421,135 @@ async fn reconcile_default_channel_database(
         ))
     })?;
 
-    let channel = default_update_channel();
+    if read_explicit_update_channel(settings_dir).await?.is_some() {
+        return Ok(());
+    }
+    let mut state = read_update_channel_state(settings_dir).await?;
+
+    // A replacement can temporarily archive the main file. Recover both
+    // channels before deciding that only one database exists.
+    for channel in ["release", "beta"] {
+        let database = settings_dir.join(channel).join(LEGACY_APP_DB_FILE);
+        if tokio::fs::try_exists(files::sidecar(&database, ".replacement.json"))
+            .await?
+        {
+            let _ownership = files::Ownership::acquire(&database).await?;
+            files::recover(&database).await?;
+        }
+    }
+
+    // Older builds could crash after moving WAL/SHM but before moving the
+    // database. Complete only those recorded moves; never initiate a new one.
+    for channel in ["release", "beta"] {
+        let marker = settings_dir
+            .join(channel)
+            .join(CHANNEL_RECONCILE_MARKER_FILE);
+        if tokio::fs::try_exists(&marker).await? {
+            resume_channel_database_reconciliation(settings_dir, channel)
+                .await?;
+        }
+    }
+
+    let release_exists = tokio::fs::try_exists(
+        settings_dir.join("release").join(LEGACY_APP_DB_FILE),
+    )
+    .await?;
+    let beta_exists = tokio::fs::try_exists(
+        settings_dir.join("beta").join(LEGACY_APP_DB_FILE),
+    )
+    .await?;
+    let channel = match (release_exists, beta_exists) {
+        (true, false) => "release",
+        (false, true) => "beta",
+        // Without an earlier persisted choice, two databases do not reveal
+        // which one the user last used. Never guess from modification times.
+        _ => build_channel,
+    };
+    state.active_channel = Some(channel.to_string());
+    let temporary = settings_dir
+        .join(format!("update-channel.{}.tmp", uuid::Uuid::new_v4()));
+    tokio::fs::write(&temporary, serde_json::to_vec(&state)?).await?;
+    if let Err(error) = tokio::fs::rename(
+        &temporary,
+        update_channel_state_file_path(settings_dir),
+    )
+    .await
+    {
+        let _ = tokio::fs::remove_file(&temporary).await;
+        return Err(error.into());
+    }
+    Ok(())
+}
+
+/// Finish an interrupted move recorded by a pre-existing reconciliation marker.
+async fn resume_channel_database_reconciliation(
+    settings_dir: &Path,
+    channel: &str,
+) -> crate::Result<()> {
     let other_channel = if channel == "release" {
         "beta"
     } else {
         "release"
     };
-
     let source = settings_dir.join(other_channel).join(LEGACY_APP_DB_FILE);
     let target_dir = settings_dir.join(channel);
     let target = target_dir.join(LEGACY_APP_DB_FILE);
     let marker = target_dir.join(CHANNEL_RECONCILE_MARKER_FILE);
 
-    if files::sidecar(&target, ".replacement.json").try_exists()? {
-        let _ownership = files::Ownership::acquire(&target).await?;
-        files::recover(&target).await?;
+    if tokio::fs::read_to_string(&marker).await? != other_channel {
+        return Err(crate::ErrorKind::FSError(format!(
+            "Invalid channel reconciliation marker {}",
+            marker.display()
+        ))
+        .into());
     }
-    if target.try_exists()? {
-        // A migration that completed but crashed before removing its marker
-        // leaves both the marker and an empty source directory behind.
-        if !source.try_exists()?
-            && matches!(
-                marker_matches(&marker, other_channel).await,
-                MarkerState::Matches
-            )
-        {
-            remove_reconcile_marker(&marker).await;
-        }
-        return Ok(());
-    }
-    if !source.try_exists()? {
-        return Ok(());
-    }
-
     let _source_ownership = files::Ownership::acquire(&source).await?;
     let _target_ownership = files::Ownership::acquire(&target).await?;
-    crate::util::io::create_dir_all(&target_dir).await?;
-
-    match marker_matches(&marker, other_channel).await {
-        MarkerState::Missing => {
-            // Without a marker there is no way to claim a target sidecar as
-            // ours; it could belong to a different database of the same name,
-            // so refuse to move the main database next to it.
-            for suffix in ["-wal", "-shm"] {
-                if sidecar_path(&target, suffix).try_exists()? {
-                    tracing::warn!(
-                        source = %source.display(),
-                        destination = %target.display(),
-                        "Channel reconciliation aborted: the target channel \
-                         contains an unowned {suffix} file; the existing \
-                         database was left in place"
-                    );
-                    return Ok(());
-                }
-            }
-            write_reconcile_marker(&marker, other_channel).await?;
+    files::recover(&target).await?;
+    if tokio::fs::try_exists(&target).await? {
+        if tokio::fs::try_exists(&source).await? {
+            return Err(crate::ErrorKind::FSError(
+                "Both databases exist during channel reconciliation".into(),
+            )
+            .into());
         }
-        MarkerState::Mismatched => {
-            tracing::warn!(
-                marker = %marker.display(),
-                expected = other_channel,
-                "Channel reconciliation aborted: the target channel contains \
-                 a reconciliation marker from another migration; the existing \
-                 database was left in place"
-            );
-            return Ok(());
-        }
-        MarkerState::Matches => {}
-    }
-
-    let mut conflict = false;
-    for suffix in ["-wal", "-shm"] {
-        let source_sidecar = sidecar_path(&source, suffix);
-        if !source_sidecar.try_exists()? {
-            // Already moved by an interrupted attempt, or never existed.
-            continue;
-        }
-        let target_sidecar = sidecar_path(&target, suffix);
-        if target_sidecar.try_exists()? {
-            tracing::warn!(
-                source = %source_sidecar.display(),
-                destination = %target_sidecar.display(),
-                "Channel reconciliation aborted: both channels have a \
-                 {suffix} file; leaving the existing database in place"
-            );
-            conflict = true;
-            continue;
-        }
-        tokio::fs::rename(&source_sidecar, &target_sidecar).await?;
-    }
-    if conflict {
+        tokio::fs::remove_file(&marker).await?;
         return Ok(());
     }
+    if !tokio::fs::try_exists(&source).await? {
+        return Err(crate::ErrorKind::FSError(
+            "The source database for channel reconciliation is missing".into(),
+        )
+        .into());
+    }
 
+    for suffix in ["-wal", "-shm"] {
+        let source_sidecar = sidecar_path(&source, suffix);
+        let target_sidecar = sidecar_path(&target, suffix);
+        if tokio::fs::try_exists(&source_sidecar).await?
+            && tokio::fs::try_exists(&target_sidecar).await?
+        {
+            return Err(crate::ErrorKind::FSError(format!(
+                "Both channels have a {suffix} file during channel reconciliation"
+            )).into());
+        }
+    }
+    for suffix in ["-wal", "-shm"] {
+        let source_sidecar = sidecar_path(&source, suffix);
+        if tokio::fs::try_exists(&source_sidecar).await? {
+            tokio::fs::rename(&source_sidecar, sidecar_path(&target, suffix))
+                .await?;
+        }
+    }
     tokio::fs::rename(&source, &target).await?;
-    remove_reconcile_marker(&marker).await;
+    tokio::fs::remove_file(&marker).await?;
     tracing::info!(
         source = %source.display(),
         destination = %target.display(),
         channel,
-        "Moved the existing app database into the default update channel"
+        "Completed the interrupted channel database move"
     );
     Ok(())
-}
-
-enum MarkerState {
-    Missing,
-    Mismatched,
-    Matches,
-}
-
-async fn marker_matches(marker: &Path, channel: &str) -> MarkerState {
-    match tokio::fs::read_to_string(marker).await {
-        Ok(contents) if contents == channel => MarkerState::Matches,
-        Ok(_) => MarkerState::Mismatched,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            MarkerState::Missing
-        }
-        Err(_) => MarkerState::Mismatched,
-    }
-}
-
-async fn write_reconcile_marker(
-    marker: &Path,
-    channel: &str,
-) -> crate::Result<()> {
-    let temporary_path = marker.with_extension("tmp");
-    tokio::fs::write(&temporary_path, channel).await?;
-    tokio::fs::rename(&temporary_path, marker).await?;
-    Ok(())
-}
-
-async fn remove_reconcile_marker(marker: &Path) {
-    if let Err(error) = tokio::fs::remove_file(marker).await
-        && error.kind() != std::io::ErrorKind::NotFound
-    {
-        tracing::warn!(
-            path = %marker.display(),
-            "Failed to remove channel reconciliation marker: {error}"
-        );
-    }
 }
 
 async fn migrate_legacy_release_database(

@@ -145,6 +145,12 @@ vi.mock('@modrinth/ui', async () => {
         defineMessage: (message: unknown) => message,
         injectNotificationManager: () => ({ handleError: vi.fn() }),
         useFormatBytes: () => (value: number) => String(value),
+        useFormatDateTime: (options?: Intl.DateTimeFormatOptions) => {
+            return (date: Date | number | string) =>
+                new Intl.DateTimeFormat(fixture.locale, options).format(
+                    date instanceof Date ? date : new Date(date),
+                )
+        },
         useVIntl: () => ({
             formatMessage: (
                 message: { id?: string; defaultMessage: string },

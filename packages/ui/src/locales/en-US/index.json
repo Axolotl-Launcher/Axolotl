@@ -173,6 +173,9 @@
   "button.close": {
     "defaultMessage": "Close"
   },
+  "button.collapse": {
+    "defaultMessage": "Collapse"
+  },
   "button.confirm": {
     "defaultMessage": "Confirm"
   },
@@ -203,6 +206,9 @@
   "button.disable": {
     "defaultMessage": "Disable"
   },
+  "button.dismiss-notification": {
+    "defaultMessage": "Dismiss notification"
+  },
   "button.download": {
     "defaultMessage": "Download"
   },
@@ -214,6 +220,9 @@
   },
   "button.enable": {
     "defaultMessage": "Enable"
+  },
+  "button.expand": {
+    "defaultMessage": "Expand"
   },
   "button.extract": {
     "defaultMessage": "Extract"
@@ -2980,6 +2989,18 @@
   },
   "multiselect.selection-actions.label": {
     "defaultMessage": "{count, number} selected"
+  },
+  "notification.error-announcement.repeated": {
+    "defaultMessage": "{title}. {text} ({count, plural, one {# occurrence} other {# occurrences}})"
+  },
+  "notification.error-announcement.text-only": {
+    "defaultMessage": "{text}"
+  },
+  "notification.error-announcement.title-only": {
+    "defaultMessage": "{title}"
+  },
+  "notification.error-announcement.title-text": {
+    "defaultMessage": "{title}. {text}"
   },
   "notification.error.title": {
     "defaultMessage": "An error occurred"

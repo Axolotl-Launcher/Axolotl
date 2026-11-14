@@ -557,6 +557,31 @@ export const commonMessages = defineMessages({
         id: 'button.switch-version',
         defaultMessage: 'Switch version',
     },
+    expandButton: {
+        id: 'button.expand',
+        defaultMessage: 'Expand',
+    },
+    collapseButton: {
+        id: 'button.collapse',
+        defaultMessage: 'Collapse',
+    },
+    notificationErrorTitleText: {
+        id: 'notification.error-announcement.title-text',
+        defaultMessage: '{title}. {text}',
+    },
+    notificationErrorTitleOnly: {
+        id: 'notification.error-announcement.title-only',
+        defaultMessage: '{title}',
+    },
+    notificationErrorTextOnly: {
+        id: 'notification.error-announcement.text-only',
+        defaultMessage: '{text}',
+    },
+    notificationErrorRepeated: {
+        id: 'notification.error-announcement.repeated',
+        defaultMessage:
+            '{title}. {text} ({count, plural, one {# occurrence} other {# occurrences}})',
+    },
     updatingLabel: {
         id: 'label.updating',
         defaultMessage: 'Updating...',

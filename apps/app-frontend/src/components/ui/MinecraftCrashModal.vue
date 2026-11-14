@@ -1349,6 +1349,7 @@ defineExpose({
 <template>
     <NewModal
         ref="modal"
+        :aria-label="title"
         :on-hide="
             () => {
                 if (resumeAfterProviderSettings) return

@@ -1,17 +1,22 @@
 import '@/test/visual-styles.scss'
 
+import { I18N_INJECTION_KEY } from '@modrinth/ui'
 import { mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { ref } from 'vue'
 
 import chinese from '@/locales/zh-CN/index.json'
 
 import { diagnosticReport, type NetworkTestResult, resultStatus } from './network-diagnostics'
 import NetworkConnectionSettings from './NetworkConnectionSettings.vue'
 
+const i18n = { locale: ref('en-US'), t: (key: string) => key, setLocale: () => {} }
 const calls = vi.hoisted(() => ({ invoke: vi.fn(), chinese: false, clipboard: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: calls.invoke }))
 vi.mock('@modrinth/ui', async () => ({
+    I18N_INJECTION_KEY: (await import('../../../../../../packages/ui/src/providers/i18n'))
+        .I18N_INJECTION_KEY,
     Button: (await import('../../../../../../packages/ui/src/components/base/buttons/Button.vue'))
         .default,
     Card: (await import('../../../../../../packages/ui/src/components/base/Card.vue')).default,
@@ -82,7 +87,10 @@ async function render(theme = 'dark', width = 900) {
         configurable: true,
         value: { writeText: calls.clipboard },
     })
-    const wrapper = mount(NetworkConnectionSettings, { attachTo: document.body })
+    const wrapper = mount(NetworkConnectionSettings, {
+        attachTo: document.body,
+        global: { provide: { [I18N_INJECTION_KEY]: i18n } },
+    })
     wrapper.element.setAttribute(
         'style',
         `width: min(${width}px, 100%); padding: 24px; box-sizing: border-box; background: var(--surface-2)`,

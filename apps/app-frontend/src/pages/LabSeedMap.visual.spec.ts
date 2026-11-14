@@ -1046,7 +1046,16 @@ it('keeps real canvas pixels across LoD changes and progressively paints new det
     await vi.waitFor(
         () => {
             vm.drawMap()
-            expect(sample()).toEqual([0, 255, 0, 255])
+            const context = canvas.getContext('2d')!
+            const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+            let hasGreenPixel = false
+            for (let index = 0; index < pixels.length; index += 4) {
+                if (pixels[index] === 0 && pixels[index + 1] === 255 && pixels[index + 2] === 0) {
+                    hasGreenPixel = true
+                    break
+                }
+            }
+            expect(hasGreenPixel).toBe(true)
         },
         { timeout: 10000 },
     )

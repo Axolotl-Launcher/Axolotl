@@ -115,7 +115,9 @@ loading_listener(async (e) => {
 .gradient-bg {
     position: absolute;
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
+    width: 100dvw;
     background:
         linear-gradient(180deg, rgba(255, 77, 157, 0.24) 0%, rgba(48, 16, 40, 0.56) 97.29%),
         linear-gradient(0deg, rgba(22, 18, 28, 0.68), rgba(22, 18, 28, 0.68));
@@ -130,9 +132,11 @@ loading_listener(async (e) => {
     transform: translate(-50%, -50%);
 
     width: 180vw;
+    width: 180dvw;
     height: 180vh;
+    height: 180dvh;
     opacity: 0.8;
-    background: var(--surface-1) url('@/assets/loading/cube.png') center no-repeat;
+    background: var(--surface-1) url('@/assets/loading/cube.webp') center no-repeat;
     background-size: contain;
 
     z-index: 9996;

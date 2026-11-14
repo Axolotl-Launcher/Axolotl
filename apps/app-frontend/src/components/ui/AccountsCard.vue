@@ -175,6 +175,7 @@
                         <div class="account-row-actions flex shrink-0 items-center">
                             <button
                                 v-tooltip="formatMessage(messages.copyUuid)"
+                                :aria-label="formatMessage(messages.copyUuid)"
                                 type="button"
                                 class="button-base border-0 bg-transparent p-1.5 cursor-pointer text-[var(--color-text-tertiary)] hover:text-brand"
                                 @click="copyAccountUuid(account)"
@@ -183,6 +184,7 @@
                             </button>
                             <button
                                 v-tooltip="formatMessage(messages.removeAccount)"
+                                :aria-label="formatMessage(messages.removeAccount)"
                                 type="button"
                                 class="button-base border-0 bg-transparent p-1.5 cursor-pointer text-[var(--color-text-tertiary)] hover:text-red"
                                 @click="logout(account)"

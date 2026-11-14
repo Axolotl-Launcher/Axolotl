@@ -2,6 +2,9 @@
     <div
         ref="groupEl"
         class="vue-notification-group"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
         :class="{
             'intercom-present': isIntercomPresent,
             'location-left': notificationLocation === 'left',
@@ -14,6 +17,7 @@
                 v-for="(item, index) in notifications"
                 :key="item.id"
                 class="vue-notification-wrapper"
+                :aria-live="item.type === 'error' ? 'off' : undefined"
                 @mouseenter="stopTimer(item)"
                 @mouseleave="setNotificationTimer(item)"
             >
@@ -117,6 +121,9 @@
             </div>
         </transition-group>
     </div>
+    <div class="sr-only" role="alert" aria-live="assertive" aria-atomic="true">
+        {{ latestErrorAnnouncement }}
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -130,12 +137,13 @@ import {
     XCircleIcon,
     XIcon,
 } from '@modrinth/assets'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useModalStack } from '#ui/composables/modal-stack.ts'
 
 import { defineMessages, useVIntl } from '../../composables/i18n'
 import { injectNotificationManager, type WebNotification } from '../../providers'
+import { commonMessages } from '../../utils/common-messages'
 import Button from '../base/buttons/Button.vue'
 
 const notificationManager = injectNotificationManager()
@@ -156,6 +164,46 @@ const notifications = computed<WebNotification[]>(() =>
     [...notificationManager.getNotifications()]
         .filter((notification) => !notification.collapsed)
         .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
+)
+const latestErrorAnnouncement = ref('')
+const seenErrorCounts = new Map<string | number, number>()
+
+function formatErrorAnnouncement(item: WebNotification): string {
+    const title = item.title?.trim() ?? ''
+    const text = item.text?.trim() ?? ''
+    const count = item.count ?? 1
+    const message =
+        count > 1
+            ? commonMessages.notificationErrorRepeated
+            : title && text
+              ? commonMessages.notificationErrorTitleText
+              : title
+                ? commonMessages.notificationErrorTitleOnly
+                : commonMessages.notificationErrorTextOnly
+    return formatMessage(message, { title, text, count })
+}
+
+watch(
+    notifications,
+    (current) => {
+        const visibleIds = new Set<string | number>()
+        for (const item of current) {
+            if (item.type !== 'error') continue
+            visibleIds.add(item.id)
+            const count = item.count ?? 1
+            if (seenErrorCounts.get(item.id) === count) continue
+            seenErrorCounts.set(item.id, count)
+            const announcement = formatErrorAnnouncement(item)
+            latestErrorAnnouncement.value = ''
+            nextTick(() => {
+                latestErrorAnnouncement.value = announcement
+            })
+        }
+        for (const id of seenErrorCounts.keys()) {
+            if (!visibleIds.has(id)) seenErrorCounts.delete(id)
+        }
+    },
+    { deep: true, immediate: true },
 )
 const notificationLocation = computed(() => notificationManager.getNotificationLocation())
 const groupEl = ref<HTMLElement | null>(null)

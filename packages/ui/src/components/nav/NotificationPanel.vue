@@ -137,12 +137,13 @@ import {
     XCircleIcon,
     XIcon,
 } from '@modrinth/assets'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useModalStack } from '#ui/composables/modal-stack.ts'
 
 import { defineMessages, useVIntl } from '../../composables/i18n'
 import { injectNotificationManager, type WebNotification } from '../../providers'
+import { commonMessages } from '../../utils/common-messages'
 import Button from '../base/buttons/Button.vue'
 
 const notificationManager = injectNotificationManager()
@@ -164,10 +165,46 @@ const notifications = computed<WebNotification[]>(() =>
         .filter((notification) => !notification.collapsed)
         .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
 )
-const latestErrorAnnouncement = computed(() => {
-    const error = notifications.value.find((item) => item.type === 'error')
-    return error ? createNotifText(error) : ''
-})
+const latestErrorAnnouncement = ref('')
+const seenErrorCounts = new Map<string | number, number>()
+
+function formatErrorAnnouncement(item: WebNotification): string {
+    const title = item.title?.trim() ?? ''
+    const text = item.text?.trim() ?? ''
+    const count = item.count ?? 1
+    const message =
+        count > 1
+            ? commonMessages.notificationErrorRepeated
+            : title && text
+              ? commonMessages.notificationErrorTitleText
+              : title
+                ? commonMessages.notificationErrorTitleOnly
+                : commonMessages.notificationErrorTextOnly
+    return formatMessage(message, { title, text, count })
+}
+
+watch(
+    notifications,
+    (current) => {
+        const visibleIds = new Set<string | number>()
+        for (const item of current) {
+            if (item.type !== 'error') continue
+            visibleIds.add(item.id)
+            const count = item.count ?? 1
+            if (seenErrorCounts.get(item.id) === count) continue
+            seenErrorCounts.set(item.id, count)
+            const announcement = formatErrorAnnouncement(item)
+            latestErrorAnnouncement.value = ''
+            nextTick(() => {
+                latestErrorAnnouncement.value = announcement
+            })
+        }
+        for (const id of seenErrorCounts.keys()) {
+            if (!visibleIds.has(id)) seenErrorCounts.delete(id)
+        }
+    },
+    { deep: true, immediate: true },
+)
 const notificationLocation = computed(() => notificationManager.getNotificationLocation())
 const groupEl = ref<HTMLElement | null>(null)
 

@@ -23,5 +23,5 @@ it('returns an empty string for missing or invalid dates', async () => {
     cleanup.push(() => wrapper.unmount())
 
     expect(results.slice(0, 3)).toEqual(['', '', ''])
-    expect(results[3]).toBe('Jan 1, 1970')
+    expect(results[3]).toBe(new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(0))
 })

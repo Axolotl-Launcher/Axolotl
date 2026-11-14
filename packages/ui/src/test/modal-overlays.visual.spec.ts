@@ -515,6 +515,28 @@ it('skips controls with a negative tabindex', async () => {
     expect(document.activeElement?.id).toBe('visible-action')
 })
 
+it('does not restore focus to a lower dialog while another dialog is topmost', () => {
+    const trigger = document.createElement('button')
+    trigger.textContent = 'Open modal'
+    document.body.append(trigger)
+    cleanup.push(() => trigger.remove())
+    trigger.focus()
+    const container = document.createElement('div')
+    document.body.append(container)
+    cleanup.push(() => container.remove())
+    const controller = useModalFocus(ref(container), { isTopmost: () => false })
+    const topmostControl = document.createElement('button')
+    topmostControl.textContent = 'Top dialog control'
+    document.body.append(topmostControl)
+    cleanup.push(() => topmostControl.remove())
+
+    controller.captureFocus()
+    topmostControl.focus()
+    controller.restoreFocus()
+
+    expect(document.activeElement).toBe(topmostControl)
+})
+
 it('skips controls inside an aria-hidden subtree', async () => {
     await modal(
         h('div', [

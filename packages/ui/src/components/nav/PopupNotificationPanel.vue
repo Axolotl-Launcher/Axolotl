@@ -222,7 +222,7 @@ import {
     XCircleIcon,
     XIcon,
 } from '@modrinth/assets'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import { defineMessages, useVIntl } from '../../composables/i18n'
 import { useModalStack } from '../../composables/modal-stack'
@@ -232,6 +232,7 @@ import {
     type PopupNotificationButton,
     type PopupNotificationProgressItem,
 } from '../../providers'
+import { commonMessages } from '../../utils/common-messages'
 import Button from '../base/buttons/Button.vue'
 import ProgressBar from '../base/ProgressBar.vue'
 import NotificationToast from '../notifications/NotificationToast.vue'
@@ -253,10 +254,42 @@ const notifications = computed<PopupNotification[]>(() =>
         .filter((notification) => !notification.collapsed)
         .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
 )
-const latestErrorAnnouncement = computed(() => {
-    const error = notifications.value.find((item) => item.type === 'error')
-    return error ? [error.title, error.text].filter(Boolean).join('. ') : ''
-})
+const latestErrorAnnouncement = ref('')
+const seenErrorIds = new Set<string | number>()
+
+function formatErrorAnnouncement(item: PopupNotification): string {
+    const title = item.title?.trim() ?? ''
+    const text = item.text?.trim() ?? ''
+    const message =
+        title && text
+            ? commonMessages.notificationErrorTitleText
+            : title
+              ? commonMessages.notificationErrorTitleOnly
+              : commonMessages.notificationErrorTextOnly
+    return formatMessage(message, { title, text })
+}
+
+watch(
+    notifications,
+    (current) => {
+        const visibleIds = new Set<string | number>()
+        for (const item of current) {
+            if (item.type !== 'error') continue
+            visibleIds.add(item.id)
+            if (seenErrorIds.has(item.id)) continue
+            seenErrorIds.add(item.id)
+            const announcement = formatErrorAnnouncement(item)
+            latestErrorAnnouncement.value = ''
+            nextTick(() => {
+                latestErrorAnnouncement.value = announcement
+            })
+        }
+        for (const id of seenErrorIds) {
+            if (!visibleIds.has(id)) seenErrorIds.delete(id)
+        }
+    },
+    { deep: true, immediate: true },
+)
 const { stackCount } = useModalStack()
 const hasModalActive = computed(() => stackCount.value > 0)
 const notificationGroupStyle = computed(() => ({

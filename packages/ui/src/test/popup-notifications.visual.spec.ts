@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
 import PopupNotificationPanel from '../components/nav/PopupNotificationPanel.vue'
@@ -39,7 +39,9 @@ it('announces error popup notifications assertively', async () => {
         const group = panel.get<HTMLElement>('.popup-notification-group').element
         expect(group.getAttribute('aria-live')).toBe('polite')
         expect(panel.get('[role="alert"]').attributes('aria-live')).toBe('assertive')
-        expect(panel.get('[role="alert"]').text()).toContain('Import failed')
+        await vi.waitFor(() =>
+            expect(panel.get('[role="alert"]').text()).toContain('Import failed'),
+        )
     } finally {
         panel.unmount()
     }

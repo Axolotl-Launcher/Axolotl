@@ -115,6 +115,10 @@ export function useModalFocus(
 
     function restoreFocus(): void {
         cancelPendingFocus()
+        if (options.isTopmost && !options.isTopmost()) {
+            previouslyFocused = null
+            return
+        }
         if (previouslyFocused) {
             previouslyFocused.focus()
         }

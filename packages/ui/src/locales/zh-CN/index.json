@@ -2558,6 +2558,18 @@
   "multiselect.selection-actions.label": {
     "defaultMessage": "已选 {count, number} 项"
   },
+  "notification.error-announcement.repeated": {
+    "defaultMessage": "{title}。{text}（第 {count} 次）"
+  },
+  "notification.error-announcement.text-only": {
+    "defaultMessage": "{text}"
+  },
+  "notification.error-announcement.title-only": {
+    "defaultMessage": "{title}"
+  },
+  "notification.error-announcement.title-text": {
+    "defaultMessage": "{title}。{text}"
+  },
   "notification.error.title": {
     "defaultMessage": "发生错误"
   },

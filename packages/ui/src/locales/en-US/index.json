@@ -2990,6 +2990,18 @@
   "multiselect.selection-actions.label": {
     "defaultMessage": "{count, number} selected"
   },
+  "notification.error-announcement.repeated": {
+    "defaultMessage": "{title}. {text} ({count, plural, one {# occurrence} other {# occurrences}})"
+  },
+  "notification.error-announcement.text-only": {
+    "defaultMessage": "{text}"
+  },
+  "notification.error-announcement.title-only": {
+    "defaultMessage": "{title}"
+  },
+  "notification.error-announcement.title-text": {
+    "defaultMessage": "{title}. {text}"
+  },
   "notification.error.title": {
     "defaultMessage": "An error occurred"
   },

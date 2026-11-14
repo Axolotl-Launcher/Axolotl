@@ -2,6 +2,9 @@
     <div
         ref="groupEl"
         class="vue-notification-group"
+        role="log"
+        :aria-live="notifications.some((item) => item.type === 'error') ? 'assertive' : 'polite'"
+        aria-relevant="additions text"
         :class="{
             'intercom-present': isIntercomPresent,
             'location-left': notificationLocation === 'left',

@@ -612,6 +612,7 @@ import {
     type TableColumn,
     TagItem,
     useFormatBytes,
+    useFormatDateTime,
     useVIntl,
 } from '@modrinth/ui'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
@@ -729,6 +730,7 @@ const router = useRouter()
 const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 const formatBytes = useFormatBytes()
+const formatDate = useFormatDateTime({ dateStyle: 'medium', timeStyle: 'short' })
 const downloadSettingsHref = '/settings?target=resources-force-multiconnection#content-downloads'
 const hideSlowDownloadsHint = useLocalStorage('axolotl:downloads:hide-slow-downloads-hint', false, {
     writeDefaults: false,
@@ -1481,12 +1483,6 @@ async function openManualDownload(item: DownloadItem) {
 function legacyPercent(bar: LoadingBar) {
     if (!bar.total) return 0
     return Math.min(100, Math.max(0, ((bar.current ?? 0) / bar.total) * 100))
-}
-
-function formatDate(value: string) {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-        new Date(value),
-    )
 }
 
 function selectTab(index: number) {

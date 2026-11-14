@@ -3708,6 +3708,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 .app-contents.studio-mode {
     top: var(--top-bar-height);
     height: calc(100vh - var(--top-bar-height));
+    height: calc(100dvh - var(--top-bar-height));
 }
 
 .app-grid-layout {
@@ -3719,6 +3720,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     //z-index: 0;
     background-color: var(--surface-3);
     height: 100vh;
+    height: 100dvh;
 }
 
 .quick-instance-scroll {
@@ -3807,6 +3809,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     right: 0;
     bottom: 0;
     height: calc(100vh - var(--top-bar-height));
+    height: calc(100dvh - var(--top-bar-height));
     background-color: var(--color-bg);
     border-top-left-radius: var(--radius-xl);
     overflow: hidden;
@@ -3911,6 +3914,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     position: relative;
     z-index: 11;
     height: calc(100vh - var(--top-bar-height));
+    height: calc(100dvh - var(--top-bar-height));
     background: var(--brand-gradient-bg);
 
     --sidebar-control-surface: var(--brand-gradient-button);

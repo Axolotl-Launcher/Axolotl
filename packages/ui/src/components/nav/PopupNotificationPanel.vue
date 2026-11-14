@@ -1,6 +1,9 @@
 <template>
     <div
         class="popup-notification-group"
+        role="log"
+        :aria-live="notifications.some((item) => item.type === 'error') ? 'assertive' : 'polite'"
+        aria-relevant="additions text"
         :class="{
             'has-sidebar': hasSidebar,
             'has-modal': hasModalActive,
@@ -121,6 +124,7 @@
                                 size="2xs"
                                 circular
                                 icon-only
+                                :label="formatMessage(messages.dismissNotification)"
                                 @click="dismiss(item.id)"
                                 ><XIcon />
                             </Button>
@@ -234,6 +238,10 @@ const messages = defineMessages({
     exportErrorLogs: {
         id: 'notification.panel.export-error-logs',
         defaultMessage: 'Export error logs',
+    },
+    dismissNotification: {
+        id: 'button.dismiss-notification',
+        defaultMessage: 'Dismiss notification',
     },
 })
 const notifications = computed<PopupNotification[]>(() =>

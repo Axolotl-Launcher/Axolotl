@@ -8,6 +8,7 @@ import MultiStageModal from '../components/base/MultiStageModal.vue'
 import TeleportOverflowMenu from '../components/base/TeleportOverflowMenu.vue'
 import NewModal from '../components/modal/NewModal.vue'
 import { useBodyScrollLock } from '../composables/body-scroll-lock'
+import { useModalFocus } from '../composables/use-modal-focus'
 import { I18N_INJECTION_KEY } from '../providers/i18n'
 import { mountThemed, waitFor } from './visual-harness'
 
@@ -19,13 +20,17 @@ afterEach(() =>
         .forEach((fn) => fn()),
 )
 
-async function modal(child: ReturnType<typeof h>, props: Record<string, unknown> = {}) {
+async function modal(
+    child: ReturnType<typeof h>,
+    props: Record<string, unknown> = {},
+    slots: Record<string, () => unknown> = {},
+) {
     const teleports = document.createElement('div')
     teleports.id = 'teleports'
     document.body.append(teleports)
     cleanup.push(() => teleports.remove())
     const wrapper = await mountThemed(NewModal, { header: 'Export logs', ...props }, 'dark', {
-        slots: { default: () => child },
+        slots: { default: () => child, ...slots },
         global: {
             provide: {
                 [I18N_INJECTION_KEY as symbol]: {
@@ -52,6 +57,17 @@ function escape(target: Element) {
             cancelable: true,
         }),
     )
+}
+
+function tab(target: Element, shiftKey = false) {
+    const event = new KeyboardEvent('keydown', {
+        key: 'Tab',
+        shiftKey,
+        bubbles: true,
+        cancelable: true,
+    })
+    target.dispatchEvent(event)
+    return event
 }
 
 it('keeps additional workflow header content outside the stage scroll area', async () => {
@@ -405,4 +421,174 @@ it('does not run opening callbacks after the component unmounts', async () => {
     expect(document.body.style.overflow).toBe('hidden')
     await next.vm.hide()
     expect(document.body.style.overflow).toBe('')
+})
+
+it('labels a title-slot modal through the header element', async () => {
+    await modal(h('p', 'Body'), {}, { title: () => h('span', 'Custom export title') })
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+    const labelledBy = body.getAttribute('aria-labelledby')!
+    const label = document.getElementById(labelledBy)
+    expect(label).not.toBeNull()
+    expect(label?.textContent).toContain('Custom export title')
+    expect(document.querySelectorAll(`[id="${labelledBy}"]`)).toHaveLength(1)
+})
+
+it('keeps the default header as the modal label', async () => {
+    await modal(h('p', 'Body'))
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+    const label = document.getElementById(body.getAttribute('aria-labelledby')!)
+    expect(label?.textContent).toContain('Export logs')
+})
+
+it('omits aria-labelledby when the header is hidden so aria-label can name the dialog', async () => {
+    await modal(h('p', 'Body'), { hideHeader: true, 'aria-label': 'Local setup' })
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+    expect(body.getAttribute('aria-labelledby')).toBeNull()
+    expect(body.getAttribute('aria-label')).toBe('Local setup')
+})
+
+it('falls back to focusing the modal body when it has no focusable content', async () => {
+    await modal(h('p', 'Nothing interactive here'), { closable: false })
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+    expect(body.getAttribute('tabindex')).toBe('-1')
+    await waitFor(() => document.activeElement === body)
+})
+
+it('skips hidden controls when moving focus into the modal', async () => {
+    await modal(
+        h('div', [
+            h('input', { id: 'hidden-input', type: 'hidden' }),
+            h('button', { id: 'hidden-action', style: { display: 'none' } }, 'Hidden'),
+            h('button', { id: 'visible-action' }, 'Visible'),
+        ]),
+        { closable: false },
+    )
+    await waitFor(() => document.activeElement?.id === 'visible-action')
+    expect(document.activeElement?.id).toBe('visible-action')
+})
+
+it('focuses editable content when it is the only focusable element', async () => {
+    await modal(h('div', { id: 'editor', contenteditable: 'true' }, 'Edit me'), {
+        closable: false,
+    })
+    await waitFor(() => document.activeElement?.id === 'editor')
+    expect(document.activeElement?.id).toBe('editor')
+})
+
+it('skips controls disabled by an ancestor fieldset', async () => {
+    await modal(
+        h('div', [
+            h('fieldset', { disabled: true }, [h('button', { id: 'disabled-action' }, 'Nope')]),
+            h('button', { id: 'enabled-action' }, 'Enabled'),
+        ]),
+        { closable: false },
+    )
+    await waitFor(() => document.activeElement?.id === 'enabled-action')
+    expect(document.activeElement?.id).toBe('enabled-action')
+})
+
+it('does not retry initial focus after another modal becomes topmost', async () => {
+    const container = document.createElement('div')
+    container.tabIndex = -1
+    container.style.display = 'none'
+    document.body.append(container)
+    cleanup.push(() => container.remove())
+    let topmost = true
+    const controller = useModalFocus(ref(container), { isTopmost: () => topmost })
+
+    controller.focusInitial()
+    topmost = false
+    container.style.display = 'block'
+    await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
+    )
+
+    expect(document.activeElement).not.toBe(container)
+})
+
+it('skips controls inside an aria-hidden subtree', async () => {
+    await modal(
+        h('div', [
+            h('div', { 'aria-hidden': 'true' }, [h('button', { id: 'hidden-from-at' }, 'Hidden')]),
+            h('button', { id: 'visible-action' }, 'Visible'),
+        ]),
+        { closable: false },
+    )
+    await waitFor(() => document.activeElement?.id === 'visible-action')
+    expect(document.activeElement?.id).toBe('visible-action')
+})
+
+it('moves focus to the first control when Tab is pressed from the modal body', async () => {
+    const container = document.createElement('div')
+    container.tabIndex = -1
+    document.body.append(container)
+    cleanup.push(() => container.remove())
+    const controller = useModalFocus(ref(container))
+    controller.focusInitial()
+    expect(document.activeElement).toBe(container)
+
+    const button = document.createElement('button')
+    button.textContent = 'Later control'
+    container.append(button)
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    controller.trapTab(event)
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(button)
+})
+
+it('restores focus to the previously focused element when the modal closes', async () => {
+    const trigger = document.createElement('button')
+    trigger.textContent = 'Open modal'
+    document.body.append(trigger)
+    cleanup.push(() => trigger.remove())
+    trigger.focus()
+    const { vm } = await modal(h('button', 'Inside'))
+    await waitFor(() => document.querySelector('.modal-body')?.contains(document.activeElement))
+    await vm.hide()
+    expect(document.activeElement).toBe(trigger)
+})
+
+it('wraps Tab focus between the first and last focusable elements', async () => {
+    await modal(
+        h('div', [
+            h('button', { id: 'first-action' }, 'First'),
+            h('button', { id: 'last-action' }, 'Last'),
+        ]),
+        { closable: false },
+    )
+    const first = document.querySelector<HTMLElement>('#first-action')!
+    const last = document.querySelector<HTMLElement>('#last-action')!
+
+    first.focus()
+    expect(tab(first, true).defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(last)
+
+    expect(tab(last).defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(first)
+})
+
+it('wraps Shift+Tab from the modal body to the last focusable element', async () => {
+    await modal(
+        h('div', [
+            h('button', { id: 'first-action' }, 'First'),
+            h('button', { id: 'last-action' }, 'Last'),
+        ]),
+        { closable: false },
+    )
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+    const last = document.querySelector<HTMLElement>('#last-action')!
+
+    body.focus()
+    expect(tab(body, true).defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(last)
+})
+
+it('keeps Tab inside a modal that only renders text', async () => {
+    await modal(h('p', 'Read-only notice'), { closable: false })
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+
+    body.focus()
+    expect(tab(body).defaultPrevented).toBe(true)
+    expect(body.contains(document.activeElement)).toBe(true)
 })

@@ -193,6 +193,8 @@ onUnmounted(() => {
             >
                 <img
                     referrerpolicy="no-referrer"
+                    loading="lazy"
+                    decoding="async"
                     :src="entry.image.url"
                     :alt="imageAlt(entry)"
                     class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
@@ -245,10 +247,10 @@ onUnmounted(() => {
     >
         <div
             v-if="selectedGalleryItem"
-            class="relative flex w-full min-h-64 max-h-[calc(100vh-13rem)] items-center justify-center overflow-hidden bg-surface-1"
+            class="relative flex w-full min-h-64 max-h-[calc(100dvh-13rem)] items-center justify-center overflow-hidden bg-surface-1"
         >
             <div
-                class="min-w-0 flex max-h-[calc(100vh-13rem)] w-full items-center justify-center overflow-auto p-4"
+                class="min-w-0 flex max-h-[calc(100dvh-13rem)] w-full items-center justify-center overflow-auto p-4"
             >
                 <img
                     referrerpolicy="no-referrer"
@@ -257,7 +259,7 @@ onUnmounted(() => {
                     :class="
                         zoomedIn
                             ? 'max-w-none cursor-zoom-out'
-                            : 'max-h-[calc(100vh-15rem)] max-w-full cursor-zoom-in'
+                            : 'max-h-[calc(100dvh-15rem)] max-w-full cursor-zoom-in'
                     "
                     @click="zoomedIn = !zoomedIn"
                 />

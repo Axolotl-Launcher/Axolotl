@@ -455,7 +455,12 @@ function onStartLongPress(instanceId: string) {
                                     )
                                 "
                             >
-                                <Button type="quiet" size="2xs" circular icon-only
+                                <Button
+                                    type="quiet"
+                                    size="2xs"
+                                    circular
+                                    icon-only
+                                    :label="formatMessage(commonMessages.moreOptionsButton)"
                                     ><slot name="moreIcon" />
                                 </Button>
                             </div>
@@ -554,7 +559,12 @@ function onStartLongPress(instanceId: string) {
                                 )
                             "
                         >
-                            <Button type="quiet" size="2xs" circular icon-only
+                            <Button
+                                type="quiet"
+                                size="2xs"
+                                circular
+                                icon-only
+                                :label="formatMessage(commonMessages.moreOptionsButton)"
                                 ><slot name="moreIcon" />
                             </Button>
                         </div>

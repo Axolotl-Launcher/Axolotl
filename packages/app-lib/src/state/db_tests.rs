@@ -864,42 +864,216 @@ async fn update_channel_honors_explicit_selection() {
 }
 
 #[tokio::test]
-async fn reconcile_moves_database_without_explicit_choice() {
-    let channel = default_update_channel();
-    let other = if channel == "release" {
-        "beta"
-    } else {
-        "release"
-    };
+async fn initial_channel_keeps_the_only_existing_database() {
+    for (existing, build) in [("beta", "release"), ("release", "beta")] {
+        let directory = tempfile::tempdir().unwrap();
+        let settings_dir = directory.path();
+        let existing_dir = settings_dir.join(existing);
+        std::fs::create_dir_all(&existing_dir).unwrap();
+        std::fs::write(existing_dir.join(LEGACY_APP_DB_FILE), "existing data")
+            .unwrap();
+        std::fs::write(
+            existing_dir.join(format!("{LEGACY_APP_DB_FILE}-wal")),
+            "existing wal",
+        )
+        .unwrap();
+
+        initialize_update_channel(settings_dir, build)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            resolve_update_channel(settings_dir).await.unwrap(),
+            existing
+        );
+        assert_eq!(
+            app_db_path(settings_dir).await.unwrap(),
+            existing_dir.join(LEGACY_APP_DB_FILE),
+        );
+        assert_eq!(
+            std::fs::read_to_string(existing_dir.join(LEGACY_APP_DB_FILE))
+                .unwrap(),
+            "existing data",
+        );
+        assert_eq!(
+            std::fs::read_to_string(
+                existing_dir.join(format!("{LEGACY_APP_DB_FILE}-wal"))
+            )
+            .unwrap(),
+            "existing wal",
+        );
+        assert!(!settings_dir.join(build).join(LEGACY_APP_DB_FILE).exists());
+    }
+}
+
+#[tokio::test]
+async fn initial_channel_survives_beta_to_stable_upgrade() {
     let directory = tempfile::tempdir().unwrap();
     let settings_dir = directory.path();
-
-    let source_dir = settings_dir.join(other);
-    std::fs::create_dir_all(&source_dir).unwrap();
-    std::fs::write(source_dir.join(LEGACY_APP_DB_FILE), "existing data")
-        .unwrap();
-    std::fs::write(source_dir.join(format!("{LEGACY_APP_DB_FILE}-wal")), "wal")
-        .unwrap();
-
-    reconcile_default_channel_database(settings_dir)
+    std::fs::write(
+        settings_dir.join(UPDATE_CHANNEL_STATE_FILE),
+        r#"{"immediate_update_fetch":true,"updates_paused":false,"future_preference":"keep"}"#,
+    ).unwrap();
+    initialize_update_channel(settings_dir, "beta")
         .await
         .unwrap();
 
-    let target_dir = settings_dir.join(channel);
+    // Both channel databases can exist. A stable executable must keep opening
+    // the Beta database that this installation selected before the upgrade.
+    for (channel, label) in [
+        ("beta", "new beta instance"),
+        ("release", "old release instance"),
+    ] {
+        let path = settings_dir.join(channel).join(LEGACY_APP_DB_FILE);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let options = SqliteConnectOptions::new()
+            .filename(&path)
+            .create_if_missing(true);
+        let mut connection = sqlx::SqliteConnection::connect_with(&options)
+            .await
+            .unwrap();
+        sqlx::query("CREATE TABLE instance_fixture (name TEXT NOT NULL)")
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO instance_fixture VALUES (?)")
+            .bind(label)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        connection.close().await.unwrap();
+    }
+    initialize_update_channel(settings_dir, "release")
+        .await
+        .unwrap();
+    let selected = app_db_path(settings_dir).await.unwrap();
+    assert_eq!(selected, settings_dir.join("beta/app.db"));
+    let options = SqliteConnectOptions::new()
+        .filename(&selected)
+        .read_only(true);
+    let mut connection = sqlx::SqliteConnection::connect_with(&options)
+        .await
+        .unwrap();
+    let instance: String =
+        sqlx::query_scalar("SELECT name FROM instance_fixture")
+            .fetch_one(&mut connection)
+            .await
+            .unwrap();
+    assert_eq!(instance, "new beta instance");
+    connection.close().await.unwrap();
+    let state = read_update_channel_state(settings_dir).await.unwrap();
+    assert_eq!(state.active_channel.as_deref(), Some("beta"));
+    assert_eq!(state.immediate_update_fetch, Some(true));
+    assert_eq!(state.updates_paused, Some(false));
+    assert_eq!(state.extra["future_preference"], "keep");
+
+    // An intentional channel change retains the existing switch-on-restart
+    // behavior, even though automatic executable upgrades do not change it.
+    std::fs::write(
+        settings_dir.join(UPDATE_CHANNEL_STATE_FILE),
+        r#"{"active_channel":"release"}"#,
+    )
+    .unwrap();
+    initialize_update_channel(settings_dir, "beta")
+        .await
+        .unwrap();
     assert_eq!(
-        std::fs::read_to_string(target_dir.join(LEGACY_APP_DB_FILE)).unwrap(),
-        "existing data"
+        app_db_path(settings_dir).await.unwrap(),
+        settings_dir.join("release/app.db")
     );
-    assert_eq!(
-        std::fs::read_to_string(
-            target_dir.join(format!("{LEGACY_APP_DB_FILE}-wal"))
+}
+
+#[tokio::test]
+async fn initial_channel_uses_build_default_for_ambiguous_legacy_databases() {
+    for build in ["beta", "release"] {
+        let directory = tempfile::tempdir().unwrap();
+        let settings_dir = directory.path();
+        for channel in ["beta", "release"] {
+            let path = settings_dir.join(channel).join(LEGACY_APP_DB_FILE);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, channel).unwrap();
+        }
+        initialize_update_channel(settings_dir, build)
+            .await
+            .unwrap();
+        assert_eq!(resolve_update_channel(settings_dir).await.unwrap(), build);
+        for channel in ["beta", "release"] {
+            assert_eq!(
+                std::fs::read_to_string(
+                    settings_dir.join(channel).join(LEGACY_APP_DB_FILE)
+                )
+                .unwrap(),
+                channel
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn initial_channel_recovers_archived_database_before_selecting() {
+    for release_exists in [false, true] {
+        let directory = tempfile::tempdir().unwrap();
+        let settings_dir = directory.path();
+        let beta = settings_dir.join("beta/app.db");
+        std::fs::create_dir_all(beta.parent().unwrap()).unwrap();
+        let id = uuid::Uuid::new_v4();
+        let staged = files::sidecar(&beta, &format!(".replace-{id}.next"));
+        let archived =
+            files::sidecar(&beta, &format!(".replace-{id}.previous"));
+        let marker = files::sidecar(&beta, ".replacement.json");
+        std::fs::write(&staged, "unpublished replacement").unwrap();
+        std::fs::write(&archived, "original beta").unwrap();
+        std::fs::write(
+            &marker,
+            serde_json::to_vec(&serde_json::json!({
+                "id": id,
+                "original": [false, false, true],
+            }))
+            .unwrap(),
         )
-        .unwrap(),
-        "wal"
-    );
-    assert!(!source_dir.join(LEGACY_APP_DB_FILE).exists());
-    // The migration marker is removed once the move has completed.
-    assert!(!target_dir.join(CHANNEL_RECONCILE_MARKER_FILE).exists());
+        .unwrap();
+        let build = if release_exists {
+            let release = settings_dir.join("release/app.db");
+            std::fs::create_dir_all(release.parent().unwrap()).unwrap();
+            std::fs::write(release, "original release").unwrap();
+            "beta"
+        } else {
+            "release"
+        };
+
+        initialize_update_channel(settings_dir, build)
+            .await
+            .unwrap();
+
+        assert_eq!(app_db_path(settings_dir).await.unwrap(), beta);
+        assert_eq!(std::fs::read_to_string(&beta).unwrap(), "original beta");
+        assert!(!marker.exists());
+        assert!(!staged.exists());
+        if release_exists {
+            assert_eq!(
+                std::fs::read_to_string(settings_dir.join("release/app.db"))
+                    .unwrap(),
+                "original release"
+            );
+        } else {
+            assert!(!settings_dir.join("release/app.db").exists());
+        }
+    }
+}
+
+#[tokio::test]
+async fn initial_channel_does_not_replace_invalid_persisted_state() {
+    for contents in ["not json", r#"{"active_channel":"unknown"}"#] {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(UPDATE_CHANNEL_STATE_FILE);
+        std::fs::write(&path, contents).unwrap();
+        assert!(
+            initialize_update_channel(directory.path(), "release")
+                .await
+                .is_err()
+        );
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), contents);
+    }
 }
 
 #[tokio::test]
@@ -970,9 +1144,11 @@ async fn reconcile_resumes_after_an_interrupted_attempt() {
     std::fs::write(target_dir.join(format!("{LEGACY_APP_DB_FILE}-wal")), "wal")
         .unwrap();
 
-    reconcile_default_channel_database(settings_dir)
+    // Recovery follows the recorded move even if the executable channel changed.
+    initialize_update_channel(settings_dir, other)
         .await
         .unwrap();
+    assert_eq!(resolve_update_channel(settings_dir).await.unwrap(), channel);
 
     assert_eq!(
         std::fs::read_to_string(target_dir.join(LEGACY_APP_DB_FILE)).unwrap(),
@@ -1015,7 +1191,7 @@ async fn reconcile_aborts_on_foreign_orphan_sidecar() {
         .await
         .unwrap();
 
-    // Nothing is moved, created, or deleted.
+    // Neither database family is moved, created, or deleted.
     assert_eq!(
         std::fs::read_to_string(&source_db).unwrap(),
         "existing data"
@@ -1045,9 +1221,11 @@ async fn reconcile_aborts_on_mismatched_marker() {
     std::fs::write(target_dir.join(CHANNEL_RECONCILE_MARKER_FILE), channel)
         .unwrap();
 
-    reconcile_default_channel_database(settings_dir)
-        .await
-        .unwrap();
+    assert!(
+        reconcile_default_channel_database(settings_dir)
+            .await
+            .is_err()
+    );
 
     assert_eq!(
         std::fs::read_to_string(&source_db).unwrap(),
@@ -1087,9 +1265,11 @@ async fn reconcile_aborts_when_target_sidecar_appears_mid_flight() {
     let target_wal = target_dir.join(format!("{LEGACY_APP_DB_FILE}-wal"));
     std::fs::write(&target_wal, "target wal").unwrap();
 
-    reconcile_default_channel_database(settings_dir)
-        .await
-        .unwrap();
+    assert!(
+        reconcile_default_channel_database(settings_dir)
+            .await
+            .is_err()
+    );
 
     assert_eq!(
         std::fs::read_to_string(&source_db).unwrap(),

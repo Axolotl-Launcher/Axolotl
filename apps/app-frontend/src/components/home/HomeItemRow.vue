@@ -8,6 +8,7 @@ import { type Component, computed } from 'vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 
 import type { HomeItemVariant } from './home-utils'
+import HomeScrollingText from './HomeScrollingText.vue'
 
 /**
  * One launchable thing in a Home list: an instance, a world or a server. The
@@ -116,7 +117,7 @@ const iconSize = computed(() => (props.variant === 'tile' ? '52px' : '32px'))
                     class="size-3 shrink-0"
                     aria-hidden="true"
                 />
-                <span class="truncate">{{ meta }}</span>
+                <HomeScrollingText v-if="meta" :text="meta" />
             </span>
             <slot name="extra" />
         </span>
@@ -214,7 +215,7 @@ const iconSize = computed(() => (props.variant === 'tile' ? '52px' : '32px'))
 }
 
 .home-item-row-meta {
-    @apply flex min-w-0 items-center gap-1 text-xs text-[var(--color-text-tertiary)];
+    @apply relative flex min-w-0 items-center gap-1 text-xs text-[var(--color-text-tertiary)];
 }
 
 /* The title link covers the row, so the whole row opens the item. */

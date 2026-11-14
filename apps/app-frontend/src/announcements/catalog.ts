@@ -49,6 +49,17 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                         'Added a button to open Windows network settings from the offline page.',
                     'zh-CN': 'Windows 版断网页面新增一键打开系统网络设置的按钮。',
                 },
+                {
+                    'en-US':
+                        'Added hover expansion for pinned instance directory badges on Home, revealing full paths with smooth scrolling and three-second pauses.',
+                    'zh-CN': '主页固定实例的目录标签新增悬停展开，支持完整路径缓动滚动和三秒停留。',
+                },
+                {
+                    'en-US':
+                        'Added smooth looping for overflowing Home card details, with faded edges and three-second pauses at the beginning.',
+                    'zh-CN':
+                        '主页卡片的超长说明新增缓动循环滚动和两侧渐隐，每轮在文字开头停留三秒。',
+                },
             ],
             fixed: [
                 {

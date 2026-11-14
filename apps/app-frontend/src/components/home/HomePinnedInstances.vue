@@ -18,10 +18,10 @@ import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtim
 import { useHomeRowMenu } from '@/components/home/home-row-menu'
 import { getHomeItemVariant } from '@/components/home/home-utils'
 import HomeFitList from '@/components/home/HomeFitList.vue'
+import HomeGameDirectoryBadge from '@/components/home/HomeGameDirectoryBadge.vue'
 import HomeItemRow from '@/components/home/HomeItemRow.vue'
 import HomeRowMenu from '@/components/home/HomeRowMenu.vue'
 import HomeWidgetFrame from '@/components/home/HomeWidgetFrame.vue'
-import GameDirectoryBadge from '@/components/ui/instance/GameDirectoryBadge.vue'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { trackEvent } from '@/helpers/analytics'
 import { hasMultipleGameDirectories, resolveGameDirectory } from '@/helpers/game-directory'
@@ -175,7 +175,7 @@ const variant = computed(() => getHomeItemVariant(props.dashboardSize))
                 @stop="stopInstance(instance)"
             >
                 <template v-if="showGameDirectory" #meta-prefix>
-                    <GameDirectoryBadge :directory="resolveGameDirectory(instance)" />
+                    <HomeGameDirectoryBadge :directory="resolveGameDirectory(instance)" />
                 </template>
                 <template #actions>
                     <HomeRowMenu :options="rowMenu(instance)" />

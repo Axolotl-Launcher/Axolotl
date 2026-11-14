@@ -37,6 +37,8 @@ export interface BrowseManagerContext {
     serverHits: ShallowRef<BrowseSearchResponse['serverHits']>
     totalHits: Ref<number>
     pageCount: ComputedRef<number>
+    pageCountKnown?: ComputedRef<boolean>
+    cursorPaged?: ComputedRef<boolean>
     maxResults: Ref<number>
     currentPage: Ref<number>
     isServerType: ComputedRef<boolean>

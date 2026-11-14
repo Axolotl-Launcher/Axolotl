@@ -2621,11 +2621,20 @@
   "omorphia.component.loading-indicator.label": {
     "defaultMessage": "加载中"
   },
+  "pagination.first-page": {
+    "defaultMessage": "第一页"
+  },
   "pagination.go-to-page": {
     "defaultMessage": "跳转到页码"
   },
   "pagination.go-to-page.placeholder": {
     "defaultMessage": "页码"
+  },
+  "pagination.jump-limit": {
+    "defaultMessage": "一次最多可向后跳转 {count} 页。"
+  },
+  "pagination.last-page": {
+    "defaultMessage": "最后一页"
   },
   "pagination.loading-page": {
     "defaultMessage": "正在加载页面……"

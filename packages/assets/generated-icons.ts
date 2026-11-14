@@ -79,6 +79,8 @@ import _ChevronDownIcon from './icons/chevron-down.svg?component'
 import _ChevronLeftIcon from './icons/chevron-left.svg?component'
 import _ChevronRightIcon from './icons/chevron-right.svg?component'
 import _ChevronUpIcon from './icons/chevron-up.svg?component'
+import _ChevronsLeftIcon from './icons/chevrons-left.svg?component'
+import _ChevronsRightIcon from './icons/chevrons-right.svg?component'
 import _CircleIcon from './icons/circle.svg?component'
 import _CircleAlertIcon from './icons/circle-alert.svg?component'
 import _CircleArrowRightIcon from './icons/circle-arrow-right.svg?component'
@@ -527,6 +529,8 @@ export const ChevronDownIcon = _ChevronDownIcon
 export const ChevronLeftIcon = _ChevronLeftIcon
 export const ChevronRightIcon = _ChevronRightIcon
 export const ChevronUpIcon = _ChevronUpIcon
+export const ChevronsLeftIcon = _ChevronsLeftIcon
+export const ChevronsRightIcon = _ChevronsRightIcon
 export const CircleIcon = _CircleIcon
 export const CircleAlertIcon = _CircleAlertIcon
 export const CircleArrowRightIcon = _CircleArrowRightIcon

@@ -1,6 +1,7 @@
 import {
     BlocksIcon,
     BoxIcon,
+    CompassIcon,
     FlaskConicalIcon,
     LanguagesIcon,
     PaintbrushIcon,
@@ -20,6 +21,14 @@ export type LabToolDefinition = {
 }
 
 export const labTools: readonly LabToolDefinition[] = [
+    {
+        id: 'stronghold',
+        category: 'world',
+        route: '/lab/stronghold',
+        icon: CompassIcon,
+        title: 'Stronghold locator',
+        description: 'Locate a Java Edition stronghold using Eye of Ender measurements.',
+    },
     {
         id: 'skin-editor',
         category: 'creation',

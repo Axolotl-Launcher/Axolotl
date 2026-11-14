@@ -2609,13 +2609,149 @@ async fn an_existing_root_does_not_swallow_a_different_exact_dependency_artifact
         .await
         .unwrap()
         .plan;
-    assert!(
-        plan.issues
+    for (message, expected) in [
+        (
+            "required dependency conflicts with an active root release or artifact",
+            "dep00000-2.jar",
+        ),
+        (
+            "parent dependency requirement is not satisfied by the selected artifact",
+            "2",
+        ),
+    ] {
+        let issue = plan
+            .issues
             .iter()
-            .any(|issue| issue.code == ResourceIssueCode::VersionConflict
-                && issue.blocking)
-    );
+            .find(|issue| issue.message == message)
+            .unwrap();
+        assert!(issue.blocking);
+        let details = issue.conflict.as_ref().unwrap();
+        assert_eq!(details.reason, ResourceConflictReason::DependencyVersion);
+        assert_eq!(details.related, None);
+        assert_eq!(details.required.as_deref(), Some(expected));
+        assert_eq!(
+            details.actual.as_deref(),
+            d1.artifacts[0].file_name.as_deref()
+        );
+    }
     service.cache().close().await;
+}
+
+#[tokio::test]
+async fn persisted_conflicts_keep_known_files_without_duplicate_dependency_labels()
+ {
+    use crate::state::store::Collection;
+    use crate::state::store::resource_operation_plans::{
+        ResourceOperationPlanRecord, ResourceOperationPlans,
+    };
+
+    let (_directory, state, _, _, _) =
+        crate::resources::execution::tests::fixture().await;
+    let mut original = draft(vec![], ResourceOperationIntent::Install);
+    let cases = [
+        (
+            ResourceConflictReason::ConflictingReleases,
+            "expected.jar",
+            "expected.jar",
+            "actual.jar",
+            None,
+        ),
+        (
+            ResourceConflictReason::ConflictingReleases,
+            "actual.jar",
+            "expected.jar",
+            "actual.jar",
+            None,
+        ),
+        (
+            ResourceConflictReason::DependencyVersion,
+            "expected.jar",
+            "expected.jar",
+            "actual.jar",
+            None,
+        ),
+        (
+            ResourceConflictReason::DependencyVersion,
+            "actual.jar",
+            "[2,)",
+            "actual.jar",
+            None,
+        ),
+        (
+            ResourceConflictReason::DependencyVersion,
+            "Dependency",
+            "[2,)",
+            "actual.jar",
+            Some("Dependency"),
+        ),
+        (
+            ResourceConflictReason::IncompatibleResource,
+            "other.jar",
+            "other.jar",
+            "actual.jar",
+            Some("other.jar"),
+        ),
+    ];
+    for (reason, related, required, actual, _) in &cases {
+        original.plan.issues.push(ResourcePlanIssue {
+            code: ResourceIssueCode::VersionConflict,
+            selection_id: None,
+            entry_id: None,
+            blocking: true,
+            message: "saved conflict".into(),
+            conflict: Some(ResourceConflictDetails {
+                reason: reason.clone(),
+                subject: Some("Parent".into()),
+                related: Some((*related).into()),
+                required: Some((*required).into()),
+                actual: Some((*actual).into()),
+            }),
+            context: None,
+        });
+    }
+    let key = original.plan.id.as_str().to_owned();
+    let payload = serde_json::to_string(&original).unwrap();
+    let record = ResourceOperationPlanRecord {
+        instance_id: "instance".into(),
+        revision: i64::from(original.plan.revision),
+        payload: payload.clone(),
+        job_id: None,
+        queued: false,
+        completed: false,
+    };
+    ResourceOperationPlans::set(&state.data, &key, Some(&record))
+        .await
+        .unwrap();
+    let loaded = crate::resources::plans::load(
+        &state.data,
+        &original.plan.id,
+        original.plan.revision,
+    )
+    .await
+    .unwrap();
+    assert_eq!(loaded.plan.id, original.plan.id);
+    assert_eq!(loaded.plan.revision, original.plan.revision);
+    for (issue, (reason, _, required, actual, related)) in
+        loaded.plan.issues.iter().zip(&cases)
+    {
+        assert!(issue.blocking);
+        let details = issue.conflict.as_ref().unwrap();
+        assert_eq!(&details.reason, reason);
+        assert_eq!(details.subject.as_deref(), Some("Parent"));
+        assert_eq!(details.related.as_deref(), *related);
+        assert_eq!(details.required.as_deref(), Some(*required));
+        assert_eq!(details.actual.as_deref(), Some(*actual));
+    }
+    // Loading adjusts presentation only; it does not rewrite persisted plans.
+    assert_eq!(
+        ResourceOperationPlans::get(&state.data, &key)
+            .await
+            .unwrap()
+            .unwrap()
+            .payload,
+        payload
+    );
+    state.pool.close().await;
 }
 
 #[tokio::test]

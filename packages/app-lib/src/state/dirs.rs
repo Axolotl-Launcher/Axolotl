@@ -731,7 +731,7 @@ impl DirectoryInfo {
             settings.custom_dir = Some(app_dir.to_string_lossy().to_string());
         }
 
-        settings.update(handle).await?;
+        settings.update_launcher_directory(handle).await?;
 
         Ok(())
     }

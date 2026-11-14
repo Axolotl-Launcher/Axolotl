@@ -1315,6 +1315,24 @@ pub(crate) async fn store_domain(
             }
             Stored::Missing | Stored::Unreadable => None,
         };
+    // A shared homepage selection can name an instance that only exists in
+    // another update channel. An unrelated row write must preserve that choice;
+    // an explicit selection/clear, or instance deletion, remains authoritative.
+    if domain == "appearance"
+        && !changed.is_some_and(|keys| keys.contains("minimal_home_instance_id"))
+        && let Some(value) = existing
+            .as_ref()
+            .and_then(|document| document.get("minimal_home_instance_id"))
+        && let Some(id) = value.as_str()
+        && crate::state::instances::adapters::sqlite::instance_rows::get_instance_path_by_id(
+            id,
+            documents.pool(),
+        )
+        .await?
+        .is_none()
+    {
+        target.insert("minimal_home_instance_id".into(), value.clone());
+    }
     // This startup record has no SQL column. A row synchronization must keep
     // its durable document value; the explicit marker writer updates it separately.
     if domain == "state"
@@ -3264,6 +3282,214 @@ mod tests {
             Some(&Value::from("zh_cn")),
             "the same store writes its documents once the directory accepts them"
         );
+    }
+
+    async fn channel_pool(instance: &str) -> sqlx::SqlitePool {
+        let pool = migrated_pool().await;
+        sqlx::query(
+            "INSERT INTO instances
+                (id, path, install_stage, launcher_feature_version,
+                 name, created, modified)
+             VALUES (?, ?, 'installed', '1', ?, 1, 1)",
+        )
+        .bind(instance)
+        .bind(instance)
+        .bind(instance)
+        .execute(&pool)
+        .await
+        .unwrap();
+        pool
+    }
+
+    #[tokio::test]
+    async fn channel_home_selection_survives_directory_initialization() {
+        let release = channel_pool("release-home").await;
+        let beta = channel_pool("beta-only").await;
+        let release_handle = Handle::new(release.clone());
+        let beta_handle = Handle::new(beta.clone());
+        let settings_dir = tempfile::tempdir().unwrap();
+        identify(settings_dir.path());
+        write_document(
+            settings_dir.path(),
+            "appearance",
+            r#""minimal_home_instance_id":"release-home","theme":"oled""#,
+        );
+        let appearance =
+            settings_dir.path().join(DIR_NAME).join("appearance.json");
+        let original = std::fs::read(&appearance).unwrap();
+        assert_eq!(
+            Settings::get(&release_handle)
+                .await
+                .unwrap()
+                .minimal_home_instance_id
+                .as_deref(),
+            Some("release-home"),
+        );
+
+        // These channels share the document root and its cached raw values, but
+        // an instance selected in Release need not exist in Beta.
+        let mut settings = Settings::get(&beta_handle).await.unwrap();
+        assert_eq!(settings.minimal_home_instance_id, None);
+        let directory = settings_dir.path().to_string_lossy().into_owned();
+        settings.custom_dir = Some(directory.clone());
+        settings.prev_custom_dir = Some(directory);
+        crate::state::DirectoryInfo::move_launcher_directory(
+            &mut settings,
+            &beta_handle,
+            &beta,
+            &crate::util::fetch::IoSemaphore(tokio::sync::Semaphore::new(1)),
+            "red.ghs.axolotl",
+        )
+        .await
+        .expect("initializing Beta must not write a Release-only instance ID");
+        Settings::migrate(&beta_handle).await.unwrap();
+        assert_eq!(std::fs::read(&appearance).unwrap(), original);
+        assert_eq!(
+            Settings::read_row(&beta_handle)
+                .await
+                .unwrap()
+                .minimal_home_instance_id,
+            None,
+        );
+        assert_eq!(
+            Settings::get(&release_handle)
+                .await
+                .unwrap()
+                .minimal_home_instance_id
+                .as_deref(),
+            Some("release-home"),
+            "returning to Release retains its original selection",
+        );
+        for pool in [&release, &beta] {
+            let violations: Vec<(String, i64, String, i64)> =
+                sqlx::query_as("PRAGMA foreign_key_check")
+                    .fetch_all(pool)
+                    .await
+                    .unwrap();
+            assert!(violations.is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn channel_home_selection_changes_only_when_explicitly_requested() {
+        let release = channel_pool("release-home").await;
+        let beta = channel_pool("beta-only").await;
+        let release_handle = Handle::new(release);
+        let beta_handle = Handle::new(beta);
+        let settings_dir = tempfile::tempdir().unwrap();
+        identify(settings_dir.path());
+        write_document(
+            settings_dir.path(),
+            "appearance",
+            r#""minimal_home_instance_id":"release-home""#,
+        );
+        let root = settings_dir.path().join(DIR_NAME);
+
+        patch_with(&beta_handle, serde_json::json!({"theme":"light"}))
+            .await
+            .unwrap();
+        assert_eq!(
+            data(&root, "appearance")["minimal_home_instance_id"],
+            "release-home",
+            "changing another appearance key preserves the other channel's choice",
+        );
+        assert_eq!(
+            Settings::get(&beta_handle)
+                .await
+                .unwrap()
+                .minimal_home_instance_id,
+            None
+        );
+
+        patch_with(
+            &beta_handle,
+            serde_json::json!({"minimal_home_instance_id":"beta-only"}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            data(&root, "appearance")["minimal_home_instance_id"],
+            "beta-only",
+            "an explicit selection replaces the shared choice",
+        );
+        assert_eq!(
+            Settings::get(&beta_handle)
+                .await
+                .unwrap()
+                .minimal_home_instance_id
+                .as_deref(),
+            Some("beta-only")
+        );
+        assert_eq!(
+            Settings::get(&release_handle)
+                .await
+                .unwrap()
+                .minimal_home_instance_id,
+            None
+        );
+
+        patch_with(
+            &release_handle,
+            serde_json::json!({"minimal_home_instance_id":null}),
+        )
+        .await
+        .unwrap();
+        assert!(
+            !data(&root, "appearance").contains_key("minimal_home_instance_id")
+        );
+        assert_eq!(
+            Settings::get(&beta_handle)
+                .await
+                .unwrap()
+                .minimal_home_instance_id,
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn directory_initialization_only_persists_directory_settings() {
+        use crate::state::store::Collection as _;
+        use crate::state::store::settings::Singleton;
+
+        let pool = channel_pool("beta-only").await;
+        let handle = Handle::new(pool.clone());
+        let mut expected = StoredSettings::get(&handle, &Singleton)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut settings = Settings::read_row(&handle).await.unwrap();
+        let settings_dir = tempfile::tempdir().unwrap();
+        identify(settings_dir.path());
+        write_document(
+            settings_dir.path(),
+            "appearance",
+            r#""theme":"oled","minimal_home_instance_id":"release-only""#,
+        );
+        let appearance =
+            settings_dir.path().join(DIR_NAME).join("appearance.json");
+        let original = std::fs::read(&appearance).unwrap();
+        let directory = settings_dir.path().to_string_lossy().into_owned();
+        settings.custom_dir = Some(directory.clone());
+        settings.prev_custom_dir = Some(directory.clone());
+        settings.theme = Theme::Light;
+        settings.minimal_home_instance_id = Some("release-only".into());
+        expected.custom_dir = Some(directory.clone());
+        expected.prev_custom_dir = Some(directory);
+
+        crate::state::DirectoryInfo::move_launcher_directory(
+            &mut settings,
+            &handle,
+            &pool,
+            &crate::util::fetch::IoSemaphore(tokio::sync::Semaphore::new(1)),
+            "red.ghs.axolotl",
+        )
+        .await
+        .expect("directory initialization ignores unrelated snapshot fields");
+        assert_eq!(
+            StoredSettings::get(&handle, &Singleton).await.unwrap(),
+            Some(expected)
+        );
+        assert_eq!(std::fs::read(appearance).unwrap(), original);
     }
 
     /// The document a test leaves behind for a domain, in the directory a start

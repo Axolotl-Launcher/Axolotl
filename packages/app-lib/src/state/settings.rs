@@ -5,7 +5,7 @@ use crate::state::store::settings::{
     DownloadSource as StoredDownloadSource, HomeLayout as StoredHomeLayout,
     Settings as StoredSettings, SettingsRecord, Singleton,
 };
-use crate::state::store::{Atom, Handle};
+use crate::state::store::{Atom, Handle, atom};
 use crate::util::download::constants::{
     AUTO_DOWNLOAD_CONCURRENCY_INITIAL, DOWNLOAD_CONCURRENCY_HARD_MAX,
     FORCED_DOWNLOAD_CONCURRENCY_DEFAULT, FORCED_DOWNLOAD_CONCURRENCY_MAX,
@@ -502,7 +502,22 @@ impl Settings {
         let Some(documents) = handle.settings_documents() else {
             return Self::read_row(handle).await;
         };
-        super::documents::settings::cached(&documents, handle).await
+        let mut settings =
+            super::documents::settings::cached(&documents, handle).await?;
+        if let Some(id) = settings.minimal_home_instance_id.as_deref()
+            && super::instances::adapters::sqlite::instance_rows::get_instance_path_by_id(
+                id,
+                documents.pool(),
+            )
+            .await?
+            .is_none()
+        {
+            // The documents are shared by update channels, but an instance ID
+            // belongs to the database this handle opens. Keep the raw choice
+            // in the document/cache so another channel can still honour it.
+            settings.minimal_home_instance_id = None;
+        }
+        Ok(settings)
     }
 
     /// The settings the row alone holds: the whole answer while no document
@@ -743,6 +758,25 @@ impl Settings {
             version: record.version.max(0) as usize,
         }
         .normalize()
+    }
+
+    /// Persists only the directory state settled during startup. The effective
+    /// settings can carry document values that belong to another channel.
+    pub(crate) async fn update_launcher_directory(
+        &self,
+        handle: &Handle,
+    ) -> crate::Result<()> {
+        let mut unit = atom(handle).await?;
+        StoredSettings::update_in(&mut unit, |record| {
+            record.custom_dir.clone_from(&self.custom_dir);
+            record.prev_custom_dir.clone_from(&self.prev_custom_dir);
+        })
+        .await?;
+        unit.settings_changed([
+            "custom_dir".to_string(),
+            "prev_custom_dir".to_string(),
+        ]);
+        unit.commit().await
     }
 
     pub async fn update(&self, handle: &Handle) -> crate::Result<()> {

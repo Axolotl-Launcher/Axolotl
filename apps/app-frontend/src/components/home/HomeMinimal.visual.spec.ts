@@ -372,6 +372,42 @@ it('keeps the standard look when no options were ever saved', async () => {
     }
 })
 
+it.each(['row', 'bar'] as const)(
+    'keeps recent instances full width below a centred plain %s card',
+    async (arrangement) => {
+        const { wrapper, queryClient } = mountMinimal(
+            updateHomeMinimalLayout(null, { surface: 'plain', arrangement }),
+        )
+        try {
+            await flushPromises()
+            expect(wrapper.get('.home-launch').attributes('data-fit')).toBeDefined()
+            for (const width of [960, 380]) {
+                wrapper.element.setAttribute('style', `width:${width}px`)
+                const launch = wrapper.get('.home-launch').element.getBoundingClientRect()
+                const card = wrapper.get('.home-launch-card').element.getBoundingClientRect()
+                const recent = wrapper.get('.home-launch-recent').element.getBoundingClientRect()
+                const header = wrapper
+                    .get('.home-launch-recent-header')
+                    .element.getBoundingClientRect()
+                const tile = wrapper.get('.home-launch-recent-card').element.getBoundingClientRect()
+
+                expect(recent.width).toBeGreaterThan(0)
+                expect(Math.abs(recent.width - launch.width)).toBeLessThan(1)
+                expect(Math.abs(recent.left - launch.left)).toBeLessThan(1)
+                expect(
+                    Math.abs(card.left + card.width / 2 - (launch.left + launch.width / 2)),
+                ).toBeLessThan(1)
+                expect(tile.top).toBeGreaterThanOrEqual(header.bottom)
+                expect(tile.left).toBeGreaterThanOrEqual(recent.left)
+                expect(tile.right).toBeLessThanOrEqual(recent.right + 1)
+            }
+        } finally {
+            wrapper.unmount()
+            queryClient.clear()
+        }
+    },
+)
+
 it('hides each part on its own without leaving an empty greeting behind', async () => {
     const { wrapper, queryClient } = mountMinimal(
         updateHomeMinimalLayout(null, { show: { greeting: false, switch: false } }),

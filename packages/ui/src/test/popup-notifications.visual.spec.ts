@@ -7,7 +7,15 @@ import { mountThemed } from './visual-harness'
 
 it('announces popup notifications through a polite live region', async () => {
     const manager = {
-        getNotifications: () => [],
+        getNotifications: () => [
+            {
+                id: 1,
+                type: 'success' as const,
+                title: 'World imported',
+                text: 'Ready to play',
+                collapsed: false,
+            },
+        ],
         stopNotificationTimer: () => {},
         setNotificationTimer: () => {},
         removeNotification: () => {},
@@ -32,6 +40,8 @@ it('announces popup notifications through a polite live region', async () => {
         expect(group.getAttribute('role')).toBe('log')
         expect(group.getAttribute('aria-live')).toBe('polite')
         expect(group.getAttribute('aria-relevant')).toBe('additions text')
+        expect(group.querySelectorAll('.popup-notification-wrapper')).toHaveLength(1)
+        expect(group.textContent).toContain('World imported')
     } finally {
         panel.unmount()
     }

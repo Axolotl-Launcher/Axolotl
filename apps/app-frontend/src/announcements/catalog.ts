@@ -68,6 +68,12 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                     'zh-CN':
                         '修复断网时无法进入浏览、收藏、项目详情和创建实例页面的问题，并显示网络检查提示和重试按钮。',
                 },
+                {
+                    'en-US':
+                        'Fixed browser form history suggestions appearing in the command generator\'s "Command to run" field after restarting the launcher.',
+                    'zh-CN':
+                        '修复重启启动器后，指令生成器“需要执行的命令”输入框弹出浏览器表单历史建议的问题。',
+                },
             ],
         },
     },

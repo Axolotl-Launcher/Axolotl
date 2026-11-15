@@ -23,7 +23,7 @@ use opentelemetry_sdk::trace::{
     SdkTracerProvider,
 };
 
-use super::config::{ObservabilityConfig, SignalConfig};
+use super::config::{ObservabilityConfig, SamplerMode, SignalConfig};
 
 /// Instrumentation scope shared by every launcher signal.
 pub(crate) const SCOPE_NAME: &str = "axolotl-launcher";
@@ -145,6 +145,9 @@ fn headers(signal: &SignalConfig) -> HashMap<String, String> {
 
 fn http_client() -> Result<reqwest::Client, String> {
     crate::util::http::client_builder()
+        // OTLP endpoints may be loopback collectors and can carry credentials
+        // in their headers. Never route them through an ambient HTTP proxy.
+        .no_proxy()
         .build()
         .map_err(|error| {
             format!("failed to build the OTLP HTTP client: {error}")
@@ -215,10 +218,24 @@ pub(crate) fn build(
     let batch = BatchSpanProcessor::builder(span_exporter(&config.traces)?)
         .with_batch_config(batch_config)
         .build();
+    let sampler = match config.sampler.mode {
+        SamplerMode::AlwaysOn => Sampler::AlwaysOn,
+        SamplerMode::AlwaysOff => Sampler::AlwaysOff,
+        SamplerMode::TraceIdRatio => {
+            Sampler::TraceIdRatioBased(config.sampler.ratio)
+        }
+        SamplerMode::ParentBasedAlwaysOn => {
+            Sampler::ParentBased(Box::new(Sampler::AlwaysOn))
+        }
+        SamplerMode::ParentBasedAlwaysOff => {
+            Sampler::ParentBased(Box::new(Sampler::AlwaysOff))
+        }
+        SamplerMode::ParentBasedTraceIdRatio => Sampler::ParentBased(Box::new(
+            Sampler::TraceIdRatioBased(config.sampler.ratio),
+        )),
+    };
     let tracer_provider = SdkTracerProvider::builder()
-        .with_sampler(Sampler::ParentBased(Box::new(
-            Sampler::TraceIdRatioBased(config.sample_ratio),
-        )))
+        .with_sampler(sampler)
         .with_resource(resource.clone())
         .with_span_processor(batch)
         .build();

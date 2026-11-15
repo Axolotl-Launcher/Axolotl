@@ -101,6 +101,7 @@ let ready = false
 let enabled = false
 let pending: ObservabilityEvent[] = []
 let flushTimer: ReturnType<typeof setInterval> | null = null
+let flushInFlight: Promise<void> | null = null
 
 /**
  * Records a bounded event. Safe to call before initialization: events are
@@ -252,10 +253,22 @@ function enqueue(event: ObservabilityEvent): void {
 }
 
 function flushQueue(): Promise<void> {
+    if (flushInFlight !== null) {
+        return flushInFlight
+    }
     if (!enabled || pending.length === 0) {
         return Promise.resolve()
     }
-    return sendBatches()
+    flushInFlight = sendBatches().finally(() => {
+        flushInFlight = null
+    })
+    return flushInFlight
+}
+
+async function drainQueue(): Promise<void> {
+    while (pending.length > 0) {
+        await flushQueue()
+    }
 }
 
 async function sendBatches(): Promise<void> {
@@ -273,7 +286,7 @@ async function sendBatches(): Promise<void> {
 
 function handlePageHide(): void {
     // Flush native exporters only after the final batch has been delivered.
-    void flushQueue().finally(() => {
+    void drainQueue().finally(() => {
         void tauriInvoke('plugin:observability|observability_flush').catch(() => {})
     })
 }

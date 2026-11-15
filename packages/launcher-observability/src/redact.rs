@@ -28,7 +28,18 @@ const SENSITIVE_KEY_PARTS: &[&str] = &[
     "player",
     "path",
     "url",
+    "api_key",
+    "api-key",
+    "apikey",
+    "access_key",
+    "access-key",
+    "private_key",
+    "private-key",
+    "credential",
 ];
+
+const FREE_FORM_KEYS: &[&str] = &[crate::attrs::ERROR_KIND, "source"];
+const MAX_VALUE_LEN: usize = MAX_STRING_LEN;
 
 /// Validate an event name. Names are stable identifiers, not messages.
 pub fn validate_event_name(name: &str) -> Result<(), TelemetryError> {
@@ -51,7 +62,7 @@ pub fn validate_attributes(
     }
     for attribute in attributes {
         validate_key(&attribute.key)?;
-        validate_value(&attribute.value)?;
+        validate_value(&attribute.key, &attribute.value)?;
     }
     Ok(())
 }
@@ -135,13 +146,31 @@ fn validate_key(key: &str) -> Result<(), TelemetryError> {
     Ok(())
 }
 
-fn validate_value(value: &AttributeValue) -> Result<(), TelemetryError> {
+fn validate_value(
+    key: &str,
+    value: &AttributeValue,
+) -> Result<(), TelemetryError> {
     if let AttributeValue::F64(value) = value
         && !value.is_finite()
     {
         return Err(TelemetryError::InvalidAttribute(
             "float attributes must be finite".to_owned(),
         ));
+    }
+    if let AttributeValue::String(value) = value
+        && FREE_FORM_KEYS.contains(&key)
+    {
+        let bounded = !value.is_empty()
+            && value.len() <= MAX_VALUE_LEN
+            && value.chars().all(|character| {
+                character.is_ascii_alphanumeric()
+                    || matches!(character, '.' | '_' | '-' | ':')
+            });
+        if !bounded {
+            return Err(TelemetryError::InvalidAttribute(format!(
+                "attribute {key:?} must be a stable identifier, not free-form text"
+            )));
+        }
     }
     Ok(())
 }
@@ -176,11 +205,37 @@ mod tests {
             "player.name",
             "file.path",
             "request.url",
+            "api_key",
+            "apikey",
+            "access_key",
+            "private_key",
+            "credential",
         ] {
             let error = validate_attributes(&[Attribute::new(key, "x")])
                 .expect_err("key must be rejected");
             assert!(matches!(error, TelemetryError::InvalidAttribute(_)));
         }
+    }
+
+    #[test]
+    fn rejects_free_form_values_for_enum_keys() {
+        for value in [
+            "https://example.test/private",
+            "/home/alice/.minecraft",
+            "failed to open the file",
+        ] {
+            let error = validate_attributes(&[Attribute::new(
+                crate::attrs::ERROR_KIND,
+                value,
+            )])
+            .expect_err("free-form value must be rejected");
+            assert!(matches!(error, TelemetryError::InvalidAttribute(_)));
+        }
+        validate_attributes(&[Attribute::new(
+            crate::attrs::ERROR_KIND,
+            "ipc_error",
+        )])
+        .expect("stable enum values must be accepted");
     }
 
     #[test]

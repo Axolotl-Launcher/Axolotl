@@ -20,6 +20,7 @@ const GENERAL_TIMEOUT_VAR: &str = "OTEL_EXPORTER_OTLP_TIMEOUT";
 
 const SERVICE_NAME_VAR: &str = "OTEL_SERVICE_NAME";
 const RESOURCE_ATTRIBUTES_VAR: &str = "OTEL_RESOURCE_ATTRIBUTES";
+const SAMPLER_VAR: &str = "OTEL_TRACES_SAMPLER";
 const SAMPLER_ARG_VAR: &str = "OTEL_TRACES_SAMPLER_ARG";
 const METRIC_INTERVAL_VAR: &str = "OTEL_METRIC_EXPORT_INTERVAL";
 
@@ -95,6 +96,29 @@ impl Signal {
     }
 }
 
+/// Resolved sampler selection from the standard OTEL variables.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SamplerMode {
+    AlwaysOn,
+    AlwaysOff,
+    TraceIdRatio,
+    ParentBasedAlwaysOn,
+    ParentBasedAlwaysOff,
+    ParentBasedTraceIdRatio,
+}
+
+impl SamplerMode {
+    const fn uses_ratio(self) -> bool {
+        matches!(self, Self::TraceIdRatio | Self::ParentBasedTraceIdRatio)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct SamplerConfig {
+    pub(crate) mode: SamplerMode,
+    pub(crate) ratio: f64,
+}
+
 /// Resolved exporter settings shared by one signal.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SignalConfig {
@@ -122,7 +146,7 @@ pub(crate) struct ObservabilityConfig {
     pub(crate) traces: SignalConfig,
     pub(crate) metrics: SignalConfig,
     pub(crate) logs: Option<SignalConfig>,
-    pub(crate) sample_ratio: f64,
+    pub(crate) sampler: SamplerConfig,
     pub(crate) batch: BatchSettings,
     pub(crate) metric_interval: Duration,
     pub(crate) raw_logs: bool,
@@ -227,7 +251,7 @@ impl ObservabilityConfig {
             traces,
             metrics,
             logs,
-            sample_ratio: parse_sample_ratio(&read)?,
+            sampler: parse_sampler(&read)?,
             batch: BatchSettings {
                 max_queue_size,
                 max_export_batch_size,
@@ -279,16 +303,21 @@ fn resolve_endpoint(
     let Some(base) = env(read, GENERAL_ENDPOINT_VAR) else {
         return Ok(None);
     };
-    Ok(Some(append_signal_path(&base, signal.signal_path())))
+    Ok(Some(append_signal_path(&base, signal.signal_path())?))
 }
 
-fn append_signal_path(base: &str, signal_path: &str) -> String {
-    let base = base.trim_end_matches('/');
-    if base.ends_with(signal_path) {
-        base.to_owned()
-    } else {
-        format!("{base}{signal_path}")
+fn append_signal_path(
+    base: &str,
+    signal_path: &str,
+) -> Result<String, ConfigError> {
+    let mut url = url::Url::parse(base).map_err(|_| {
+        ConfigError::new("OTEL_EXPORTER_OTLP_ENDPOINT must be an absolute URL")
+    })?;
+    let path = url.path().trim_end_matches('/').to_owned();
+    if !path.ends_with(signal_path) {
+        url.set_path(&format!("{path}{signal_path}"));
     }
+    Ok(url.to_string())
 }
 
 fn validate_protocol(
@@ -382,6 +411,38 @@ fn parse_sample_ratio(
     Ok(ratio.clamp(0.0, 1.0))
 }
 
+fn parse_sampler(
+    read: &impl Fn(&str) -> Option<String>,
+) -> Result<SamplerConfig, ConfigError> {
+    let raw = env(read, SAMPLER_VAR);
+    let mode = match raw
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        None | Some("parentbased_traceidratio") => {
+            SamplerMode::ParentBasedTraceIdRatio
+        }
+        Some("always_on") => SamplerMode::AlwaysOn,
+        Some("always_off") => SamplerMode::AlwaysOff,
+        Some("traceidratio") => SamplerMode::TraceIdRatio,
+        Some("parentbased_always_on") => SamplerMode::ParentBasedAlwaysOn,
+        Some("parentbased_always_off") => SamplerMode::ParentBasedAlwaysOff,
+        Some(value) => {
+            return Err(ConfigError::new(format!(
+                "{SAMPLER_VAR} has an unsupported sampler {value:?}"
+            )));
+        }
+    };
+    let ratio = if mode.uses_ratio() {
+        parse_sample_ratio(read)?
+    } else {
+        DEFAULT_SAMPLE_RATIO
+    };
+    Ok(SamplerConfig { mode, ratio })
+}
+
 fn parse_headers(
     raw: &str,
     var: &str,
@@ -403,7 +464,13 @@ fn parse_headers(
                 "{var} contains an empty header name"
             )));
         }
-        headers.push((key.to_owned(), value.trim().to_owned()));
+        let key = urlencoding::decode(key).map_err(|_| {
+            ConfigError::new(format!("{var} contains an invalid header name"))
+        })?;
+        let value = urlencoding::decode(value.trim()).map_err(|_| {
+            ConfigError::new(format!("{var} contains an invalid header value"))
+        })?;
+        headers.push((key.into_owned(), value.into_owned()));
     }
     Ok(headers)
 }
@@ -610,7 +677,7 @@ mod tests {
         let mut pairs = enabled_pairs();
         pairs.push((
             GENERAL_HEADERS_VAR,
-            "authorization=Bearer token,x-scope = launcher ",
+            "authorization=Bearer token,x-scope = launcher ,x-encoded=Bearer%20abc%2Ctenant",
         ));
         let config = config_from(&pairs).unwrap().unwrap();
         assert_eq!(
@@ -618,6 +685,7 @@ mod tests {
             vec![
                 ("authorization".to_owned(), "Bearer token".to_owned()),
                 ("x-scope".to_owned(), "launcher".to_owned()),
+                ("x-encoded".to_owned(), "Bearer abc,tenant".to_owned()),
             ]
         );
         assert_eq!(config.traces.headers, config.metrics.headers);
@@ -650,11 +718,11 @@ mod tests {
     fn clamps_the_sample_ratio() {
         let mut pairs = enabled_pairs();
         pairs.push((SAMPLER_ARG_VAR, "4.5"));
-        assert_eq!(config_from(&pairs).unwrap().unwrap().sample_ratio, 1.0);
+        assert_eq!(config_from(&pairs).unwrap().unwrap().sampler.ratio, 1.0);
 
         let mut pairs = enabled_pairs();
         pairs.push((SAMPLER_ARG_VAR, "-2"));
-        assert_eq!(config_from(&pairs).unwrap().unwrap().sample_ratio, 0.0);
+        assert_eq!(config_from(&pairs).unwrap().unwrap().sampler.ratio, 0.0);
 
         let mut pairs = enabled_pairs();
         pairs.push((SAMPLER_ARG_VAR, "nan"));
@@ -664,7 +732,29 @@ mod tests {
     #[test]
     fn defaults_the_sample_ratio_to_ten_percent() {
         let config = config_from(&enabled_pairs()).unwrap().unwrap();
-        assert_eq!(config.sample_ratio, DEFAULT_SAMPLE_RATIO);
+        assert_eq!(config.sampler.ratio, DEFAULT_SAMPLE_RATIO);
+        assert_eq!(config.sampler.mode, SamplerMode::ParentBasedTraceIdRatio);
+    }
+
+    #[test]
+    fn honors_the_standard_trace_sampler() {
+        let cases = [
+            ("always_on", SamplerMode::AlwaysOn),
+            ("always_off", SamplerMode::AlwaysOff),
+            ("traceidratio", SamplerMode::TraceIdRatio),
+            ("parentbased_always_on", SamplerMode::ParentBasedAlwaysOn),
+            ("parentbased_always_off", SamplerMode::ParentBasedAlwaysOff),
+        ];
+        for (value, expected) in cases {
+            let mut pairs = enabled_pairs();
+            pairs.push((SAMPLER_VAR, value));
+            let config = config_from(&pairs).unwrap().unwrap();
+            assert_eq!(config.sampler.mode, expected);
+        }
+
+        let mut pairs = enabled_pairs();
+        pairs.push((SAMPLER_VAR, "not-a-sampler"));
+        assert!(config_from(&pairs).is_err());
     }
 
     #[test]
@@ -766,12 +856,22 @@ mod tests {
             append_signal_path(
                 "https://collector.example.com/v1/traces",
                 "/v1/traces"
-            ),
+            )
+            .unwrap(),
             "https://collector.example.com/v1/traces"
         );
         assert_eq!(
-            append_signal_path("https://collector.example.com/", "/v1/logs"),
+            append_signal_path("https://collector.example.com/", "/v1/logs")
+                .unwrap(),
             "https://collector.example.com/v1/logs"
+        );
+        assert_eq!(
+            append_signal_path(
+                "https://collector.example.com/otlp?tenant=a",
+                "/v1/traces"
+            )
+            .unwrap(),
+            "https://collector.example.com/otlp/v1/traces?tenant=a"
         );
     }
 

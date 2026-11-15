@@ -55,21 +55,24 @@ impl OtlpSink {
             attributes.push(KeyValue::new(key, otel_value(value)));
         }
 
+        let occurred_at = UNIX_EPOCH
+            + Duration::from_millis(
+                u64::try_from(event.occurred_at_unix_ms).unwrap_or(0),
+            );
+        let start = event
+            .duration_ms
+            .and_then(|duration_ms| {
+                occurred_at.checked_sub(Duration::from_millis(duration_ms))
+            })
+            .unwrap_or(occurred_at);
         let mut builder = self
             .tracer
             .span_builder(event.name)
-            .with_attributes(attributes);
-        if let Some(duration_ms) = event.duration_ms {
-            let end = UNIX_EPOCH
-                + Duration::from_millis(event.occurred_at_unix_ms.max(0) as u64);
-            let start = end
-                .checked_sub(Duration::from_millis(duration_ms))
-                .unwrap_or(end);
-            builder = builder.with_start_time(start);
-        }
+            .with_attributes(attributes)
+            .with_start_time(start);
         let mut span =
             self.tracer.build_with_context(builder, &Context::current());
-        span.end();
+        span.end_with_timestamp(occurred_at);
     }
 }
 

@@ -109,7 +109,13 @@ Remove-Item -Recurse -Force target\debug
 
 ### 应用数据目录与数据库迁移
 
-启动器把设置、数据库、日志与缓存放在同一个数据目录下，Windows 上是 `%APPDATA%\red.ghs.axolotl`，其中按更新通道分为 `release\app.db` 与 `beta\app.db`。
+启动器原始数据目录在 Windows 上是 `%APPDATA%\red.ghs.axolotl`。内部数据库统一位于其 `databases/`：`system.db` 协调实例、账户、同步、媒体、操作、共享文件、记录及遥测八个业务库；`derived.db` 和分渠道的资源缓存也在此目录。Release 与 Beta 共用业务数据。实例备份仓库的 `backup.db` 仍留在各自仓库中。
+
+配置保留在 `settings/*.json`；数据库中的兼容配置投影只存在于进程内存，不是另一份持久配置。旧 `release/app.db`、`beta/app.db` 仅作为首次导入来源：导入在临时快照上升级旧结构，接管配置并记录完成后，后续启动不再打开旧库。旧文件保留供人工恢复参考，不会与新库双向同步。
+
+新库格式与启动器发布版本解耦，不运行全库 SQLx 发布迁移检查。`src/state/store/database_baseline.json` 定义稳定基础结构：保留既有字段和语义，扩展使用独立类型、局部协议标识及 `extension_records`；旧程序保留未知数据，暂停对应修改、恢复或清理。新增格式必须验证“旧读者读写后未知数据仍然存在”。业务库共用持久协调库与 DELETE/FULL 日志设置；所有写事务先用 `BEGIN IMMEDIATE` 按一致顺序预留附加库，不要改成 WAL 或先写附加库再申请协调库。
+
+更新前及周期备份写入 `Backups/databases/<id>/`，包含完整业务库和配置 JSON，周期备份保留最近三份完整集合。恢复时关闭启动器，并恢复整套业务库和对应配置，不要单独替换 `system.db`。以下 SQLx 降级说明和脚本只适用于旧 `app.db`，不适用于新数据库集合。
 
 **本地构建与已安装的正式版共用这份数据目录。** 本地跑一次桌面应用，改动的就是正在使用的那份数据库，因此：
 

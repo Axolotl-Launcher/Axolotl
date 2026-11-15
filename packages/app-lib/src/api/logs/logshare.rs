@@ -9,7 +9,7 @@ use super::crash_analysis::collect_crash_logs;
 use crate::State;
 use crate::state::documents;
 use crate::state::store::Collection as _;
-use crate::state::store::shared_logs::{SharedLogRecord, SharedLogs};
+use crate::state::user_state::shared_logs::{SharedLogRecord, SharedLogs};
 
 const LOGSHARE_BASE_URL: &str = "https://api.logshare.cn";
 const LOGSHARE_AI_READ_TIMEOUT_SECS: u64 = 300;

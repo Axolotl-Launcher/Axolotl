@@ -1,3 +1,4 @@
+#[cfg(test)]
 pub(crate) mod attached_world_data;
 pub(crate) mod config_sync_rows;
 pub(crate) mod content_entries;

@@ -98,6 +98,7 @@ pub(crate) mod media;
 pub(crate) mod persistence;
 pub(crate) mod store;
 pub(crate) mod telemetry_state;
+pub(crate) mod user_state;
 
 // Global state
 // RwLock on state only has concurrent reads, except for config dir change which takes control of the State

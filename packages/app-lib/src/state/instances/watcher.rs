@@ -397,7 +397,7 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                                                     &instance_id,
                                                     WorldType::Singleplayer,
                                                     &world,
-                                                    &state.pool
+                                                    &state.persistence
                                                 ).await {
                                                     tracing::warn!("Failed to remove AttachedWorldData for '{world}': {e}")
                                                 }

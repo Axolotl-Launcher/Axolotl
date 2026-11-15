@@ -5,7 +5,7 @@ use chrono::NaiveDate;
 use sqlx::SqlitePool;
 
 /// Reads the playtime totals of each day in the range.
-pub(crate) async fn get_daily_playtime(
+async fn get_daily_playtime_in(
     start_date: NaiveDate,
     end_date: NaiveDate,
     pool: &SqlitePool,
@@ -62,7 +62,7 @@ pub(crate) async fn get_daily_playtime(
 }
 
 /// Reads each instance's share of one day's playtime.
-pub(crate) async fn get_daily_playtime_details(
+async fn get_daily_playtime_details_in(
     played_on: NaiveDate,
     pool: &SqlitePool,
 ) -> crate::Result<Vec<DailyPlaytimeEntry>> {
@@ -110,7 +110,7 @@ pub(crate) async fn get_daily_playtime_details(
 
 /// Adds playtime to the instance's row for one day, creating the row when the
 /// day has none yet. A stored total that would overflow saturates instead.
-pub(crate) async fn upsert_daily_playtime(
+async fn upsert_daily_playtime_in(
     instance_id: &str,
     instance_name: &str,
     played_on: NaiveDate,
@@ -158,7 +158,7 @@ pub(crate) async fn upsert_daily_playtime(
     )
     .execute(&mut *transaction)
     .await?;
-    crate::state::store::configuration::commit(transaction, pool).await?;
+    transaction.commit().await?;
 
     Ok(())
 }
@@ -202,5 +202,61 @@ pub(crate) async fn add_recent_playtime(
     .await?;
     crate::state::store::configuration::commit(transaction, pool).await?;
 
+    Ok(())
+}
+
+/// Daily history is optional; a damaged history file cannot disable instances.
+pub(crate) async fn get_daily_playtime(
+    start: NaiveDate,
+    end: NaiveDate,
+    core: &SqlitePool,
+) -> crate::Result<Vec<DailyPlaytime>> {
+    let Some(pool) = crate::state::store::records_db::pool_for(core).await
+    else {
+        return Ok(Vec::new());
+    };
+    match get_daily_playtime_in(start, end, &pool).await {
+        Ok(rows) => Ok(rows),
+        Err(error) => {
+            tracing::warn!(%error,"Daily history unavailable");
+            Ok(Vec::new())
+        }
+    }
+}
+pub(crate) async fn get_daily_playtime_details(
+    day: NaiveDate,
+    core: &SqlitePool,
+) -> crate::Result<Vec<DailyPlaytimeEntry>> {
+    let Some(pool) = crate::state::store::records_db::pool_for(core).await
+    else {
+        return Ok(Vec::new());
+    };
+    match get_daily_playtime_details_in(day, &pool).await {
+        Ok(rows) => Ok(rows),
+        Err(error) => {
+            tracing::warn!(%error,"Daily history unavailable");
+            Ok(Vec::new())
+        }
+    }
+}
+pub(crate) async fn upsert_daily_playtime(
+    id: &str,
+    name: &str,
+    day: NaiveDate,
+    seconds: u64,
+    count: u64,
+    core: &SqlitePool,
+) -> crate::Result<()> {
+    playtime_to_storage(seconds, "played_seconds")?;
+    playtime_to_storage(count, "session_count")?;
+    let Some(pool) = crate::state::store::records_db::pool_for(core).await
+    else {
+        return Ok(());
+    };
+    if let Err(error) =
+        upsert_daily_playtime_in(id, name, day, seconds, count, &pool).await
+    {
+        tracing::warn!(%error,"Daily playtime could not be recorded; core state remains available");
+    }
     Ok(())
 }

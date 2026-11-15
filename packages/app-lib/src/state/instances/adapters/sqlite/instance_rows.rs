@@ -530,7 +530,7 @@ where
             created,
             modified,
             last_played,
-            pinned_at,
+            NULL AS pinned_at,
             submitted_time_played,
             recent_time_played
         FROM instances
@@ -567,6 +567,13 @@ where
     let mut instance: Instance = row.try_into()?;
     let fields = get_direct_link_fields(id, exec).await?;
     fields.apply_to(&mut instance);
+    if let Some(root) = core_root(std::path::Path::new(&file)) {
+        let pins = crate::state::user_state::favorites::pin_values(
+            &crate::state::persistence::Persistence::new(root),
+        )
+        .await;
+        instance.pinned_at = pins.get(&instance.id).copied();
+    }
 
     Ok(Some(instance))
 }
@@ -594,7 +601,7 @@ where
             created,
             modified,
             last_played,
-            pinned_at,
+            NULL AS pinned_at,
             submitted_time_played,
             recent_time_played
         FROM instances
@@ -631,6 +638,13 @@ where
     let mut instance: Instance = row.try_into()?;
     let fields = get_direct_link_fields(&instance.id, exec).await?;
     fields.apply_to(&mut instance);
+    if let Some(root) = core_root(std::path::Path::new(&file)) {
+        let pins = crate::state::user_state::favorites::pin_values(
+            &crate::state::persistence::Persistence::new(root),
+        )
+        .await;
+        instance.pinned_at = pins.get(&instance.id).copied();
+    }
 
     Ok(Some(instance))
 }
@@ -749,7 +763,7 @@ pub(crate) async fn get_instance_metadata_by_id(
             i.created,
             i.modified,
             i.last_played,
-            i.pinned_at,
+            NULL AS pinned_at,
             i.submitted_time_played,
             i.recent_time_played,
             cs.id AS content_set_id,
@@ -802,7 +816,17 @@ pub(crate) async fn get_instance_metadata_by_id(
     .fetch_optional(pool)
     .await?;
 
-    row.map(InstanceMetadataRow::into_record).transpose()
+    let mut record = row.map(InstanceMetadataRow::into_record).transpose()?;
+    if let Some(root) = core_root(pool.connect_options().get_filename()) {
+        let pins = crate::state::user_state::favorites::pin_values(
+            &crate::state::persistence::Persistence::new(root),
+        )
+        .await;
+        if let Some(record) = &mut record {
+            record.instance.pinned_at = pins.get(&record.instance.id).copied();
+        }
+    }
+    Ok(record)
 }
 
 pub(crate) async fn get_instance_metadata_many(
@@ -840,7 +864,7 @@ pub(crate) async fn get_instance_metadata_many(
             i.created,
             i.modified,
             i.last_played,
-            i.pinned_at,
+            NULL AS pinned_at,
             i.submitted_time_played,
             i.recent_time_played,
             cs.id AS content_set_id,
@@ -895,10 +919,21 @@ pub(crate) async fn get_instance_metadata_many(
     .fetch_all(pool)
     .await?;
 
+    let pins =
+        if let Some(root) = core_root(pool.connect_options().get_filename()) {
+            Some(
+                crate::state::user_state::favorites::pin_values(
+                    &crate::state::persistence::Persistence::new(root),
+                )
+                .await,
+            )
+        } else {
+            None
+        };
     Ok(rows.into_iter().filter_map(|row| {
         let id = row.id.clone();
         match row.into_record() {
-            Ok(record) => Some(record),
+            Ok(mut record) => { if let Some(pins) = &pins { record.instance.pinned_at = pins.get(&id).copied(); } Some(record) },
             Err(error) => { tracing::warn!(instance_id = %id, %error, "Unsupported instance preserved and omitted from this build"); None }
         }
     }).collect())
@@ -929,7 +964,7 @@ pub(crate) async fn list_instance_metadata(
             i.created,
             i.modified,
             i.last_played,
-            i.pinned_at,
+            NULL AS pinned_at,
             i.submitted_time_played,
             i.recent_time_played,
             cs.id AS content_set_id,
@@ -980,10 +1015,21 @@ pub(crate) async fn list_instance_metadata(
     .fetch_all(pool)
     .await?;
 
+    let pins =
+        if let Some(root) = core_root(pool.connect_options().get_filename()) {
+            Some(
+                crate::state::user_state::favorites::pin_values(
+                    &crate::state::persistence::Persistence::new(root),
+                )
+                .await,
+            )
+        } else {
+            None
+        };
     Ok(rows.into_iter().filter_map(|row| {
         let id = row.id.clone();
         match row.into_record() {
-            Ok(record) => Some(record),
+            Ok(mut record) => { if let Some(pins) = &pins { record.instance.pinned_at = pins.get(&id).copied(); } Some(record) },
             Err(error) => { tracing::warn!(instance_id = %id, %error, "Unsupported instance preserved and omitted from this build"); None }
         }
     }).collect())
@@ -1015,7 +1061,7 @@ pub(crate) async fn get_instance_launch_context(
             i.created,
             i.modified,
             i.last_played,
-            i.pinned_at,
+            NULL AS pinned_at,
             i.submitted_time_played,
             i.recent_time_played,
             cs.id AS content_set_id,
@@ -1060,8 +1106,20 @@ pub(crate) async fn get_instance_launch_context(
     .fetch_optional(pool)
     .await?;
 
-    row.map(InstanceMetadataRow::into_launch_context)
-        .transpose()
+    let mut context = row
+        .map(InstanceMetadataRow::into_launch_context)
+        .transpose()?;
+    if let Some(root) = core_root(pool.connect_options().get_filename()) {
+        let pins = crate::state::user_state::favorites::pin_values(
+            &crate::state::persistence::Persistence::new(root),
+        )
+        .await;
+        if let Some(context) = &mut context {
+            context.instance.pinned_at =
+                pins.get(&context.instance.id).copied();
+        }
+    }
+    Ok(context)
 }
 
 pub(crate) async fn list_instances(
@@ -1083,7 +1141,7 @@ pub(crate) async fn list_instances(
             created,
             modified,
             last_played,
-            pinned_at,
+            NULL AS pinned_at,
             submitted_time_played,
             recent_time_played
         FROM instances
@@ -1094,6 +1152,17 @@ pub(crate) async fn list_instances(
 
     let unsupported =
         crate::state::store::compatibility::unsupported_instances(pool).await?;
+    let pins =
+        if let Some(root) = core_root(pool.connect_options().get_filename()) {
+            Some(
+                crate::state::user_state::favorites::pin_values(
+                    &crate::state::persistence::Persistence::new(root),
+                )
+                .await,
+            )
+        } else {
+            None
+        };
     let mut instances = Vec::with_capacity(rows.len());
     for row in rows {
         let id = row.id.clone();
@@ -1109,6 +1178,9 @@ pub(crate) async fn list_instances(
         };
         let fields = get_direct_link_fields(&instance.id, pool).await?;
         fields.apply_to(&mut instance);
+        if let Some(pins) = &pins {
+            instance.pinned_at = pins.get(&instance.id).copied();
+        }
         instances.push(instance);
     }
 
@@ -1156,7 +1228,7 @@ pub(crate) async fn insert_instance(
     let created = instance.created.timestamp();
     let modified = instance.modified.timestamp();
     let last_played = instance.last_played.map(|value| value.timestamp());
-    let pinned_at = instance.pinned_at.map(|value| value.timestamp());
+    let pinned_at = None::<i64>;
     let submitted_time_played = playtime_to_storage(
         instance.submitted_time_played,
         "submitted_time_played",
@@ -1225,7 +1297,7 @@ pub(crate) async fn update_instance(
     let game_dir_override = instance.game_dir_override.as_deref();
     let modified = instance.modified.timestamp();
     let last_played = instance.last_played.map(|value| value.timestamp());
-    let pinned_at = instance.pinned_at.map(|value| value.timestamp());
+    let pinned_at = None::<i64>;
     let submitted_time_played = playtime_to_storage(
         instance.submitted_time_played,
         "submitted_time_played",
@@ -1393,6 +1465,13 @@ pub(crate) async fn delete_instance_by_id(
     .await?;
 
     crate::state::store::configuration::commit(transaction, pool).await?;
+    if core_root(pool.connect_options().get_filename()).is_some() {
+        crate::state::user_state::forget_instance(
+            &crate::state::store::persistence_for_pool(pool),
+            instance_id,
+        )
+        .await;
+    }
     Ok(())
 }
 
@@ -1741,29 +1820,54 @@ pub(crate) async fn set_pinned(
     modified: i64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
-    let result = sqlx::query!(
-        "
+    if core_root(pool.connect_options().get_filename()).is_some() {
+        crate::state::store::compatibility::ensure_instance_supported(
+            pool,
+            instance_id,
+        )
+        .await?;
+        get_instance_name(instance_id, pool).await?;
+        return crate::state::user_state::favorites::set_pin(
+            &crate::state::store::persistence_for_pool(pool),
+            instance_id,
+            pinned_at,
+        )
+        .await;
+    }
+    #[cfg(test)]
+    {
+        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        let result = sqlx::query!(
+            "
         UPDATE instances
         SET pinned_at = ?, modified = ?
         WHERE id = ?
         ",
-        pinned_at,
-        modified,
-        instance_id,
-    )
-    .execute(&mut *transaction)
-    .await?;
-    crate::state::store::configuration::commit(transaction, pool).await?;
-
-    if result.rows_affected() == 0 {
-        return Err(crate::ErrorKind::InputError(
-            "Unknown instance".to_string(),
+            pinned_at,
+            modified,
+            instance_id,
         )
-        .into());
-    }
+        .execute(&mut *transaction)
+        .await?;
+        crate::state::store::configuration::commit(transaction, pool).await?;
 
-    Ok(())
+        if result.rows_affected() == 0 {
+            return Err(crate::ErrorKind::InputError(
+                "Unknown instance".to_string(),
+            )
+            .into());
+        }
+
+        Ok(())
+    }
+    #[cfg(not(test))]
+    {
+        let _ = (instance_id, pinned_at, modified);
+        Err(crate::ErrorKind::InputError(
+            "Instance pins require the core data root".into(),
+        )
+        .into())
+    }
 }
 
 /// Narrows an instance to its display name.
@@ -1961,4 +2065,14 @@ where
     .await?;
 
     Ok(row)
+}
+
+fn core_root(file: &std::path::Path) -> Option<std::path::PathBuf> {
+    (file.file_name().and_then(|name| name.to_str()) == Some("system.db"))
+        .then(|| {
+            file.parent()
+                .and_then(std::path::Path::parent)
+                .map(std::path::Path::to_owned)
+        })
+        .flatten()
 }

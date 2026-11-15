@@ -1,5 +1,5 @@
 //! Read-only handover coordination for independent authorities. Account token
-//! columns are never selected.
+//! columns are never selected; shared-log credentials have their own adapter.
 
 use crate::state::accounts::document::Metadata;
 use crate::state::persistence::{Persistence, import::Import};
@@ -63,10 +63,12 @@ pub(crate) async fn ensure_cleanup_supported(root: &Path) -> crate::Result<()> {
             return Err(crate::ErrorKind::InputError("Cleanup is paused because opaque legacy extensions may retain files".into()).into());
         }
     }
+    super::legacy_user_state::ensure_cleanup_supported(root).await?;
     Ok(())
 }
 
 pub(crate) async fn initialize(root: &Path) {
+    super::legacy_user_state::initialize(root, None).await;
     for domain in ["accounts", "telemetry"] {
         if let Err(error) = initialize_domain(root, domain, None).await {
             tracing::warn!(domain, %error, "Independent state import unavailable; preserving legacy files and continuing startup");
@@ -100,6 +102,13 @@ pub(crate) async fn initialize_from_snapshot(root: &Path, snapshot: &Path) {
         }
     }
 
+    super::legacy_user_state::initialize(root, Some(snapshot.to_path_buf()))
+        .await;
+    if let Err(error) =
+        super::records_db::initialize(root, Some(snapshot.to_path_buf())).await
+    {
+        tracing::warn!(%error, "Independent playtime import unavailable; core startup continues");
+    }
     for domain in ["accounts", "telemetry"] {
         if let Err(error) =
             initialize_domain(root, domain, Some(snapshot.to_path_buf())).await

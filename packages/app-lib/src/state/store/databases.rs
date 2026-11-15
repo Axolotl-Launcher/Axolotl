@@ -140,7 +140,7 @@ pub(crate) async fn ensure_cleanup_supported(
     if DOMAINS
         .iter()
         .filter(|domain| {
-            !matches!(**domain, "accounts" | "telemetry" | "media")
+            !matches!(**domain, "accounts" | "telemetry" | "media" | "records")
         })
         .any(|domain| !attached.contains(*domain))
     {
@@ -321,12 +321,19 @@ pub(crate) async fn backup(
                             "Invalid handover receipt name".into(),
                         )
                     })?;
-                let files = crate::state::persistence::import::snapshot(
-                    &crate::state::persistence::Persistence::new(settings_dir),
-                    &name,
-                )
-                .await?;
-                for (relative, bytes) in files {
+                let snapshot = crate::state::persistence::import::snapshot(
+                    &crate::state::persistence::Persistence::new(settings_dir), &name,
+                ).await;
+                let files = match snapshot {
+                    Ok(files)=>files,
+                    Err(error) if name=="daily-playtime"=>{
+                        tracing::warn!(%error,"Core backup excludes unavailable optional daily history descriptor");
+                        crate::state::persistence::document::write_json(&staging.join("backup-status.json"),serde_json::to_vec(&serde_json::json!({"optional_exclusions":["records.db","state/records.json"]}))?).await?;
+                        continue;
+                    }
+                    Err(error)=>return Err(error),
+                };
+                for (relative,bytes) in files {
                     let destination = staging.join(relative);
                     if destination.extension().and_then(|value| value.to_str())
                         == Some("json")
@@ -345,6 +352,10 @@ pub(crate) async fn backup(
                     }
                 }
             }
+        }
+        if let Err(error) = super::records_db::backup(settings_dir, &staging.join("records.db")).await {
+            tracing::warn!(%error,"Core snapshot excludes unavailable optional daily history");
+            crate::state::persistence::document::write_json(&staging.join("backup-status.json"),serde_json::to_vec(&serde_json::json!({"optional_exclusions":["records.db"]}))?).await?;
         }
         tokio::fs::write(staging.join("complete"), b"axolotl database set\n")
             .await?;
@@ -415,7 +426,12 @@ pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
         settings_dir,
     )
     .await?;
-    open_with_retired(settings_dir, retired).await
+    let pool = open_with_retired(settings_dir, retired).await?;
+    if let Err(error) = super::records_db::initialize(settings_dir, None).await
+    {
+        tracing::warn!(%error,"Optional daily history unavailable; core startup continues");
+    }
+    Ok(pool)
 }
 
 async fn open_with_retired(
@@ -427,7 +443,10 @@ async fn open_with_retired(
             .iter()
             .copied()
             .filter(|domain| {
-                !matches!(*domain, "accounts" | "telemetry" | "media")
+                !matches!(
+                    *domain,
+                    "accounts" | "telemetry" | "media" | "records"
+                )
             })
             .filter(|domain| {
                 !retired.iter().any(|name| name.as_str() == *domain)
@@ -619,6 +638,9 @@ async fn create_schema(
             .await?;
     }
     for object in &baseline().objects {
+        if object.name == "resource_favorite_links" {
+            continue;
+        }
         // Views are instance/storage-only projections. Table-owned indexes
         // and triggers disappear together with their retired domain.
         if let Some(table) = baseline()
@@ -943,13 +965,9 @@ mod tests {
             for domain in ["accounts", "telemetry", "media", "sync"] {
                 assert!(!attached.contains(domain));
             }
-            for domain in [
-                "instances",
-                "storage",
-                "operations",
-                "records",
-                "configuration",
-            ] {
+            for domain in
+                ["instances", "storage", "operations", "configuration"]
+            {
                 assert!(attached.contains(domain));
             }
             assert_eq!(cross_domain_issues(connection).await.unwrap(), 0);
@@ -1090,7 +1108,7 @@ mod tests {
         let mut second = pool.acquire().await.unwrap();
         for connection in [&mut first, &mut second] {
             let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM pragma_database_list WHERE name IN ('instances', 'accounts', 'sync', 'media', 'operations', 'storage', 'records', 'telemetry', 'configuration')").fetch_one(&mut **connection).await.unwrap();
-            assert_eq!(count, 6);
+            assert_eq!(count, 5);
             let migrations: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM main.sqlite_schema WHERE name = '_sqlx_migrations'").fetch_one(&mut **connection).await.unwrap();
             assert_eq!(migrations, 0);
             let version: i64 =
@@ -1101,7 +1119,10 @@ mod tests {
             assert_eq!(version, 3);
             for schema in std::iter::once("main").chain(
                 DOMAINS.iter().copied().filter(|domain| {
-                    !matches!(*domain, "accounts" | "telemetry" | "media")
+                    !matches!(
+                        *domain,
+                        "accounts" | "telemetry" | "media" | "records"
+                    )
                 }),
             ) {
                 let mode: String = sqlx::query_scalar(sqlx::AssertSqlSafe(
@@ -1140,7 +1161,7 @@ mod tests {
                 .exists()
         );
         for domain in DOMAINS.iter().filter(|domain| {
-            !matches!(**domain, "accounts" | "telemetry" | "media")
+            !matches!(**domain, "accounts" | "telemetry" | "media" | "records")
         }) {
             assert!(
                 directory(temporary.path())

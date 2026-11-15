@@ -23,7 +23,7 @@ use crate::launcher::quick_play_version::{
 };
 use crate::server_address::{ServerAddress, parse_server_address};
 use crate::state::store::Collection as _;
-use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
+use crate::state::user_state::joins::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::state::{
     CacheBehaviour, Credentials, Instance, InstanceInstallStage,
     InstanceLaunchContext, InstanceLink, JavaVersion, MemorySettings,

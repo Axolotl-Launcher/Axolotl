@@ -4273,3 +4273,42 @@ async fn initialized_domains_do_not_reconcile_or_open_legacy_channel_files() {
     assert!(!temporary.path().join("release/app.db").exists());
     pool.close().await;
 }
+
+#[tokio::test]
+async fn legacy_startup_snapshot_keeps_pins_favorites_world_choices_and_daily_totals()
+ {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join("app.db");
+    let legacy = connect_app_db(&path).await.unwrap();
+    sqlx::query("INSERT INTO resources(id) VALUES('handover-resource')")
+        .execute(&legacy)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO resource_source_projects(source,project_id,resource_id) VALUES('modrinth','12345678','handover-resource')")
+        .execute(&legacy)
+        .await
+        .unwrap();
+    sqlx::raw_sql("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified,pinned_at) VALUES('handover','path','installed','none','Example',0,0,456);INSERT INTO resource_favorites(source,project_id,content_type,saved_at) VALUES('modrinth','12345678','mod',123);INSERT INTO attached_world_data(instance_id,world_type,world_id,display_status,project_id,content_kind) VALUES('handover','singleplayer','world','favorite','project','world_save');INSERT INTO instance_daily_playtime(played_on,instance_id,instance_name,played_seconds,session_count) VALUES('2026-11-15','handover','Example',77,1);").execute(&legacy).await.unwrap();
+    legacy.close().await;
+    let core = connect_at(temporary.path()).await.unwrap();
+    let persistence =
+        crate::state::persistence::Persistence::new(temporary.path());
+    assert_eq!(crate::state::user_state::favorites::pin_values(&persistence).await["handover"].timestamp(),456);
+    assert_eq!(
+        crate::state::user_state::favorites::all(&persistence)
+            .await
+            .unwrap()[0]
+            .saved_at,
+        123
+    );
+    assert_eq!(
+        crate::state::user_state::worlds::get_all(&persistence, "handover")
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    let day = "2026-11-15".parse().unwrap();
+    assert_eq!(crate::state::instances::adapters::sqlite::playtime::get_daily_playtime(day,day,&core).await.unwrap()[0].played_seconds,77);
+    core.close().await;
+}

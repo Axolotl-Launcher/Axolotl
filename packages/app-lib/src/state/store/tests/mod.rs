@@ -44,3 +44,5 @@ mod synced_game_option_state;
 mod synced_game_option_values;
 mod telemetry;
 mod translation_cache;
+
+mod user_state;

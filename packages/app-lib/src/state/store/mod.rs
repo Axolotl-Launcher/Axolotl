@@ -44,9 +44,11 @@ pub(crate) mod instance_sync_checkpoints;
 pub(crate) mod instance_sync_preferences;
 pub(crate) mod java_default_versions;
 pub(crate) mod java_versions;
+#[cfg(test)]
 pub(crate) mod join_log;
 pub(crate) mod legacy_documents;
 pub(crate) mod legacy_media;
+pub(crate) mod legacy_user_state;
 pub(crate) mod maintenance;
 pub(crate) mod minecraft_device_tokens;
 pub(crate) mod minecraft_users;
@@ -56,6 +58,7 @@ pub(crate) mod official_login_proof;
 #[cfg(test)]
 pub(crate) mod offline_minecraft_skins;
 pub(crate) mod pending_backup_repository_cleanups;
+pub(crate) mod records_db;
 pub(crate) mod resource_artifact_evidence;
 pub(crate) mod resource_cache_entries;
 pub(crate) mod resource_cache_schema;
@@ -63,6 +66,7 @@ pub(crate) mod resource_cache_state;
 pub(crate) mod resource_entry_graphs;
 pub(crate) mod resource_entry_links;
 pub(crate) mod resource_execution_journals;
+#[cfg(test)]
 pub(crate) mod resource_favorites;
 pub(crate) mod resource_history;
 pub(crate) mod resource_history_cleanup_plans;
@@ -75,6 +79,7 @@ pub(crate) mod scheduler_restart_budget;
 pub(crate) mod scheduler_tags;
 pub(crate) mod secrets;
 pub(crate) mod settings;
+#[cfg(test)]
 pub(crate) mod shared_logs;
 pub(crate) mod store_blobs;
 pub(crate) mod store_retained_refs;

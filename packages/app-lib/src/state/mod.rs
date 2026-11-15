@@ -358,19 +358,11 @@ impl State {
     {
         self.resource_service
             .get_or_try_init(|| async {
-                let path: String = sqlx::query_scalar(
-                    "SELECT file FROM pragma_database_list WHERE name = 'main'",
-                )
-                .fetch_one(&self.pool)
-                .await
-                .map_err(|error| {
-                    crate::resources::ResourceError::Cache(error.to_string())
-                })?;
-                let channel = std::path::Path::new(&path)
-                    .parent()
-                    .and_then(|parent| parent.file_name())
-                    .and_then(|name| name.to_str())
-                    .filter(|name| matches!(*name, "release" | "beta"))
+                let selected = db::read_update_channel_state(&self.directories.settings_dir)
+                    .await
+                    .map_err(|error| crate::resources::ResourceError::Cache(error.to_string()))?;
+                let channel = selected.active_channel.as_deref()
+                    .filter(|channel| matches!(*channel, "release" | "beta"))
                     .unwrap_or_else(|| db::default_update_channel());
                 let path = self
                     .directories
@@ -1515,7 +1507,9 @@ impl State {
         }
 
         let derived = store::derived_db::DerivedDb::open(
-            directories.caches_dir().join(store::derived_db::FILE_NAME),
+            directories
+                .databases_dir()
+                .join(store::derived_db::FILE_NAME),
         )
         .await;
         CachedEntry::store_best_effort(&legacy.cached_entries, derived.pool())
@@ -1756,7 +1750,9 @@ pub(crate) async fn test_state(
         settings.doh_enabled,
     )?;
     let derived = store::derived_db::DerivedDb::open(
-        directories.caches_dir().join(store::derived_db::FILE_NAME),
+        directories
+            .databases_dir()
+            .join(store::derived_db::FILE_NAME),
     )
     .await;
 

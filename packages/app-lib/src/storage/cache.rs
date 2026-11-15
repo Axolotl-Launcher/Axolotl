@@ -143,9 +143,13 @@ fn verify_resource_cache(
     path: &Path,
 ) -> std::io::Result<()> {
     let relative = path
-        .strip_prefix(directories.caches_dir())
+        .strip_prefix(directories.databases_dir())
         .map_err(std::io::Error::other)?;
-    let mut dir = cache_root(directories)?;
+    let settings = Dir::open_ambient_dir(
+        &directories.settings_dir,
+        cap_std::ambient_authority(),
+    )?;
+    let mut dir = settings.open_dir_nofollow("databases")?;
     for part in relative.parent().into_iter().flat_map(Path::iter) {
         dir = dir.open_dir_nofollow(part)?;
     }

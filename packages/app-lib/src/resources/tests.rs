@@ -1961,7 +1961,7 @@ fn cache_paths_are_channel_scoped_and_reject_path_traversal() {
     };
     assert_eq!(
         directories.resource_cache_db("beta").unwrap(),
-        std::path::Path::new("custom/caches/resources/beta/resource-cache.db")
+        std::path::Path::new("settings/databases/resource-cache-beta.db")
     );
     assert_ne!(
         directories.resource_cache_db("beta").unwrap(),

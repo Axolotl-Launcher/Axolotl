@@ -328,6 +328,10 @@ impl DirectoryInfo {
         self.config_dir.join(CACHES_FOLDER_NAME)
     }
 
+    pub fn databases_dir(&self) -> PathBuf {
+        self.settings_dir.join("databases")
+    }
+
     pub fn resource_cache_db(&self, channel: &str) -> crate::Result<PathBuf> {
         if !matches!(channel, "release" | "beta") {
             return Err(crate::ErrorKind::InputError(
@@ -336,10 +340,8 @@ impl DirectoryInfo {
             .into());
         }
         Ok(self
-            .caches_dir()
-            .join("resources")
-            .join(channel)
-            .join("resource-cache.db"))
+            .databases_dir()
+            .join(format!("resource-cache-{channel}.db")))
     }
 
     pub fn content_store_dir(&self) -> PathBuf {
@@ -643,12 +645,11 @@ impl DirectoryInfo {
 
                 let new_root =
                     new_dir.trim_end_matches('/').trim_end_matches('\\');
-                // The runtimes live in the derived database, which the move has
-                // just carried to its new directory.
-                let derived = DerivedDb::open(
-                    move_dir.join(CACHES_FOLDER_NAME).join(FILE_NAME),
-                )
-                .await;
+                // Derived records stay under the original settings directory;
+                // only their Java executable paths follow the content move.
+                let derived =
+                    DerivedDb::open(app_dir.join("databases").join(FILE_NAME))
+                        .await;
                 derived
                     .write(async |derived_handle| {
                         let mut unit = atom(derived_handle).await?;

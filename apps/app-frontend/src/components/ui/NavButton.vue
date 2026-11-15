@@ -4,12 +4,14 @@
         ref="root"
         :to="to"
         v-bind="$attrs"
+        draggable="false"
         active-class="nav-router-active"
         :class="activeClasses"
         class="w-12 h-12 text-[var(--color-text-default)] rounded-full flex items-center justify-center text-2xl transition-all bg-transparent hover:bg-surface-4 hover:text-[var(--color-text-primary)]"
         @pointerenter="onPointerEnter"
         @pointerleave="onPointerLeave"
         @click="onActivate"
+        @dragstart.prevent
     >
         <slot />
     </RouterLink>
@@ -17,11 +19,13 @@
         v-else-if="typeof to === 'string'"
         v-bind="$attrs"
         type="button"
+        draggable="false"
         aria-disabled="true"
         tabindex="-1"
         :class="activeClasses"
         class="w-12 h-12 text-[var(--color-text-default)] rounded-full flex items-center justify-center text-2xl transition-all bg-transparent hover:bg-surface-4 hover:text-[var(--color-text-primary)]"
         @click.prevent
+        @dragstart.prevent
         @keydown.enter.prevent
         @keyup.enter.prevent
         @keydown.space.prevent
@@ -33,9 +37,11 @@
         v-else
         ref="root"
         v-bind="$attrs"
+        draggable="false"
         class="button-animation border-none text-[var(--color-text-default)] cursor-pointer w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all bg-transparent hover:bg-surface-4 hover:text-[var(--color-text-primary)]"
         :disabled="disabled"
         @click="onClick"
+        @dragstart.prevent
         @pointerenter="onPointerEnter"
         @pointerleave="onPointerLeave"
     >

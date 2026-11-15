@@ -63,6 +63,10 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             ],
             fixed: [
                 {
+                    'en-US': 'Fixed sidebar icons being draggable as links or images.',
+                    'zh-CN': '修复侧边栏图标可被拖出为链接或图片的问题。',
+                },
+                {
                     'en-US':
                         'Fixed the missing Data Packs category in Discover for Minecraft 26.x instances, including vanilla instances.',
                     'zh-CN':

@@ -13,6 +13,51 @@ import NavRail from './NavRail.vue'
 const cleanup: (() => void)[] = []
 afterEach(() => cleanup.splice(0).forEach((fn) => fn()))
 
+it.each(['link', 'disabled', 'action'] as const)(
+    'prevents dragging navigation buttons (%s) or their icons while preserving clicks',
+    async (kind) => {
+        const router = basicRouter()
+        await router.push('/library')
+        const action = vi.fn()
+        const wrapper = await mountThemed(
+            NavButton,
+            { to: kind === 'action' ? action : '/lab', disabled: kind === 'disabled' },
+            'dark',
+            {
+                global: { plugins: [router] },
+                slots: {
+                    default: () => [
+                        h('svg', {}, [h('path')]),
+                        h('img', {
+                            src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+                            alt: 'Instance',
+                        }),
+                    ],
+                },
+            },
+        )
+        cleanup.push(() => wrapper.unmount())
+
+        for (const target of [
+            wrapper.element,
+            wrapper.get('path').element,
+            wrapper.get('img').element,
+        ]) {
+            const event = new DragEvent('dragstart', { bubbles: true, cancelable: true })
+            target.dispatchEvent(event)
+            expect(event.defaultPrevented).toBe(true)
+        }
+        expect((wrapper.element as HTMLElement).draggable).toBe(false)
+        expect(router.currentRoute.value.path).toBe('/library')
+        expect(action).not.toHaveBeenCalled()
+
+        await wrapper.trigger('click', { button: 0 })
+        await flushPromises()
+        expect(router.currentRoute.value.path).toBe(kind === 'link' ? '/lab' : '/library')
+        expect(action).toHaveBeenCalledTimes(kind === 'action' ? 1 : 0)
+    },
+)
+
 it('keeps the library parent selected through every child route and switches the rail between regions', async () => {
     const router = createRouter({
         history: createMemoryHistory(),

@@ -277,14 +277,12 @@ fn resolve_signal(
         None => parse_key_values(read, GENERAL_HEADERS_VAR)?,
     };
 
-    let timeout = Duration::from_millis(
-        parse_u64(
-            read,
-            signal.timeout_var(),
-            parse_u64(read, GENERAL_TIMEOUT_VAR, DEFAULT_TIMEOUT_MS)?,
-        )?
-        .clamp(MIN_TIMEOUT_MS, MAX_TIMEOUT_MS),
-    );
+    let timeout_ms = match env(read, signal.timeout_var()) {
+        Some(value) => parse_u64_value(&value, signal.timeout_var())?,
+        None => parse_u64(read, GENERAL_TIMEOUT_VAR, DEFAULT_TIMEOUT_MS)?,
+    };
+    let timeout =
+        Duration::from_millis(timeout_ms.clamp(MIN_TIMEOUT_MS, MAX_TIMEOUT_MS));
 
     Ok(Some(SignalConfig {
         endpoint,
@@ -491,11 +489,15 @@ fn parse_u64(
     default: u64,
 ) -> Result<u64, ConfigError> {
     match env(read, var) {
-        Some(value) => value.parse::<u64>().map_err(|_| {
-            ConfigError::new(format!("{var} must be a whole number"))
-        }),
+        Some(value) => parse_u64_value(&value, var),
         None => Ok(default),
     }
+}
+
+fn parse_u64_value(value: &str, var: &str) -> Result<u64, ConfigError> {
+    value
+        .parse::<u64>()
+        .map_err(|_| ConfigError::new(format!("{var} must be a whole number")))
 }
 
 fn parse_usize(
@@ -734,6 +736,17 @@ mod tests {
         let config = config_from(&enabled_pairs()).unwrap().unwrap();
         assert_eq!(config.sampler.ratio, DEFAULT_SAMPLE_RATIO);
         assert_eq!(config.sampler.mode, SamplerMode::ParentBasedTraceIdRatio);
+    }
+
+    #[test]
+    fn signal_timeout_overrides_a_malformed_shared_timeout() {
+        let mut pairs = enabled_pairs();
+        pairs.push((GENERAL_TIMEOUT_VAR, "not-a-number"));
+        pairs.push(("OTEL_EXPORTER_OTLP_TRACES_TIMEOUT", "5000"));
+        pairs.push(("OTEL_EXPORTER_OTLP_METRICS_TIMEOUT", "6000"));
+        let config = config_from(&pairs).unwrap().unwrap();
+        assert_eq!(config.traces.timeout, Duration::from_millis(5_000));
+        assert_eq!(config.metrics.timeout, Duration::from_millis(6_000));
     }
 
     #[test]

@@ -234,10 +234,65 @@ pub(crate) async fn snapshot(
             document::read_bytes(marker.path())?.ok_or_else(|| {
                 crate::ErrorKind::FSError("Handover receipt disappeared".into())
             })?;
-        Ok(vec![
+        let mut files = vec![
             (marker_path(&name).into(), receipt),
-            (target.into(), bytes),
-        ])
+            (target.into(), bytes.clone()),
+        ];
+        if name == "media" {
+            let manifest: Value = serde_json::from_slice(&bytes)?;
+            let textures = manifest
+                .get("data")
+                .and_then(|data| data.get("textures"))
+                .and_then(Value::as_object)
+                .ok_or_else(|| {
+                    crate::ErrorKind::FSError(
+                        "Cannot snapshot unreadable skin references".into(),
+                    )
+                })?;
+            let media = crate::state::media::Media::new(&persistence);
+            let mut seen = std::collections::HashSet::new();
+            for texture in textures.values() {
+                if !crate::state::media::supported(texture) {
+                    return Err(crate::ErrorKind::FSError(
+                        "Cannot snapshot unsupported skin references".into(),
+                    )
+                    .into());
+                }
+                let digest = texture
+                    .get("sha256")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        crate::ErrorKind::FSError(
+                            "Cannot snapshot missing skin content identity"
+                                .into(),
+                        )
+                    })?;
+                if !seen.insert(digest.to_owned()) {
+                    continue;
+                }
+                let path = media.texture_path(digest)?;
+                let content =
+                    document::read_bytes(&path)?.ok_or_else(|| {
+                        crate::ErrorKind::FSError(
+                            "Cannot snapshot missing skin content".into(),
+                        )
+                    })?;
+                use sha2::{Digest, Sha256};
+                if format!("{:x}", Sha256::digest(&content)) != digest {
+                    return Err(crate::ErrorKind::FSError(
+                        "Cannot snapshot corrupted skin content".into(),
+                    )
+                    .into());
+                }
+                files.push((
+                    std::path::PathBuf::from(format!(
+                        "media/skins/{digest}.png"
+                    )),
+                    content,
+                ));
+            }
+        }
+        Ok(files)
     })
     .await
 }

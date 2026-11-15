@@ -94,6 +94,7 @@ pub(crate) mod content_store;
 pub(crate) mod documents;
 pub mod favorite_groups;
 pub mod instance_groups;
+pub(crate) mod media;
 pub(crate) mod persistence;
 pub(crate) mod store;
 pub(crate) mod telemetry_state;

@@ -16,8 +16,11 @@ pub(crate) mod post_upgrade_notices;
 pub(crate) mod projection_entries;
 pub(crate) mod resource_rows;
 pub(crate) mod rollback_journals;
+#[cfg(test)]
 pub(crate) mod screenshot_groups;
+#[cfg(test)]
 pub(crate) mod screenshot_rows;
+pub(crate) mod screenshot_sources;
 pub(crate) mod server_pack_state;
 pub(crate) mod stored_paths;
 mod values;

@@ -420,3 +420,29 @@ pub(crate) async fn write_json(
     })
     .await
 }
+
+/// Publish immutable content before a manifest may reference it. A corrupt
+/// existing object is archived; readers never observe a partially written body.
+pub(crate) async fn write_blob(
+    path: &Path,
+    bytes: Vec<u8>,
+) -> crate::Result<()> {
+    let path = path.to_owned();
+    blocking(move || {
+        if bytes.len() as u64 > MAX_BYTES {
+            return Err(crate::ErrorKind::InputError(
+                "Media content exceeds the supported size".into(),
+            )
+            .into());
+        }
+        let _lock = Writer::acquire(&path)?;
+        if let Some(previous) = read_bytes(&path)? {
+            if previous == bytes {
+                return Ok(());
+            }
+            preserve_corrupt(&path, &previous)?;
+        }
+        replace_bytes(&path, &bytes)
+    })
+    .await
+}

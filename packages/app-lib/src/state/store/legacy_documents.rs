@@ -1,5 +1,5 @@
-//! Read-only snapshots for retired account/telemetry SQL domains. Secret
-//! columns are deliberately never selected, even on a database without keyring.
+//! Read-only handover coordination for independent authorities. Account token
+//! columns are never selected.
 
 use crate::state::accounts::document::Metadata;
 use crate::state::persistence::{Persistence, import::Import};
@@ -16,6 +16,7 @@ pub(crate) async fn ensure_cleanup_supported(root: &Path) -> crate::Result<()> {
     for (path, protocol) in [
         ("accounts.json", "axolotl-accounts"),
         ("state/telemetry.json", "axolotl-telemetry"),
+        ("state/media.json", "axolotl-media"),
     ] {
         let read = persistence.document(path, protocol, 1)?.read().await?;
         if !matches!(
@@ -26,6 +27,33 @@ pub(crate) async fn ensure_cleanup_supported(root: &Path) -> crate::Result<()> {
             return Err(crate::ErrorKind::InputError("Cleanup is paused because independent state cannot be interpreted".into()).into());
         }
         let snapshot = read.snapshot.expect("readable document");
+        if protocol == "axolotl-media" {
+            let data = snapshot.data().expect("readable payload");
+            crate::state::media::validate(data)?;
+            for name in ["screenshots", "groups", "textures", "offline_skins"] {
+                if data[name]
+                    .as_object()
+                    .expect("validated map")
+                    .values()
+                    .any(|value| !crate::state::media::supported(value))
+                {
+                    return Err(crate::ErrorKind::InputError("Cleanup is paused because media references use a newer protocol".into()).into());
+                }
+            }
+            for saved in data["saved_skins"]
+                .as_object()
+                .expect("validated map")
+                .values()
+            {
+                if saved.as_object().is_none_or(|entries| {
+                    entries
+                        .values()
+                        .any(|value| !crate::state::media::supported(value))
+                }) {
+                    return Err(crate::ErrorKind::InputError("Cleanup is paused because skin references cannot be interpreted".into()).into());
+                }
+            }
+        }
         if snapshot
             .data()
             .and_then(|data| data.get("legacy_extensions_present"))
@@ -44,15 +72,46 @@ pub(crate) async fn initialize(root: &Path) {
             tracing::warn!(domain, %error, "Independent state import unavailable; preserving legacy files and continuing startup");
         }
     }
+    if let Err(error) = super::legacy_media::initialize(root, None).await {
+        tracing::warn!(%error, "Media import unavailable; native screenshots remain accessible");
+    }
 }
 
 pub(crate) async fn initialize_from_snapshot(root: &Path, snapshot: &Path) {
+    // Optional imports must be retryable after the temporary migrated image is
+    // dropped, even when the core has already switched to its new layout.
+    let retry = root.join("databases/legacy-document-import.db");
+    if !retry.is_file() {
+        let result = async {
+            tokio::fs::create_dir_all(root.join("databases")).await?;
+            let mut connection =
+                crate::state::db_backup::open_read_only_db(snapshot).await?;
+            crate::state::db_backup::create_verified_sqlite_snapshot(
+                &mut connection,
+                &retry,
+            )
+            .await?;
+            connection.close().await?;
+            Ok::<_, crate::Error>(())
+        }
+        .await;
+        if let Err(error) = result {
+            tracing::warn!(%error,"Optional legacy retry snapshot could not be retained; original source remains preserved");
+        }
+    }
+
     for domain in ["accounts", "telemetry"] {
         if let Err(error) =
             initialize_domain(root, domain, Some(snapshot.to_path_buf())).await
         {
             tracing::warn!(domain, %error, "Optional state snapshot import unavailable; launcher startup continues");
         }
+    }
+    if let Err(error) =
+        super::legacy_media::initialize(root, Some(snapshot.to_path_buf()))
+            .await
+    {
+        tracing::warn!(%error, "Media snapshot import unavailable; preserving the source");
     }
 }
 
@@ -147,7 +206,7 @@ async fn initialize_domain(
     Ok(())
 }
 
-async fn source(
+pub(super) async fn source(
     root: &Path,
     domain: &str,
 ) -> crate::Result<Option<SqliteConnection>> {
@@ -156,6 +215,11 @@ async fn source(
         .await?
     {
         vec![experimental]
+    } else if root
+        .join("databases/legacy-document-import.db")
+        .try_exists()?
+    {
+        vec![root.join("databases/legacy-document-import.db")]
     } else if root.join("databases/system.db").try_exists()? {
         // An initialized experimental set never falls back to an older app.db.
         Vec::new()
@@ -203,7 +267,7 @@ async fn source(
     Ok(None)
 }
 
-async fn columns(
+pub(super) async fn columns(
     connection: &mut SqliteConnection,
     table: &str,
 ) -> crate::Result<HashSet<String>> {
@@ -217,6 +281,71 @@ async fn columns(
         .into_iter()
         .collect(),
     )
+}
+
+pub(super) async fn read_source_for(
+    root: &Path,
+    domain: &str,
+    table: &str,
+    snapshot: Option<PathBuf>,
+) -> crate::Result<Option<SqliteConnection>> {
+    let retained = root.join("databases/legacy-document-import.db");
+    // Only the old-app handover creates this migrated retry snapshot. Blank
+    // baseline domains are not authoritative before the core import commits;
+    // afterward it is needed only for a legacy table absent from its domain.
+    // Import::run checks the document and receipt before reaching this loader.
+    if let Some(path) = snapshot {
+        return open_snapshot(path).await.map(Some);
+    }
+    let active = root.join("databases").join(format!("{domain}.db"));
+    if active.is_file() {
+        let mut current = source(root, domain).await?.expect("active source");
+        if retained.is_file()
+            && (!core_import_complete(root).await?
+                || columns(&mut current, table).await?.is_empty())
+        {
+            current.close().await?;
+            return open_snapshot(retained).await.map(Some);
+        }
+        return Ok(Some(current));
+    }
+    if retained.is_file() {
+        return open_snapshot(retained).await.map(Some);
+    }
+    let connection = source(root, domain).await?;
+    if let Some(connection) = connection {
+        connection.close().await?;
+        return Err(crate::ErrorKind::FSError(
+            "Legacy choices await the migrated application snapshot".into(),
+        )
+        .into());
+    }
+    Ok(None)
+}
+async fn open_snapshot(path: PathBuf) -> crate::Result<SqliteConnection> {
+    let mut connection = SqliteConnection::connect_with(
+        &SqliteConnectOptions::new().filename(path).read_only(true),
+    )
+    .await?;
+    sqlx::query("BEGIN").execute(&mut connection).await?;
+    Ok(connection)
+}
+async fn core_import_complete(root: &Path) -> crate::Result<bool> {
+    let path = root.join("databases/system.db");
+    if !path.is_file() {
+        return Ok(false);
+    }
+    let mut connection = open_snapshot(path).await?;
+    let table = !columns(&mut connection, "database_imports")
+        .await?
+        .is_empty();
+    let complete = if table {
+        sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM database_imports WHERE source='app.db' AND completed=1)").fetch_one(&mut connection).await?
+    } else {
+        false
+    };
+    connection.close().await?;
+    Ok(complete)
 }
 
 async fn accounts(

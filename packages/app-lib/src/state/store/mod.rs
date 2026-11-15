@@ -27,7 +27,9 @@ pub(crate) mod content_refresh_scan_failures;
 pub(crate) mod content_snapshot;
 pub(crate) mod content_update_jobs;
 pub(crate) mod crash_analysis_mod_snapshots;
+#[cfg(test)]
 pub(crate) mod custom_minecraft_skin_textures;
+#[cfg(test)]
 pub(crate) mod custom_minecraft_skins;
 pub(crate) mod databases;
 pub(crate) mod derived_db;
@@ -44,12 +46,14 @@ pub(crate) mod java_default_versions;
 pub(crate) mod java_versions;
 pub(crate) mod join_log;
 pub(crate) mod legacy_documents;
+pub(crate) mod legacy_media;
 pub(crate) mod maintenance;
 pub(crate) mod minecraft_device_tokens;
 pub(crate) mod minecraft_users;
 #[cfg(test)]
 pub(crate) mod modrinth_users;
 pub(crate) mod official_login_proof;
+#[cfg(test)]
 pub(crate) mod offline_minecraft_skins;
 pub(crate) mod pending_backup_repository_cleanups;
 pub(crate) mod resource_artifact_evidence;
@@ -101,11 +105,17 @@ use sqlx::{Sqlite, SqliteConnection, SqlitePool};
 #[derive(Clone)]
 pub(crate) struct Handle {
     pool: SqlitePool,
+    persistence: Option<crate::state::persistence::Persistence>,
     accounts:
         std::sync::Arc<std::sync::OnceLock<crate::state::accounts::Accounts>>,
 }
 
 impl Handle {
+    pub(crate) fn persistence(&self) -> crate::state::persistence::Persistence {
+        self.persistence
+            .clone()
+            .expect("Independent state requires an original data root")
+    }
     pub(crate) fn new(pool: SqlitePool) -> Self {
         let filename = pool.connect_options().get_filename().to_path_buf();
         let accounts = std::sync::OnceLock::new();
@@ -120,6 +130,21 @@ impl Handle {
             ));
         }
         Self {
+            persistence: if filename
+                .file_name()
+                .is_some_and(|name| name == "system.db")
+            {
+                Some(persistence_for_pool(&pool))
+            } else {
+                #[cfg(test)]
+                {
+                    Some(test_persistence(&pool))
+                }
+                #[cfg(not(test))]
+                {
+                    None
+                }
+            },
             pool,
             accounts: std::sync::Arc::new(accounts),
         }
@@ -144,6 +169,7 @@ impl Handle {
         persistence: &crate::state::persistence::Persistence,
     ) -> Self {
         Self {
+            persistence: Some(persistence.clone()),
             pool,
             accounts: std::sync::Arc::new(std::sync::OnceLock::from(
                 crate::state::accounts::Accounts::new(persistence),
@@ -494,4 +520,52 @@ fn ensure_in_scope<C: Collection>(
         "A scoped replace cannot write a key outside its scope".to_string(),
     )
     .into())
+}
+
+/// A core pool has a stable original data root, including before State exists.
+pub(crate) fn persistence_for_pool(
+    pool: &SqlitePool,
+) -> crate::state::persistence::Persistence {
+    let filename = pool.connect_options().get_filename().to_path_buf();
+    if filename.file_name().is_some_and(|name| name == "system.db") {
+        return crate::state::persistence::Persistence::new(
+            filename
+                .parent()
+                .and_then(std::path::Path::parent)
+                .expect("core data root"),
+        );
+    }
+    #[cfg(test)]
+    {
+        test_persistence(pool)
+    }
+    #[cfg(not(test))]
+    {
+        panic!("Independent state requires the launcher core pool")
+    }
+}
+#[cfg(test)]
+fn test_persistence(
+    pool: &SqlitePool,
+) -> crate::state::persistence::Persistence {
+    use std::sync::{Arc, Mutex, OnceLock, Weak};
+    type Roots = std::collections::HashMap<
+        usize,
+        (Weak<sqlx::sqlite::SqliteConnectOptions>, tempfile::TempDir),
+    >;
+    static ROOTS: OnceLock<Mutex<Roots>> = OnceLock::new();
+    let options = pool.connect_options();
+    let key = Arc::as_ptr(&options) as usize;
+    let mut roots = ROOTS
+        .get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+        .lock()
+        .expect("test state roots");
+    roots.retain(|_, (options, _)| options.strong_count() > 0);
+    let (_, directory) = roots.entry(key).or_insert_with(|| {
+        (
+            Arc::downgrade(&options),
+            tempfile::tempdir().expect("test user-state root"),
+        )
+    });
+    crate::state::persistence::Persistence::new(directory.path())
 }

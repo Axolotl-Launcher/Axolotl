@@ -139,7 +139,9 @@ pub(crate) async fn ensure_cleanup_supported(
     super::legacy_documents::ensure_cleanup_supported(root).await?;
     if DOMAINS
         .iter()
-        .filter(|domain| !matches!(**domain, "accounts" | "telemetry"))
+        .filter(|domain| {
+            !matches!(**domain, "accounts" | "telemetry" | "media")
+        })
         .any(|domain| !attached.contains(*domain))
     {
         return Err(crate::ErrorKind::InputError("Cleanup is paused until independent document references can be checked".into()).into());
@@ -319,21 +321,28 @@ pub(crate) async fn backup(
                             "Invalid handover receipt name".into(),
                         )
                     })?;
-                for (relative, bytes) in
-                    crate::state::persistence::import::snapshot(
-                        &crate::state::persistence::Persistence::new(
-                            settings_dir,
-                        ),
-                        &name,
-                    )
-                    .await?
-                {
+                let files = crate::state::persistence::import::snapshot(
+                    &crate::state::persistence::Persistence::new(settings_dir),
+                    &name,
+                )
+                .await?;
+                for (relative, bytes) in files {
                     let destination = staging.join(relative);
-                    crate::state::persistence::document::write_json(
-                        &destination,
-                        bytes,
-                    )
-                    .await?;
+                    if destination.extension().and_then(|value| value.to_str())
+                        == Some("json")
+                    {
+                        crate::state::persistence::document::write_json(
+                            &destination,
+                            bytes,
+                        )
+                        .await?;
+                    } else {
+                        crate::state::persistence::document::write_blob(
+                            &destination,
+                            bytes,
+                        )
+                        .await?;
+                    }
                 }
             }
         }
@@ -417,7 +426,9 @@ async fn open_with_retired(
         DOMAINS
             .iter()
             .copied()
-            .filter(|domain| !matches!(*domain, "accounts" | "telemetry"))
+            .filter(|domain| {
+                !matches!(*domain, "accounts" | "telemetry" | "media")
+            })
             .filter(|domain| {
                 !retired.iter().any(|name| name.as_str() == *domain)
             })
@@ -1079,7 +1090,7 @@ mod tests {
         let mut second = pool.acquire().await.unwrap();
         for connection in [&mut first, &mut second] {
             let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM pragma_database_list WHERE name IN ('instances', 'accounts', 'sync', 'media', 'operations', 'storage', 'records', 'telemetry', 'configuration')").fetch_one(&mut **connection).await.unwrap();
-            assert_eq!(count, 7);
+            assert_eq!(count, 6);
             let migrations: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM main.sqlite_schema WHERE name = '_sqlx_migrations'").fetch_one(&mut **connection).await.unwrap();
             assert_eq!(migrations, 0);
             let version: i64 =
@@ -1088,11 +1099,11 @@ mod tests {
                     .await
                     .unwrap();
             assert_eq!(version, 3);
-            for schema in
-                std::iter::once("main").chain(DOMAINS.iter().copied().filter(
-                    |domain| !matches!(*domain, "accounts" | "telemetry"),
-                ))
-            {
+            for schema in std::iter::once("main").chain(
+                DOMAINS.iter().copied().filter(|domain| {
+                    !matches!(*domain, "accounts" | "telemetry" | "media")
+                }),
+            ) {
                 let mode: String = sqlx::query_scalar(sqlx::AssertSqlSafe(
                     format!("PRAGMA {}.journal_mode", quote(schema)),
                 ))
@@ -1128,10 +1139,9 @@ mod tests {
                 .join("configuration.db")
                 .exists()
         );
-        for domain in DOMAINS
-            .iter()
-            .filter(|domain| !matches!(**domain, "accounts" | "telemetry"))
-        {
+        for domain in DOMAINS.iter().filter(|domain| {
+            !matches!(**domain, "accounts" | "telemetry" | "media")
+        }) {
             assert!(
                 directory(temporary.path())
                     .join(format!("{domain}.db"))

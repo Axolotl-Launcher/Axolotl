@@ -411,8 +411,9 @@ impl InstallJobs {
         E: Executor<'e, Database = Sqlite>,
     {
         let filter = status_filter(statuses);
+        let unknown = super::compatibility::unsupported_active_job("");
         let sql = format!(
-            "SELECT EXISTS(SELECT 1 FROM install_jobs WHERE instance_id = ? AND {filter})"
+            "SELECT EXISTS(SELECT 1 FROM install_jobs WHERE instance_id = ? AND ({filter} OR {unknown}))"
         );
         let mut query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql))
             .bind(instance_id);
@@ -437,8 +438,10 @@ impl InstallJobs {
         E: Executor<'e, Database = Sqlite>,
     {
         let filter = status_filter(statuses);
+        let unknown = super::compatibility::unsupported_active_job("");
+        let opaque = super::compatibility::unsupported_job("");
         let sql = format!(
-            "SELECT COUNT(*) FROM install_jobs WHERE {filter} OR json_extract(state, '$.rollback.content') IS NOT NULL OR (json_extract(state, '$.rollback') IS NOT NULL AND json_extract(state, '$.rollback_error') IS NOT NULL)"
+            "SELECT COUNT(*) FROM install_jobs WHERE {filter} OR {unknown} OR CASE WHEN ({opaque}) THEN 0 ELSE json_extract(state, '$.rollback.content') IS NOT NULL OR (json_extract(state, '$.rollback') IS NOT NULL AND json_extract(state, '$.rollback_error') IS NOT NULL) END"
         );
         let mut query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql));
         for status in statuses {

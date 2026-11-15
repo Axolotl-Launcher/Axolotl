@@ -155,6 +155,21 @@ impl TryFrom<InstanceRow> for Instance {
     type Error = crate::Error;
 
     fn try_from(row: InstanceRow) -> crate::Result<Self> {
+        if !matches!(
+            row.install_stage.as_str(),
+            "installed"
+                | "minecraft_installing"
+                | "installing"
+                | "pack_installed"
+                | "pack_installing"
+                | "not_installed"
+        ) {
+            return Err(crate::ErrorKind::InputError(format!(
+                "Instance {} uses an unsupported persistent format",
+                row.id
+            ))
+            .into());
+        }
         Ok(Self {
             id: row.id,
             path: row.path,
@@ -529,6 +544,26 @@ where
     let Some(row) = row else {
         return Ok(None);
     };
+    let file: String = sqlx::query_scalar(
+        "SELECT file FROM pragma_database_list WHERE name='main'",
+    )
+    .fetch_one(exec)
+    .await?;
+    if std::path::Path::new(&file)
+        .file_name()
+        .and_then(|name| name.to_str())
+        == Some("system.db")
+        && (!matches!(
+            row.launcher_feature_version.as_str(),
+            "none" | "migrated_server_last_play_time" | "migrated_launch_hooks"
+        ) || !matches!(row.update_channel.as_str(), "release" | "beta"))
+    {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Instance {} uses an unsupported persistent format",
+            row.id
+        ))
+        .into());
+    }
     let mut instance: Instance = row.try_into()?;
     let fields = get_direct_link_fields(id, exec).await?;
     fields.apply_to(&mut instance);
@@ -573,6 +608,26 @@ where
     let Some(row) = row else {
         return Ok(None);
     };
+    let file: String = sqlx::query_scalar(
+        "SELECT file FROM pragma_database_list WHERE name='main'",
+    )
+    .fetch_one(exec)
+    .await?;
+    if std::path::Path::new(&file)
+        .file_name()
+        .and_then(|name| name.to_str())
+        == Some("system.db")
+        && (!matches!(
+            row.launcher_feature_version.as_str(),
+            "none" | "migrated_server_last_play_time" | "migrated_launch_hooks"
+        ) || !matches!(row.update_channel.as_str(), "release" | "beta"))
+    {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Instance {} uses an unsupported persistent format",
+            row.id
+        ))
+        .into());
+    }
     let mut instance: Instance = row.try_into()?;
     let fields = get_direct_link_fields(&instance.id, exec).await?;
     fields.apply_to(&mut instance);
@@ -840,9 +895,13 @@ pub(crate) async fn get_instance_metadata_many(
     .fetch_all(pool)
     .await?;
 
-    rows.into_iter()
-        .map(InstanceMetadataRow::into_record)
-        .collect()
+    Ok(rows.into_iter().filter_map(|row| {
+        let id = row.id.clone();
+        match row.into_record() {
+            Ok(record) => Some(record),
+            Err(error) => { tracing::warn!(instance_id = %id, %error, "Unsupported instance preserved and omitted from this build"); None }
+        }
+    }).collect())
 }
 
 pub(crate) async fn list_instance_metadata(
@@ -921,9 +980,13 @@ pub(crate) async fn list_instance_metadata(
     .fetch_all(pool)
     .await?;
 
-    rows.into_iter()
-        .map(InstanceMetadataRow::into_record)
-        .collect()
+    Ok(rows.into_iter().filter_map(|row| {
+        let id = row.id.clone();
+        match row.into_record() {
+            Ok(record) => Some(record),
+            Err(error) => { tracing::warn!(instance_id = %id, %error, "Unsupported instance preserved and omitted from this build"); None }
+        }
+    }).collect())
 }
 
 pub(crate) async fn get_instance_launch_context(
@@ -1029,9 +1092,21 @@ pub(crate) async fn list_instances(
     .fetch_all(pool)
     .await?;
 
+    let unsupported =
+        crate::state::store::compatibility::unsupported_instances(pool).await?;
     let mut instances = Vec::with_capacity(rows.len());
     for row in rows {
-        let mut instance: Instance = row.try_into()?;
+        let id = row.id.clone();
+        if unsupported.contains(&id) {
+            continue;
+        }
+        let mut instance: Instance = match row.try_into() {
+            Ok(instance) => instance,
+            Err(error) => {
+                tracing::warn!(instance_id = %id, %error, "Unsupported instance preserved");
+                continue;
+            }
+        };
         let fields = get_direct_link_fields(&instance.id, pool).await?;
         fields.apply_to(&mut instance);
         instances.push(instance);
@@ -1235,9 +1310,53 @@ pub(crate) async fn upsert_instance_launch_overrides(
     overrides: &InstanceLaunchOverrides,
     tx: &mut Transaction<'_, Sqlite>,
 ) -> crate::Result<()> {
-    let overrides_data =
-        serde_json::to_string(&InstanceLaunchOverridesData::from(overrides))?;
     let instance_id = overrides.instance_id.as_str();
+    let stored: Option<String> = sqlx::query_scalar("SELECT json(overrides) FROM instance_launch_overrides WHERE instance_id=?")
+        .bind(instance_id).fetch_optional(&mut **tx).await?;
+    let mut merged = stored
+        .map(|value| serde_json::from_str::<serde_json::Value>(&value))
+        .transpose()?
+        .unwrap_or_else(|| serde_json::json!({}));
+    let current =
+        serde_json::to_value(InstanceLaunchOverridesData::from(overrides))?;
+    let fields = [
+        "java_path",
+        "extra_launch_args",
+        "custom_env_vars",
+        "memory",
+        "force_fullscreen",
+        "maximize_window",
+        "game_resolution",
+        "window_title",
+        "launch_preparation_timeout",
+        "hooks",
+    ];
+    if let (Some(stored), Some(current)) =
+        (merged.as_object_mut(), current.as_object())
+    {
+        for field in fields {
+            match current.get(field) {
+                Some(value) => {
+                    if let (Some(old), Some(new)) = (
+                        stored
+                            .get_mut(field)
+                            .and_then(serde_json::Value::as_object_mut),
+                        value.as_object(),
+                    ) {
+                        for (key, value) in new {
+                            old.insert(key.clone(), value.clone());
+                        }
+                    } else {
+                        stored.insert(field.into(), value.clone());
+                    }
+                }
+                None => {
+                    stored.remove(field);
+                }
+            }
+        }
+    }
+    let overrides_data = serde_json::to_string(&merged)?;
 
     sqlx::query!(
         "
@@ -1403,6 +1522,16 @@ fn parse_uuid(value: Option<String>, column: &str) -> crate::Result<Uuid> {
     value.parse().map_err(|err| {
         crate::ErrorKind::InputError(format!("Invalid {column}: {err}")).into()
     })
+}
+
+/// Count stored identities, including rows this build cannot decode. Cleanup
+/// must not interpret a filtered instance list as the complete ownership set.
+pub(crate) async fn stored_instance_count(
+    pool: &SqlitePool,
+) -> crate::Result<i64> {
+    Ok(sqlx::query_scalar("SELECT COUNT(*) FROM instances")
+        .fetch_one(pool)
+        .await?)
 }
 
 #[cfg(test)]

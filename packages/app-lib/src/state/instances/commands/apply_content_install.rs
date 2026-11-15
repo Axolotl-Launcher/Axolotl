@@ -1185,6 +1185,11 @@ pub(crate) async fn resolve_content_scope(
     content_set_id: Option<&str>,
     state: &State,
 ) -> crate::Result<ContentScope> {
+    crate::state::store::compatibility::ensure_instance_supported(
+        &state.pool,
+        instance_id,
+    )
+    .await?;
     let instance = instance_rows::get_instance_by_id(instance_id, &state.pool)
         .await?
         .ok_or_else(|| {
@@ -3938,6 +3943,7 @@ async fn rollback_project_inner(
     let (active_size, active_sha1) =
         fetch::sha1_file_async(&full_active).await?;
     let journal = LegacyRollbackJournal {
+        schema_version: 1,
         active: project_path.into(),
         backup: format!("{active_dir}/{backup_name}"),
         restored: restored_relative_path.clone(),
@@ -4094,6 +4100,11 @@ async fn rollback_project_inner(
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct LegacyRollbackJournal {
+    #[serde(
+        default = "crate::state::store::compatibility::legacy_protocol",
+        alias = "schemaVersion"
+    )]
+    schema_version: u32,
     active: String,
     backup: String,
     restored: String,
@@ -4142,7 +4153,8 @@ async fn recover_legacy_rollback_with(
     let Some(payload) = payload else {
         return Ok(());
     };
-    let journal: LegacyRollbackJournal = serde_json::from_str(&payload)?;
+    let journal: LegacyRollbackJournal =
+        crate::state::store::compatibility::decode_payload(&payload)?;
     let path = |relative: &str| {
         crate::resources::execution::checked_path(root, relative)
     };

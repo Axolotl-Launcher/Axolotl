@@ -122,6 +122,25 @@ struct JournalFile {
     target: ArtifactIntegrity,
 }
 
+#[derive(Serialize, Deserialize)]
+struct ExecutionJournal {
+    #[serde(
+        default = "crate::state::store::compatibility::legacy_protocol",
+        alias = "schemaVersion"
+    )]
+    schema_version: u32,
+    files: Vec<JournalFile>,
+}
+
+fn decode_journal(payload: &str) -> crate::Result<Vec<JournalFile>> {
+    let value: serde_json::Value =
+        crate::state::store::compatibility::decode_payload(payload)?;
+    if value.is_array() {
+        return Ok(serde_json::from_value(value)?);
+    }
+    Ok(serde_json::from_value::<ExecutionJournal>(value)?.files)
+}
+
 pub(crate) fn integrity(
     artifact: &ResourceArtifact,
     kind: ResourceType,
@@ -413,7 +432,8 @@ async fn execute_inner(
         plan.revision,
     )
     .await?;
-    let draft: plans::OperationDraft = serde_json::from_str(&payload)?;
+    let draft: plans::OperationDraft =
+        crate::state::store::compatibility::decode_payload(&payload)?;
     if draft.plan != *plan {
         return Err(input("task does not match the reviewed resource plan"));
     }
@@ -739,7 +759,7 @@ async fn execute_inner(
         ResourceExecutionJournals::for_plan(&state.data, plan.id.as_str())
             .await?;
     if let Some(journal) = previous_journal {
-        let journal = serde_json::from_str::<Vec<JournalFile>>(&journal)?;
+        let journal = decode_journal(&journal)?;
         with_critical_section(
             async |guard| recover_files(&root, &journal, guard.into()).await,
             async |unscoped| {
@@ -908,7 +928,10 @@ async fn execute_inner(
     ResourceExecutionJournals::save(
         &state.data,
         plan.id.as_str(),
-        &serde_json::to_string(&journal)?,
+        &serde_json::to_string(&ExecutionJournal {
+            schema_version: 1,
+            files: journal.clone(),
+        })?,
     )
     .await?;
     {
@@ -1070,12 +1093,8 @@ pub(crate) async fn recover_plan(
                         .await?;
                 let root =
                     instance_content_root(&state.directories, &scope.instance)?;
-                recover_files(
-                    &root,
-                    &serde_json::from_str::<Vec<JournalFile>>(&payload)?,
-                    access,
-                )
-                .await?;
+                recover_files(&root, &decode_journal(&payload)?, access)
+                    .await?;
                 ResourceExecutionJournals::delete(
                     &state.data,
                     plan.id.as_str(),
@@ -1437,6 +1456,9 @@ async fn persist_plan(
                 plan,
                 file.backup.clone(),
             );
+            let raw_graph = old_graph.as_ref().map(|(nodes, edges)| -> crate::Result<serde_json::Value> {
+                Ok(serde_json::json!({"nodes": serde_json::from_str::<serde_json::Value>(nodes)?, "edges": serde_json::from_str::<serde_json::Value>(edges)?}))
+            }).transpose()?;
             if let Some((nodes, edges)) = old_graph {
                 history.previous_nodes = serde_json::from_str(&nodes)?;
                 history.previous_dependencies = serde_json::from_str(&edges)?;
@@ -1456,6 +1478,9 @@ async fn persist_plan(
                 .await?;
             }
             let mut payload = serde_json::to_value(&history)?;
+            if let Some(graph) = raw_graph {
+                payload["restoreEntryGraph"] = graph;
+            }
             payload["restoreProviderRefs"] = serde_json::to_value(old_refs)?;
             payload["restoreEntryMetadata"] = serde_json::to_value(old_entry)?;
             payload["restorePackMember"] =
@@ -1564,8 +1589,22 @@ async fn persist_plan(
             &mut tx,
             previous.entry_id.as_str(),
             &EntryGraphRecord {
-                nodes: serde_json::to_string(&previous.previous_nodes)?,
-                edges: serde_json::to_string(&previous.previous_dependencies)?,
+                nodes: match payload
+                    .get("restoreEntryGraph")
+                    .and_then(|graph| graph.get("nodes"))
+                {
+                    Some(nodes) => serde_json::to_string(nodes)?,
+                    None => serde_json::to_string(&previous.previous_nodes)?,
+                },
+                edges: match payload
+                    .get("restoreEntryGraph")
+                    .and_then(|graph| graph.get("edges"))
+                {
+                    Some(edges) => serde_json::to_string(edges)?,
+                    None => {
+                        serde_json::to_string(&previous.previous_dependencies)?
+                    }
+                },
             },
         )
         .await?;

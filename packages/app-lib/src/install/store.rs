@@ -603,9 +603,12 @@ pub async fn get_required(
 fn records(
     rows: Vec<(String, StoredJob)>,
 ) -> crate::Result<Vec<InstallJobRecord>> {
-    rows.into_iter()
-        .map(|(id, row)| row_to_record(&id, row))
-        .collect()
+    Ok(rows.into_iter().filter_map(|(id, row)| {
+        match row_to_record(&id, row) {
+            Ok(record) => Some(record),
+            Err(error) => { tracing::warn!(job_id = %id, %error, "Unsupported install job preserved and omitted from this build"); None }
+        }
+    }).collect())
 }
 
 async fn compare_and_swap_status(
@@ -682,6 +685,28 @@ async fn write_job(
 }
 
 fn row_to_record(id: &str, row: StoredJob) -> crate::Result<InstallJobRecord> {
+    if InstallJobKind::from_stored_str(&row.kind).as_str() != row.kind
+        || InstallJobStatus::from_stored_str(&row.status).as_str() != row.status
+    {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Install job {id} uses an unsupported persistent format"
+        ))
+        .into());
+    }
+    let payload: serde_json::Value = serde_json::from_str(&row.state)?;
+    if payload
+        .get("schema_version")
+        .and_then(serde_json::Value::as_u64)
+        != Some(1)
+        || payload
+            .get("_format")
+            .is_some_and(|format| format != "install-v1")
+    {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Install job {id} uses an unsupported payload format"
+        ))
+        .into());
+    }
     Ok(InstallJobRecord {
         id: Uuid::parse_str(id).map_err(|err| {
             crate::ErrorKind::InputError(format!(
@@ -1082,5 +1107,29 @@ mod tests {
         );
         assert_eq!(after.modified, before.modified, "no entry touched the row");
         app_state.pool.close().await;
+    }
+}
+
+#[cfg(test)]
+mod opaque_record_tests {
+    use super::*;
+
+    #[test]
+    fn unknown_install_rows_are_omitted_without_failing_the_collection() {
+        let row = StoredJob {
+            instance_id: Some("instance".into()),
+            kind: "future-install".into(),
+            status: "running".into(),
+            state: "{}".into(),
+            created: 0,
+            modified: 0,
+            finished: None,
+            dismissed: false,
+        };
+        assert!(
+            records(vec![(Uuid::new_v4().to_string(), row)])
+                .unwrap()
+                .is_empty()
+        );
     }
 }

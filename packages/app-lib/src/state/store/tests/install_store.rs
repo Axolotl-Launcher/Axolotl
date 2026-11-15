@@ -404,14 +404,20 @@ async fn only_one_waiting_job_resume_can_claim_the_status() {
     };
     let state = crate::state::test_state(directories, pool).await.unwrap();
 
+    let persisted =
+        InstallJobState::new(InstallRequest::InstallExistingInstance {
+            instance_id: "instance".into(),
+            force: false,
+        });
     let job_id = Uuid::new_v4();
     let now = chrono::Utc::now().timestamp();
     sqlx::query(
         "INSERT INTO install_jobs
          (id, kind, status, state, created, modified, dismissed)
-         VALUES (?, 'pack', 'waiting_for_user', '{}', ?, ?, 0)",
+         VALUES (?, 'install_existing_instance', 'waiting_for_user', ?, ?, ?, 0)",
     )
     .bind(job_id.to_string())
+    .bind(serde_json::to_string(&persisted).unwrap())
     .bind(now)
     .bind(now)
     .execute(&state.pool)

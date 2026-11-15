@@ -38,13 +38,80 @@ pub(crate) async fn set_installed_artifact<T>(
 where
     T: serde::Serialize + ?Sized,
 {
+    let key = entry_id.to_owned();
+    let previous = ResourceInstalledArtifacts::read(conn, &key).await?;
+    let mut artifact = serde_json::to_value(payload)?;
+    let mut scope_value = serde_json::to_value(scope)?;
+    if let Some(previous) = previous {
+        let old: InstalledArtifactRecord =
+            crate::state::store::compatibility::decode_payload(
+                &previous.artifact,
+            )?;
+        let current: InstalledArtifactRecord =
+            serde_json::from_value(artifact.clone())?;
+        if old.artifact.reference == current.artifact.reference
+            && identity::exact_integrity(
+                &old.artifact.integrity,
+                &current.artifact.integrity,
+            )
+        {
+            let mut raw: serde_json::Value =
+                serde_json::from_str(&previous.artifact)?;
+            patch_known_fields(
+                &mut raw,
+                &serde_json::to_value(&old)?,
+                &artifact,
+            );
+            artifact = raw;
+            let old_scope: InstallScope =
+                crate::state::store::compatibility::decode_payload(
+                    &previous.scope,
+                )?;
+            let mut raw_scope: serde_json::Value =
+                serde_json::from_str(&previous.scope)?;
+            patch_known_fields(
+                &mut raw_scope,
+                &serde_json::to_value(old_scope)?,
+                &scope_value,
+            );
+            scope_value = raw_scope;
+        }
+    }
     let record = ResourceInstalledArtifactRecord {
-        artifact: serde_json::to_string(payload)?,
-        scope: serde_json::to_string(scope)?,
+        artifact: serde_json::to_string(&artifact)?,
+        scope: serde_json::to_string(&scope_value)?,
     };
 
     let key = entry_id.to_owned();
     ResourceInstalledArtifacts::write(conn, &key, Some(&record)).await
+}
+
+/// Leave raw values untouched when their known interpretation did not change.
+/// This also retains unknown fields inside arrays and nested records.
+fn patch_known_fields(
+    raw: &mut serde_json::Value,
+    before: &serde_json::Value,
+    after: &serde_json::Value,
+) {
+    if before == after {
+        return;
+    }
+    if let (Some(raw), Some(before), Some(after)) =
+        (raw.as_object_mut(), before.as_object(), after.as_object())
+    {
+        for (key, value) in after {
+            match (raw.get_mut(key), before.get(key)) {
+                (Some(raw), Some(before)) => {
+                    patch_known_fields(raw, before, value)
+                }
+                _ => {
+                    raw.insert(key.clone(), value.clone());
+                }
+            }
+        }
+    } else {
+        *raw = after.clone();
+    }
 }
 
 /// Drops the artifact an entry no longer installs.

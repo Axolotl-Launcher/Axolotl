@@ -84,6 +84,11 @@ pub(crate) async fn replace_loader_components(
     components: &[LoaderComponent],
     tx: &mut Transaction<'_, Sqlite>,
 ) -> crate::Result<()> {
+    let existing = sqlx::query_as::<_, LoaderComponentRow>("SELECT instance_id,kind,version,role,provider_metadata FROM instance_loader_components WHERE instance_id=?")
+        .bind(instance_id).fetch_all(&mut **tx).await?;
+    for row in existing {
+        let _ = LoaderComponent::try_from(row)?;
+    }
     sqlx::query("DELETE FROM instance_loader_components WHERE instance_id = ?")
         .bind(instance_id)
         .execute(&mut **tx)

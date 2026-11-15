@@ -293,3 +293,394 @@ pub(super) async fn install(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::instances::adapters::sqlite::{
+        content_entries, instance_rows, loader_component_rows,
+    };
+    use crate::state::store::{configuration, databases};
+
+    async fn instance(pool: &SqlitePool, id: &str, stage: &str) {
+        sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES(?,?,?,'none','test',0,0)")
+            .bind(id).bind(id).bind(stage).execute(pool).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn current_model_variants_are_not_mistaken_for_future_formats() {
+        use crate::state::{
+            ContentOwnershipKind, ContentRequirement, ContentSetStatus,
+            ContentSourceKind, InstanceInstallStage, LauncherFeatureVersion,
+            LoaderComponentKind, LoaderComponentRole, ModLoader, ProjectType,
+        };
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = databases::open(temporary.path()).await.unwrap();
+        instance(&pool, "instance", "installed").await;
+        for stage in [
+            InstanceInstallStage::Installed,
+            InstanceInstallStage::MinecraftInstalling,
+            InstanceInstallStage::PackInstalled,
+            InstanceInstallStage::PackInstalling,
+            InstanceInstallStage::NotInstalled,
+        ] {
+            sqlx::query("UPDATE instances SET install_stage=?")
+                .bind(stage.as_str())
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        }
+        for feature in [
+            LauncherFeatureVersion::None,
+            LauncherFeatureVersion::MigratedServerLastPlayTime,
+            LauncherFeatureVersion::MigratedLaunchHooks,
+        ] {
+            sqlx::query("UPDATE instances SET launcher_feature_version=?")
+                .bind(feature.as_str())
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        }
+        sqlx::query("INSERT INTO instance_content_sets(id,instance_id,name,source_kind,status,game_version,loader,created,modified) VALUES('set','instance','test','local','available','1.21','vanilla',0,0)").execute(&pool).await.unwrap();
+        for loader in [
+            ModLoader::Vanilla,
+            ModLoader::Forge,
+            ModLoader::NeoForge,
+            ModLoader::Fabric,
+            ModLoader::Quilt,
+            ModLoader::Cleanroom,
+            ModLoader::LegacyFabric,
+            ModLoader::Babric,
+            ModLoader::OptiFine,
+            ModLoader::LiteLoader,
+        ] {
+            sqlx::query("UPDATE instance_content_sets SET loader=?")
+                .bind(loader.as_str())
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        }
+        for source in [
+            ContentSourceKind::Local,
+            ContentSourceKind::CurseForge,
+            ContentSourceKind::McArchive,
+            ContentSourceKind::ModrinthModpack,
+            ContentSourceKind::ServerProject,
+            ContentSourceKind::ImportedModpack,
+            ContentSourceKind::SharedInstance,
+        ] {
+            sqlx::query("UPDATE instance_content_sets SET source_kind=?")
+                .bind(source.as_str())
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        }
+        for status in [
+            ContentSetStatus::Available,
+            ContentSetStatus::Installing,
+            ContentSetStatus::Stale,
+            ContentSetStatus::MissingFiles,
+        ] {
+            sqlx::query("UPDATE instance_content_sets SET status=?")
+                .bind(status.as_str())
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        }
+        sqlx::query("INSERT INTO instance_loader_components(instance_id,kind,role) VALUES('instance','vanilla','primary')").execute(&pool).await.unwrap();
+        for kind in [
+            LoaderComponentKind::Vanilla,
+            LoaderComponentKind::Forge,
+            LoaderComponentKind::NeoForge,
+            LoaderComponentKind::Fabric,
+            LoaderComponentKind::Quilt,
+            LoaderComponentKind::Cleanroom,
+            LoaderComponentKind::LegacyFabric,
+            LoaderComponentKind::Babric,
+            LoaderComponentKind::OptiFine,
+            LoaderComponentKind::LiteLoader,
+            LoaderComponentKind::OptiFabric,
+        ] {
+            sqlx::query("UPDATE instance_loader_components SET kind=?")
+                .bind(kind.as_str())
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        }
+        for role in [LoaderComponentRole::Primary, LoaderComponentRole::Adjunct]
+        {
+            sqlx::query("UPDATE instance_loader_components SET role=?")
+                .bind(role.as_str())
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        }
+        sqlx::query("INSERT INTO instance_content_entries(id,instance_id,content_set_id,project_type,source_kind,server_requirement,client_requirement,added_at,modified_at) VALUES('entry','instance','set','mod','local','unknown','unknown',0,0)").execute(&pool).await.unwrap();
+        for ownership in [
+            ContentOwnershipKind::PackManaged,
+            ContentOwnershipKind::UserAdded,
+            ContentOwnershipKind::LocalDiscovered,
+        ] {
+            sqlx::query("UPDATE instance_content_entries SET ownership_kind=?")
+                .bind(ownership.as_str())
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        }
+        for requirement in [
+            ContentRequirement::Required,
+            ContentRequirement::Optional,
+            ContentRequirement::Unsupported,
+            ContentRequirement::Unknown,
+        ] {
+            sqlx::query("UPDATE instance_content_entries SET server_requirement=?,client_requirement=?").bind(requirement.as_str()).bind(requirement.as_str()).execute(&pool).await.unwrap();
+            assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        }
+        for project in ProjectType::iterator() {
+            sqlx::query("UPDATE instance_content_entries SET project_type=?")
+                .bind(project.get_name())
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn unknown_stage_and_loader_are_preserved_without_hiding_known_instances()
+     {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = databases::open(temporary.path()).await.unwrap();
+        instance(&pool, "known", "installed").await;
+        instance(&pool, "stage", "future-stage").await;
+        instance(&pool, "loader", "installed").await;
+        sqlx::query("INSERT INTO instance_loader_components(instance_id,kind,role) VALUES('loader','future-loader','primary')").execute(&pool).await.unwrap();
+        let instances = instance_rows::list_instances(&pool).await.unwrap();
+        assert_eq!(instances.len(), 1);
+        assert_eq!(instances[0].id, "known");
+        assert!(
+            instance_rows::get_instance_by_id("stage", &pool)
+                .await
+                .is_err()
+        );
+        assert!(
+            sqlx::query("UPDATE instances SET name='changed' WHERE id='stage'")
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        assert!(
+            sqlx::query("DELETE FROM instances WHERE id='loader'")
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        let mut transaction = pool.begin().await.unwrap();
+        assert!(
+            loader_component_rows::replace_loader_components(
+                "loader",
+                &[],
+                &mut transaction
+            )
+            .await
+            .is_err()
+        );
+        transaction.rollback().await.unwrap();
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instance_loader_components WHERE kind='future-loader'").fetch_one(&pool).await.unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn unknown_provider_is_skipped_and_cannot_be_removed_by_older_cleanup()
+     {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = databases::open(temporary.path()).await.unwrap();
+        instance(&pool, "instance", "installed").await;
+        sqlx::query("INSERT INTO instance_content_sets(id,instance_id,name,source_kind,status,game_version,loader,created,modified) VALUES('set','instance','test','local','available','1.21','vanilla',0,0)").execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO instance_content_entries(id,instance_id,content_set_id,project_type,source_kind,server_requirement,client_requirement,added_at,modified_at,ownership_kind) VALUES('entry','instance','set','mod','local','unknown','unknown',0,0,'local_discovered')").execute(&pool).await.unwrap();
+        assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        sqlx::query("INSERT INTO instance_content_provider_refs(content_entry_id,provider,provider_project_id,is_origin) VALUES('entry','modrinth','abcdefgh',0)").execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO instance_content_provider_refs(content_entry_id,provider,provider_project_id,is_origin) VALUES('entry','future-provider','opaque',1)").execute(&pool).await.unwrap();
+        let references =
+            content_entries::get_content_provider_refs("entry", &pool)
+                .await
+                .unwrap();
+        assert_eq!(references.len(), 1);
+        assert!(
+            unsupported_instances(&pool)
+                .await
+                .unwrap()
+                .contains("instance")
+        );
+        assert!(
+            sqlx::query(
+                "DELETE FROM instance_content_entries WHERE id='entry'"
+            )
+            .execute(&pool)
+            .await
+            .is_err()
+        );
+        assert!(sqlx::query("DELETE FROM instance_content_provider_refs WHERE content_entry_id='entry'").execute(&pool).await.is_err());
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instance_content_provider_refs WHERE provider='future-provider'").fetch_one(&pool).await.unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn unknown_instance_with_json_preferences_does_not_block_startup() {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = databases::open(temporary.path()).await.unwrap();
+        instance(&pool, "instance", "installed").await;
+        instance_rows::set_instance_sync_preference(
+            "instance",
+            crate::state::SyncedOption::Screenshots,
+            true,
+            &pool,
+        )
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO instance_loader_components(instance_id,kind,role) VALUES('instance','future-loader','primary')").execute(&pool).await.unwrap();
+        pool.close().await;
+        drop(pool);
+        let pool = databases::open(temporary.path()).await.unwrap();
+        assert!(
+            unsupported_instances(&pool)
+                .await
+                .unwrap()
+                .contains("instance")
+        );
+        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+        sqlx::query("UPDATE sync_feature_settings SET globally_enabled=1 WHERE feature='screenshots'").execute(&mut *transaction).await.unwrap();
+        configuration::commit(transaction, &pool).await.unwrap();
+        let bytes =
+            tokio::fs::read(temporary.path().join("settings/sync.json"))
+                .await
+                .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value["data"]["instances"]["instance"]["screenshots"], true);
+    }
+
+    #[tokio::test]
+    async fn unknown_operations_keep_their_recovery_data_and_count_as_busy() {
+        use crate::state::store::install_jobs::InstallJobs;
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = databases::open(temporary.path()).await.unwrap();
+        instance(&pool, "instance", "installed").await;
+        sqlx::query("INSERT INTO install_jobs(id,instance_id,kind,status,state,created,modified) VALUES('future','instance','future-install','future-status','{}',0,0)").execute(&pool).await.unwrap();
+        assert!(
+            InstallJobs::unfinished_in(&pool, "instance", &[])
+                .await
+                .unwrap()
+        );
+        assert!(
+            InstallJobs::unfinished_or_rollback(&pool, &[])
+                .await
+                .unwrap()
+        );
+        assert!(
+            sqlx::query("DELETE FROM install_jobs WHERE id='future'")
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        assert!(
+            sqlx::query(
+                "UPDATE install_jobs SET status='canceled' WHERE id='future'"
+            )
+            .execute(&pool)
+            .await
+            .is_err()
+        );
+        instance(&pool, "schema-instance", "installed").await;
+        sqlx::query("INSERT INTO install_jobs(id,instance_id,kind,status,state,created,modified,finished) VALUES('schema-future','schema-instance','create_instance','succeeded','{\"schema_version\":2}',0,0,10)").execute(&pool).await.unwrap();
+        assert!(
+            !InstallJobs::unfinished_in(&pool, "schema-instance", &[])
+                .await
+                .unwrap()
+        );
+        assert!(
+            !unsupported_instances(&pool)
+                .await
+                .unwrap()
+                .contains("schema-instance")
+        );
+        assert!(crate::state::instances::adapters::sqlite::instance_rows::list_instances(&pool).await.unwrap().iter().any(|instance| instance.id == "schema-instance"));
+        assert!(
+            sqlx::query("DELETE FROM install_jobs WHERE id='schema-future'")
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        instance_rows::delete_instance_by_id("schema-instance", &pool)
+            .await
+            .unwrap();
+        let detached: (Option<String>, String) = sqlx::query_as("SELECT instance_id,state FROM install_jobs WHERE id='schema-future'").fetch_one(&pool).await.unwrap();
+        assert_eq!(detached.0, None);
+        assert_eq!(detached.1, "{\"schema_version\":2}");
+    }
+
+    #[tokio::test]
+    async fn future_recovery_protocols_protect_only_the_affected_instance_and_pause_gc()
+     {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = databases::open(temporary.path()).await.unwrap();
+        instance(&pool, "future", "installed").await;
+        instance(&pool, "known", "installed").await;
+        sqlx::query("INSERT INTO content_file_operations(instance_id,payload,committed) VALUES('future','{\"schema_version\":2}',1)").execute(&pool).await.unwrap();
+        assert!(
+            unsupported_instances(&pool)
+                .await
+                .unwrap()
+                .contains("future")
+        );
+        assert!(
+            !unsupported_instances(&pool)
+                .await
+                .unwrap()
+                .contains("known")
+        );
+        assert!(databases::ensure_cleanup_supported(&pool).await.is_err());
+        assert!(
+            instance_rows::delete_instance_by_id("future", &pool)
+                .await
+                .is_err()
+        );
+        assert!(
+            sqlx::query(
+                "DELETE FROM content_file_operations WHERE instance_id='future'"
+            )
+            .execute(&pool)
+            .await
+            .is_err()
+        );
+        sqlx::query(
+            "UPDATE instances SET name='still usable' WHERE id='known'",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn consumed_unknown_cleanup_does_not_permanently_hide_its_instance() {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = databases::open(temporary.path()).await.unwrap();
+        instance(&pool, "instance", "installed").await;
+        sqlx::query("INSERT INTO resource_history_cleanup_plans(id,instance_id,revision,payload,consumed) VALUES('done','instance',1,'{\"schema_version\":2}',1)").execute(&pool).await.unwrap();
+        assert!(unsupported_instances(&pool).await.unwrap().is_empty());
+        assert!(databases::ensure_cleanup_supported(&pool).await.is_ok());
+        let payload: String = sqlx::query_scalar("SELECT payload FROM resource_history_cleanup_plans WHERE id='done'").fetch_one(&pool).await.unwrap();
+        assert_eq!(payload, "{\"schema_version\":2}");
+        assert!(sqlx::query("UPDATE resource_history_cleanup_plans SET payload='{}' WHERE id='done'").execute(&pool).await.is_err());
+        instance_rows::delete_instance_by_id("instance", &pool)
+            .await
+            .unwrap();
+    }
+}

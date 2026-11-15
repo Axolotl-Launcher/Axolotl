@@ -3673,7 +3673,8 @@ pub(crate) async fn load(
                 && !record.queued
         })
         .ok_or_else(|| invalid("plan was revised or already queued"))?;
-    serde_json::from_str(&record.payload).map_err(Into::into)
+    crate::state::store::compatibility::decode_payload(&record.payload)
+        .map_err(Into::into)
 }
 
 impl ResourceService {

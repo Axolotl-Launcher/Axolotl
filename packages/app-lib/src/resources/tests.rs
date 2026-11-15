@@ -913,7 +913,11 @@ fn project_query(id: &str) -> ProviderQuery {
     }
 }
 
-fn project_value(source: SourceId, id: &str, title: &str) -> ProviderValue {
+pub(super) fn project_value(
+    source: SourceId,
+    id: &str,
+    title: &str,
+) -> ProviderValue {
     ProviderValue::Project(ProjectDocument {
         owner: None,
         protocol: None,

@@ -15,11 +15,18 @@ fn handle_of(pool: &sqlx::SqlitePool) -> Handle {
 }
 
 fn job(status: &str) -> InstallJobRecord {
+    let mut state = crate::install::model::InstallJobState::new(
+        crate::install::model::InstallRequest::InstallExistingInstance {
+            instance_id: "instance".into(),
+            force: false,
+        },
+    );
+    state.events.clear();
     InstallJobRecord {
         instance_id: None,
-        kind: "pack".to_string(),
+        kind: "install_existing_instance".to_string(),
         status: status.to_string(),
-        state: "{\"progress\":{}}".to_string(),
+        state: serde_json::to_string(&state).unwrap(),
         created: 1,
         modified: 2,
         finished: None,

@@ -104,7 +104,13 @@ where
     .fetch_all(exec)
     .await?;
 
-    rows.into_iter().map(TryInto::try_into).collect()
+    Ok(rows.into_iter().filter_map(|row| {
+        let id = row.id.clone();
+        match ContentEntry::try_from(row) {
+            Ok(entry) => Some(entry),
+            Err(error) => { tracing::warn!(entry_id = %id, %error, "Unsupported content entry preserved"); None }
+        }
+    }).collect())
 }
 
 pub(crate) async fn get_content_update_check<'e, E>(
@@ -405,7 +411,7 @@ pub(crate) async fn get_content_provider_refs(
     let rows = sqlx::query(
         "SELECT provider, provider_project_id, provider_release_id, provider_file_id
          FROM instance_content_provider_refs
-         WHERE content_entry_id = ?
+         WHERE content_entry_id = ? AND provider IN ('modrinth','curseforge','mcarchive','local')
          ORDER BY is_origin DESC, provider ASC, provider_project_id ASC,
             provider_release_id IS NULL ASC, provider_release_id ASC",
     )
@@ -444,7 +450,7 @@ pub(crate) async fn get_content_provider_refs_with_origin(
     let rows = sqlx::query(
         "SELECT provider, provider_project_id, provider_release_id, provider_file_id, is_origin
          FROM instance_content_provider_refs
-         WHERE content_entry_id = ?
+         WHERE content_entry_id = ? AND provider IN ('modrinth','curseforge','mcarchive','local')
          ORDER BY is_origin DESC, provider ASC, provider_project_id ASC,
             provider_release_id IS NULL ASC, provider_release_id ASC",
     )
@@ -956,6 +962,9 @@ pub(crate) async fn get_provider_refs_with_origin_for_content_set(
     for row in rows {
         let entry_id = row.try_get::<String, _>("content_entry_id")?;
         let provider = row.try_get::<String, _>("provider")?;
+        if ContentProvider::from_str(&provider).is_err() {
+            continue;
+        }
         let provider_project_id =
             row.try_get::<String, _>("provider_project_id")?;
         let provider_release_id =
@@ -1220,6 +1229,9 @@ pub(crate) async fn get_provider_refs_by_file_for_content_set(
             continue;
         };
         let provider = row.try_get::<String, _>("provider")?;
+        if ContentProvider::from_str(&provider).is_err() {
+            continue;
+        }
         let project_id = row.try_get::<String, _>("provider_project_id")?;
         let release_id =
             row.try_get::<Option<String>, _>("provider_release_id")?;

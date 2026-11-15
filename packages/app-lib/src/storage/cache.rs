@@ -19,7 +19,24 @@ fn invalid(message: impl Into<String>) -> crate::Error {
 
 async fn retained_content(
     directories: &DirectoryInfo,
+    active: Option<&sqlx::SqlitePool>,
 ) -> crate::Result<HashSet<String>> {
+    if crate::state::store::databases::exists(&directories.settings_dir) {
+        let pool = active.ok_or_else(|| {
+            invalid(
+                "Opened database domains are required before clearing caches",
+            )
+        })?;
+        if pool.connect_options().get_filename()
+            != directories.databases_dir().join("system.db")
+        {
+            return Err(invalid(
+                "The opened database belongs to another storage directory",
+            ));
+        }
+        crate::state::store::databases::ensure_cleanup_supported(pool).await?;
+        return Ok(retained_in_channel(pool).await?.into_iter().collect());
+    }
     let mut retained = HashSet::new();
     let mut databases = 0;
     for path in [
@@ -60,7 +77,7 @@ async fn retained_in_channel(
             "Finish pending installations and recovery before clearing downloaded caches.",
         ));
     }
-    let store_tables: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('store_blobs', 'store_instance_files', 'store_retained_refs', 'store_operations')").fetch_one(pool).await?;
+    let store_tables: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM pragma_table_list WHERE type = 'table' AND schema <> 'temp' AND name IN ('store_blobs', 'store_instance_files', 'store_retained_refs', 'store_operations')").fetch_one(pool).await?;
     if store_tables == 0 {
         return Ok(Vec::new());
     }
@@ -69,7 +86,7 @@ async fn retained_in_channel(
             "Content store records are incomplete. Cache cleanup was not started.",
         ));
     }
-    Ok(sqlx::query_scalar::<_, String>("SELECT digest FROM store_instance_files UNION SELECT digest FROM store_retained_refs UNION SELECT digest FROM store_operations WHERE state IN ('staged', 'published')")
+    Ok(sqlx::query_scalar::<_, String>("SELECT digest FROM store_instance_files UNION SELECT digest FROM store_retained_refs UNION SELECT digest FROM store_operations WHERE state NOT IN ('materialized', 'failed')")
         .fetch_all(pool).await?.into_iter().map(|digest| digest.to_ascii_lowercase()).collect())
 }
 
@@ -222,7 +239,7 @@ pub async fn clear_cache() -> crate::Result<CacheCleanupResult> {
     let _usage = usage::exclusive().await?;
     let state = crate::State::get().await?;
     let directories = dirs()?;
-    let retained = retained_content(&directories).await?;
+    let retained = retained_content(&directories, Some(&state.pool)).await?;
     let measure_directories = dirs()?;
     let (before, mut failures) = tokio::task::spawn_blocking(move || {
         let mut failures = Vec::new();

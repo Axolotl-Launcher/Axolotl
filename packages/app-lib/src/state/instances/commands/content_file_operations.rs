@@ -23,6 +23,11 @@ struct FileMove {
 
 #[derive(Serialize, Deserialize)]
 struct Journal {
+    #[serde(
+        default = "crate::state::store::compatibility::legacy_protocol",
+        alias = "schemaVersion"
+    )]
+    schema_version: u32,
     #[serde(default)]
     schematic: Option<super::install_schematic::Publication>,
     root: String,
@@ -87,6 +92,7 @@ pub(super) async fn prepare(
         });
     }
     let journal = Journal {
+        schema_version: 1,
         schematic: None,
         root: io::canonicalize(root)?.to_string_lossy().into_owned(),
         delete,
@@ -105,6 +111,7 @@ pub(super) async fn prepare_schematic(
     publication: &super::install_schematic::Publication,
 ) -> crate::Result<()> {
     let journal = Journal {
+        schema_version: 1,
         root: io::canonicalize(root)?.to_string_lossy().into_owned(),
         delete: false,
         files: Vec::new(),
@@ -122,7 +129,8 @@ pub(super) async fn discard_schematic(
     if let Some((payload, false)) =
         journals::get(&state.data, instance_id).await?
     {
-        let journal: Journal = serde_json::from_str(&payload)?;
+        let journal: Journal =
+            crate::state::store::compatibility::decode_payload(&payload)?;
         if journal.schematic.is_some() {
             journals::remove(&state.data, instance_id, &payload).await?;
         }
@@ -141,7 +149,8 @@ pub(super) async fn publish(
         .ok_or_else(|| {
             recovery_error("Content operation journal disappeared")
         })?;
-    let journal: Journal = serde_json::from_str(&payload)?;
+    let journal: Journal =
+        crate::state::store::compatibility::decode_payload(&payload)?;
     for file in journal.files {
         let original = checked_path(root, &file.original)?;
         let destination = checked_path(root, &file.destination)?;
@@ -190,7 +199,8 @@ pub(super) async fn recover(
     let Some((payload, committed)) = row else {
         return Ok(());
     };
-    let journal: Journal = serde_json::from_str(&payload)?;
+    let journal: Journal =
+        crate::state::store::compatibility::decode_payload(&payload)?;
     if io::canonicalize(root)? != io::canonicalize(&journal.root)? {
         return Err(recovery_error(
             "Instance directory changed before content recovery",
@@ -291,7 +301,8 @@ pub(super) async fn recover_before_instance_removal(
             "The instance has unfinished file recovery. Restore its directory before deleting it.",
         ));
     }
-    let journal: Journal = serde_json::from_str(&payload)?;
+    let journal: Journal =
+        crate::state::store::compatibility::decode_payload(&payload)?;
     let recorded = Path::new(&journal.root);
     let same_root = match (root.parent(), recorded.parent()) {
         (Some(parent), Some(recorded_parent)) => {

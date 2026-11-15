@@ -72,7 +72,12 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                     'en-US':
                         'Fixed browser form history suggestions appearing in the command generator\'s "Command to run" field after restarting the launcher.',
                     'zh-CN':
-                        '修复重启启动器后，指令生成器“需要执行的命令”输入框弹出浏览器表单历史建议的问题。',
+                        '修复重启启动器后，指令生成器弹出浏览器表单历史建议的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed Home incorrectly showing worlds as in use and disabling their play buttons when no game was running.',
+                    'zh-CN': '修复未运行游戏时，主页误报世界正在使用中并禁用启动按钮的问题。',
                 },
             ],
         },

@@ -439,7 +439,7 @@ pub async fn get_singleplayer_world(
 }
 
 async fn read_singleplayer_world(world_path: PathBuf) -> Result<World> {
-    if let Some(_lock) = try_get_world_session_lock(&world_path).await? {
+    if let Some(_lock) = try_get_world_read_lock(&world_path).await? {
         read_singleplayer_world_maybe_locked(world_path, false).await
     } else {
         read_singleplayer_world_maybe_locked(world_path, true).await
@@ -899,6 +899,22 @@ async fn try_get_world_session_lock(
         .await?;
     file.sync_all().await?;
     let locked = file.try_lock_exclusive()?;
+    Ok(locked.then_some(file))
+}
+
+async fn try_get_world_read_lock(
+    world: &Path,
+) -> Result<Option<tokio::fs::File>> {
+    let file = tokio::fs::File::options()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .open(world.join("session.lock"))
+        .await?;
+    // Home reads favorites and recent worlds concurrently. Readers must not
+    // report each other's metadata scans as Minecraft holding the world.
+    let locked = file.try_lock_shared()?;
     Ok(locked.then_some(file))
 }
 
@@ -1362,6 +1378,50 @@ mod tests {
         )
         .unwrap();
         std::fs::write(world_dir.join("level.dat"), bytes).unwrap();
+    }
+
+    #[tokio::test]
+    async fn metadata_reads_share_session_lock_but_respect_exclusive_owners() {
+        let fixture = TempDir::new().unwrap();
+        write_world(fixture.path(), 1_900_000_000_000);
+        let world_dir = fixture.path().join("saves").join("home-world");
+        let reader = tokio::fs::File::options()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false)
+            .open(world_dir.join("session.lock"))
+            .await
+            .unwrap();
+        assert!(reader.try_lock_shared().unwrap());
+
+        let world = read_singleplayer_world(world_dir.clone()).await.unwrap();
+        assert!(matches!(
+            world.details,
+            WorldDetails::Singleplayer { locked: false, .. }
+        ));
+        assert!(
+            try_get_world_session_lock(&world_dir)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(get_world_session_lock(&world_dir).await.is_err());
+        drop(reader);
+
+        let game = get_world_session_lock(&world_dir).await.unwrap();
+        let world = read_singleplayer_world(world_dir.clone()).await.unwrap();
+        assert!(matches!(
+            world.details,
+            WorldDetails::Singleplayer { locked: true, .. }
+        ));
+        drop(game);
+
+        let world = read_singleplayer_world(world_dir).await.unwrap();
+        assert!(matches!(
+            world.details,
+            WorldDetails::Singleplayer { locked: false, .. }
+        ));
     }
 
     async fn check_home_worlds(

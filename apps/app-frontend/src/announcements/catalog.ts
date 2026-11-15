@@ -79,6 +79,11 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                         'Fixed Home incorrectly showing worlds as in use and disabling their play buttons when no game was running.',
                     'zh-CN': '修复未运行游戏时，主页误报世界正在使用中并禁用启动按钮的问题。',
                 },
+                {
+                    'en-US':
+                        'Fixed newer NeoForge instances failing to launch from external game directories with an installation corruption error.',
+                    'zh-CN': '修复新版 NeoForge 实例使用外部游戏目录时，启动报安装损坏错误的问题。',
+                },
             ],
         },
     },

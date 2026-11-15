@@ -1566,8 +1566,74 @@ fn launcher_log_writer(app_identifier: &str) -> Option<RotatingLogWriter> {
     }
 }
 
+/// Owns the optional export pipeline tied to the process-wide subscriber.
+///
+/// Dropping the guard flushes and shuts the OTLP providers down. When
+/// observability is disabled the guard is inert and the logger behaves exactly
+/// as it did before export existed.
+pub struct LoggerGuard {
+    observability: Option<crate::observability::ObservabilityGuard>,
+}
+
+impl LoggerGuard {
+    /// Flush pending telemetry within `timeout`. Returns `true` when there is
+    /// nothing to flush; never panics.
+    #[must_use]
+    pub fn flush(&self, timeout: std::time::Duration) -> bool {
+        match &self.observability {
+            Some(guard) => guard.flush(timeout),
+            None => true,
+        }
+    }
+}
+
+impl Drop for LoggerGuard {
+    fn drop(&mut self) {
+        if let Some(guard) = &self.observability {
+            guard.shutdown();
+        }
+    }
+}
+
+/// Targets whose spans are exported as OTLP traces. Logs are filtered
+/// separately so an OTLP trace export never implies raw log export.
+fn observability_span_filter() -> tracing_subscriber::filter::Targets {
+    tracing_subscriber::filter::Targets::new()
+        .with_target(
+            "theseus_gui",
+            tracing_subscriber::filter::LevelFilter::INFO,
+        )
+        .with_target(
+            "launcher_observability",
+            tracing_subscriber::filter::LevelFilter::INFO,
+        )
+}
+
+/// Targets bridged as raw OTLP log records when the user opted in. Raw logs
+/// are restricted to WARN/ERROR; INFO/DEBUG remain local to the file logger.
+fn observability_log_filter() -> tracing_subscriber::filter::Targets {
+    tracing_subscriber::filter::Targets::new()
+        .with_target("theseus", tracing_subscriber::filter::LevelFilter::WARN)
+        .with_target(
+            "theseus_gui",
+            tracing_subscriber::filter::LevelFilter::WARN,
+        )
+        .with_target(
+            "launcher_observability",
+            tracing_subscriber::filter::LevelFilter::WARN,
+        )
+}
+
+/// Only IPC command spans feed the duration histogram.
+fn command_metrics_filter() -> tracing_subscriber::filter::Targets {
+    tracing_subscriber::filter::Targets::new().with_target(
+        "theseus_gui",
+        tracing_subscriber::filter::LevelFilter::INFO,
+    )
+}
+
 /// Saves complete session logs in all builds, with compact console output in development.
-pub fn start_logger(app_identifier: &str) -> Option<()> {
+pub fn start_logger(app_identifier: &str) -> Option<LoggerGuard> {
     use tracing_subscriber::fmt::time::ChronoLocal;
     use tracing_subscriber::prelude::*;
 
@@ -1580,7 +1646,7 @@ pub fn start_logger(app_identifier: &str) -> Option<()> {
     let filter = initial_log_filter(DEFAULT_LOG_LEVEL)?;
     let (filter_layer, reload_handle) =
         tracing_subscriber::reload::Layer::new(filter);
-
+    let observability = crate::observability::start(app_identifier);
     let subscriber = tracing_subscriber::registry().with(filter_layer).with(
         writer.clone().map(|writer| {
             tracing_subscriber::fmt::layer()
@@ -1595,6 +1661,28 @@ pub fn start_logger(app_identifier: &str) -> Option<()> {
             TruncatedConsoleWriter {
                 stdout: std::io::stdout(),
             }
+        }));
+    let subscriber = subscriber
+        .with(observability.as_ref().map(|guard| {
+            tracing_opentelemetry::layer()
+                .with_tracer(guard.tracer())
+                .with_filter(observability_span_filter())
+        }))
+        .with(observability.as_ref().and_then(|guard| {
+            if !(guard.logs_enabled() && guard.raw_logs()) {
+                return None;
+            }
+            let provider = guard.logger_provider()?;
+            Some(
+                opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(
+                    provider,
+                )
+                .with_filter(observability_log_filter()),
+            )
+        }))
+        .with(observability.as_ref().map(|_| {
+            crate::observability::CommandMetricsLayer::new()
+                .with_filter(command_metrics_filter())
         }));
     subscriber.with(tracing_error::ErrorLayer::default()).init();
     let _ = LOG_FILTER_RELOAD.set(reload_handle);
@@ -1616,5 +1704,5 @@ pub fn start_logger(app_identifier: &str) -> Option<()> {
             .ok();
     }
 
-    Some(())
+    Some(LoggerGuard { observability })
 }

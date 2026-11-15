@@ -15,24 +15,29 @@ impl UpdateMethod {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn check_app_update() -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn get_update_size() -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn enqueue_update_for_installation() -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn remove_enqueued_update() {}
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn is_apt_linux() -> bool {
     false

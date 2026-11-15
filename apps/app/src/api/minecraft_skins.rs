@@ -25,6 +25,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn lookup_player_skin(
     input: String,
@@ -35,6 +36,7 @@ pub async fn lookup_player_skin(
 /// `invoke('plugin:minecraft-skins|get_available_capes')`
 ///
 /// See also: [minecraft_skins::get_available_capes]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_available_capes(
     cached_only: Option<bool>,
@@ -48,6 +50,7 @@ pub async fn get_available_capes(
 /// `invoke('plugin:minecraft-skins|get_available_skins')`
 ///
 /// See also: [minecraft_skins::get_available_skins]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_available_skins(
     cached_only: Option<bool>,
@@ -61,6 +64,7 @@ pub async fn get_available_skins(
 /// `invoke('plugin:minecraft-skins|add_and_equip_custom_skin', texture_blob, variant, cape)`
 ///
 /// See also: [minecraft_skins::add_and_equip_custom_skin]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn add_and_equip_custom_skin(
     texture_blob: Bytes,
@@ -76,6 +80,7 @@ pub async fn add_and_equip_custom_skin(
 /// `invoke('plugin:minecraft-skins|equip_skin', skin)`
 ///
 /// See also: [minecraft_skins::equip_skin]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn equip_skin(skin: Skin) -> Result<()> {
     Ok(minecraft_skins::equip_skin(skin).await?)
@@ -84,6 +89,7 @@ pub async fn equip_skin(skin: Skin) -> Result<()> {
 /// `invoke('plugin:minecraft-skins|remove_custom_skin', skin)`
 ///
 /// See also: [minecraft_skins::remove_custom_skin]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn remove_custom_skin(skin: Skin) -> Result<()> {
     Ok(minecraft_skins::remove_custom_skin(skin).await?)
@@ -92,6 +98,7 @@ pub async fn remove_custom_skin(skin: Skin) -> Result<()> {
 /// `invoke('plugin:minecraft-skins|save_custom_skin', skin, texture_blob, variant, cape, replace_texture)`
 ///
 /// See also: [minecraft_skins::save_custom_skin]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn save_custom_skin(
     skin: Skin,
@@ -113,6 +120,7 @@ pub async fn save_custom_skin(
 /// `invoke('plugin:minecraft-skins|set_custom_skin_order', texture_keys)`
 ///
 /// See also: [minecraft_skins::set_custom_skin_order]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn set_custom_skin_order(texture_keys: Vec<String>) -> Result<()> {
     Ok(minecraft_skins::set_custom_skin_order(texture_keys).await?)
@@ -121,6 +129,7 @@ pub async fn set_custom_skin_order(texture_keys: Vec<String>) -> Result<()> {
 /// `invoke('plugin:minecraft-skins|unequip_skin')`
 ///
 /// See also: [minecraft_skins::unequip_skin]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn unequip_skin() -> Result<()> {
     Ok(minecraft_skins::unequip_skin().await?)
@@ -129,6 +138,7 @@ pub async fn unequip_skin() -> Result<()> {
 /// `invoke('plugin:minecraft-skins|flush_pending_skin_change')`
 ///
 /// See also: [minecraft_skins::flush_pending_skin_change]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn flush_pending_skin_change() -> Result<()> {
     Ok(minecraft_skins::flush_pending_skin_change().await?)
@@ -137,6 +147,7 @@ pub async fn flush_pending_skin_change() -> Result<()> {
 /// `invoke('plugin:minecraft-skins|flush_pending_skin_change_for_profile', profile_id)`
 ///
 /// See also: [minecraft_skins::flush_pending_skin_change_for_profile]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn flush_pending_skin_change_for_profile(
     profile_id: uuid::Uuid,
@@ -150,6 +161,7 @@ pub async fn flush_pending_skin_change_for_profile(
 /// `invoke('plugin:minecraft-skins|normalize_skin_texture')`
 ///
 /// See also: [minecraft_skins::normalize_skin_texture]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn normalize_skin_texture(
     texture: UrlOrBlob,
@@ -168,6 +180,7 @@ pub async fn normalize_skin_texture(
 /// `invoke('plugin:minecraft-skins|get_dragged_skin_data', path)`
 ///
 /// See also: [minecraft_skins::get_dragged_skin_data]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_dragged_skin_data(path: String) -> Result<Bytes> {
     let path = Path::new(&path);

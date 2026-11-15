@@ -235,6 +235,7 @@ fn to_command_error(error: mod_translation::error::TranslateError) -> String {
     error.user_message()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mod_translation_analyze(
     input_path: String,
@@ -379,6 +380,7 @@ async fn validate_ai_config(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mod_translation_translate<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -494,6 +496,7 @@ pub async fn mod_translation_translate<R: Runtime>(
     Ok(snapshot)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn mod_translation_cancel(task_id: String) -> Result<(), String> {
     if let Some(handle) = tasks()
@@ -507,6 +510,7 @@ pub fn mod_translation_cancel(task_id: String) -> Result<(), String> {
 }
 
 /// Stops a running analysis at its next checkpoint.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn mod_translation_cancel_analysis(
     request_id: String,
@@ -533,6 +537,7 @@ pub fn mod_translation_cancel_analysis(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn mod_translation_list_tasks() -> Result<Vec<TaskSnapshot>, String> {
     let registry =
@@ -547,6 +552,7 @@ pub fn mod_translation_list_tasks() -> Result<Vec<TaskSnapshot>, String> {
     Ok(snapshots)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn mod_translation_get_task(
     task_id: String,
@@ -558,6 +564,7 @@ pub fn mod_translation_get_task(
     }))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn mod_translation_dismiss_task(task_id: String) -> Result<(), String> {
     let mut registry =

@@ -9,7 +9,7 @@ import {
     type ContentItem,
     type ContentOwner,
 } from '@modrinth/ui'
-import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { convertFileSrc } from '@tauri-apps/api/core'
 
 import { isOfflineMode } from '@/composables/useNetworkStatus'
 import { buildGcCandidateChain, resolveAutoGcStrategy } from '@/helpers/gc/auto-selector'
@@ -17,6 +17,7 @@ import { collectGcContext } from '@/helpers/gc/context'
 import { detectGcStrategy, GC_STRATEGY_DEFINITIONS } from '@/helpers/gc/strategies'
 import type { GcContext, ResolvedGcStrategyId } from '@/helpers/gc/types'
 import { setLastGcLaunchReport } from '@/helpers/gc-notice'
+import { invoke } from '@/helpers/invoke'
 import { AUTO_GC_PRESET_ARG } from '@/helpers/java-arguments'
 import { get_jre, get_memory_status } from '@/helpers/jre.js'
 import { get as getSettings } from '@/helpers/settings'

@@ -34,6 +34,7 @@ pub struct StorageOpenFailure {
     pub reason: String,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn storage_scan(
     force: bool,
@@ -47,16 +48,19 @@ pub async fn storage_scan(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn storage_cache_clear() -> Result<CacheCleanupResult> {
     Ok(theseus::storage::clear_cache().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn storage_meta_analyze() -> Result<MetaAnalysis> {
     Ok(theseus::storage::analyze_meta().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn storage_meta_clean(
     id: String,
@@ -65,6 +69,7 @@ pub async fn storage_meta_clean(
     Ok(theseus::storage::clean_meta(id, groups).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn storage_open_paths<R: Runtime>(
     app: tauri::AppHandle<R>,

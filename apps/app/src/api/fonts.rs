@@ -70,6 +70,7 @@ fn collect_system_fonts() -> Vec<SystemFontFamily> {
     accumulator.into_sorted_families()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn fonts_get_system_fonts() -> Result<Vec<SystemFontFamily>> {
     if let Some(fonts) = SYSTEM_FONTS.get() {

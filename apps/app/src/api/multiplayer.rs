@@ -19,6 +19,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_download_hongshi() -> Result<()> {
     Ok(theseus::hongshi::download()
@@ -26,12 +27,14 @@ pub async fn multiplayer_download_hongshi() -> Result<()> {
         .map_err(theseus::Error::from)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_get_state()
 -> Result<theseus::multiplayer::MultiplayerState> {
     Ok(theseus::multiplayer::get_state().await)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_get_nodes(
     force_refresh: Option<bool>,
@@ -41,12 +44,14 @@ pub async fn multiplayer_get_nodes(
         .map_err(theseus::Error::from)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_get_detected_ports()
 -> Result<Vec<theseus::hongshi::DetectedLanPort>> {
     Ok(theseus::hongshi::get_detected_ports().await)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_switch_provider(
     provider: theseus::multiplayer::MultiplayerProvider,
@@ -56,6 +61,7 @@ pub async fn multiplayer_switch_provider(
         .map_err(theseus::Error::from)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_prepare_terracotta() -> Result<()> {
     Ok(theseus::multiplayer::prepare_terracotta()
@@ -63,6 +69,7 @@ pub async fn multiplayer_prepare_terracotta() -> Result<()> {
         .map_err(theseus::Error::from)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_host(
     request: theseus::multiplayer::MultiplayerHostRequest,
@@ -72,6 +79,7 @@ pub async fn multiplayer_host(
         .map_err(theseus::Error::from)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_join(
     request: theseus::multiplayer::MultiplayerJoinRequest,
@@ -81,6 +89,7 @@ pub async fn multiplayer_join(
         .map_err(theseus::Error::from)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_stop() -> Result<()> {
     Ok(theseus::multiplayer::stop()
@@ -88,6 +97,7 @@ pub async fn multiplayer_stop() -> Result<()> {
         .map_err(theseus::Error::from)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_reset() -> Result<()> {
     Ok(theseus::multiplayer::reset()
@@ -95,11 +105,13 @@ pub async fn multiplayer_reset() -> Result<()> {
         .map_err(theseus::Error::from)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_get_player_name() -> Result<String> {
     Ok(theseus::terracotta::get_player_name().await)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn multiplayer_open_hongshi_logs<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,

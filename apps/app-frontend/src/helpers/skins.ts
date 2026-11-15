@@ -1,5 +1,6 @@
 import { arrayBufferToBase64 } from '@modrinth/utils'
-import { invoke } from '@tauri-apps/api/core'
+
+import { invoke } from '@/helpers/invoke'
 
 export interface Cape {
     id: string

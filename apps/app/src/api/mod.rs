@@ -16,6 +16,7 @@ pub mod metadata;
 pub mod minecraft_skins;
 pub mod mod_translation;
 pub mod multiplayer;
+pub mod observability;
 pub mod planet_minecraft;
 pub mod process;
 pub mod schematic_preview;
@@ -98,7 +99,7 @@ pub enum TheseusSerializableError {
 // This is a very simple macro that implements a very basic Serializable for each variant of TheseusSerializableError,
 // where the field is the string. (This allows easy extension to errors without many match arms)
 macro_rules! impl_serialize {
-    ($($variant:ident),* $(,)?) => {
+    ($($variant:ident => $kind:literal),* $(,)?) => {
         impl Serialize for TheseusSerializableError {
             fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
             where
@@ -108,6 +109,7 @@ macro_rules! impl_serialize {
                     // For the Theseus variant, we add a special display for the error,
                     // to view the spans if subscribed to them (which is information that is lost when serializing)
                     TheseusSerializableError::Theseus(theseus_error) => {
+                        theseus::observability::record_error("ipc", "theseus");
                         $crate::error::display_tracing_error(theseus_error);
 
                         let mut state = serializer.serialize_struct("Theseus", 2)?;
@@ -120,6 +122,7 @@ macro_rules! impl_serialize {
                     }
                     TheseusSerializableError::Resource(error) => {
                         if !matches!(error, theseus::resources::ResourceError::Canceled) {
+                            theseus::observability::record_error("ipc", "resource");
                             tracing::error!(error = %error, "Resource operation failed");
                         }
                         let mut state = serializer.serialize_struct("Resource", 3)?;
@@ -130,6 +133,12 @@ macro_rules! impl_serialize {
                     }
                     $(
                         TheseusSerializableError::$variant(message) => {
+                            if !matches!(
+                                self,
+                                TheseusSerializableError::SearchCancelled(_)
+                            ) {
+                                theseus::observability::record_error("ipc", $kind);
+                            }
                             let mut state = serializer.serialize_struct(stringify!($variant), 2)?;
                             state.serialize_field("field_name", stringify!($variant))?;
                             state.serialize_field("message", &message.to_string())?;
@@ -145,16 +154,16 @@ macro_rules! impl_serialize {
 // Use the macro to implement Serialize for TheseusSerializableError
 #[cfg(not(feature = "updater"))]
 impl_serialize! {
-    IO,
-    Tauri,
-    SearchCancelled,
+    IO => "io",
+    Tauri => "tauri",
+    SearchCancelled => "search_cancelled",
 }
 
 #[cfg(feature = "updater")]
 impl_serialize! {
-    IO,
-    Tauri,
-    Updater,
-    Http,
-    SearchCancelled,
+    IO => "io",
+    Tauri => "tauri",
+    Updater => "updater",
+    Http => "http",
+    SearchCancelled => "search_cancelled",
 }

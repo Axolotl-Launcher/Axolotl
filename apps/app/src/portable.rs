@@ -68,6 +68,7 @@ fn try_write_test(dir: &std::path::Path) -> bool {
 }
 
 /// Tauri 命令：检查应用程序是否运行在便携模式下
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn is_portable_mode() -> bool {
     PORTABLE_MODE.load(Ordering::Relaxed)

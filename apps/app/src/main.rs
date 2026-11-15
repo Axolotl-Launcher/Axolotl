@@ -214,7 +214,7 @@ fn is_skin_editor_referer(
 }
 
 // Should be called in launcher initialization
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
     tracing::info!("Initializing app event state...");
@@ -319,6 +319,7 @@ async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn get_update_channel(app: tauri::AppHandle) -> api::Result<String> {
     resolve_update_channel(&app).await
@@ -342,6 +343,7 @@ async fn resolve_update_channel<R: tauri::Runtime>(
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn get_current_app_database_path(
     app: tauri::AppHandle,
@@ -352,6 +354,7 @@ async fn get_current_app_database_path(
         .into_owned())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn set_update_channel(
     app: tauri::AppHandle,
@@ -370,6 +373,7 @@ async fn set_update_channel(
     write_update_channel_state(&app, &state)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn get_update_preferences(
     app: tauri::AppHandle,
@@ -388,6 +392,7 @@ async fn get_update_preferences(
     })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn set_update_preferences(
     app: tauri::AppHandle,
@@ -429,6 +434,7 @@ fn write_update_channel_state(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn copy_release_database_to_beta(
     app: tauri::AppHandle,
@@ -437,6 +443,7 @@ async fn copy_release_database_to_beta(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn copy_database_between_channels(
     app: tauri::AppHandle,
@@ -452,11 +459,13 @@ async fn copy_database_between_channels(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn beta_database_exists(app: tauri::AppHandle) -> api::Result<bool> {
     Ok(theseus::beta_database_exists(&app.config().identifier).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn backup_app_db_for_update(
     app: tauri::AppHandle,
@@ -470,6 +479,7 @@ async fn backup_app_db_for_update(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn set_discord_activity(activity: String) -> api::Result<()> {
     let state = State::get().await?;
@@ -481,7 +491,7 @@ async fn set_discord_activity(activity: String) -> api::Result<()> {
 }
 
 // Should be call once Vue has mounted the app
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn show_window(app: tauri::AppHandle) {
     let win = app.get_window("main").unwrap();
@@ -504,12 +514,13 @@ fn show_window(app: tauri::AppHandle) {
 /// Records that the launcher shell has rendered its first initialized frame.
 /// Startup work that is not needed for first paint waits for this signal, so
 /// it must not be sent while only the splash screen is mounted.
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn frontend_ready() {
     State::mark_frontend_ready();
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn set_transparent_window_frame(
     enabled: bool,
@@ -518,11 +529,13 @@ async fn set_transparent_window_frame(
     window_frame::apply_frame(enabled, &window).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn is_dev() -> bool {
     cfg!(debug_assertions)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn are_updates_enabled() -> bool {
     true
@@ -535,6 +548,7 @@ pub use updater_impl::*;
 pub use updater_impl_noop::*;
 
 // Toggles decorations
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn toggle_decorations(b: bool, window: tauri::Window) -> api::Result<()> {
     window.set_decorations(b).map_err(|e| {
@@ -545,6 +559,7 @@ async fn toggle_decorations(b: bool, window: tauri::Window) -> api::Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn restart_app(app: tauri::AppHandle) -> api::Result<()> {
     if theseus::State::initialized()
@@ -562,6 +577,7 @@ async fn restart_app(app: tauri::AppHandle) -> api::Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn exit_app(app: tauri::AppHandle, force: bool) -> api::Result<()> {
     if theseus::State::initialized()
@@ -704,8 +720,14 @@ fn run_exit_steps(app: &tauri::AppHandle) {
     });
     theseus::scheduler::l0::wait_exit(l0_exit_by);
     exit_barrier::record(&exit_losses());
+    if theseus::observability::is_enabled()
+        && !theseus::observability::flush(std::time::Duration::from_secs(3))
+    {
+        tracing::warn!("OTLP telemetry did not flush within the exit budget");
+    }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn check_symlink_capability() -> api::Result<String> {
     let capability = theseus::symlink::check_symlink_capability().await?;
@@ -717,17 +739,20 @@ async fn check_symlink_capability() -> api::Result<String> {
     .to_string())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn is_elevated() -> bool {
     theseus::is_process_elevated()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn allow_symlink_target(app: tauri::AppHandle, path: String) {
     use tauri_plugin_fs::FsExt;
     let _ = app.fs_scope().allow_directory(&path, true);
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn set_restart_after_pending_update(
     should_restart: bool,
@@ -1067,6 +1092,7 @@ fn main() {
         .plugin(api::mcarchive::init())
         .plugin(api::minecraft_skins::init())
         .plugin(api::mod_translation::init())
+        .plugin(api::observability::init())
         .plugin(api::process::init())
         .plugin(api::planet_minecraft::init())
         .plugin(api::settings::init())

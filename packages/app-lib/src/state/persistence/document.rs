@@ -71,6 +71,21 @@ impl Document {
         .await
     }
 
+    /// Keep a service's secret resolution or validation in the same worker and
+    /// file lock as its metadata read. The callback must not reenter this file.
+    pub(crate) async fn inspect<T, F>(&self, inspect: F) -> crate::Result<T>
+    where
+        T: Send + 'static,
+        F: FnOnce(ReadResult) -> crate::Result<T> + Send + 'static,
+    {
+        let document = self.clone();
+        blocking(move || {
+            let _lock = Writer::acquire(&document.path)?;
+            inspect(document.read_locked()?)
+        })
+        .await
+    }
+
     /// Mutate named payload keys under the file lock. A typed whole-document
     /// roundtrip is deliberately not used: it would discard unknown fields.
     pub(crate) async fn update<F>(&self, change: F) -> crate::Result<Snapshot>
@@ -78,6 +93,22 @@ impl Document {
         F: FnOnce(&mut Map<String, Value>) -> crate::Result<()>
             + Send
             + 'static,
+    {
+        self.update_and_then(change, |_| Ok(())).await
+    }
+
+    /// The completion callback runs after durable publication, before the
+    /// worker releases the file lock, including when metadata did not change.
+    pub(crate) async fn update_and_then<F, C>(
+        &self,
+        change: F,
+        committed: C,
+    ) -> crate::Result<Snapshot>
+    where
+        F: FnOnce(&mut Map<String, Value>) -> crate::Result<()>
+            + Send
+            + 'static,
+        C: FnOnce(&Snapshot) -> crate::Result<()> + Send + 'static,
     {
         let document = self.clone();
         blocking(move || {
@@ -98,6 +129,7 @@ impl Document {
             if snapshot.raw == previous
                 && read.availability != Availability::Missing
             {
+                committed(&snapshot)?;
                 return Ok(snapshot);
             }
             let revision =
@@ -111,6 +143,7 @@ impl Document {
             snapshot.raw["revision"] = Value::from(revision);
             document.write_locked(&snapshot)?;
             snapshot.availability = Availability::Ready;
+            committed(&snapshot)?;
             Ok(snapshot)
         })
         .await

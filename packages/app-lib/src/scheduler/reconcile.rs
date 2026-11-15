@@ -1,7 +1,7 @@
 //! The one startup reconciliation entry. Work that a previous session could
 //! leave half done is repaired here before any background loop starts:
-//! telemetry's multi-step writes (each step atomic or idempotent, but not one
-//! transaction), and scheduling tags whose owner is gone or finished. The
+//! telemetry's independent document state and scheduling tags whose owner is
+//! gone or finished. The
 //! shutdown loss list points here too.
 //!
 //! Running games are tracked in memory only (`ProcessManager`), so a process
@@ -102,18 +102,12 @@ mod tests {
     /// The heartbeat events waiting in the outbox, read through the collection
     /// rather than through a statement.
     async fn heartbeats(state: &State) -> Vec<String> {
-        use crate::state::store::Collection;
-        use crate::state::store::telemetry_outbox::{
-            TelemetryEventType, TelemetryOutbox,
-        };
-        TelemetryOutbox::get_all(&state.data)
+        crate::state::telemetry_state::TelemetryState::new(&state.persistence)
+            .due()
             .await
             .unwrap()
             .into_iter()
-            .filter_map(|(key, record)| {
-                (record.event_type == TelemetryEventType::Heartbeat)
-                    .then_some(key)
-            })
+            .map(|(id, _)| id)
             .collect()
     }
 
@@ -171,22 +165,17 @@ mod tests {
     #[tokio::test]
     async fn a_failed_reconciliation_is_reported_and_startup_continues() {
         let (_temp, state) = fixture(true).await;
-        // Hold the install database permit so the reconciliation cannot get
-        // it: this is the one failure the entry swallows, and startup must not
-        // return an error from it.
-        let held = state.install_db_semaphore.acquire().await.unwrap();
-        state.set_install_db_permit_timeout_for_test(
-            std::time::Duration::from_millis(1),
-        );
-
+        // A damaged optional document is reported without failing startup or
+        // acquiring an installation database permit.
+        let path = state.directories.settings_dir.join("state/telemetry.json");
+        tokio::fs::write(&path, b"broken").await.unwrap();
+        let previous =
+            std::path::PathBuf::from(format!("{}.previous", path.display()));
+        if tokio::fs::try_exists(&previous).await.unwrap() {
+            tokio::fs::remove_file(previous).await.unwrap();
+        }
         let (_subscriber, lines) = capture_lines();
         at_startup(&state).await;
-        drop(held);
-
-        assert!(
-            heartbeats(&state).await.is_empty(),
-            "the blocked cycle did not queue a heartbeat"
-        );
         let reported: Vec<_> = lines
             .lock()
             .unwrap()

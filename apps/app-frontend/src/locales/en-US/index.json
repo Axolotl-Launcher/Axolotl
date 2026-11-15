@@ -21712,5 +21712,11 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "Unknown file warning"
+  },
+  "minecraft-account.session-only.title": {
+    "message": "Signed in for this session"
+  },
+  "minecraft-account.session-only.description": {
+    "message": "Your login could not be saved. Sign in again after restarting the launcher."
   }
 }

@@ -21712,5 +21712,11 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "未知文件警告"
+  },
+  "minecraft-account.session-only.title": {
+    "message": "仅本次会话登录有效"
+  },
+  "minecraft-account.session-only.description": {
+    "message": "未能保存登录凭据。重启启动器后需要重新登录。"
   }
 }

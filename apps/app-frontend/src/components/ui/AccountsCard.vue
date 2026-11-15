@@ -470,6 +470,7 @@ import {
     finish_yggdrasil_login,
     get_default_user,
     get_yggdrasil_password,
+    isSessionOnlyAccount,
     list_yggdrasil_saved_logins,
     login as loginToMinecraft,
     remove_user,
@@ -490,7 +491,7 @@ import { get_available_skins } from '@/helpers/skins'
 import { handleSevereError, useError } from '@/store/error.js'
 
 const { formatMessage } = useVIntl()
-const { handleError } = injectNotificationManager()
+const { handleError, addNotification } = injectNotificationManager()
 const { offline, refreshBrowserOffline } = useNetworkStatus()
 const queryClient = useQueryClient()
 const route = useRoute()
@@ -1147,12 +1148,22 @@ async function onMicrosoftLogin(account: MinecraftCredential) {
     try {
         await refreshAntiPiracyStatus()
         await setAccount(account)
+        notifyCredentialPersistence(account)
         trackEvent('AccountLogIn')
     } catch (error) {
         handleSevereError(error)
     } finally {
         loginDisabled.value = false
     }
+}
+
+function notifyCredentialPersistence(account: MinecraftCredential) {
+    if (!isSessionOnlyAccount(account)) return
+    addNotification({
+        title: formatMessage(messages.sessionOnlyTitle),
+        text: formatMessage(messages.sessionOnlyDescription),
+        type: 'warning',
+    })
 }
 
 function showOfflineAccountModal() {
@@ -1312,6 +1323,7 @@ async function addYggdrasilAccount() {
             await persistYggdrasilPasswordPreference()
             yggdrasilAccountModal.value?.hide()
             await setAccount(result.credentials)
+            notifyCredentialPersistence(result.credentials)
             trackEvent('YggdrasilAccountAdd')
         } else {
             pendingYggdrasilFlowId.value = result.flow_id
@@ -1339,6 +1351,7 @@ async function selectYggdrasilProfile(profileId: string) {
         yggdrasilProfileModal.value?.hide()
         await setAccount(account)
         trackEvent('YggdrasilAccountAdd')
+        notifyCredentialPersistence(account)
     } catch (error) {
         handleError(error as Error)
     } finally {
@@ -1421,6 +1434,15 @@ onUnmounted(() => {
 })
 
 const messages = defineMessages({
+    sessionOnlyTitle: {
+        id: 'minecraft-account.session-only.title',
+        defaultMessage: 'Signed in for this session',
+    },
+    sessionOnlyDescription: {
+        id: 'minecraft-account.session-only.description',
+        defaultMessage:
+            'Your login could not be saved. Sign in again after restarting the launcher.',
+    },
     offlineMode: {
         id: 'minecraft-account.offline-mode',
         defaultMessage: 'Offline mode',

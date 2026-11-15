@@ -139,6 +139,11 @@ async fn connect_at(settings_dir: &Path) -> crate::Result<Pool<Sqlite>> {
         }
         let legacy = connect_app_db(&snapshot).await?;
         legacy.close().await;
+        super::store::legacy_documents::initialize_from_snapshot(
+            settings_dir,
+            &snapshot,
+        )
+        .await;
         super::store::databases::import(&pool, &snapshot, &settings_dir)
             .await?;
     }

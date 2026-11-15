@@ -43,9 +43,11 @@ pub(crate) mod instance_sync_preferences;
 pub(crate) mod java_default_versions;
 pub(crate) mod java_versions;
 pub(crate) mod join_log;
+pub(crate) mod legacy_documents;
 pub(crate) mod maintenance;
 pub(crate) mod minecraft_device_tokens;
 pub(crate) mod minecraft_users;
+#[cfg(test)]
 pub(crate) mod modrinth_users;
 pub(crate) mod official_login_proof;
 pub(crate) mod offline_minecraft_skins;
@@ -81,7 +83,9 @@ pub(crate) mod synced_pack_catalog;
 pub(crate) mod synced_pack_instances;
 pub(crate) mod synced_server_state;
 pub(crate) mod synced_servers;
+#[cfg(test)]
 pub(crate) mod telemetry_identity;
+#[cfg(test)]
 pub(crate) mod telemetry_outbox;
 pub(crate) mod translation_cache;
 
@@ -97,11 +101,54 @@ use sqlx::{Sqlite, SqliteConnection, SqlitePool};
 #[derive(Clone)]
 pub(crate) struct Handle {
     pool: SqlitePool,
+    accounts:
+        std::sync::Arc<std::sync::OnceLock<crate::state::accounts::Accounts>>,
 }
 
 impl Handle {
     pub(crate) fn new(pool: SqlitePool) -> Self {
-        Self { pool }
+        let filename = pool.connect_options().get_filename().to_path_buf();
+        let accounts = std::sync::OnceLock::new();
+        if filename.file_name().is_some_and(|name| name == "system.db") {
+            let _ = accounts.set(crate::state::accounts::Accounts::new(
+                &crate::state::persistence::Persistence::new(
+                    filename
+                        .parent()
+                        .and_then(std::path::Path::parent)
+                        .expect("database data root"),
+                ),
+            ));
+        }
+        Self {
+            pool,
+            accounts: std::sync::Arc::new(accounts),
+        }
+    }
+
+    pub(crate) fn accounts(&self) -> &crate::state::accounts::Accounts {
+        #[cfg(test)]
+        {
+            self.accounts
+                .get_or_init(crate::state::accounts::Accounts::temporary)
+        }
+        #[cfg(not(test))]
+        {
+            self.accounts.get().expect(
+                "account service must be rooted in the launcher data directory",
+            )
+        }
+    }
+
+    pub(crate) fn with_persistence(
+        pool: SqlitePool,
+        persistence: &crate::state::persistence::Persistence,
+    ) -> Self {
+        Self {
+            pool,
+            accounts: std::sync::Arc::new(std::sync::OnceLock::from(
+                crate::state::accounts::Accounts::new(persistence),
+            )),
+        }
     }
 
     /// The handle's storage, for the statements a collection writes.

@@ -55,6 +55,16 @@
   ],
   "exclusions": [
     {
+      "ident": "theseus::state::accounts::session::Session.device",
+      "rule": "D4",
+      "reason": "session device credential: leaf primitive held only to clone or replace one optional secret string; no await, keyring call, file access or nested acquisition occurs while its guard is held"
+    },
+    {
+      "ident": "theseus::state::accounts::session::Session.tokens",
+      "rule": "D4",
+      "reason": "session credential map: leaf primitive held only for bounded lookup, insert, remove or cloning secret values; no await, keyring operation, file access or nested resource acquisition occurs while the guard is held"
+    },
+    {
       "ident": "theseus::api::jre::JavaInstalls.active",
       "rule": "D4",
       "reason": "Java download lifecycle registry: leaf shard access only for synchronous insert, remove or snapshot; no shard guard crosses an await or acquires another lock"

@@ -401,13 +401,14 @@ async fn preserves_accounts_with_the_same_uuid_across_account_types() {
         refresh_token: String::new(),
         ..account_record(uuid, AccountType::Yggdrasil)
     };
-    MinecraftUsers::set(
-        &handle,
-        &format!("yggdrasil:https://example.invalid:{}", user_key(uuid)),
-        Some(&third_party),
-    )
-    .await
-    .unwrap();
+    handle
+        .accounts()
+        .set(
+            &format!("yggdrasil:https://example.invalid:{}", user_key(uuid)),
+            &third_party,
+        )
+        .await
+        .unwrap();
 
     let offline = Credentials::offline_with_uuid("OfflineUser", uuid).unwrap();
     offline.upsert(&handle).await.unwrap();
@@ -433,13 +434,11 @@ async fn selects_offline_account_when_online_account_is_active() {
         refresh_token: "expired-refresh-token".to_string(),
         ..account_record(Uuid::new_v4(), AccountType::Microsoft)
     };
-    MinecraftUsers::set(
-        &handle,
-        &"microsoft:test-account".to_string(),
-        Some(&online),
-    )
-    .await
-    .unwrap();
+    handle
+        .accounts()
+        .set(&"microsoft:test-account".to_string(), &online)
+        .await
+        .unwrap();
 
     let selected = Credentials::get_offline_credential(&handle)
         .await

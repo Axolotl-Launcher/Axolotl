@@ -131,7 +131,17 @@ pub(crate) async fn ensure_cleanup_supported(
     }
     let mut connection = pool.acquire().await?;
     let attached = attached_domains(&mut connection).await?;
-    if DOMAINS.iter().any(|domain| !attached.contains(*domain)) {
+    let file = pool.connect_options().get_filename().to_path_buf();
+    let root = file
+        .parent()
+        .and_then(Path::parent)
+        .expect("domain data root");
+    super::legacy_documents::ensure_cleanup_supported(root).await?;
+    if DOMAINS
+        .iter()
+        .filter(|domain| !matches!(**domain, "accounts" | "telemetry"))
+        .any(|domain| !attached.contains(*domain))
+    {
         return Err(crate::ErrorKind::InputError("Cleanup is paused until independent document references can be checked".into()).into());
     }
     for domain in attached {
@@ -391,6 +401,7 @@ pub(crate) async fn maintain_backups(
 /// The configuration attachment is shared memory, not another durable copy of
 /// the JSON configuration. A keeper connection preserves it for the pool's life.
 pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
+    super::legacy_documents::initialize(settings_dir).await;
     let retired = crate::state::persistence::import::retired_database_domains(
         settings_dir,
     )
@@ -406,6 +417,7 @@ async fn open_with_retired(
         DOMAINS
             .iter()
             .copied()
+            .filter(|domain| !matches!(*domain, "accounts" | "telemetry"))
             .filter(|domain| {
                 !retired.iter().any(|name| name.as_str() == *domain)
             })
@@ -1067,7 +1079,7 @@ mod tests {
         let mut second = pool.acquire().await.unwrap();
         for connection in [&mut first, &mut second] {
             let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM pragma_database_list WHERE name IN ('instances', 'accounts', 'sync', 'media', 'operations', 'storage', 'records', 'telemetry', 'configuration')").fetch_one(&mut **connection).await.unwrap();
-            assert_eq!(count, 9);
+            assert_eq!(count, 7);
             let migrations: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM main.sqlite_schema WHERE name = '_sqlx_migrations'").fetch_one(&mut **connection).await.unwrap();
             assert_eq!(migrations, 0);
             let version: i64 =
@@ -1076,7 +1088,10 @@ mod tests {
                     .await
                     .unwrap();
             assert_eq!(version, 3);
-            for schema in std::iter::once("main").chain(DOMAINS.iter().copied())
+            for schema in
+                std::iter::once("main").chain(DOMAINS.iter().copied().filter(
+                    |domain| !matches!(*domain, "accounts" | "telemetry"),
+                ))
             {
                 let mode: String = sqlx::query_scalar(sqlx::AssertSqlSafe(
                     format!("PRAGMA {}.journal_mode", quote(schema)),
@@ -1113,7 +1128,10 @@ mod tests {
                 .join("configuration.db")
                 .exists()
         );
-        for domain in DOMAINS {
+        for domain in DOMAINS
+            .iter()
+            .filter(|domain| !matches!(**domain, "accounts" | "telemetry"))
+        {
             assert!(
                 directory(temporary.path())
                     .join(format!("{domain}.db"))

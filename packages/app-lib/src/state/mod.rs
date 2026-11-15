@@ -88,6 +88,7 @@ pub(crate) mod db_backup;
 
 mod legacy_converter;
 
+pub(crate) mod accounts;
 pub mod attached_world_data;
 pub(crate) mod content_store;
 pub(crate) mod documents;
@@ -95,6 +96,7 @@ pub mod favorite_groups;
 pub mod instance_groups;
 pub(crate) mod persistence;
 pub(crate) mod store;
+pub(crate) mod telemetry_state;
 
 // Global state
 // RwLock on state only has concurrent reads, except for config dir change which takes control of the State
@@ -1431,17 +1433,13 @@ impl State {
 
         tracing::info!("Connecting to app database");
         let pool = db::connect(&app_identifier).await?;
-        let data = store::Handle::new(pool.clone());
+        let data = store::Handle::with_persistence(
+            pool.clone(),
+            &persistence::Persistence::new(&settings_dir),
+        );
 
         let legacy =
             legacy_converter::migrate_legacy_data(&data, &pool).await?;
-
-        if let Err(error) = store::secrets::externalize(&data).await {
-            tracing::warn!(
-                %error,
-                "Failed to move the account secrets into the system credential store"
-            );
-        }
 
         tracing::info!("Fetching app settings");
         let mut settings = Settings::get(&data).await?;
@@ -1762,6 +1760,7 @@ pub(crate) async fn test_state(
     directories: DirectoryInfo,
     pool: SqlitePool,
 ) -> crate::Result<Arc<State>> {
+    store::legacy_documents::initialize(&directories.settings_dir).await;
     let file_watcher = instances::watcher::init_watcher().await?;
     let curseforge_api_key = curseforge_settings::get(&pool).await?;
     let proxy_config = proxy_settings::get(&pool).await?;
@@ -1778,10 +1777,11 @@ pub(crate) async fn test_state(
     )
     .await;
 
+    let persistence =
+        persistence::Persistence::new(directories.settings_dir.clone());
+    let data = store::Handle::with_persistence(pool.clone(), &persistence);
     Ok(Arc::new(State {
-        persistence: persistence::Persistence::new(
-            directories.settings_dir.clone(),
-        ),
+        persistence,
         directories,
         fetch_semaphore: FetchSemaphore(Semaphore::new(8)),
         download_semaphore: FetchSemaphore(Semaphore::new(8)),
@@ -1821,7 +1821,7 @@ pub(crate) async fn test_state(
         background_tracker: tokio_util::task::TaskTracker::new(),
         restart_after_pending_update: AtomicBool::new(false),
         instance_locks: Arc::new(InstanceLockManager::default()),
-        data: store::Handle::new(pool.clone()),
+        data,
         derived,
         pool,
         resource_service: OnceCell::new(),

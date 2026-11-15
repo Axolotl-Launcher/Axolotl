@@ -53,7 +53,20 @@ pub(crate) async fn get(
     use crate::state::instances::adapters::sqlite::{
         content_entries, content_sets, files, pack_members,
     };
-    let mut tx = handle.pool().begin().await?;
+    // Shared-memory configuration and rollback-journal domains must reserve
+    // their snapshot together. Otherwise a reader can hold instances.db while
+    // waiting for a configuration writer whose commit waits for that reader.
+    let stable = handle
+        .pool()
+        .connect_options()
+        .get_filename()
+        .file_name()
+        .is_some_and(|name| name == "system.db");
+    let mut tx = if stable {
+        handle.pool().begin_with("BEGIN IMMEDIATE").await?
+    } else {
+        handle.pool().begin().await?
+    };
     let instance = get_instance(&mut tx, instance_id).await?;
     let content_set =
         content_sets::get_applied_content_set(instance_id, &mut *tx)

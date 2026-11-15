@@ -1061,7 +1061,7 @@ async fn promote_external_instance_link(
         .map(io::canonicalize)
         .transpose()?
         .map(|path| path.to_string_lossy().to_string());
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     crate::state::instances::adapters::sqlite::instance_rows::set_direct_link_fields(
         &instance.id,
         &crate::state::instances::adapters::sqlite::instance_rows::DirectLinkFields {

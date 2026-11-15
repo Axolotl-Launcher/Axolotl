@@ -585,6 +585,7 @@ pub(crate) async fn remove_instance_file_by_relative_path(
     relative_path: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query!(
         "
         DELETE FROM instance_files
@@ -593,8 +594,9 @@ pub(crate) async fn remove_instance_file_by_relative_path(
         instance_id,
         relative_path,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }

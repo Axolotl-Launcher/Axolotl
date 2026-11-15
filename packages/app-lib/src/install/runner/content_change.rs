@@ -821,7 +821,7 @@ async fn persist_prepared_dependency_edges(
         });
     }
     if !edges.is_empty() {
-        let mut tx = state.pool.begin().await?;
+        let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
         for edge in edges {
             content_entries::upsert_content_dependency_edge_in_transaction(
                 &edge, &mut tx,

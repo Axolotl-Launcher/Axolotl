@@ -14,6 +14,8 @@
 //!   lands together or not at all.
 
 pub(crate) mod cache;
+pub(crate) mod compatibility;
+pub(crate) mod configuration;
 pub(crate) mod content_dependencies;
 pub(crate) mod content_file_fingerprints;
 pub(crate) mod content_file_operations;
@@ -27,6 +29,7 @@ pub(crate) mod content_update_jobs;
 pub(crate) mod crash_analysis_mod_snapshots;
 pub(crate) mod custom_minecraft_skin_textures;
 pub(crate) mod custom_minecraft_skins;
+pub(crate) mod databases;
 pub(crate) mod derived_db;
 pub(crate) mod discovered_javas;
 pub(crate) mod game_option_locale_origins;
@@ -183,11 +186,26 @@ impl Atom {
             changed_settings,
             handle,
         } = self;
-        transaction.commit().await?;
+        let persistent_documents = handle
+            .pool
+            .connect_options()
+            .get_filename()
+            .file_name()
+            .is_some_and(|name| name == "system.db");
+        configuration::commit_settings(
+            transaction,
+            &handle.pool,
+            invalidate_settings,
+            changed_settings.as_ref(),
+        )
+        .await?;
         // After the commit and not before: the row a read composes is the one
         // this commit replaced from here on, and only from here on.
         if invalidate_settings {
             crate::state::documents::settings::invalidate();
+            if persistent_documents {
+                return Ok(());
+            }
             // The documents of the domains whose writes have moved are written
             // after the row and never before, so a start stopped between the two
             // finds a document behind the row rather than ahead of it. A failure

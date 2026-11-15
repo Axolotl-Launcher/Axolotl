@@ -118,6 +118,7 @@ pub(crate) async fn upsert_daily_playtime(
     session_count: u64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let played_seconds = playtime_to_storage(played_seconds, "played_seconds")?;
     let session_count = playtime_to_storage(session_count, "session_count")?;
     let played_on = played_on.format("%Y-%m-%d").to_string();
@@ -155,8 +156,9 @@ pub(crate) async fn upsert_daily_playtime(
         max_session_count_before_increment,
         i64::MAX,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }
@@ -167,6 +169,7 @@ pub(crate) async fn add_recent_playtime(
     seconds: u64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     if seconds == 0 {
         return Ok(());
     }
@@ -195,8 +198,9 @@ pub(crate) async fn add_recent_playtime(
         modified,
         instance_id,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }

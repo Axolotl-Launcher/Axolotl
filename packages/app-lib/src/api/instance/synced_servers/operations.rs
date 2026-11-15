@@ -206,7 +206,7 @@ pub(in crate::api::instance) async fn detach_servers(
         feature: "multiplayer_servers".to_string(),
     };
     InstanceSyncCheckpoints::set_scoped(&state.data, &scope, &[]).await?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     projection_entries::clear_projection(&mut tx, &metadata.instance.id)
         .await?;
     tx.commit().await?;

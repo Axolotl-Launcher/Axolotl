@@ -87,12 +87,14 @@ pub(crate) async fn dismiss_post_upgrade_notice(
     instance_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query(
         "DELETE FROM instance_post_upgrade_notices WHERE instance_id = ?",
     )
     .bind(instance_id)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }

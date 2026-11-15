@@ -498,7 +498,8 @@ pub(crate) async fn execute_with_state(
             .await
             .map_err(|error| invalid(error.to_string()))?;
         }
-        let mut tx = state.pool.begin().await.map_err(db)?;
+        let mut tx =
+            state.pool.begin_with("BEGIN IMMEDIATE").await.map_err(db)?;
         for entry in &plan.entries {
             let history_id = &entry.id;
             ResourceHistory::retire_backup_in(

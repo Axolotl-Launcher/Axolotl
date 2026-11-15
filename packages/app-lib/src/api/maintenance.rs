@@ -14,6 +14,15 @@ pub async fn current_database_path() -> crate::Result<std::path::PathBuf> {
 pub async fn backup_open_database(
     version: &str,
 ) -> crate::Result<std::path::PathBuf> {
-    let path = current_database_path().await?;
-    crate::state::db_backup::backup_app_db_for_update(&path, version).await
+    let state = crate::State::get().await?;
+    let path = crate::state::store::maintenance::database_path(&state.data);
+    if path.file_name().is_some_and(|name| name == "system.db") {
+        crate::state::store::databases::backup(
+            &state.pool,
+            &state.directories.settings_dir,
+        )
+        .await
+    } else {
+        crate::state::db_backup::backup_app_db_for_update(&path, version).await
+    }
 }

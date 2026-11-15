@@ -186,7 +186,7 @@ pub(crate) async fn edit_instance(
         None => None,
     };
 
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     instance_rows::update_instance(&instance, &mut tx).await?;
 
     if let Some(content_set) = content_set.as_mut() {
@@ -250,7 +250,7 @@ pub(crate) async fn restore_instance_metadata(
     metadata: &crate::state::InstanceMetadata,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     let instance = metadata.instance.clone();
     let content_set = metadata.applied_content_set.clone();
     let launch_overrides = metadata.launch_overrides.clone();
@@ -280,7 +280,7 @@ pub(crate) async fn repair_recorded_pack_unlink(
     instance_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     pack_members::reconcile_pack_unlink_in_transaction(instance_id, &mut tx)
         .await?;
     tx.commit().await?;

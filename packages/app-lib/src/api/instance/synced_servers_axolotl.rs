@@ -258,7 +258,7 @@ async fn write_and_project(state: &State) -> crate::Result<()> {
                     position: record.position,
                 })
                 .collect::<Vec<_>>();
-            let mut tx = state.pool.begin().await?;
+            let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
             projection_entries::replace_projection(&mut tx, &id, &entries)
                 .await?;
             tx.commit().await?;

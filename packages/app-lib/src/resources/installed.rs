@@ -932,7 +932,11 @@ async fn hydrate_entries_with_service(
             "instance changed while verifying installed resources".into(),
         ));
     }
-    let mut tx = state.pool.begin().await.map_err(plans::db)?;
+    let mut tx = state
+        .pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(plans::db)?;
     for (id, artifact, scope) in persisted {
         let previous = installed_artifact_payload(id.as_str(), &mut tx).await?;
         let declared_compatibility = previous

@@ -1039,7 +1039,7 @@ pub(crate) async fn persist_resolved_plan_dependency_edges(
         .chain(plan.dependencies.iter())
         .collect::<Vec<_>>();
 
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     for (index, dependency) in plan.dependencies.iter().enumerate() {
         let Some(parent) = dependency
             .dependent_on_version_id
@@ -3994,7 +3994,7 @@ async fn rollback_project_inner(
                 None
             };
 
-            let mut tx = state.pool.begin().await?;
+            let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
             files::rename_file_in_place_in_transaction(
                 &scope.instance.id,
                 project_path,
@@ -4211,7 +4211,7 @@ async fn recover_legacy_rollback_with(
         )
         .into());
     }
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     rollback_journals::delete_journal_matching(&mut tx, instance_id, &payload)
         .await?;
     tx.commit().await?;

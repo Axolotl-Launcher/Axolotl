@@ -433,7 +433,7 @@ pub async fn save_edited_screenshot(
         let mut source_row = source_row.clone();
         source_row.content_hash = content_hash;
         source_row.file_size = file_size;
-        let mut tx = state.pool.begin().await?;
+        let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
         screenshot_rows::update_screenshot(&source_row, &mut tx).await?;
         tx.commit().await?;
     }
@@ -451,7 +451,7 @@ pub async fn save_edited_screenshot(
 
     if copy_group {
         let result: crate::Result<()> = async {
-            let mut tx = state.pool.begin().await?;
+            let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
             screenshot_rows::copy_group_membership(
                 &source_row.id,
                 &saved.id,
@@ -486,7 +486,7 @@ pub async fn save_edited_screenshot(
         )
     })?;
     if !copy_group {
-        let mut tx = state.pool.begin().await?;
+        let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
         if saved_row.created_at != source_row.created_at {
             saved_row.created_at = source_row.created_at;
             screenshot_rows::update_screenshot(&saved_row, &mut tx).await?;

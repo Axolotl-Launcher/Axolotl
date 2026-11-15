@@ -1262,6 +1262,7 @@ pub(crate) async fn delete_instance_by_id(
     instance_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query!(
         "
         DELETE FROM instances
@@ -1269,9 +1270,10 @@ pub(crate) async fn delete_instance_by_id(
         ",
         instance_id,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
 
+    crate::state::store::configuration::commit(transaction, pool).await?;
     Ok(())
 }
 
@@ -1281,6 +1283,7 @@ pub(crate) async fn set_instance_sync_preference(
     enabled: bool,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query(
         "INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
          VALUES (?, ?, ?)
@@ -1289,8 +1292,9 @@ pub(crate) async fn set_instance_sync_preference(
     .bind(instance_id)
     .bind(option.as_str())
     .bind(enabled)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
     Ok(())
 }
 
@@ -1552,6 +1556,7 @@ pub(crate) async fn set_install_stage(
     modified: i64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let install_stage = install_stage.as_str();
 
     sqlx::query!(
@@ -1564,8 +1569,9 @@ pub(crate) async fn set_install_stage(
         modified,
         instance_id,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }
@@ -1577,6 +1583,7 @@ pub(crate) async fn set_last_played(
     modified: i64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let last_played = last_played.timestamp();
 
     sqlx::query!(
@@ -1589,8 +1596,9 @@ pub(crate) async fn set_last_played(
         modified,
         instance_id,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }
@@ -1604,6 +1612,7 @@ pub(crate) async fn set_pinned(
     modified: i64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let result = sqlx::query!(
         "
         UPDATE instances
@@ -1614,8 +1623,9 @@ pub(crate) async fn set_pinned(
         modified,
         instance_id,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     if result.rows_affected() == 0 {
         return Err(crate::ErrorKind::InputError(

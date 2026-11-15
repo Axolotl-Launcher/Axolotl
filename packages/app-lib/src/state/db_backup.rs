@@ -500,6 +500,9 @@ pub(crate) async fn backup_app_db_for_update(
     db_path: &Path,
     target_version: &str,
 ) -> crate::Result<PathBuf> {
+    if db_path.file_name().is_some_and(|name| name == "system.db") {
+        return Err(crate::ErrorKind::InputError("A database domain set must be backed up through the opened launcher, not as a single SQLite file".into()).into());
+    }
     let _guard = SNAPSHOT_WRITE.lock().await;
     if !db_path.try_exists()? {
         return Err(crate::ErrorKind::FSError(format!(
@@ -608,10 +611,15 @@ pub fn app_db_backup_dir() -> crate::Result<PathBuf> {
                     .to_string(),
             ))?;
 
-    Ok(base.join("Backups").join("app-db"))
+    let family = if super::store::databases::exists(&base) {
+        "databases"
+    } else {
+        "app-db"
+    };
+    Ok(base.join("Backups").join(family))
 }
 
-fn app_db_backup_dir_for(db_path: &Path) -> crate::Result<PathBuf> {
+pub(crate) fn app_db_backup_dir_for(db_path: &Path) -> crate::Result<PathBuf> {
     let settings_dir =
         db_path.parent().and_then(Path::parent).ok_or_else(|| {
             crate::ErrorKind::FSError(format!(
@@ -620,9 +628,15 @@ fn app_db_backup_dir_for(db_path: &Path) -> crate::Result<PathBuf> {
             ))
         })?;
 
+    let family = if db_path.file_name().is_some_and(|name| name == "system.db")
+    {
+        "databases"
+    } else {
+        "app-db"
+    };
     let backup_dir = std::env::var_os("THESEUS_DB_BACKUP_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| settings_dir.join("Backups").join("app-db"));
+        .unwrap_or_else(|| settings_dir.join("Backups").join(family));
     match db_path
         .parent()
         .and_then(Path::file_name)
@@ -1300,5 +1314,21 @@ mod tests {
             }
         }
         assert_eq!(snapshots, MAX_APP_DB_BACKUPS);
+    }
+
+    #[test]
+    fn attached_database_backup_folder_uses_the_shared_set_family() {
+        let temporary = tempfile::tempdir().unwrap();
+        let database = temporary.path().join("databases/system.db");
+        let expected = std::env::var_os("THESEUS_DB_BACKUP_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| temporary.path().join("Backups/databases"));
+        assert_eq!(app_db_backup_dir_for(&database).unwrap(), expected);
+        let legacy = temporary.path().join("beta/app.db");
+        let expected = std::env::var_os("THESEUS_DB_BACKUP_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| temporary.path().join("Backups/app-db"))
+            .join("beta");
+        assert_eq!(app_db_backup_dir_for(&legacy).unwrap(), expected);
     }
 }

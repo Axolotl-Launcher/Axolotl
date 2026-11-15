@@ -128,7 +128,7 @@ pub(crate) async fn create_direct_link_instance(
     };
     let launch_overrides = InstanceLaunchOverrides::empty(instance_id.clone());
 
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     instance_rows::insert_instance(&instance, &mut tx).await?;
     instance_rows::insert_default_sync_preferences_in_transaction(
         &instance_id,
@@ -172,7 +172,7 @@ pub(crate) async fn create_direct_link_instance(
         .await?;
     instance_rows::upsert_instance_launch_overrides(&launch_overrides, &mut tx)
         .await?;
-    tx.commit().await?;
+    crate::state::store::configuration::commit(tx, &state.pool).await?;
 
     let content_root = super::sync_content_files::instance_content_root(
         &state.directories,

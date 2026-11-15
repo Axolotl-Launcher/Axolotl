@@ -77,14 +77,12 @@ where
     Ok(generated_at.flatten())
 }
 
-pub(crate) async fn update_config_sync_generated_at<'e, E>(
+pub(crate) async fn update_config_sync_generated_at(
     instance_id: &str,
     generated_at: i64,
-    exec: E,
-) -> crate::Result<()>
-where
-    E: Executor<'e, Database = Sqlite>,
-{
+    pool: &SqlitePool,
+) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query(
         "
         INSERT INTO instance_config_sync_state (
@@ -100,9 +98,9 @@ where
     .bind(instance_id)
     .bind(generated_at)
     .bind(generated_at)
-    .execute(exec)
+    .execute(&mut *transaction)
     .await?;
-
+    transaction.commit().await?;
     Ok(())
 }
 

@@ -432,7 +432,7 @@ pub async fn complete_running_job(
                 super::model::InstallJobEventKind::JobSucceeded { .. }
             )
         }));
-    let mut transaction = app_state.pool.begin().await?;
+    let mut transaction = app_state.pool.begin_with("BEGIN IMMEDIATE").await?;
 
     if completes_instance_install_stage
         && let Some(instance_id) = instance_id.as_deref()

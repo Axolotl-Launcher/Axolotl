@@ -127,7 +127,7 @@ pub(super) async fn commit_publication(
     let size = artifact.integrity.size.ok_or_else(|| {
         crate::ErrorKind::InputError("Missing verified schematic size".into())
     })?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     write_guards::ensure_content_write_parents(
         instance_id,
         &publication.content_set_id,

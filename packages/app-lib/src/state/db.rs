@@ -17,6 +17,12 @@ static MIGRATOR: Migrator = sqlx::migrate!();
 
 const UPDATE_CHANNEL_STATE_FILE: &str = "update-channel.json";
 const LEGACY_APP_DB_FILE: &str = "app.db";
+
+pub(crate) async fn acquire_domain_ownership(
+    path: &Path,
+) -> crate::Result<Arc<dyn std::any::Any + Send + Sync>> {
+    Ok(Arc::new(files::Ownership::acquire(path).await?))
+}
 // Records an in-flight channel database reconciliation inside the target
 // channel directory; see reconcile_default_channel_database.
 const CHANNEL_RECONCILE_MARKER_FILE: &str = ".channel-reconcile";
@@ -97,21 +103,42 @@ pub(crate) async fn connect(
             "Could not find valid config dir".to_string(),
         ))?;
 
-    crate::util::io::create_dir_all(&settings_dir).await?;
+    connect_at(&settings_dir).await
+}
 
-    migrate_legacy_release_database(&settings_dir).await?;
-    reconcile_default_channel_database(&settings_dir).await?;
-    let db_path = app_db_path(&settings_dir).await?;
-    let db_dir = db_path.parent().ok_or_else(|| {
-        crate::ErrorKind::FSError(format!(
-            "App database path {} has no parent directory",
-            db_path.display()
-        ))
-    })?;
-    crate::util::io::create_dir_all(db_dir).await?;
-
-    let new_install = !db_path.try_exists()?;
-    let pool = connect_app_db(&db_path).await?;
+async fn connect_at(settings_dir: &Path) -> crate::Result<Pool<Sqlite>> {
+    crate::util::io::create_dir_all(settings_dir).await?;
+    let existed = super::store::databases::exists(settings_dir);
+    let pool = super::store::databases::open(settings_dir).await?;
+    let imported: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.database_imports WHERE source = 'app.db' AND completed = 1)")
+        .fetch_one(&pool).await?;
+    if imported {
+        return Ok(pool);
+    }
+    // Channel files belong only to the pre-baseline importer. A later launch
+    // must not repair, copy, validate or lock a stale legacy channel database.
+    migrate_legacy_release_database(settings_dir).await?;
+    reconcile_default_channel_database(settings_dir).await?;
+    let db_path = app_db_path(settings_dir).await?;
+    let new_install = !db_path.try_exists()? && !existed;
+    if !imported {
+        let temporary = tempfile::tempdir()?;
+        let snapshot = temporary.path().join("app.db");
+        if db_path.try_exists()? {
+            let mut source =
+                super::db_backup::open_read_only_db(&db_path).await?;
+            super::db_backup::create_verified_sqlite_snapshot(
+                &mut source,
+                &snapshot,
+            )
+            .await?;
+            source.close().await?;
+        }
+        let legacy = connect_app_db(&snapshot).await?;
+        legacy.close().await;
+        super::store::databases::import(&pool, &snapshot, &settings_dir)
+            .await?;
+    }
     if new_install {
         let documents = super::documents::Documents::at(
             settings_dir.join(super::documents::DIR_NAME),
@@ -131,6 +158,7 @@ pub async fn copy_release_database_to_beta(
         .ok_or(crate::ErrorKind::FSError(
             "Could not find valid config dir".to_string(),
         ))?;
+    reject_domain_channel_copy(&settings_dir)?;
     let release_path = settings_dir.join("release").join(LEGACY_APP_DB_FILE);
     if !release_path.try_exists()? {
         return Err(crate::ErrorKind::FSError(
@@ -164,6 +192,11 @@ pub async fn beta_database_exists(app_identifier: &str) -> crate::Result<bool> {
         .ok_or(crate::ErrorKind::FSError(
             "Could not find valid config dir".to_string(),
         ))?;
+    if super::store::databases::exists(&settings_dir) {
+        // The legacy caller asks whether Beta can reuse initialized data. The
+        // shared set already answers it; false would offer an obsolete copy.
+        return Ok(true);
+    }
     Ok(settings_dir
         .join("beta")
         .join(LEGACY_APP_DB_FILE)
@@ -177,6 +210,11 @@ pub async fn current_app_database_path(
         .ok_or(crate::ErrorKind::FSError(
             "Could not find valid config dir".to_string(),
         ))?;
+    if super::store::databases::exists(&settings_dir) {
+        return Ok(
+            super::store::databases::directory(&settings_dir).join("system.db")
+        );
+    }
     app_db_path(&settings_dir).await
 }
 
@@ -200,6 +238,7 @@ pub async fn copy_database_between_channels(
         .ok_or(crate::ErrorKind::FSError(
             "Could not find valid config dir".to_string(),
         ))?;
+    reject_domain_channel_copy(&settings_dir)?;
     let active_channel = resolve_update_channel(&settings_dir).await?;
     if target_channel == active_channel {
         return Err(crate::ErrorKind::InputError(
@@ -225,6 +264,13 @@ pub async fn copy_database_between_channels(
         destination = %target_path.display(),
         "Overwrote the inactive update channel database"
     );
+    Ok(())
+}
+
+fn reject_domain_channel_copy(settings_dir: &Path) -> crate::Result<()> {
+    if super::store::databases::exists(settings_dir) {
+        return Err(crate::ErrorKind::InputError("Database domains are shared between update channels; copying the legacy app.db would not copy current data".into()).into());
+    }
     Ok(())
 }
 
@@ -280,6 +326,19 @@ pub async fn backup_current_app_db_for_update(
         .ok_or(crate::ErrorKind::FSError(
             "Could not find valid config dir".to_string(),
         ))?;
+    if super::store::databases::exists(&settings_dir) {
+        let state = super::State::get_if_initialized().ok_or_else(|| {
+            crate::ErrorKind::FSError(
+                "Open the launcher before backing up its database domains"
+                    .into(),
+            )
+        })?;
+        if state.directories.settings_dir != settings_dir {
+            return Err(crate::ErrorKind::InputError("The requested database belongs to another launcher data directory".into()).into());
+        }
+        return super::store::databases::backup(&state.pool, &settings_dir)
+            .await;
+    }
     let db_path = app_db_path(&settings_dir).await?;
     super::db_backup::backup_app_db_for_update(&db_path, target_version).await
 }

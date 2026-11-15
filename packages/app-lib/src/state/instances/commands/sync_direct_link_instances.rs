@@ -209,7 +209,8 @@ pub(crate) async fn sync_direct_link_instances(
                         )
                         .await?;
                     }
-                    let mut tx = state.pool.begin().await?;
+                    let mut tx =
+                        state.pool.begin_with("BEGIN IMMEDIATE").await?;
                     instance_rows::set_direct_link_fields(
                         &instance.id,
                         &instance_rows::DirectLinkFields {

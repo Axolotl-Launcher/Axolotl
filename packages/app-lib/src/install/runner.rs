@@ -370,7 +370,7 @@ pub async fn queue_resource_plan(
     .await?;
     let _admission = admission::lock(&state, Some(&instance)).await?;
     let _writer = state.acquire_install_db_permit().await?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     let existing =
         ResourceOperationPlans::job_at_in(&mut tx, plan_id.as_str(), revision)
             .await?;

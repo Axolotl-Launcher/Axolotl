@@ -41,13 +41,10 @@ pub struct LegacyMigration {
 /// Imports what the previous launcher left behind. The fetched responses it
 /// finds are returned rather than written: they belong to the derived
 /// database, which does not exist yet at this point of startup.
-pub async fn migrate_legacy_data<'a, E>(
+pub async fn migrate_legacy_data(
     handle: &Handle,
-    exec: E,
-) -> crate::Result<LegacyMigration>
-where
-    E: sqlx::Acquire<'a, Database = sqlx::Sqlite> + Copy,
-{
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<LegacyMigration> {
     let mut settings = state::Settings::get(handle).await?;
 
     if settings.migrated {
@@ -342,7 +339,7 @@ where
                 }
 
                 upsert_legacy_instance(
-                    exec,
+                    pool,
                     LegacyInstanceUpsert {
                         path: profile.path,
                         install_stage: match profile.install_stage {
@@ -506,18 +503,15 @@ impl LegacyInstanceUpsert {
     }
 }
 
-async fn upsert_legacy_instance<'a, E>(
-    exec: E,
+async fn upsert_legacy_instance(
+    pool: &sqlx::SqlitePool,
     input: LegacyInstanceUpsert,
-) -> crate::Result<()>
-where
-    E: sqlx::Acquire<'a, Database = sqlx::Sqlite> + Copy,
-{
+) -> crate::Result<()> {
     let profile = input.into_profile();
 
-    let mut unit = exec.begin().await?;
+    let mut unit = pool.begin_with("BEGIN IMMEDIATE").await?;
     legacy_import::import_profile(&profile, &mut unit).await?;
-    unit.commit().await?;
+    crate::state::store::configuration::commit(unit, pool).await?;
 
     Ok(())
 }

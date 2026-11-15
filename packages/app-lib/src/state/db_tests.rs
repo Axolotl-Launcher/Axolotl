@@ -4247,3 +4247,29 @@ async fn content_dependency_backfill_marker_migration_upgrades_preserving_rows()
             .unwrap();
     assert!(foreign_key_errors.is_empty());
 }
+
+#[tokio::test]
+async fn initialized_domains_do_not_reconcile_or_open_legacy_channel_files() {
+    let temporary = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(temporary.path())
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO main.database_imports VALUES('app.db',1)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    drop(pool);
+    tokio::fs::write(temporary.path().join("app.db"), b"obsolete legacy file")
+        .await
+        .unwrap();
+    let pool = connect_at(temporary.path()).await.unwrap();
+    assert_eq!(
+        tokio::fs::read(temporary.path().join("app.db"))
+            .await
+            .unwrap(),
+        b"obsolete legacy file"
+    );
+    assert!(!temporary.path().join("release/app.db").exists());
+    pool.close().await;
+}

@@ -670,7 +670,7 @@ async fn clone_upgrade_backup_content_metadata(
         );
     }
 
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     content_entries::delete_dependency_edges_for_set_in_transaction(
         target_content_set_id,
         &mut tx,

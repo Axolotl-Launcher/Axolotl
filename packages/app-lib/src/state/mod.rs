@@ -326,10 +326,24 @@ impl State {
             .unwrap_or_else(|_| panic!("resource service already initialized"));
     }
     pub async fn maintain_database_backups(&self) -> crate::Result<()> {
-        db_backup::maintain_app_db_backups(
-            self.pool.connect_options().get_filename(),
-        )
-        .await
+        if self
+            .pool
+            .connect_options()
+            .get_filename()
+            .file_name()
+            .is_some_and(|name| name == "system.db")
+        {
+            store::databases::maintain_backups(
+                &self.pool,
+                &self.directories.settings_dir,
+            )
+            .await
+        } else {
+            db_backup::maintain_app_db_backups(
+                self.pool.connect_options().get_filename(),
+            )
+            .await
+        }
     }
 
     /// Stops further database writes before recording a clean-shutdown fingerprint.

@@ -232,7 +232,7 @@ pub(super) async fn write_local(
     servers: &[LocalServer],
     state: &State,
 ) -> crate::Result<()> {
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     write_local_rows(&mut tx, instance_id, servers).await?;
     tx.commit().await?;
     Ok(())
@@ -338,7 +338,7 @@ pub(super) async fn begin_server_checkpoint(
     };
     InstanceSyncCheckpoints::atom_set(&mut unit, &key, Some(&record)).await?;
     unit.commit().await?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     projection_entries::replace_projection(&mut tx, instance_id, &entries)
         .await?;
     tx.commit().await?;

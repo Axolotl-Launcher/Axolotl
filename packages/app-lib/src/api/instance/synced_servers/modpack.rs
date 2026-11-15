@@ -66,7 +66,7 @@ async fn replace_modpack_servers(
         server.position = local.len() as i64;
         local.push(server.clone());
     }
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     write_local_rows(&mut tx, &metadata.instance.id, &local).await?;
     let version_id = modpack_version_id(&metadata.link);
     server_pack_state::set_pack_state_version(

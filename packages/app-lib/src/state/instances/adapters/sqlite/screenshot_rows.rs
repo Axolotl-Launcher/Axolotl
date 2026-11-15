@@ -176,7 +176,7 @@ pub(crate) async fn move_screenshot(
     target_file_name: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query!(
         "DELETE FROM screenshots WHERE instance_id = ? AND file_name = ?",
         target_instance_id,
@@ -209,13 +209,15 @@ pub(crate) async fn delete_screenshot_by_key(
     file_name: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query!(
         "DELETE FROM screenshots WHERE instance_id = ? AND file_name = ?",
         instance_id,
         file_name,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }

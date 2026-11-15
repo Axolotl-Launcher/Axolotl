@@ -658,6 +658,7 @@ pub(crate) async fn set_content_entry_auto_dependency(
     auto_dependency: bool,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query(
         "UPDATE instance_content_entries
          SET auto_dependency = ?, modified_at = ?
@@ -666,8 +667,9 @@ pub(crate) async fn set_content_entry_auto_dependency(
     .bind(i64::from(auto_dependency))
     .bind(Utc::now().timestamp())
     .bind(content_entry_id)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
     Ok(())
 }
 
@@ -858,6 +860,7 @@ pub(crate) async fn remove_content_entries_for_file(
     file_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query!(
         "
         DELETE FROM instance_content_entries
@@ -866,8 +869,9 @@ pub(crate) async fn remove_content_entries_for_file(
         content_set_id,
         file_id,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }
@@ -880,6 +884,7 @@ pub(crate) async fn upsert_content_update_check(
     provider_release_id: Option<&str>,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let update_channel = update_channel.key();
     let provider = provider.map(ContentProvider::as_str);
     let checked_at = Utc::now().timestamp();
@@ -913,8 +918,9 @@ pub(crate) async fn upsert_content_update_check(
     .bind(provider_release_id)
     .bind(checked_at)
     .bind(content_entry_id)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }

@@ -72,7 +72,8 @@ const MAX_DOCUMENT_BYTES: u64 = 1 << 20;
 
 /// Serializes the writers, which each read a document before writing it back:
 /// two settings changing at once would otherwise lose one of them.
-static WRITES: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+pub(crate) static WRITES: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
 
 /// The directory a deployment ships its own documents in.
 ///

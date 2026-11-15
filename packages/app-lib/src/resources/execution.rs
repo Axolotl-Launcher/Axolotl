@@ -1138,7 +1138,7 @@ async fn persist_plan(
             mod_metadata.insert(action.entry_id.clone(), metadata);
         }
     }
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     let mut node_entries: HashMap<SelectionId, Vec<InstalledEntryId>> = plan
         .nodes
         .iter()

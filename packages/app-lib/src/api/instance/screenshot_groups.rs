@@ -66,7 +66,7 @@ pub async fn create_screenshot_group(
     let name = validate_group_name(&name)?;
     let state = State::get().await?;
     let id = Uuid::new_v4().to_string();
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
 
     screenshot_groups::create_group(&mut tx, &id, name).await?;
 
@@ -91,7 +91,7 @@ pub async fn rename_screenshot_group(
 ) -> crate::Result<ScreenshotGroup> {
     let new_name = validate_group_name(&new_name)?;
     let state = State::get().await?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     if !screenshot_groups::rename_group(&mut tx, &id, new_name).await? {
         return Err(crate::ErrorKind::InputError(format!(
             "Unknown screenshot group {id}"
@@ -108,7 +108,7 @@ pub async fn rename_screenshot_group(
 
 pub async fn delete_screenshot_group(id: String) -> crate::Result<()> {
     let state = State::get().await?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     let instance_ids =
         screenshot_groups::get_group_instance_ids(&id, &mut *tx).await?;
     if !screenshot_groups::delete_group(&mut tx, &id).await? {
@@ -131,7 +131,7 @@ pub async fn set_screenshot_group_memberships(
     }
 
     let state = State::get().await?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     let group_ids = updates
         .iter()
         .filter_map(|update| update.group_id.as_deref())
@@ -165,7 +165,7 @@ pub async fn import_screenshot_groups(
     }
 
     let state = State::get().await?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     let base_order =
         screenshot_groups::get_next_display_order(&mut *tx).await?;
     let mut group_ids = HashSet::new();

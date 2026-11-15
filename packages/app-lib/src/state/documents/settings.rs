@@ -1403,6 +1403,65 @@ pub(crate) async fn store_cut_over(
     }
 }
 
+/// Build document replacements before committing a volatile settings row.
+pub(crate) async fn staged_row_documents(
+    documents: &Documents<'_>,
+    settings: Settings,
+    changed: Option<&BTreeSet<String>>,
+) -> crate::Result<Vec<(String, Value)>> {
+    let defaults = default_values()?;
+    let values: Document =
+        serde_json::from_value(serde_json::to_value(settings.normalize())?)?;
+    let mut result = Vec::new();
+    for &(name, keys, version) in DOMAINS {
+        if changed.is_some_and(|changed| !carries(name, changed)) {
+            continue;
+        }
+        let existing = match documents.stored::<Document>(name, version).await {
+            Stored::Ready { document } => Some(document),
+            Stored::Missing => None,
+            Stored::Newer { .. } | Stored::Unreadable => {
+                if changed.is_none() {
+                    continue;
+                }
+                return Err(crate::ErrorKind::InputError(format!("The {name} settings document cannot be safely updated by this build")).into());
+            }
+        };
+        let shipped = match documents.shipped_keys(name, version).await {
+            Shipped::Keys(values) => values,
+            Shipped::Missing => Document::new(),
+            Shipped::Unreadable => {
+                if changed.is_none() {
+                    continue;
+                }
+                return Err(crate::ErrorKind::InputError(format!(
+                    "The deployment's {name} settings cannot be read"
+                ))
+                .into());
+            }
+        };
+        let mut target =
+            domain_values(keys, &values, &shipped, &defaults, changed);
+        if let Some(existing) = &existing {
+            for (key, value) in existing {
+                if !keys.contains(&key.as_str())
+                    || (name == "state" && key == "pending_update_failure")
+                {
+                    target.insert(key.clone(), value.clone());
+                }
+            }
+        }
+        if existing.is_none() && target.is_empty() {
+            continue;
+        }
+        result.push((
+            name.to_owned(),
+            serde_json::json!({"schema_version": version, "data": target}),
+        ));
+    }
+    Ok(result)
+}
+
 /// Whether a domain of `CUT_OVER` carries one of the keys a row write changed.
 fn carries(name: &str, changed: &BTreeSet<String>) -> bool {
     DOMAINS

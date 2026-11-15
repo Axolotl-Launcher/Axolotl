@@ -183,8 +183,11 @@ impl ResourceStore {
         types: &[ResourceType],
     ) -> ResourceResult<ResourceId> {
         validate_project(project)?;
-        let mut transaction =
-            self.pool.begin().await.map_err(database_error)?;
+        let mut transaction = self
+            .pool
+            .begin_with("BEGIN IMMEDIATE")
+            .await
+            .map_err(database_error)?;
         ensure_project(&mut transaction, project, types).await?;
         let id: String = sqlx::query_scalar("SELECT resource_id FROM resource_source_projects WHERE source = ? AND project_id = ?")
             .bind(project.source.as_str()).bind(project.project_id.as_str())
@@ -389,8 +392,11 @@ impl ResourceStore {
     ) -> ResourceResult<ResourceId> {
         validate_project(&left.project)?;
         validate_project(&right.project)?;
-        let mut transaction =
-            self.pool.begin().await.map_err(database_error)?;
+        let mut transaction = self
+            .pool
+            .begin_with("BEGIN IMMEDIATE")
+            .await
+            .map_err(database_error)?;
         ensure_project(&mut transaction, &left.project, &left.types).await?;
         ensure_project(&mut transaction, &right.project, &right.types).await?;
         let ids: Vec<String> = sqlx::query_scalar("SELECT resource_id FROM resource_source_projects WHERE (source = ? AND project_id = ?) OR (source = ? AND project_id = ?) ORDER BY resource_id")
@@ -428,13 +434,21 @@ impl ResourceStore {
         &self,
         source: &SourceId,
     ) -> ResourceResult<()> {
+        let mut transaction = self
+            .pool
+            .begin_with("BEGIN IMMEDIATE")
+            .await
+            .map_err(database_error)?;
         sqlx::query(
             "UPDATE resource_preferences SET preferred_source = ? WHERE id = 1",
         )
         .bind(source.as_str())
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(database_error)?;
+        crate::state::store::configuration::commit(transaction, &self.pool)
+            .await
+            .map_err(database_error)?;
         Ok(())
     }
 

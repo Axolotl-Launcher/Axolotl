@@ -26,7 +26,7 @@ pub(crate) async fn replace_instance_loader_components(
 ) -> crate::Result<()> {
     let (loader, loader_version) =
         crate::state::project_loader_components(components)?;
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     loader_component_rows::replace_loader_components(
         instance_id,
         components,
@@ -64,7 +64,7 @@ pub(crate) async fn set_applied_content_set_loader_version(
     pool: &SqlitePool,
 ) -> crate::Result<()> {
     let modified = Utc::now().timestamp();
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
 
     content_sets::set_applied_loader_version_in_transaction(
         instance_id,
@@ -87,7 +87,7 @@ pub(crate) async fn set_applied_content_set_protocol_version(
     pool: &SqlitePool,
 ) -> crate::Result<()> {
     let modified = Utc::now().timestamp();
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
 
     content_sets::set_applied_protocol_version_in_transaction(
         instance_id,

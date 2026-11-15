@@ -196,33 +196,75 @@ pub(crate) async fn create_instance(
                 &instance,
             )?;
 
-        let mut tx = state.pool.begin().await?;
-        instance_rows::insert_instance(&instance, &mut tx).await?;
+        let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await.map_err(
+            |error| {
+                crate::Error::from(error).with_context(
+                    "Creating instance: reserve attached databases",
+                )
+            },
+        )?;
+        instance_rows::insert_instance(&instance, &mut tx)
+            .await
+            .map_err(|error| {
+                error.with_context("Creating instance: insert instance row")
+            })?;
         instance_rows::insert_default_sync_preferences_in_transaction(
             &instance_id,
             &mut tx,
         )
-        .await?;
-        content_sets::insert_content_set(&content_set, &mut tx).await?;
+        .await
+        .map_err(|error| {
+            error.with_context("Creating instance: initialize sync preferences")
+        })?;
+        content_sets::insert_content_set(&content_set, &mut tx)
+            .await
+            .map_err(|error| {
+                error.with_context("Creating instance: insert content set")
+            })?;
         loader_component_rows::replace_loader_components(
             &instance_id,
             &loader_components,
             &mut tx,
         )
-        .await?;
-        links::upsert_instance_link(&instance_id, &input.link, &mut tx).await?;
+        .await
+        .map_err(|error| {
+            error.with_context("Creating instance: install loader components")
+        })?;
+        links::upsert_instance_link(&instance_id, &input.link, &mut tx)
+            .await
+            .map_err(|error| {
+                error.with_context("Creating instance: insert source link")
+            })?;
         instance_rows::replace_instance_groups(&instance_id, &[], &mut tx)
-            .await?;
+            .await
+            .map_err(|error| {
+                error.with_context("Creating instance: initialize groups")
+            })?;
         instance_rows::upsert_instance_launch_overrides(
             &launch_overrides,
             &mut tx,
         )
-        .await?;
+        .await
+        .map_err(|error| {
+            error.with_context("Creating instance: initialize launch overrides")
+        })?;
         config_sync_rows::upsert_config_updated_at(&instance_id, &mut *tx)
-            .await?;
+            .await
+            .map_err(|error| {
+                error.with_context("Creating instance: mark config projection")
+            })?;
         crate::install::store::attach_initial_instance(&instance, &mut tx)
-            .await?;
-        tx.commit().await?;
+            .await
+            .map_err(|error| {
+                error.with_context("Creating instance: bind install recovery")
+            })?;
+        crate::state::store::configuration::commit(tx, &state.pool)
+            .await
+            .map_err(|error| {
+                crate::Error::from(error).with_context(
+                    "Creating instance: commit database and JSON preferences",
+                )
+            })?;
 
         config_sync::mark_dirty(&instance_id);
 

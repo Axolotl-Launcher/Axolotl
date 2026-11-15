@@ -47,17 +47,46 @@ pub struct IntegrityReport {
     pub foreign_key_issue_count: usize,
 }
 pub(crate) async fn check(handle: &Handle) -> crate::Result<IntegrityReport> {
-    let integrity = sqlx::query_scalar::<_, String>("PRAGMA integrity_check")
-        .fetch_all(handle.pool())
+    let mut connection = handle.pool().acquire().await?;
+    let schemas: Vec<String> = sqlx::query_scalar(
+        "SELECT name FROM pragma_database_list WHERE name <> 'temp'",
+    )
+    .fetch_all(&mut *connection)
+    .await?;
+    let mut issues = 0;
+    let mut foreign_issues = 0;
+    for schema in schemas {
+        let schema = schema.replace('"', "\"\"");
+        let integrity: Vec<String> = sqlx::query_scalar(sqlx::AssertSqlSafe(
+            format!("PRAGMA \"{schema}\".integrity_check").as_str(),
+        ))
+        .fetch_all(&mut *connection)
         .await?;
-    let foreign = sqlx::query("PRAGMA foreign_key_check")
-        .fetch_all(handle.pool())
-        .await?;
-    let issues = integrity.iter().filter(|v| v.as_str() != "ok").count();
+        issues += integrity
+            .iter()
+            .filter(|value| value.as_str() != "ok")
+            .count();
+        foreign_issues += sqlx::query(sqlx::AssertSqlSafe(
+            format!("PRAGMA \"{schema}\".foreign_key_check").as_str(),
+        ))
+        .fetch_all(&mut *connection)
+        .await?
+        .len();
+    }
+    if handle
+        .pool()
+        .connect_options()
+        .get_filename()
+        .file_name()
+        .is_some_and(|name| name == "system.db")
+    {
+        foreign_issues +=
+            super::databases::cross_domain_issues(&mut connection).await?;
+    }
     Ok(IntegrityReport {
         integrity_ok: issues == 0,
         integrity_issue_count: issues,
-        foreign_key_issue_count: foreign.len(),
+        foreign_key_issue_count: foreign_issues,
     })
 }
 

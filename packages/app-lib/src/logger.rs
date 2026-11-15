@@ -84,12 +84,17 @@ fn add_third_party_directives(
 fn initial_log_filter(
     default_level: &str,
 ) -> Option<tracing_subscriber::EnvFilter> {
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+    let mut filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| {
             tracing_subscriber::EnvFilter::new(log_level_directives(
                 default_level,
             ))
         });
+    for directive in ["launcher_observability=info", "theseus_gui=info"] {
+        if let Ok(parsed) = directive.parse() {
+            filter = filter.add_directive(parsed);
+        }
+    }
     Some(add_third_party_directives(filter))
 }
 

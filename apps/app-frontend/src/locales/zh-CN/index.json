@@ -15197,6 +15197,9 @@
   "app.settings.about.game.title": {
     "message": "合成美西螈"
   },
+  "app.settings.about.join-discord": {
+    "message": "加入 Discord"
+  },
   "app.settings.about.license-attribution": {
     "message": "许可证与来源声明"
   },

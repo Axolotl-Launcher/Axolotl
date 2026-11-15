@@ -40,6 +40,10 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
         changes: {
             added: [
                 {
+                    'en-US': 'Added a Discord invite link to About > Project & community.',
+                    'zh-CN': '关于页的“项目与社区”新增 Discord 社区邀请入口。',
+                },
+                {
                     'en-US':
                         'Added a disconnected indicator in the bottom-right corner with a connection status tooltip.',
                     'zh-CN': '新增窗口右下角断网状态提示，悬浮时显示连接状态。',

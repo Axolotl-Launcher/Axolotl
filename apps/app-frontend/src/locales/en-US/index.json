@@ -15197,6 +15197,9 @@
   "app.settings.about.game.title": {
     "message": "Axolotl merge"
   },
+  "app.settings.about.join-discord": {
+    "message": "Join Discord"
+  },
   "app.settings.about.license-attribution": {
     "message": "License & attribution"
   },

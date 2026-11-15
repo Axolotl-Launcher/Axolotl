@@ -60,9 +60,13 @@ function callCore<T>(
     args?: tauriCore.InvokeArgs,
     options?: tauriCore.InvokeOptions,
 ): Promise<T> {
-    return options === undefined
-        ? tauriCore.invoke<T>(cmd, args)
-        : tauriCore.invoke<T>(cmd, args, options)
+    if (options !== undefined) {
+        return tauriCore.invoke<T>(cmd, args, options)
+    }
+    if (args !== undefined) {
+        return tauriCore.invoke<T>(cmd, args)
+    }
+    return tauriCore.invoke<T>(cmd)
 }
 
 function recordCommand(

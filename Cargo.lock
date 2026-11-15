@@ -3691,7 +3691,6 @@ name = "launcher-observability"
 version = "0.1.0"
 dependencies = [
  "serde",
- "serde_json",
  "thiserror 2.0.19",
  "tracing",
  "uuid 1.24.0",
@@ -5602,6 +5601,7 @@ dependencies = [
  "cookie",
  "cookie_store",
  "encoding_rs",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2",
@@ -7606,7 +7606,6 @@ dependencies = [
  "objc2-foundation",
  "paste",
  "png 0.18.1",
- "proc-macro2",
  "quartz_nbt",
  "regex",
  "serde",

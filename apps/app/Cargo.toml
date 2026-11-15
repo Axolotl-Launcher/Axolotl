@@ -68,11 +68,16 @@ zip = { workspace = true }
 
 [dependencies.tauri]
 workspace = true
-features = ["devtools", "macos-private-api", "protocol-asset", "tray-icon", "unstable"]
+features = [
+  "devtools",
+  "macos-private-api",
+  "protocol-asset",
+  "tray-icon",
+  "unstable"
+]
 
 [dev-dependencies]
 png = { workspace = true }
-proc-macro2 = "1"
 syn = { version = "2", features = ["full"] }
 
 [build-dependencies]

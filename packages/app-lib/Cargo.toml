@@ -149,7 +149,13 @@ tokio = { workspace = true, features = [
   "time",
 ] }
 tokio-rustls = { workspace = true }
-tokio-util = { workspace = true, features = ["compat", "io", "io-util", "rt", "time"] }
+tokio-util = { workspace = true, features = [
+  "compat",
+  "io",
+  "io-util",
+  "rt",
+  "time"
+] }
 toml = { workspace = true }
 tower-service = { workspace = true }
 tracing = { workspace = true }
@@ -169,7 +175,6 @@ zip = { workspace = true }
 [dev-dependencies]
 chrono-tz = "0.10.4"
 jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
-opentelemetry_sdk = { workspace = true, features = ["testing"] }
 rcgen = { version = "0.14.7", default-features = false, features = ["ring"] }
 rsa = "0.9.10"
 

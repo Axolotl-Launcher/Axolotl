@@ -75,7 +75,6 @@ opentelemetry-otlp = { workspace = true, features = [
   "logs",
   "metrics",
   "reqwest-client",
-  "reqwest-rustls",
   "trace",
 ] }
 opentelemetry_sdk = { workspace = true, features = [

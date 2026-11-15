@@ -143,11 +143,20 @@ fn headers(signal: &SignalConfig) -> HashMap<String, String> {
         .collect()
 }
 
+fn http_client() -> Result<reqwest::Client, String> {
+    crate::util::http::client_builder()
+        .build()
+        .map_err(|error| {
+            format!("failed to build the OTLP HTTP client: {error}")
+        })
+}
+
 fn span_exporter(
     signal: &SignalConfig,
 ) -> Result<opentelemetry_otlp::SpanExporter, String> {
     opentelemetry_otlp::SpanExporter::builder()
         .with_http()
+        .with_http_client(http_client()?)
         .with_endpoint(signal.endpoint.clone())
         .with_protocol(Protocol::HttpBinary)
         .with_timeout(signal.timeout)
@@ -163,6 +172,7 @@ fn metric_exporter(
 ) -> Result<opentelemetry_otlp::MetricExporter, String> {
     opentelemetry_otlp::MetricExporter::builder()
         .with_http()
+        .with_http_client(http_client()?)
         .with_endpoint(signal.endpoint.clone())
         .with_protocol(Protocol::HttpBinary)
         .with_timeout(signal.timeout)
@@ -178,6 +188,7 @@ fn log_exporter(
 ) -> Result<opentelemetry_otlp::LogExporter, String> {
     opentelemetry_otlp::LogExporter::builder()
         .with_http()
+        .with_http_client(http_client()?)
         .with_endpoint(signal.endpoint.clone())
         .with_protocol(Protocol::HttpBinary)
         .with_timeout(signal.timeout)

@@ -478,12 +478,25 @@ pub(super) async fn hydrate_settings(
     let documents =
         crate::state::documents::Documents::at(root.join("settings"), pool)
             .with_config_root(crate::state::documents::config_root());
-    let settings = crate::state::documents::settings::read(
+    let mut settings = crate::state::documents::settings::read(
         &documents,
         &super::Handle::new(pool.clone()),
     )
     .await?;
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    if let Some(id) = settings.minimal_home_instance_id.as_deref() {
+        let exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM instances WHERE id=?)",
+        )
+        .bind(id)
+        .fetch_one(&mut *transaction)
+        .await?;
+        if !exists {
+            // Before legacy import, the referenced instance is not present yet.
+            // Keep the JSON choice so hydration can restore it after import.
+            settings.minimal_home_instance_id = None;
+        }
+    }
     super::settings::Settings::write(
         &mut transaction,
         &super::settings::Singleton,
@@ -667,6 +680,95 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(remaining, 0);
+    }
+
+    #[tokio::test]
+    async fn startup_defers_home_instance_reference_until_legacy_import_finishes()
+     {
+        let temporary = tempfile::tempdir().unwrap();
+        let directory = temporary.path().join("settings");
+        tokio::fs::create_dir(&directory).await.unwrap();
+        let original = br#"{"schema_version":2,"data":{"minimal_home_instance_id":"instance","future":{"keep":true}}}"#;
+        tokio::fs::write(directory.join("appearance.json"), original)
+            .await
+            .unwrap();
+        let source = temporary.path().join("legacy.db");
+        let legacy = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(&source)
+                    .create_if_missing(true),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!().run(&legacy).await.unwrap();
+        instance(&legacy).await;
+        legacy.close().await;
+
+        let pool = databases::open(temporary.path()).await.unwrap();
+        let home: Option<String> = sqlx::query_scalar(
+            "SELECT minimal_home_instance_id FROM settings WHERE id=0",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(home, None);
+        assert_eq!(
+            tokio::fs::read(directory.join("appearance.json"))
+                .await
+                .unwrap(),
+            original
+        );
+
+        databases::import(&pool, &source, temporary.path())
+            .await
+            .unwrap();
+        pool.close().await;
+        drop(pool);
+        let pool = databases::open(temporary.path()).await.unwrap();
+        let home: Option<String> = sqlx::query_scalar(
+            "SELECT minimal_home_instance_id FROM settings WHERE id=0",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(home.as_deref(), Some("instance"));
+        assert_eq!(
+            tokio::fs::read(directory.join("appearance.json"))
+                .await
+                .unwrap(),
+            original
+        );
+    }
+
+    #[tokio::test]
+    async fn startup_keeps_home_instance_missing_from_the_current_database() {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = databases::open(temporary.path()).await.unwrap();
+        pool.close().await;
+        drop(pool);
+        let directory = temporary.path().join("settings");
+        tokio::fs::create_dir(&directory).await.unwrap();
+        let original = br#"{"schema_version":2,"data":{"minimal_home_instance_id":"another-channel","future":{"keep":true}}}"#;
+        tokio::fs::write(directory.join("appearance.json"), original)
+            .await
+            .unwrap();
+
+        let pool = databases::open(temporary.path()).await.unwrap();
+        let home: Option<String> = sqlx::query_scalar(
+            "SELECT minimal_home_instance_id FROM settings WHERE id=0",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(home, None);
+        assert_eq!(
+            tokio::fs::read(directory.join("appearance.json"))
+                .await
+                .unwrap(),
+            original
+        );
     }
 
     #[tokio::test]

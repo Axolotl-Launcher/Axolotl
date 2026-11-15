@@ -93,6 +93,7 @@ pub(crate) mod content_store;
 pub(crate) mod documents;
 pub mod favorite_groups;
 pub mod instance_groups;
+pub(crate) mod persistence;
 pub(crate) mod store;
 
 // Global state
@@ -290,6 +291,10 @@ pub struct State {
 
     /// What the collections of [`store`] are read and written through.
     pub(crate) data: store::Handle,
+
+    /// File authorities have their own transactions and remain usable without
+    /// the SQL handle. Their root never follows the custom content directory.
+    pub(crate) persistence: persistence::Persistence,
 
     /// The rebuildable records, in a database of their own. Disabled, not
     /// fatal, when it cannot be opened.
@@ -1538,6 +1543,9 @@ impl State {
         let process_manager = ProcessManager::new();
 
         Ok(Arc::new(Self {
+            persistence: persistence::Persistence::new(
+                directories.settings_dir.clone(),
+            ),
             directories,
             fetch_semaphore,
             download_semaphore,
@@ -1771,6 +1779,9 @@ pub(crate) async fn test_state(
     .await;
 
     Ok(Arc::new(State {
+        persistence: persistence::Persistence::new(
+            directories.settings_dir.clone(),
+        ),
         directories,
         fetch_semaphore: FetchSemaphore(Semaphore::new(8)),
         download_semaphore: FetchSemaphore(Semaphore::new(8)),

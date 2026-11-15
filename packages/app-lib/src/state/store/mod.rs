@@ -124,8 +124,10 @@ impl Handle {
     }
 }
 
-/// One atomic unit: everything written through it lands together, or nothing
-/// does. Dropping an uncommitted unit rolls it back.
+/// One SQL atomic unit: writes to its attached databases land together, or
+/// nothing does. Independent file services use `state::persistence` and never
+/// join this unit. Settings retain their explicit durable publication journal.
+/// Dropping an uncommitted unit rolls it back.
 pub(crate) struct Atom {
     transaction: sqlx::Transaction<'static, Sqlite>,
     /// Whether a settings read has to be composed again once this unit lands.

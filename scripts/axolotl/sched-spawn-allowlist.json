@@ -1,6 +1,38 @@
 {
   "entries": [
     {
+      "file": "packages/app-lib/src/state/persistence/document.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed awaited document worker: bounded JSON reads, cross-process file locking and durable same-directory publication; owns its file locks through completion even if its caller is canceled, and acquires no scheduler managed resource (D17)",
+      "sites": [
+        "blocking: tokio::task::spawn_blocking(operation)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/persistence/document.rs",
+      "form": "std::fs",
+      "count": 6,
+      "reason": "reviewed document file I/O performed exclusively in the awaited blocking worker: create and canonicalize the parent, open the per-document lock, inspect bounded regular JSON files and sync the parent after atomic publication on Unix; the worker acquires no additional scheduler managed resource (D17)",
+      "sites": [
+        "acquire: let file = std::fs::OpenOptions::new()",
+        "acquire: let parent = std::fs::canonicalize(parent)?;",
+        "acquire: std::fs::create_dir_all(parent)?;",
+        "read_bytes: let metadata = match std::fs::metadata(path) {",
+        "read_bytes: std::fs::File::open(path)?",
+        "replace_bytes: std::fs::File::open(parent)?.sync_all()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/persistence/document.rs",
+      "form": "std::thread::sleep",
+      "count": 1,
+      "reason": "reviewed 5ms OS file-lock contention backoff inside the owned blocking document worker; does not block the async executor, release an in-flight publication lock or acquire scheduler resources (D17)",
+      "sites": [
+        "acquire: std::thread::sleep(std::time::Duration::from_millis(5));"
+      ]
+    },
+    {
       "file": "packages/app-lib/src/api/logs/logshare.rs",
       "form": "spawn_blocking",
       "count": 1,

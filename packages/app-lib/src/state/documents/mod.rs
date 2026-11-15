@@ -362,7 +362,7 @@ impl<'a> Documents<'a> {
         if let Some(parent) = path.parent() {
             crate::util::io::create_dir_all(parent).await?;
         }
-        crate::util::io::write(&path, contents).await?;
+        super::persistence::document::write_json(&path, contents).await?;
         Ok(())
     }
 
@@ -395,7 +395,7 @@ impl<'a> Documents<'a> {
         if let Some(parent) = path.parent() {
             crate::util::io::create_dir_all(parent).await?;
         }
-        crate::util::io::write(&path, contents).await?;
+        super::persistence::document::write_json(&path, contents).await?;
         Ok(())
     }
 }

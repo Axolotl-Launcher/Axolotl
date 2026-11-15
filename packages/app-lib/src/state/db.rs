@@ -109,7 +109,10 @@ pub(crate) async fn connect(
 async fn connect_at(settings_dir: &Path) -> crate::Result<Pool<Sqlite>> {
     crate::util::io::create_dir_all(settings_dir).await?;
     let existed = super::store::databases::exists(settings_dir);
-    let pool = super::store::databases::open(settings_dir).await?;
+    // Domain handover receipts are consulted before any legacy file is opened.
+    // A retired source must stay retired even if its new authority is damaged.
+    let persistence = super::persistence::Persistence::new(settings_dir);
+    let pool = super::store::databases::open(persistence.root()).await?;
     let imported: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.database_imports WHERE source = 'app.db' AND completed = 1)")
         .fetch_one(&pool).await?;
     if imported {

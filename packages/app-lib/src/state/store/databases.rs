@@ -11,6 +11,7 @@ use sqlx::sqlite::{
     SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions,
 };
 use sqlx::{Connection, Executor, SqliteConnection, SqlitePool};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
@@ -88,6 +89,20 @@ pub(crate) fn exists(settings_dir: &Path) -> bool {
     directory(settings_dir).join("system.db").is_file()
 }
 
+async fn attached_domains(
+    connection: &mut SqliteConnection,
+) -> Result<HashSet<String>, sqlx::Error> {
+    Ok(
+        sqlx::query_scalar::<_, String>(
+            "SELECT name FROM pragma_database_list",
+        )
+        .fetch_all(connection)
+        .await?
+        .into_iter()
+        .collect(),
+    )
+}
+
 /// Collection cleanup cannot infer the references held by a newer protocol.
 /// Preserve files until a reader that understands those records is available.
 pub(crate) async fn ensure_cleanup_supported(
@@ -114,10 +129,18 @@ pub(crate) async fn ensure_cleanup_supported(
     if super::compatibility::unknown_recovery_payloads(pool).await? {
         return Err(crate::ErrorKind::InputError("Cleanup is paused because a newer recovery protocol may retain files".into()).into());
     }
-    for domain in DOMAINS {
+    let mut connection = pool.acquire().await?;
+    let attached = attached_domains(&mut connection).await?;
+    if DOMAINS.iter().any(|domain| !attached.contains(*domain)) {
+        return Err(crate::ErrorKind::InputError("Cleanup is paused until independent document references can be checked".into()).into());
+    }
+    for domain in attached {
+        if !DOMAINS.contains(&domain.as_str()) {
+            continue;
+        }
         let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
             "SELECT COUNT(*) FROM {}.extension_records",
-            quote(domain)
+            quote(&domain)
         )))
         .fetch_one(pool)
         .await?;
@@ -132,7 +155,11 @@ pub(super) async fn cross_domain_issues(
     connection: &mut SqliteConnection,
 ) -> Result<usize, sqlx::Error> {
     let mut issues = 0;
+    let attached = attached_domains(connection).await?;
     for table in &baseline().tables {
+        if !attached.contains(&table.domain) {
+            continue;
+        }
         for foreign in &table.foreign_keys {
             let parent = baseline()
                 .tables
@@ -140,6 +167,9 @@ pub(super) async fn cross_domain_issues(
                 .find(|candidate| candidate.name == foreign.parent)
                 .expect("foreign parent");
             if table.domain == parent.domain {
+                continue;
+            }
+            if !attached.contains(&parent.domain) {
                 continue;
             }
             let present = foreign
@@ -196,7 +226,7 @@ pub(crate) async fn backup(
     let _settings = crate::api::settings::SETTINGS_WRITE.lock().await;
     // sched-order: theseus::state::documents::WRITES
     let _documents = crate::state::documents::WRITES.lock().await;
-    let transaction = loop {
+    let mut transaction = loop {
         super::configuration::flush_committed(pool).await?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
         let pending: bool = sqlx::query_scalar(
@@ -210,7 +240,13 @@ pub(crate) async fn backup(
         transaction.rollback().await?;
     };
     let result = async {
-        for name in std::iter::once("system").chain(DOMAINS.iter().copied()) {
+        let domains = attached_domains(&mut *transaction).await?;
+        for name in std::iter::once("system").chain(
+            DOMAINS
+                .iter()
+                .copied()
+                .filter(|name| domains.contains(*name)),
+        ) {
             let file = format!("{name}.db");
             let target = staging.join(&file);
             tokio::fs::copy(directory(settings_dir).join(&file), &target)
@@ -242,6 +278,53 @@ pub(crate) async fn backup(
                     .await?
                     .sync_all()
                     .await?;
+            }
+        }
+        // Keep takeover receipts with the snapshot. Restoring only the SQL
+        // files must never make a retired domain active again.
+        let receipts = settings_dir.join("state/persistence/imports");
+        if tokio::fs::try_exists(&receipts).await? {
+            let target = staging.join("state/persistence/imports");
+            tokio::fs::create_dir_all(&target).await?;
+            let mut entries = tokio::fs::read_dir(&receipts).await?;
+            while let Some(entry) = entries.next_entry().await? {
+                if entry.path().extension().and_then(|value| value.to_str())
+                    != Some("json")
+                {
+                    continue;
+                }
+                if !entry.file_type().await?.is_file() {
+                    return Err(crate::ErrorKind::FSError(
+                        "Cannot snapshot a nonregular handover receipt".into(),
+                    )
+                    .into());
+                }
+                let name = entry
+                    .path()
+                    .file_stem()
+                    .and_then(|value| value.to_str())
+                    .map(str::to_owned)
+                    .ok_or_else(|| {
+                        crate::ErrorKind::InputError(
+                            "Invalid handover receipt name".into(),
+                        )
+                    })?;
+                for (relative, bytes) in
+                    crate::state::persistence::import::snapshot(
+                        &crate::state::persistence::Persistence::new(
+                            settings_dir,
+                        ),
+                        &name,
+                    )
+                    .await?
+                {
+                    let destination = staging.join(relative);
+                    crate::state::persistence::document::write_json(
+                        &destination,
+                        bytes,
+                    )
+                    .await?;
+                }
             }
         }
         tokio::fs::write(staging.join("complete"), b"axolotl database set\n")
@@ -308,6 +391,27 @@ pub(crate) async fn maintain_backups(
 /// The configuration attachment is shared memory, not another durable copy of
 /// the JSON configuration. A keeper connection preserves it for the pool's life.
 pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
+    let retired = crate::state::persistence::import::retired_database_domains(
+        settings_dir,
+    )
+    .await?;
+    open_with_retired(settings_dir, retired).await
+}
+
+async fn open_with_retired(
+    settings_dir: &Path,
+    retired: Vec<String>,
+) -> crate::Result<SqlitePool> {
+    let domains = Arc::new(
+        DOMAINS
+            .iter()
+            .copied()
+            .filter(|domain| {
+                !retired.iter().any(|name| name.as_str() == *domain)
+            })
+            .map(str::to_owned)
+            .collect::<Vec<_>>(),
+    );
     let root = directory(settings_dir);
     tokio::fs::create_dir_all(&root).await?;
     if !root.join("system.db").is_file()
@@ -337,7 +441,7 @@ pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
     if has_marker {
         let completed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.database_imports WHERE source='app.db' AND completed=1)").fetch_one(&mut keeper).await?;
         if completed
-            && DOMAINS.iter().any(|domain| {
+            && domains.iter().any(|domain| {
                 !directory(settings_dir)
                     .join(format!("{domain}.db"))
                     .is_file()
@@ -346,7 +450,8 @@ pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
             return Err(crate::ErrorKind::FSError("A durable database domain is missing; restore the complete database set before continuing".into()).into());
         }
     }
-    initialize_connection(&mut keeper, &root, &memory_name, true).await?;
+    initialize_connection(&mut keeper, &root, &memory_name, true, &domains)
+        .await?;
     let pool = SqlitePoolOptions::new()
         // Preserve the previous launcher pool budget: waiting SQLite writers
         // must not consume every slot needed by an active writer's readers.
@@ -358,10 +463,17 @@ pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
             let root = root.clone();
             let memory_name = memory_name.clone();
             let ownership = ownership.clone();
+            let domains = domains.clone();
             Box::pin(async move {
                 let _ownership = ownership;
-                initialize_connection(connection, &root, &memory_name, false)
-                    .await
+                initialize_connection(
+                    connection,
+                    &root,
+                    &memory_name,
+                    false,
+                    &domains,
+                )
+                .await
             })
         })
         .connect_with(options)
@@ -377,15 +489,18 @@ async fn initialize_connection(
     root: &Path,
     memory_name: &str,
     durable: bool,
+    domains: &[String],
 ) -> Result<(), sqlx::Error> {
     if durable {
-        return attach_connection(connection, root, memory_name, true).await;
+        return attach_connection(connection, root, memory_name, true, domains)
+            .await;
     }
     // Attaching schemas and compiling TEMP triggers can acquire read locks.
     // Reserve main first, exactly as ordinary writers do, so initialization
     // cannot retain an attached-file read lock while waiting for its writer.
     connection.execute("BEGIN IMMEDIATE").await?;
-    match attach_connection(connection, root, memory_name, false).await {
+    match attach_connection(connection, root, memory_name, false, domains).await
+    {
         Ok(()) => connection.execute("COMMIT").await.map(|_| ()),
         Err(error) => {
             let _ = connection.execute("ROLLBACK").await;
@@ -399,6 +514,7 @@ async fn attach_connection(
     root: &Path,
     memory_name: &str,
     durable: bool,
+    domains: &[String],
 ) -> Result<(), sqlx::Error> {
     // memdb shares the volatile projection without SQLite's shared-cache
     // schema locks, which can invert the attached files' writer lock order.
@@ -406,7 +522,7 @@ async fn attach_connection(
         .bind(memory_name)
         .execute(&mut *connection)
         .await?;
-    for domain in DOMAINS {
+    for domain in domains {
         sqlx::query(sqlx::AssertSqlSafe(
             format!("ATTACH DATABASE ? AS {}", quote(domain)).as_str(),
         ))
@@ -446,9 +562,13 @@ async fn create_schema(
     connection: &mut SqliteConnection,
     durable: bool,
 ) -> Result<(), sqlx::Error> {
+    let attached = attached_domains(connection).await?;
     if durable {
         connection.execute("CREATE TABLE IF NOT EXISTS main.database_imports (source TEXT PRIMARY KEY NOT NULL, completed INTEGER NOT NULL)").await?;
         for table in &baseline().tables {
+            if !attached.contains(&table.domain) {
+                continue;
+            }
             let body = &table.sql[table.sql.find('(').expect("table body")..];
             connection
                 .execute(sqlx::AssertSqlSafe(
@@ -466,6 +586,9 @@ async fn create_schema(
             }
         }
         for domain in DOMAINS {
+            if !attached.contains(*domain) {
+                continue;
+            }
             connection.execute(sqlx::AssertSqlSafe(format!("CREATE TABLE IF NOT EXISTS {}.extension_records (namespace TEXT NOT NULL, id TEXT NOT NULL, format TEXT NOT NULL, payload BLOB NOT NULL, PRIMARY KEY(namespace,id))", quote(domain)).as_str())).await?;
         }
         connection
@@ -473,6 +596,16 @@ async fn create_schema(
             .await?;
     }
     for object in &baseline().objects {
+        // Views are instance/storage-only projections. Table-owned indexes
+        // and triggers disappear together with their retired domain.
+        if let Some(table) = baseline()
+            .tables
+            .iter()
+            .find(|table| table.name == object.table)
+            && !attached.contains(&table.domain)
+        {
+            continue;
+        }
         let sql = match object.kind.as_str() {
             "index" if !durable => continue,
             "index" => {
@@ -525,6 +658,9 @@ async fn create_schema(
             .await?;
     }
     for table in &baseline().tables {
+        if !attached.contains(&table.domain) {
+            continue;
+        }
         for (index, foreign) in table.foreign_keys.iter().enumerate() {
             let parent = baseline()
                 .tables
@@ -532,6 +668,9 @@ async fn create_schema(
                 .find(|table| table.name == foreign.parent)
                 .expect("foreign parent");
             if parent.domain == table.domain {
+                continue;
+            }
+            if !attached.contains(&parent.domain) {
                 continue;
             }
             let present = foreign
@@ -648,6 +787,7 @@ async fn create_schema(
     let owned = baseline()
         .tables
         .iter()
+        .filter(|table| attached.contains(&table.domain))
         .map(|table| {
             (
                 table.domain.as_str(),
@@ -697,7 +837,9 @@ pub(crate) async fn import(
     connection.execute("PRAGMA foreign_keys = OFF").await?;
     connection.execute("BEGIN IMMEDIATE").await?;
     let result = async {
+        let attached = attached_domains(&mut connection).await?;
         for table in &baseline().tables {
+            if !attached.contains(&table.domain) { continue; }
             if table.name == "cache" { continue; }
             let columns = table.columns.iter().map(|column| quote(column)).collect::<Vec<_>>().join(", ");
             connection.execute(sqlx::AssertSqlSafe(format!("DELETE FROM {}", qualified(table)).as_str())).await?;
@@ -737,6 +879,184 @@ pub(crate) async fn import(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn retired_domains_are_not_opened_recreated_or_reimported() {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = open(temporary.path()).await.unwrap();
+        sqlx::query("INSERT INTO main.database_imports VALUES('app.db',1)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        pool.close().await;
+        drop(pool);
+        let persistence =
+            crate::state::persistence::Persistence::new(temporary.path());
+        for domain in ["accounts", "telemetry", "media", "sync"] {
+            let document = persistence
+                .document(format!("state/{domain}.json"), "test", 1)
+                .unwrap();
+            crate::state::persistence::import::Import::new(
+                &persistence,
+                domain,
+                document,
+            )
+            .unwrap()
+            .run(|| async { Ok(serde_json::Map::new()) }, |_| Ok(()))
+            .await
+            .unwrap();
+            tokio::fs::write(
+                directory(temporary.path()).join(format!("{domain}.db")),
+                b"obsolete corrupt database",
+            )
+            .await
+            .unwrap();
+        }
+        let pool = open(temporary.path()).await.unwrap();
+        let mut first = pool.acquire().await.unwrap();
+        let mut second = pool.acquire().await.unwrap();
+        for connection in [&mut first, &mut second] {
+            let attached = attached_domains(connection).await.unwrap();
+            for domain in ["accounts", "telemetry", "media", "sync"] {
+                assert!(!attached.contains(domain));
+            }
+            for domain in [
+                "instances",
+                "storage",
+                "operations",
+                "records",
+                "configuration",
+            ] {
+                assert!(attached.contains(domain));
+            }
+            assert_eq!(cross_domain_issues(connection).await.unwrap(), 0);
+            sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES ('retired-test','path','installed','none','test',0,0)").execute(&mut **connection).await.unwrap();
+            sqlx::query("DELETE FROM instances WHERE id='retired-test'")
+                .execute(&mut **connection)
+                .await
+                .unwrap();
+        }
+        drop(first);
+        drop(second);
+        assert!(ensure_cleanup_supported(&pool).await.is_err());
+        for domain in ["accounts", "telemetry", "media", "sync"] {
+            assert_eq!(
+                tokio::fs::read(
+                    directory(temporary.path()).join(format!("{domain}.db"))
+                )
+                .await
+                .unwrap(),
+                b"obsolete corrupt database"
+            );
+        }
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn a_retired_missing_domain_stays_missing_when_legacy_import_retries()
+    {
+        let temporary = tempfile::tempdir().unwrap();
+        let legacy_path = temporary.path().join("legacy.db");
+        let legacy = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::new()
+                    .filename(&legacy_path)
+                    .create_if_missing(true),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!().run(&legacy).await.unwrap();
+        sqlx::query("INSERT INTO telemetry_identity(id,installation_id) VALUES(0,'old-identity')").execute(&legacy).await.unwrap();
+        legacy.close().await;
+        let persistence =
+            crate::state::persistence::Persistence::new(temporary.path());
+        let document = persistence
+            .document("state/telemetry.json", "test", 1)
+            .unwrap();
+        crate::state::persistence::import::Import::new(
+            &persistence,
+            "telemetry",
+            document,
+        )
+        .unwrap()
+        .run(|| async { Ok(serde_json::Map::new()) }, |_| Ok(()))
+        .await
+        .unwrap();
+        let pool = open(temporary.path()).await.unwrap();
+        import(&pool, &legacy_path, temporary.path()).await.unwrap();
+        assert!(!directory(temporary.path()).join("telemetry.db").exists());
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn unreadable_handover_does_not_make_retired_sql_data_available() {
+        let temporary = tempfile::tempdir().unwrap();
+        let receipts = temporary.path().join("state/persistence/imports");
+        tokio::fs::create_dir_all(&receipts).await.unwrap();
+        tokio::fs::write(receipts.join("accounts.json"), b"broken")
+            .await
+            .unwrap();
+        let pool = open(temporary.path()).await.unwrap();
+        assert!(
+            !attached_domains(&mut pool.acquire().await.unwrap())
+                .await
+                .unwrap()
+                .contains("accounts")
+        );
+        assert!(!directory(temporary.path()).join("accounts.db").exists());
+        assert_eq!(
+            tokio::fs::read(receipts.join("accounts.json"))
+                .await
+                .unwrap(),
+            b"broken"
+        );
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn snapshot_keeps_retirement_receipt_and_document_instead_of_old_database()
+     {
+        let temporary = tempfile::tempdir().unwrap();
+        let persistence =
+            crate::state::persistence::Persistence::new(temporary.path());
+        let document = persistence
+            .document("state/accounts.json", "test", 1)
+            .unwrap();
+        crate::state::persistence::import::Import::new(
+            &persistence,
+            "accounts",
+            document.clone(),
+        )
+        .unwrap()
+        .run(
+            || async {
+                Ok(serde_json::Map::from_iter([(
+                    "metadata".into(),
+                    serde_json::json!("account"),
+                )]))
+            },
+            |_| Ok(()),
+        )
+        .await
+        .unwrap();
+        let pool = open(temporary.path()).await.unwrap();
+        let snapshot = backup(&pool, temporary.path()).await.unwrap();
+        assert!(!snapshot.join("accounts.db").exists());
+        assert!(
+            snapshot
+                .join("state/persistence/imports/accounts.json")
+                .is_file()
+        );
+        assert_eq!(
+            tokio::fs::read(snapshot.join("state/accounts.json"))
+                .await
+                .unwrap(),
+            tokio::fs::read(document.path()).await.unwrap()
+        );
+        assert!(snapshot.join("complete").is_file());
+        pool.close().await;
+    }
 
     #[tokio::test]
     async fn every_connection_attaches_domains_without_application_migrations()

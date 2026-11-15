@@ -64,6 +64,12 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             fixed: [
                 {
                     'en-US':
+                        'Fixed the missing Data Packs category in Discover for Minecraft 26.x instances, including vanilla instances.',
+                    'zh-CN':
+                        '修复 Minecraft 26.x 实例（包括原版实例）在发现页缺少“数据包”分类的问题。',
+                },
+                {
+                    'en-US':
                         'Fixed offline navigation to Discover, Favorites, project details, and instance creation, with connection guidance and retry controls.',
                     'zh-CN':
                         '修复断网时无法进入浏览、收藏、项目详情和创建实例页面的问题，并显示网络检查提示和重试按钮。',
@@ -71,8 +77,7 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                 {
                     'en-US':
                         'Fixed browser form history suggestions appearing in the command generator\'s "Command to run" field after restarting the launcher.',
-                    'zh-CN':
-                        '修复重启启动器后，指令生成器弹出浏览器表单历史建议的问题。',
+                    'zh-CN': '修复重启启动器后，指令生成器弹出浏览器表单历史建议的问题。',
                 },
                 {
                     'en-US':

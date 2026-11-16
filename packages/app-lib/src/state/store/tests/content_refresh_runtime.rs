@@ -985,6 +985,7 @@ async fn conditional_result_writes_reject_changed_files_and_changed_target() {
         .await
         .unwrap();
     let mut context = RefreshCheckContext {
+        content_revision: Some(records.content_set.revision),
         location_key: location_key(&records.instance),
         content_root: "root".into(),
         sha1: sha1_smol::Sha1::from(b"old").hexdigest(),

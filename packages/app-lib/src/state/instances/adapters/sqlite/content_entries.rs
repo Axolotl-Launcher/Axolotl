@@ -1462,6 +1462,7 @@ pub(crate) async fn delete_dependency_edges_for_set_in_transaction(
 
 /// Reads the module metadata an instance's present entries carry, as the entry
 /// each belongs to and the text it is stored as.
+#[cfg(test)]
 pub(crate) async fn get_local_mod_data_by_entry<'e, E>(
     instance_id: &str,
     exec: E,

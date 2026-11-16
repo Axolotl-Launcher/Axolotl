@@ -791,6 +791,11 @@ impl State {
     /// process. `STARTUP_WORK` serializes this for a recreated webview instead
     /// of running recovery while the previous webview's workers are alive.
     async fn start_background(state: Arc<Self>) -> crate::Result<()> {
+        if store::recovery_mode::root(&state.pool).is_some() {
+            // Recovery copies permit existing runtime launch, never journal
+            // replay, adoption, cleanup, directory migration or watcher writes.
+            return Ok(());
+        }
         if let Err(error) =
             instances::commands::recover_content_file_operations(&state).await
         {
@@ -1434,23 +1439,36 @@ impl State {
         documents::settings::identify(&settings_dir);
 
         tracing::info!("Connecting to app database");
-        let pool = db::connect(&app_identifier).await?;
+        let pool = match db::connect(&app_identifier).await {
+            Ok(pool) => pool,
+            Err(error) if store::recovery_mode::can_recover(&error) => {
+                tracing::error!(%error,"Core database unavailable; attempting read-only instance recovery");
+                store::databases::open_recovery(&settings_dir).await?
+            }
+            Err(error) => return Err(error),
+        };
+        let recovery_mode = store::recovery_mode::root(&pool).is_some();
         let data = store::Handle::with_persistence(
             pool.clone(),
             &persistence::Persistence::new(&settings_dir),
         );
 
-        let legacy =
-            legacy_converter::migrate_legacy_data(&data, &pool).await?;
+        let legacy = if recovery_mode {
+            legacy_converter::LegacyMigration::default()
+        } else {
+            legacy_converter::migrate_legacy_data(&data, &pool).await?
+        };
 
         tracing::info!("Fetching app settings");
         let mut settings = Settings::get(&data).await?;
-        installer_settings::apply_pending_installer_directory(
-            &mut settings,
-            &data,
-            &app_identifier,
-        )
-        .await?;
+        if !recovery_mode {
+            installer_settings::apply_pending_installer_directory(
+                &mut settings,
+                &data,
+                &app_identifier,
+            )
+            .await?;
+        }
         crate::util::download::telemetry::set_enabled(
             settings.advanced_download_info_enabled(),
         );
@@ -1483,19 +1501,22 @@ impl State {
             )?;
 
         tracing::info!("Initializing directories");
-        DirectoryInfo::move_launcher_directory(
-            &mut settings,
-            &data,
-            &pool,
-            &io_semaphore,
-            &app_identifier,
-        )
-        .await?;
+        if !recovery_mode {
+            DirectoryInfo::move_launcher_directory(
+                &mut settings,
+                &data,
+                &pool,
+                &io_semaphore,
+                &app_identifier,
+            )
+            .await?;
+        }
 
         let directories =
             DirectoryInfo::init(settings.custom_dir, &app_identifier).await?;
-
-        documents::hand_over(&pool, &directories.settings_dir).await;
+        if !recovery_mode {
+            documents::hand_over(&pool, &directories.settings_dir).await;
+        }
 
         let documents = documents::Documents::at(
             directories.settings_dir.join(documents::DIR_NAME),
@@ -1506,8 +1527,9 @@ impl State {
         // copy that repeats the old one has to go: it would shadow the change
         // forever. This is the one place that drops them, because a read must
         // never write to disk.
-        if let Err(error) =
-            documents::settings::prune_redundant(&documents).await
+        if !recovery_mode
+            && let Err(error) =
+                documents::settings::prune_redundant(&documents).await
         {
             tracing::warn!(
                 %error,
@@ -1533,7 +1555,9 @@ impl State {
         .await;
         CachedEntry::store_best_effort(&legacy.cached_entries, derived.pool())
             .await;
-        forget_removed_instances(&pool, &derived).await;
+        if !recovery_mode {
+            forget_removed_instances(&pool, &derived).await;
+        }
 
         let discord_rpc = DiscordGuard::init()?;
 

@@ -337,6 +337,7 @@ pub(crate) async fn execute(
     reporter: Option<crate::install::InstallProgressReporter>,
     state: &crate::State,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let result =
         execute_inner(instance_id, plan, reporter.clone(), state).await;
     if let Err(error) = &result
@@ -1076,6 +1077,7 @@ pub(crate) async fn recover_plan(
     plan: &ResourceOperationPlan,
     state: &crate::State,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _writer = state.acquire_install_db_permit().await?;
     let _lock = state
         .lock_instance_content_exclusive(&plan.instance_id)

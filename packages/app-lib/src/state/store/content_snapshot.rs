@@ -218,24 +218,56 @@ pub(crate) async fn get(
     .await?;
     let preferred_source =
         SourceId::new(preferred).unwrap_or_else(|_| SourceId::modrinth());
-    let checks =
-        super::content_refresh_checks::ContentRefreshChecks::read_scoped(
-            &mut tx,
-            &instance_id.to_owned(),
-        )
-        .await?;
-    let fingerprints =
-        super::content_file_fingerprints::ContentFileFingerprints::read_scoped(
-            &mut tx,
-            &instance_id.to_owned(),
-        )
-        .await?
-        .into_iter()
-        .map(|(key, record)| (key.file_id, record))
-        .collect();
-    let presentations = super::content_refresh_presentations::ContentRefreshPresentations::read_scoped(&mut tx, &instance_id.to_owned()).await?
-        .into_iter().map(|(key, record)| (key.file_id, record)).collect();
+    let evidence_guards =
+        super::content_evidence::guards(&mut tx, instance_id).await?;
+    let evidence_entries =
+        super::content_evidence::entry_files(&mut tx, instance_id).await?;
     tx.commit().await?;
+    let fingerprints = super::content_evidence::read_scoped(
+        handle,
+        "fingerprint",
+        instance_id,
+        &evidence_guards,
+        None,
+    )
+    .await;
+    let presentations = super::content_evidence::read_scoped(
+        handle,
+        "presentation",
+        instance_id,
+        &evidence_guards,
+        None,
+    )
+    .await;
+    let checks = super::content_evidence::read_scoped::<
+        super::content_refresh_checks::RefreshCheckRecord,
+    >(
+        handle,
+        "check",
+        instance_id,
+        &evidence_guards,
+        Some(&evidence_entries),
+    )
+    .await
+    .into_iter()
+    .map(|(entry_id, record)| {
+        (
+            super::content_refresh_checks::RefreshCheckKey {
+                instance_id: instance_id.into(),
+                entry_id,
+            },
+            record,
+        )
+    })
+    .collect();
+    let mut files = files;
+    super::content_evidence::hydrate_with_guards(
+        handle,
+        instance_id,
+        &mut files,
+        &evidence_guards,
+    )
+    .await;
     Ok(SnapshotRecords {
         pack_presentation: None,
         fingerprints,

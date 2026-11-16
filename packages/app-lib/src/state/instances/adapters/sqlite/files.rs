@@ -35,8 +35,8 @@ impl TryFrom<InstanceFileRow> for InstanceFile {
             missing: row.missing == 1,
             added_at: timestamp(row.added_at),
             modified_at: timestamp(row.modified_at),
-            local_mod_data: row.local_mod_data,
-            icon_path: row.icon_path,
+            local_mod_data: None,
+            icon_path: None,
         })
     }
 }
@@ -155,8 +155,16 @@ pub(crate) async fn upsert_instance_file(
     let missing = i64::from(file.missing);
     let added_at = file.added_at.timestamp();
     let modified_at = file.modified_at.timestamp();
-    let local_mod_data = file.local_mod_data.as_deref();
-    let icon_path = file.icon_path.as_deref();
+    crate::state::store::content_evidence::remember_parsed(
+        &mut *tx,
+        &file.sha1,
+        file.size as i64,
+        file.local_mod_data.as_deref(),
+        file.icon_path.as_deref(),
+    )
+    .await;
+    let local_mod_data = None::<&str>;
+    let icon_path = None::<&str>;
 
     sqlx::query!(
         "
@@ -182,8 +190,8 @@ pub(crate) async fn upsert_instance_file(
             size = excluded.size,
             missing = excluded.missing,
             modified_at = excluded.modified_at,
-            local_mod_data = COALESCE(excluded.local_mod_data, instance_files.local_mod_data),
-            icon_path = COALESCE(excluded.icon_path, instance_files.icon_path)
+            local_mod_data = NULL,
+            icon_path = NULL
         ",
         id,
         instance_id,
@@ -453,8 +461,8 @@ pub(crate) async fn move_instance_file_in_transaction(
     enabled: bool,
     sha1: &str,
     size: u64,
-    local_mod_data: Option<&str>,
-    icon_path: Option<&str>,
+    _local_mod_data: Option<&str>,
+    _icon_path: Option<&str>,
     tx: &mut Transaction<'_, Sqlite>,
 ) -> crate::Result<Option<InstanceFile>> {
     let source_id = sqlx::query_scalar!(
@@ -500,8 +508,8 @@ pub(crate) async fn move_instance_file_in_transaction(
             size = ?,
             missing = 0,
             modified_at = ?,
-            local_mod_data = COALESCE(?, local_mod_data),
-            icon_path = COALESCE(?, icon_path)
+            local_mod_data = ?,
+            icon_path = ?
         WHERE instance_id = ? AND relative_path = ?
         ",
     )
@@ -511,8 +519,8 @@ pub(crate) async fn move_instance_file_in_transaction(
     .bind(sha1)
     .bind(size as i64)
     .bind(Utc::now().timestamp())
-    .bind(local_mod_data)
-    .bind(icon_path)
+    .bind(None::<String>)
+    .bind(None::<String>)
     .bind(instance_id)
     .bind(old_relative_path)
     .execute(&mut **tx)
@@ -783,18 +791,29 @@ pub(crate) async fn set_local_mod_data_in_transaction(
     local_mod_data: Option<&str>,
     tx: &mut Transaction<'_, Sqlite>,
 ) -> crate::Result<()> {
-    sqlx::query(
-        "UPDATE instance_files SET local_mod_data = ?, icon_path = NULL WHERE id = ?",
+    if let Some((sha1, size)) = sqlx::query_as::<_, (String, i64)>(
+        "SELECT sha1,size FROM instance_files WHERE id=?",
     )
-    .bind(local_mod_data)
     .bind(file_id)
-    .execute(&mut **tx)
-    .await?;
+    .fetch_optional(&mut **tx)
+    .await?
+    {
+        crate::state::store::content_evidence::remember_parsed(
+            &mut *tx,
+            &sha1,
+            size,
+            local_mod_data,
+            None,
+        )
+        .await;
+    }
+    sqlx::query("UPDATE instance_files SET local_mod_data=NULL,icon_path=NULL WHERE id=?").bind(file_id).execute(&mut **tx).await?;
 
     Ok(())
 }
 
 /// Reads the metadata stored for files that carry exactly these bytes.
+#[cfg(test)]
 pub(crate) async fn get_local_mod_data_for_artifact<'e, E>(
     sha1: &str,
     size: i64,

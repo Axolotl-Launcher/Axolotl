@@ -2997,6 +2997,29 @@
         "install: let _ = std::fs::remove_dir_all(&staging_for_task);",
         "list: let entries = std::fs::read_dir(&themes_dir).map_err(io)?;"
       ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/content_facts.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed awaited native metadata-only content scan for local display; no hashing, decoding or database access inside worker and no scheduler managed resource acquisition (D17)",
+      "sites": [
+        "overlay: let scanned = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/manifest.rs",
+      "form": "std::fs",
+      "count": 6,
+      "reason": "reviewed bounded recovery backup I/O inside the awaited Document::inspect blocking worker; validates authority containment and checksums, syncs temporary files, and publishes the head last without acquiring scheduler resources (D17)",
+      "sites": [
+        "backup: if !std::fs::canonicalize(&path)?.starts_with(&canonical) {",
+        "backup: let canonical = std::fs::canonicalize(&base)?;",
+        "backup: let file = std::fs::File::open(base.join(\"recovery.json\"))?;",
+        "backup: let file = std::fs::File::open(path)?;",
+        "durable_copy: std::fs::File::open(parent)?.sync_all()?;",
+        "durable_copy: std::fs::create_dir_all(parent)?;"
+      ]
     }
   ]
 }

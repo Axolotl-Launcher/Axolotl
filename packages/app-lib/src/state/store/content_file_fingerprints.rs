@@ -2,68 +2,108 @@
 
 use crate::resources::{ContentHash, HashAlgorithm};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use sqlx::SqliteConnection;
 
+#[cfg(test)]
 use super::Collection;
 
 pub(crate) struct ContentFileFingerprints;
 
 impl ContentFileFingerprints {
-    pub(crate) async fn transfer(
+    #[cfg(test)]
+    pub(crate) async fn set(
         handle: &super::Handle,
-        instance_id: &str,
-        original: &str,
-        destination: &str,
-        root: &std::path::Path,
-        integrity: &crate::resources::ArtifactIntegrity,
+        key: &FingerprintKey,
+        record: Option<&FileFingerprintRecord>,
     ) -> crate::Result<()> {
-        let mut unit = super::atom(handle).await?;
-        let row: Option<(String, String)> = sqlx::query_as(
-            "SELECT file.id, fingerprint.payload FROM instance_files file
-             JOIN content_file_fingerprints fingerprint ON fingerprint.instance_id = file.instance_id AND fingerprint.file_id = file.id
-             WHERE file.instance_id = ? AND file.relative_path = ? AND file.missing = 0"
-        ).bind(instance_id).bind(destination).fetch_optional(unit.connection()).await?;
-        if let Some((file_id, payload)) = row
-            && let Some(mut record) = decode(&payload)
-            && record.relative_path == original
-            && record.content_root == root.to_string_lossy()
-            && integrity.size == Some(record.size)
-            && integrity.hashes.iter().any(|hash| {
-                hash.algorithm == HashAlgorithm::Sha1
-                    && hash.value.eq_ignore_ascii_case(record.sha1())
-            })
-        {
-            record.relative_path = destination.into();
-            Self::atom_set(
-                &mut unit,
-                &FingerprintKey {
-                    instance_id: instance_id.into(),
+        let Some(record) = record else {
+            super::content_evidence::remove(
+                handle,
+                "fingerprint",
+                &key.instance_id,
+                &key.file_id,
+            )
+            .await;
+            return Ok(());
+        };
+        let guards =
+            super::content_evidence::current(handle, &key.instance_id).await?;
+        let guard = guards.get(&key.file_id);
+        if let Some(guard) = guard {
+            super::content_evidence::write(
+                handle,
+                "fingerprint",
+                &key.file_id,
+                guard,
+                record,
+            )
+            .await;
+        }
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn set_scoped(
+        handle: &super::Handle,
+        instance: &String,
+        records: &[(FingerprintKey, FileFingerprintRecord)],
+    ) -> crate::Result<()> {
+        for (key, _) in Self::get_scoped(handle, instance).await? {
+            Self::set(handle, &key, None).await?;
+        }
+        for (key, record) in records {
+            Self::set(handle, key, Some(record)).await?;
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn get(
+        handle: &super::Handle,
+        key: &FingerprintKey,
+    ) -> crate::Result<Option<FileFingerprintRecord>> {
+        let guards =
+            super::content_evidence::current(handle, &key.instance_id).await?;
+        let Some(guard) = guards.get(&key.file_id) else {
+            return Ok(None);
+        };
+        Ok(super::content_evidence::read(
+            handle,
+            "fingerprint",
+            &key.instance_id,
+            &key.file_id,
+            guard,
+        )
+        .await)
+    }
+    pub(crate) async fn get_scoped(
+        handle: &super::Handle,
+        instance: &String,
+    ) -> crate::Result<Vec<(FingerprintKey, FileFingerprintRecord)>> {
+        let guards = super::content_evidence::current(handle, instance).await?;
+        Ok(super::content_evidence::read_scoped(
+            handle,
+            "fingerprint",
+            instance,
+            &guards,
+            None,
+        )
+        .await
+        .into_iter()
+        .map(|(file_id, record)| {
+            (
+                FingerprintKey {
+                    instance_id: instance.clone(),
                     file_id,
                 },
-                Some(&record),
+                record,
             )
-            .await?;
-        }
-        unit.commit().await
+        })
+        .collect())
     }
-
-    pub(crate) async fn get_current(
-        handle: &super::Handle,
-        instance_id: &str,
-        relative_path: &str,
-    ) -> crate::Result<Option<FileFingerprintRecord>> {
-        let payload: Option<String> = sqlx::query_scalar(
-            "SELECT fingerprint.payload FROM content_file_fingerprints fingerprint
-             JOIN instance_files file ON file.instance_id = fingerprint.instance_id AND file.id = fingerprint.file_id
-             WHERE file.instance_id = ? AND file.relative_path = ? AND file.missing = 0"
-        ).bind(instance_id).bind(relative_path).fetch_optional(handle.pool()).await?;
-        Ok(payload.and_then(|payload| decode(&payload)))
-    }
-
-    /// Recognition can finish after another operation replaced the tracked file.
     pub(crate) async fn set_current(
         handle: &super::Handle,
-        instance_id: &str,
+        instance: &str,
         record: &FileFingerprintRecord,
     ) -> crate::Result<()> {
         if !record.valid() {
@@ -72,15 +112,87 @@ impl ContentFileFingerprints {
             )
             .into());
         }
-        let mut unit = super::atom(handle).await?;
-        sqlx::query(
-            "INSERT INTO content_file_fingerprints (instance_id, file_id, payload)
-             SELECT instance_id, id, ? FROM instance_files
-             WHERE instance_id = ? AND relative_path = ? AND sha1 = ? AND size = ? AND missing = 0
-             ON CONFLICT (instance_id, file_id) DO UPDATE SET payload = excluded.payload"
-        ).bind(serde_json::to_string(record)?).bind(instance_id).bind(&record.relative_path)
-            .bind(record.sha1()).bind(record.size as i64).execute(unit.connection()).await?;
-        unit.commit().await
+        let guards = super::content_evidence::current(handle, instance).await?;
+        if let Some(guard) = guards.values().find(|guard| {
+            guard.relative_path == record.relative_path
+                && guard.sha1.eq_ignore_ascii_case(record.sha1())
+                && u64::try_from(guard.size).ok() == Some(record.size)
+        }) {
+            super::content_evidence::write(
+                handle,
+                "fingerprint",
+                &guard.file_id,
+                guard,
+                record,
+            )
+            .await;
+        }
+        Ok(())
+    }
+    pub(crate) async fn get_current(
+        handle: &super::Handle,
+        instance: &str,
+        path: &str,
+    ) -> crate::Result<Option<FileFingerprintRecord>> {
+        let guards = super::content_evidence::current(handle, instance).await?;
+        let Some(guard) =
+            guards.values().find(|guard| guard.relative_path == path)
+        else {
+            return Ok(None);
+        };
+        Ok(super::content_evidence::read(
+            handle,
+            "fingerprint",
+            instance,
+            &guard.file_id,
+            guard,
+        )
+        .await)
+    }
+    pub(crate) async fn transfer(
+        handle: &super::Handle,
+        instance: &str,
+        original: &str,
+        destination: &str,
+        root: &std::path::Path,
+        integrity: &crate::resources::ArtifactIntegrity,
+    ) -> crate::Result<()> {
+        let guards = super::content_evidence::current(handle, instance).await?;
+        if let Some(guard) = guards
+            .values()
+            .find(|guard| guard.relative_path == destination)
+        {
+            if let Some(mut record) =
+                super::content_evidence::read::<FileFingerprintRecord>(
+                    handle,
+                    "fingerprint",
+                    instance,
+                    &guard.file_id,
+                    guard,
+                )
+                .await
+            {
+                if record.relative_path == original
+                    && record.content_root == root.to_string_lossy()
+                    && integrity.size == Some(record.size)
+                    && integrity.hashes.iter().any(|hash| {
+                        hash.algorithm == HashAlgorithm::Sha1
+                            && hash.value.eq_ignore_ascii_case(record.sha1())
+                    })
+                {
+                    record.relative_path = destination.into();
+                    super::content_evidence::write(
+                        handle,
+                        "fingerprint",
+                        &guard.file_id,
+                        guard,
+                        &record,
+                    )
+                    .await;
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -180,6 +292,7 @@ impl FileFingerprintRecord {
     }
 }
 
+#[cfg(test)]
 impl Collection for ContentFileFingerprints {
     type Key = FingerprintKey;
     type Scope = String;
@@ -293,6 +406,7 @@ impl Collection for ContentFileFingerprints {
     }
 }
 
+#[cfg(test)]
 fn decode(payload: &str) -> Option<FileFingerprintRecord> {
     match serde_json::from_str::<FileFingerprintRecord>(payload) {
         Ok(record) if record.valid() => Some(record),

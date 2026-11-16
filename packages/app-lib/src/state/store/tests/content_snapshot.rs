@@ -240,6 +240,7 @@ async fn local_projection_restores_success_after_failure_and_rejects_changed_con
     let mut record = RefreshCheckRecord {
         file_id: "file".into(),
         context: RefreshCheckContext {
+            content_revision: None,
             location_key: location_key(&records.instance),
             content_root: "E:/game".into(),
             sha1: "a".repeat(40),

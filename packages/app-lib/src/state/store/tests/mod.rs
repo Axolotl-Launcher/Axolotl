@@ -6,6 +6,7 @@
 
 mod atom;
 mod cache;
+mod content_evidence;
 mod content_refresh;
 mod content_snapshot;
 mod crash_analysis_mod_snapshots;

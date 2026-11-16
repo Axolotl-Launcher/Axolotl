@@ -148,6 +148,7 @@ pub async fn edit_icon(
     icon_path: Option<&Path>,
 ) -> crate::Result<()> {
     let state = State::get().await?;
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let instance =
         instance_rows::get_instance_display_info(instance_id, &state.pool)
             .await?

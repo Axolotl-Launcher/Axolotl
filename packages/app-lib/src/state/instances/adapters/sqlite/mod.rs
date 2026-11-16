@@ -11,6 +11,7 @@ pub(crate) mod instance_servers;
 pub(crate) mod legacy_import;
 pub(crate) mod links;
 pub(crate) mod loader_component_rows;
+pub(crate) mod manifest_rows;
 pub(crate) mod pack_members;
 pub(crate) mod playtime;
 pub(crate) mod post_upgrade_notices;

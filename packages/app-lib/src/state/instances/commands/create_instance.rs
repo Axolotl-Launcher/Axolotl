@@ -2,9 +2,7 @@ use crate::launcher::get_loader_version_from_profile;
 use crate::state::instances::{
     ContentSet, ContentSetStatus, ContentSourceKind, Instance,
     InstanceLaunchOverrides, InstanceLink, LoaderComponent,
-    adapters::sqlite::{
-        config_sync_rows, instance_rows, loader_component_rows,
-    },
+    adapters::sqlite::{instance_rows, loader_component_rows},
     config_sync,
 };
 use crate::state::{
@@ -40,6 +38,7 @@ pub(crate) async fn create_instance(
     mut input: CreateInstance,
     state: &State,
 ) -> crate::Result<Instance> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _metadata_usage = crate::storage::usage::lease().await?;
     trace!("Creating new instance. {}", input.name);
 
@@ -248,11 +247,6 @@ pub(crate) async fn create_instance(
         .map_err(|error| {
             error.with_context("Creating instance: initialize launch overrides")
         })?;
-        config_sync_rows::upsert_config_updated_at(&instance_id, &mut *tx)
-            .await
-            .map_err(|error| {
-                error.with_context("Creating instance: mark config projection")
-            })?;
         crate::install::store::attach_initial_instance(&instance, &mut tx)
             .await
             .map_err(|error| {

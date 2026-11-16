@@ -23,6 +23,7 @@ async fn remove_instance_with_policy(
     state: &State,
     preserve_external_files: bool,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _maintenance_guard =
         crate::api::instance::lock_instance_maintenance(instance_id).await;
     crate::api::instance::begin_instance_deletion(instance_id).await?;
@@ -77,6 +78,22 @@ async fn remove_instance_files_and_state(
             &state.directories.instances_dir(),
         )
         .await?;
+    // Fence both recovery copies before the first destructive file operation.
+    // A failed deletion retains its intent and the previous shards for inspection.
+    let revision =
+        crate::state::instances::adapters::sqlite::manifest_rows::revision(
+            &state.pool,
+            instance_id,
+        )
+        .await?;
+    crate::state::instances::manifest::tombstone(
+        &state.directories,
+        &state.pool,
+        instance_id,
+        revision,
+    )
+    .await?;
+
     super::content_file_operations::recover_before_instance_removal(
         state,
         instance_id,

@@ -2105,11 +2105,17 @@ pub async fn launch_minecraft(
     }
 
     let state = State::get().await?;
+    let recovery_mode =
+        crate::state::store::recovery_mode::root(&state.pool).is_some();
+    // Storage recovery restricts repair/downloads; authentication keeps the
+    // caller's chosen online/offline mode.
+    let local_runtime_only = offline_mode || recovery_mode;
 
     let runtime =
         InstanceRuntimeAdapter::for_instance(instance, &state.directories)?;
     let direct_launch = runtime.direct_link().cloned();
-    if direct_launch.is_some() && !instance.is_direct_linked() {
+    if !recovery_mode && direct_launch.is_some() && !instance.is_direct_linked()
+    {
         // Instances created before direct-link metadata was introduced retain
         // their external `game_dir_override`. Their adapter above already
         // launches them in place; persist the resolved identity now so future
@@ -2142,7 +2148,8 @@ pub async fn launch_minecraft(
         .await?
     };
 
-    let cache_behaviour = offline_mode.then_some(CacheBehaviour::CacheOnly);
+    let cache_behaviour =
+        local_runtime_only.then_some(CacheBehaviour::CacheOnly);
     let mut linked_libraries = None;
     let mut mmc_profile = None;
 
@@ -2260,7 +2267,7 @@ pub async fn launch_minecraft(
         .await;
         let (minecraft, version_index) = match cached_minecraft {
             Ok(value) => value,
-            Err(error) if offline_mode => return Err(error),
+            Err(error) if local_runtime_only => return Err(error),
             Err(_) => {
                 resolve_minecraft_manifest_with_cache(
                     &content_set.game_version,
@@ -2294,7 +2301,7 @@ pub async fn launch_minecraft(
             version,
             metadata_loader,
             content_set.loader_version.as_deref(),
-            offline_mode,
+            local_runtime_only,
         )
         .await?;
 
@@ -2310,7 +2317,7 @@ pub async fn launch_minecraft(
                     .iter()
                     .position(|x| x.id == "13w39a")
                     .unwrap_or(0);
-            if requires_logging_info && !offline_mode {
+            if requires_logging_info && !local_runtime_only {
                 // Logging belongs to the base game; recovering it must not
                 // reintroduce an online loader catalog dependency.
                 let (_, vanilla) = load_managed_launch_profile(
@@ -2329,7 +2336,7 @@ pub async fn launch_minecraft(
             let vanilla = if profile.replaces_minecraft()
                 && metadata_loader != ModLoader::Vanilla
             {
-                Some(if offline_mode {
+                Some(if local_runtime_only {
                     download::load_local_version_info(
                         &state,
                         version,
@@ -2383,7 +2390,7 @@ pub async fn launch_minecraft(
     };
 
     if direct_launch.is_none() {
-        if offline_mode {
+        if local_runtime_only {
             download::ensure_local_log_config(&state, &version_info)?;
         } else {
             let _ = download_log_config(
@@ -2584,7 +2591,7 @@ pub async fn launch_minecraft(
                     &vanilla_client_path,
                     &java_version.architecture,
                     minecraft_updated,
-                    offline_mode,
+                    local_runtime_only,
                 )
                 .await?
                 .assemble(&vanilla_client_path, &instance_path)
@@ -2642,7 +2649,7 @@ pub async fn launch_minecraft(
     // config in the standard shared locations. Version JSONs, launcher
     // private configuration, and game data are never written. Offline mode
     // forbids network fetches, so it keeps the previous strict behavior.
-    if !offline_mode
+    if !local_runtime_only
         && let (Some(direct), Some(libraries)) =
             (&direct_launch, linked_libraries.as_deref())
     {
@@ -2690,7 +2697,7 @@ pub async fn launch_minecraft(
         })
         .await??;
     } else if direct_launch.is_none() {
-        if offline_mode {
+        if local_runtime_only {
             natives::prepare_native_libraries(
                 &state.directories.natives_dir(),
                 &state.directories.libraries_dir(),

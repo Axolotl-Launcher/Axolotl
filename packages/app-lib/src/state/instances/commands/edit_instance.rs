@@ -1,9 +1,7 @@
 use crate::state::instances::{
     ContentSourceKind, Instance, InstanceLaunchOverrides, InstanceLink,
     LoaderComponent,
-    adapters::sqlite::{
-        config_sync_rows, instance_rows, loader_component_rows, pack_members,
-    },
+    adapters::sqlite::{instance_rows, loader_component_rows, pack_members},
     config_sync,
 };
 use crate::state::{
@@ -138,6 +136,7 @@ pub(crate) async fn edit_instance(
     patch: EditInstance,
     pool: &SqlitePool,
 ) -> crate::Result<Instance> {
+    crate::state::store::recovery_mode::ensure_writable(pool)?;
     let _metadata_usage = crate::storage::usage::lease().await?;
     let mut instance = instance_rows::get_instance_by_id(instance_id, pool)
         .await?
@@ -238,7 +237,6 @@ pub(crate) async fn edit_instance(
             .await?;
     }
 
-    config_sync_rows::upsert_config_updated_at(&instance.id, &mut *tx).await?;
     tx.commit().await?;
 
     config_sync::mark_dirty(&instance.id);

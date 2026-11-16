@@ -75,7 +75,7 @@ pub(crate) async fn ensure_instance_supported(
     Ok(())
 }
 
-pub(super) async fn unsupported_on(
+pub(crate) async fn unsupported_on(
     connection: &mut SqliteConnection,
 ) -> Result<HashSet<String>, sqlx::Error> {
     let statement = format!(

@@ -39,6 +39,7 @@ pub(crate) const FILE_NAME: &str = "derived.db";
 static MIGRATOR: sqlx::migrate::Migrator =
     sqlx::migrate!("./derived_migrations");
 
+#[derive(Clone)]
 pub(crate) struct DerivedDb {
     path: PathBuf,
     pool: SqlitePool,

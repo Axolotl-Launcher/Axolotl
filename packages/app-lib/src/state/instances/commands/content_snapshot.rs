@@ -48,7 +48,7 @@ fn file_modified_date(
                 record.modified.nanos,
             )
         })
-        .unwrap_or(file.added_at)
+        .unwrap_or(file.modified_at)
         .to_rfc3339()
 }
 

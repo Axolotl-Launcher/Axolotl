@@ -48,6 +48,7 @@ pub(super) async fn prepare(
     delete: bool,
     _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     recover(state, instance_id, root).await?;
     let mut files = Vec::new();
     for (original, destination) in paths {
@@ -110,6 +111,7 @@ pub(super) async fn prepare_schematic(
     root: &Path,
     publication: &super::install_schematic::Publication,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let journal = Journal {
         schema_version: 1,
         root: io::canonicalize(root)?.to_string_lossy().into_owned(),
@@ -144,6 +146,7 @@ pub(super) async fn publish(
     root: &Path,
     _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let (payload, _) = journals::get(&state.data, instance_id)
         .await?
         .ok_or_else(|| {
@@ -195,6 +198,7 @@ pub(super) async fn recover(
     instance_id: &str,
     root: &Path,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let row = journals::get(&state.data, instance_id).await?;
     let Some((payload, committed)) = row else {
         return Ok(());
@@ -288,6 +292,7 @@ pub(super) async fn recover_before_instance_removal(
     root: &Path,
     missing_managed_profile: bool,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     if !missing_managed_profile {
         return recover(state, instance_id, root).await;
     }

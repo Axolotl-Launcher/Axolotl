@@ -55,6 +55,23 @@ pub(crate) async fn list_loader_components(
     rows.into_iter().map(TryInto::try_into).collect()
 }
 
+pub(crate) async fn recovery_components_on(
+    instance_id: &str,
+    pool: &mut sqlx::SqliteConnection,
+) -> crate::Result<Vec<LoaderComponent>> {
+    let rows = sqlx::query_as::<_, LoaderComponentRow>(
+        "SELECT instance_id, kind, version, role, provider_metadata
+         FROM instance_loader_components
+         WHERE instance_id = ?
+         ORDER BY CASE role WHEN 'primary' THEN 0 ELSE 1 END, kind",
+    )
+    .bind(instance_id)
+    .fetch_all(pool)
+    .await?;
+
+    rows.into_iter().map(TryInto::try_into).collect()
+}
+
 pub(crate) async fn list_loader_components_many(
     instance_ids: &[&str],
     pool: &SqlitePool,

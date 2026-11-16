@@ -75,6 +75,7 @@ fn check() -> RefreshCheckRecord {
     RefreshCheckRecord {
         file_id: "file".into(),
         context: RefreshCheckContext {
+            content_revision: None,
             location_key: "location".into(),
             content_root: "E:/instances/main".into(),
             sha1: "a".repeat(40),
@@ -106,22 +107,34 @@ async fn attributes_and_checks_round_trip_and_failed_attempt_preserves_success()
     record.succeeded(100, Some(candidate));
     let successful = record.last_success.clone();
     let mut unit = atom(&handle).await.unwrap();
-    ContentFileFingerprints::atom_set(
+    <ContentFileFingerprints as crate::state::store::Collection>::atom_set(
         &mut unit,
         &fingerprint_key(),
         Some(&fingerprint()),
     )
     .await
     .unwrap();
-    ContentRefreshChecks::atom_set(&mut unit, &check_key(), Some(&record))
-        .await
-        .unwrap();
+    <ContentRefreshChecks as crate::state::store::Collection>::atom_set(
+        &mut unit,
+        &check_key(),
+        Some(&record),
+    )
+    .await
+    .unwrap();
     unit.commit().await.unwrap();
     record.failed(101, "offline".into());
-    ContentRefreshChecks::set(&handle, &check_key(), Some(&record))
-        .await
-        .unwrap();
-    let stored = ContentRefreshChecks::get(&handle, &check_key())
+    <ContentRefreshChecks as crate::state::store::Collection>::set(
+        &handle,
+        &check_key(),
+        Some(&record),
+    )
+    .await
+    .unwrap();
+    let stored =
+        <ContentRefreshChecks as crate::state::store::Collection>::get(
+            &handle,
+            &check_key(),
+        )
         .await
         .unwrap()
         .unwrap();
@@ -129,19 +142,29 @@ async fn attributes_and_checks_round_trip_and_failed_attempt_preserves_success()
     assert_eq!(stored.attempt, CheckAttempt::Failed);
     assert_eq!(stored.error.as_deref(), Some("offline"));
     assert_eq!(
-        ContentFileFingerprints::get(&handle, &fingerprint_key())
-            .await
-            .unwrap(),
+        <ContentFileFingerprints as crate::state::store::Collection>::get(
+            &handle,
+            &fingerprint_key()
+        )
+        .await
+        .unwrap(),
         Some(fingerprint())
     );
     record.succeeded(102, None);
-    ContentRefreshChecks::set(&handle, &check_key(), Some(&record))
-        .await
-        .unwrap();
+    <ContentRefreshChecks as crate::state::store::Collection>::set(
+        &handle,
+        &check_key(),
+        Some(&record),
+    )
+    .await
+    .unwrap();
     assert_eq!(
-        ContentRefreshChecks::get(&handle, &check_key())
-            .await
-            .unwrap(),
+        <ContentRefreshChecks as crate::state::store::Collection>::get(
+            &handle,
+            &check_key()
+        )
+        .await
+        .unwrap(),
         Some(record)
     );
 }
@@ -149,59 +172,82 @@ async fn attributes_and_checks_round_trip_and_failed_attempt_preserves_success()
 #[tokio::test]
 async fn scoped_empty_and_rollback_are_atomic() {
     let handle = handle().await;
-    ContentFileFingerprints::set(
+    <ContentFileFingerprints as crate::state::store::Collection>::set(
         &handle,
         &fingerprint_key(),
         Some(&fingerprint()),
     )
     .await
     .unwrap();
-    ContentRefreshChecks::set(&handle, &check_key(), Some(&check()))
-        .await
-        .unwrap();
+    <ContentRefreshChecks as crate::state::store::Collection>::set(
+        &handle,
+        &check_key(),
+        Some(&check()),
+    )
+    .await
+    .unwrap();
     let mut unit = atom(&handle).await.unwrap();
-    ContentFileFingerprints::atom_set_scoped(
+    <ContentFileFingerprints as crate::state::store::Collection>::atom_set_scoped(
         &mut unit,
         &"instance".into(),
         &[],
     )
     .await
     .unwrap();
-    ContentRefreshChecks::atom_set_scoped(&mut unit, &"instance".into(), &[])
-        .await
-        .unwrap();
+    <ContentRefreshChecks as crate::state::store::Collection>::atom_set_scoped(
+        &mut unit,
+        &"instance".into(),
+        &[],
+    )
+    .await
+    .unwrap();
     drop(unit);
     assert_eq!(
-        ContentFileFingerprints::get_scoped(&handle, &"instance".into())
+        <ContentFileFingerprints as crate::state::store::Collection>::get_scoped(&handle, &"instance".into())
             .await
             .unwrap()
             .len(),
         1
     );
     assert_eq!(
-        ContentRefreshChecks::get_scoped(&handle, &"other".into())
-            .await
-            .unwrap()
-            .len(),
+        <ContentRefreshChecks as crate::state::store::Collection>::get_scoped(
+            &handle,
+            &"other".into()
+        )
+        .await
+        .unwrap()
+        .len(),
         0
     );
-    ContentFileFingerprints::set_scoped(&handle, &"instance".into(), &[])
-        .await
-        .unwrap();
-    ContentRefreshChecks::set_scoped(&handle, &"instance".into(), &[])
-        .await
-        .unwrap();
+    <ContentFileFingerprints as crate::state::store::Collection>::set_scoped(
+        &handle,
+        &"instance".into(),
+        &[],
+    )
+    .await
+    .unwrap();
+    <ContentRefreshChecks as crate::state::store::Collection>::set_scoped(
+        &handle,
+        &"instance".into(),
+        &[],
+    )
+    .await
+    .unwrap();
     assert!(
-        ContentRefreshChecks::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <ContentRefreshChecks as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
     assert!(
-        ContentFileFingerprints::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <ContentFileFingerprints as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
 }
 
@@ -213,44 +259,60 @@ async fn wrong_instance_is_rejected_and_deleted_files_remove_results() {
         ..fingerprint_key()
     };
     assert!(
-        ContentFileFingerprints::set(&handle, &wrong, Some(&fingerprint()))
-            .await
-            .is_err()
+        <ContentFileFingerprints as crate::state::store::Collection>::set(
+            &handle,
+            &wrong,
+            Some(&fingerprint())
+        )
+        .await
+        .is_err()
     );
     let wrong = RefreshCheckKey {
         instance_id: "other".into(),
         ..check_key()
     };
     assert!(
-        ContentRefreshChecks::set(&handle, &wrong, Some(&check()))
-            .await
-            .is_err()
+        <ContentRefreshChecks as crate::state::store::Collection>::set(
+            &handle,
+            &wrong,
+            Some(&check())
+        )
+        .await
+        .is_err()
     );
-    ContentFileFingerprints::set(
+    <ContentFileFingerprints as crate::state::store::Collection>::set(
         &handle,
         &fingerprint_key(),
         Some(&fingerprint()),
     )
     .await
     .unwrap();
-    ContentRefreshChecks::set(&handle, &check_key(), Some(&check()))
-        .await
-        .unwrap();
+    <ContentRefreshChecks as crate::state::store::Collection>::set(
+        &handle,
+        &check_key(),
+        Some(&check()),
+    )
+    .await
+    .unwrap();
     sqlx::query("DELETE FROM instance_files WHERE id = 'file'")
         .execute(handle.pool())
         .await
         .unwrap();
     assert!(
-        ContentFileFingerprints::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <ContentFileFingerprints as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
     assert!(
-        ContentRefreshChecks::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <ContentRefreshChecks as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
     let violations: Vec<(String, i64, String, i64)> =
         sqlx::query_as("PRAGMA foreign_key_check")
@@ -263,34 +325,42 @@ async fn wrong_instance_is_rejected_and_deleted_files_remove_results() {
 #[tokio::test]
 async fn malformed_rows_are_skipped_without_hiding_valid_records() {
     let handle = handle().await;
-    ContentFileFingerprints::set(
+    <ContentFileFingerprints as crate::state::store::Collection>::set(
         &handle,
         &fingerprint_key(),
         Some(&fingerprint()),
     )
     .await
     .unwrap();
-    ContentRefreshChecks::set(&handle, &check_key(), Some(&check()))
-        .await
-        .unwrap();
+    <ContentRefreshChecks as crate::state::store::Collection>::set(
+        &handle,
+        &check_key(),
+        Some(&check()),
+    )
+    .await
+    .unwrap();
     sqlx::query("UPDATE content_refresh_checks SET payload = '{\"context\":{\"preferred_source\":\"\"}}'").execute(handle.pool()).await.unwrap();
     assert!(
-        ContentRefreshChecks::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <ContentRefreshChecks as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
     assert_eq!(
-        ContentFileFingerprints::get_all(&handle)
-            .await
-            .unwrap()
-            .len(),
+        <ContentFileFingerprints as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .len(),
         1
     );
     let mut invalid = fingerprint();
     invalid.modified.nanos = 1_000_000_000;
     assert!(
-        ContentFileFingerprints::set(
+        <ContentFileFingerprints as crate::state::store::Collection>::set(
             &handle,
             &fingerprint_key(),
             Some(&invalid)
@@ -303,10 +373,12 @@ async fn malformed_rows_are_skipped_without_hiding_valid_records() {
         .await
         .unwrap();
     assert!(
-        ContentFileFingerprints::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <ContentFileFingerprints as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
 }
 
@@ -334,16 +406,20 @@ async fn refresh_migration_preserves_existing_rows_and_establishes_no_unverified
     migrations.run(&pool).await.unwrap();
     let handle = Handle::new(pool);
     assert!(
-        ContentFileFingerprints::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <ContentFileFingerprints as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
     assert!(
-        ContentRefreshChecks::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <ContentRefreshChecks as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
     let files: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instance_files")
         .fetch_one(handle.pool())
@@ -672,7 +748,7 @@ async fn results_survive_closing_and_reopening_the_database() {
     sqlx::migrate!().run(&pool).await.unwrap();
     seed(&pool).await;
     let handle = Handle::new(pool.clone());
-    ContentFileFingerprints::set(
+    <ContentFileFingerprints as crate::state::store::Collection>::set(
         &handle,
         &fingerprint_key(),
         Some(&fingerprint()),
@@ -684,9 +760,13 @@ async fn results_survive_closing_and_reopening_the_database() {
         "project": { "source": "modrinth", "projectId": "12345678" }, "releaseId": "release1"
     })).unwrap()));
     result.failed(101, "offline".into());
-    ContentRefreshChecks::set(&handle, &check_key(), Some(&result))
-        .await
-        .unwrap();
+    <ContentRefreshChecks as crate::state::store::Collection>::set(
+        &handle,
+        &check_key(),
+        Some(&result),
+    )
+    .await
+    .unwrap();
     pool.close().await;
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(1)
@@ -695,15 +775,21 @@ async fn results_survive_closing_and_reopening_the_database() {
         .unwrap();
     let handle = Handle::new(pool);
     assert_eq!(
-        ContentFileFingerprints::get(&handle, &fingerprint_key())
-            .await
-            .unwrap(),
+        <ContentFileFingerprints as crate::state::store::Collection>::get(
+            &handle,
+            &fingerprint_key()
+        )
+        .await
+        .unwrap(),
         Some(fingerprint())
     );
     assert_eq!(
-        ContentRefreshChecks::get(&handle, &check_key())
-            .await
-            .unwrap(),
+        <ContentRefreshChecks as crate::state::store::Collection>::get(
+            &handle,
+            &check_key()
+        )
+        .await
+        .unwrap(),
         Some(result)
     );
     handle.pool().close().await;

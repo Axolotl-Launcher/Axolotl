@@ -17,6 +17,7 @@ pub(crate) mod cache;
 pub(crate) mod compatibility;
 pub(crate) mod configuration;
 pub(crate) mod content_dependencies;
+pub(crate) mod content_evidence;
 pub(crate) mod content_file_fingerprints;
 pub(crate) mod content_file_operations;
 pub(crate) mod content_refresh;
@@ -59,6 +60,7 @@ pub(crate) mod official_login_proof;
 pub(crate) mod offline_minecraft_skins;
 pub(crate) mod pending_backup_repository_cleanups;
 pub(crate) mod records_db;
+pub(crate) mod recovery_mode;
 pub(crate) mod resource_artifact_evidence;
 pub(crate) mod resource_cache_entries;
 pub(crate) mod resource_cache_schema;
@@ -124,6 +126,12 @@ impl Handle {
     pub(crate) fn new(pool: SqlitePool) -> Self {
         let filename = pool.connect_options().get_filename().to_path_buf();
         let accounts = std::sync::OnceLock::new();
+        let recovery_root = recovery_mode::root(&pool);
+        if let Some(root) = &recovery_root {
+            let _ = accounts.set(crate::state::accounts::Accounts::new(
+                &crate::state::persistence::Persistence::new(root),
+            ));
+        }
         if filename.file_name().is_some_and(|name| name == "system.db") {
             let _ = accounts.set(crate::state::accounts::Accounts::new(
                 &crate::state::persistence::Persistence::new(
@@ -135,7 +143,9 @@ impl Handle {
             ));
         }
         Self {
-            persistence: if filename
+            persistence: if recovery_root.is_some() {
+                Some(persistence_for_pool(&pool))
+            } else if filename
                 .file_name()
                 .is_some_and(|name| name == "system.db")
             {
@@ -322,6 +332,7 @@ pub(crate) fn names_a_missing_row(error: &crate::Error) -> bool {
 /// asked to write could find another writer had committed in between, and be
 /// refused instead of applied.
 pub(crate) async fn atom(handle: &Handle) -> crate::Result<Atom> {
+    recovery_mode::ensure_writable(&handle.pool)?;
     Ok(Atom {
         transaction: handle.pool.begin_with("BEGIN IMMEDIATE").await?,
         invalidate_settings: false,
@@ -531,6 +542,9 @@ fn ensure_in_scope<C: Collection>(
 pub(crate) fn persistence_for_pool(
     pool: &SqlitePool,
 ) -> crate::state::persistence::Persistence {
+    if let Some(root) = recovery_mode::root(pool) {
+        return crate::state::persistence::Persistence::new(root);
+    }
     let filename = pool.connect_options().get_filename().to_path_buf();
     if filename.file_name().is_some_and(|name| name == "system.db") {
         return crate::state::persistence::Persistence::new(

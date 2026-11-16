@@ -1,13 +1,10 @@
 //! Conditional writes for asynchronous content refresh work.
 
 use super::content_refresh_checks::{
-    ContentRefreshChecks, RefreshCheckContext, RefreshCheckKey,
-    RefreshCheckRecord, location_key,
+    RefreshCheckContext, RefreshCheckRecord, location_key,
 };
-use super::content_refresh_presentations::{
-    ContentRefreshPresentations, PresentationKey, PresentationRecord,
-};
-use super::{Collection as _, Handle, atom};
+use super::content_refresh_presentations::PresentationRecord;
+use super::{Handle, atom};
 use crate::resources::*;
 
 use crate::state::instances::adapters::sqlite::content_sets;
@@ -65,9 +62,15 @@ pub(crate) async fn set_results(
         ),
     };
     let location = location_key(&instance);
+    let evidence_guards =
+        super::content_evidence::guards(unit.connection(), instance_id).await?;
     let mut applied = Vec::new();
     for mut write in writes {
-        if write.context.location_key != location
+        if write
+            .context
+            .content_revision
+            .is_some_and(|revision| revision != content_set.revision)
+            || write.context.location_key != location
             || write.context.target != target
             || write.context.preferred_source.as_str() != preferred
         {
@@ -137,24 +140,20 @@ pub(crate) async fn set_results(
             )
             .await?;
         }
-        if let Some(check) = &write.check {
-            ContentRefreshChecks::atom_set(
-                &mut unit,
-                &RefreshCheckKey {
-                    instance_id: instance_id.into(),
-                    entry_id: write.entry_id.clone(),
-                },
-                Some(check),
-            )
-            .await?;
-        }
         if let Some(presentation) = &mut write.presentation {
-            let key = PresentationKey {
-                instance_id: instance_id.into(),
-                file_id: write.file_id.clone(),
+            let Some(evidence_guard) = evidence_guards.get(&write.file_id)
+            else {
+                continue;
             };
             if let Some(previous) =
-                ContentRefreshPresentations::atom_get(&mut unit, &key).await?
+                super::content_evidence::read::<PresentationRecord>(
+                    handle,
+                    "presentation",
+                    instance_id,
+                    &write.file_id,
+                    evidence_guard,
+                )
+                .await
                 && previous.location_key == presentation.location_key
                 && previous.content.id == presentation.content.id
                 && previous.content.size == presentation.content.size
@@ -186,18 +185,36 @@ pub(crate) async fn set_results(
                     .or(previous.content.environment);
                 presentation.content.external &= previous.content.external;
             }
-            ContentRefreshPresentations::atom_set(
-                &mut unit,
-                &PresentationKey {
-                    instance_id: instance_id.into(),
-                    file_id: write.file_id.clone(),
-                },
-                Some(presentation),
-            )
-            .await?;
         }
         applied.push(write);
     }
+    let accepted_guards =
+        super::content_evidence::guards(unit.connection(), instance_id).await?;
     unit.commit().await?;
+    for write in &applied {
+        let Some(guard) = accepted_guards.get(&write.file_id) else {
+            continue;
+        };
+        if let Some(check) = &write.check {
+            super::content_evidence::write(
+                handle,
+                "check",
+                &write.entry_id,
+                guard,
+                check,
+            )
+            .await;
+        }
+        if let Some(presentation) = &write.presentation {
+            super::content_evidence::write(
+                handle,
+                "presentation",
+                &write.file_id,
+                guard,
+                presentation,
+            )
+            .await;
+        }
+    }
     Ok(applied)
 }

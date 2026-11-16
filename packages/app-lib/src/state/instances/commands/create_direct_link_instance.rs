@@ -41,6 +41,7 @@ pub(crate) async fn create_direct_link_instance(
     input: CreateDirectLinkInstance,
     state: &State,
 ) -> crate::Result<Instance> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _metadata_usage = crate::storage::usage::lease().await?;
     let resolved = resolve_direct_link(
         input.launcher_type,

@@ -737,6 +737,88 @@ where
     Ok(row)
 }
 
+pub(crate) async fn recovery_metadata_on(
+    id: &str,
+    connection: &mut sqlx::SqliteConnection,
+) -> crate::Result<Option<InstanceMetadataRecord>> {
+    let row = sqlx::query_as::<_, InstanceMetadataRow>(
+        r#"
+        SELECT
+            i.id,
+            i.path,
+            i.applied_content_set_id,
+            i.install_stage,
+            i.launcher_feature_version,
+            i.update_channel,
+            i.name,
+            i.icon_path,
+            i.symlink_target,
+            i.linked_launcher,
+            i.linked_launcher_root,
+            i.linked_dot_minecraft,
+            i.linked_version_id,
+            i.linked_version_json_path,
+            i.linked_game_dir_mode,
+            i.game_dir_override,
+            i.created,
+            i.modified,
+            i.last_played,
+            NULL AS pinned_at,
+            i.submitted_time_played,
+            i.recent_time_played,
+            cs.id AS content_set_id,
+            cs.instance_id AS content_set_instance_id,
+            cs.name AS content_set_name,
+            cs.source_kind AS content_set_source_kind,
+            cs.status AS content_set_status,
+            cs.game_version AS content_set_game_version,
+            cs.protocol_version AS content_set_protocol_version,
+            cs.loader AS content_set_loader,
+            cs.loader_version AS content_set_loader_version,
+            cs.revision AS content_set_revision,
+            cs.created AS content_set_created,
+            cs.modified AS content_set_modified,
+            COALESCE(link.link_kind, 'unmanaged') AS link_kind,
+            link.modrinth_project_id,
+            link.modrinth_version_id,
+            link.server_project_id,
+            link.content_project_id,
+            link.content_version_id,
+            link.hosting_server_id,
+            json(link.hosting_instance_ids) AS hosting_instance_ids,
+            link.hosting_active_instance_id,
+            link.shared_instance_id,
+            link.imported_name,
+            link.imported_version_number,
+            link.imported_filename,
+            COALESCE((
+                SELECT json_group_array(group_name)
+                FROM (
+                    SELECT group_name
+                    FROM instance_groups
+                    WHERE instance_id = i.id
+                    ORDER BY group_name
+                )
+            ), '[]') AS groups,
+            json(overrides.overrides) AS launch_overrides
+        FROM instances i
+        LEFT JOIN instance_content_sets cs
+            ON cs.id = i.applied_content_set_id
+            AND cs.instance_id = i.id
+        LEFT JOIN instance_links link
+            ON link.instance_id = i.id
+        LEFT JOIN instance_launch_overrides overrides
+            ON overrides.instance_id = i.id
+        WHERE i.id = ?
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(connection)
+    .await?;
+
+    row.map(InstanceMetadataRow::into_record).transpose()
+}
+
 pub(crate) async fn get_instance_metadata_by_id(
     id: &str,
     pool: &SqlitePool,

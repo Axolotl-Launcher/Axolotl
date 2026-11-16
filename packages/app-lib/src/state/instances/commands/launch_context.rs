@@ -2,8 +2,7 @@ use crate::state::InstanceInstallStage;
 use crate::state::instances::{
     InstanceLaunchContext, LoaderComponent,
     adapters::sqlite::{
-        config_sync_rows, content_sets, instance_rows, loader_component_rows,
-        playtime,
+        content_sets, instance_rows, loader_component_rows, playtime,
     },
     config_sync,
 };
@@ -41,7 +40,6 @@ pub(crate) async fn replace_instance_loader_components(
         &mut tx,
     )
     .await?;
-    config_sync_rows::upsert_config_updated_at(instance_id, &mut *tx).await?;
     tx.commit().await?;
     config_sync::mark_dirty(instance_id);
     Ok(())
@@ -73,7 +71,6 @@ pub(crate) async fn set_applied_content_set_loader_version(
         &mut tx,
     )
     .await?;
-    config_sync_rows::upsert_config_updated_at(instance_id, &mut *tx).await?;
     tx.commit().await?;
 
     config_sync::mark_dirty(instance_id);
@@ -96,7 +93,6 @@ pub(crate) async fn set_applied_content_set_protocol_version(
         &mut tx,
     )
     .await?;
-    config_sync_rows::upsert_config_updated_at(instance_id, &mut *tx).await?;
     tx.commit().await?;
 
     config_sync::mark_dirty(instance_id);
@@ -109,6 +105,9 @@ pub(crate) async fn set_instance_last_played(
     last_played: DateTime<Utc>,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    if crate::state::store::recovery_mode::root(pool).is_some() {
+        return Ok(());
+    }
     let modified = Utc::now().timestamp();
 
     instance_rows::set_last_played(instance_id, last_played, modified, pool)

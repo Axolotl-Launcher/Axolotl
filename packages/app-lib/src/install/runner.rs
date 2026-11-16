@@ -99,6 +99,7 @@ pub(crate) async fn interactive_content_guard(
     state: &State,
     instance_id: &str,
 ) -> crate::Result<Option<tokio::sync::OwnedMutexGuard<()>>> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     if EXECUTING_JOB.try_with(|_| ()).is_ok() {
         return Ok(None);
     }
@@ -1384,6 +1385,7 @@ async fn enqueue_with_content_plan(
     content_plan: Option<(&str, u64)>,
     state: &State,
 ) -> crate::Result<InstallJobSnapshot> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let instance = admission::request_instance(&request);
     let _admission = admission::lock(state, instance.as_deref()).await?;
     if let Some((plan_id, _)) = content_plan

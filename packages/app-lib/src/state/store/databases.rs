@@ -108,6 +108,7 @@ async fn attached_domains(
 pub(crate) async fn ensure_cleanup_supported(
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    super::recovery_mode::ensure_writable(pool)?;
     if pool
         .connect_options()
         .get_filename()
@@ -357,6 +358,7 @@ pub(crate) async fn backup(
             tracing::warn!(%error,"Core snapshot excludes unavailable optional daily history");
             crate::state::persistence::document::write_json(&staging.join("backup-status.json"),serde_json::to_vec(&serde_json::json!({"optional_exclusions":["records.db"]}))?).await?;
         }
+        crate::state::instances::manifest::backup(settings_dir,&staging).await?;
         tokio::fs::write(staging.join("complete"), b"axolotl database set\n")
             .await?;
         tokio::fs::rename(&staging, &destination).await?;
@@ -637,6 +639,10 @@ async fn create_schema(
             .execute("UPDATE configuration.settings SET version = 3")
             .await?;
     }
+    crate::state::instances::adapters::sqlite::manifest_rows::install(
+        connection, durable,
+    )
+    .await?;
     for object in &baseline().objects {
         if object.name == "resource_favorite_links" {
             continue;
@@ -1466,4 +1472,309 @@ mod tests {
         let ((), value) = tokio::time::timeout(Duration::from_secs(5), async { tokio::join!(commit, read) }).await.expect("new connections must resume after the configuration transaction commits");
         assert_eq!(value, "instances");
     }
+}
+
+/// Build a disposable read-only projection from validated recovery copies.
+/// Source database files are never opened for mutation by this path.
+pub(crate) async fn open_recovery(root: &Path) -> crate::Result<SqlitePool> {
+    let snapshots = crate::state::instances::manifest::list(root).await?;
+    if snapshots.is_empty() {
+        return Err(crate::ErrorKind::FSError(
+            "No complete instance recovery copies are available".into(),
+        )
+        .into());
+    }
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .idle_timeout(None)
+        .max_lifetime(None)
+        .connect_with(
+            SqliteConnectOptions::new()
+                .in_memory(true)
+                .foreign_keys(false),
+        )
+        .await?;
+    let mut connection = pool.acquire().await?;
+    connection
+        .execute("ATTACH DATABASE ':memory:' AS configuration")
+        .await?;
+    for domain in ["instances", "storage", "operations", "sync"] {
+        connection
+            .execute(sqlx::AssertSqlSafe(format!(
+                "ATTACH DATABASE ':memory:' AS {}",
+                quote(domain)
+            )))
+            .await?;
+    }
+    create_schema(&mut connection, true).await?;
+    let triggers: Vec<String> = sqlx::query_scalar(
+        "SELECT name FROM temp.sqlite_schema WHERE type='trigger'",
+    )
+    .fetch_all(&mut *connection)
+    .await?;
+    for trigger in triggers {
+        connection
+            .execute(sqlx::AssertSqlSafe(format!(
+                "DROP TRIGGER temp.{}",
+                quote(&trigger)
+            )))
+            .await?;
+    }
+    let mut imported = 0usize;
+    for snapshot in snapshots {
+        let id = snapshot.metadata.instance.id.clone();
+        let mut transaction = connection.begin().await?;
+        match import_recovery_snapshot(&mut transaction, &snapshot).await {
+            Ok(()) => {
+                transaction.commit().await?;
+                imported += 1;
+            }
+            Err(error) => {
+                transaction.rollback().await?;
+                tracing::warn!(instance_id=%id,%error,"Unsupported or incomplete recovery copy retained; skipping this instance");
+            }
+        }
+    }
+    if imported == 0 {
+        return Err(crate::ErrorKind::FSError(
+            "No supported complete instance recovery copies are available"
+                .into(),
+        )
+        .into());
+    }
+    if let Err(error) =
+        super::configuration::recover_and_load(&mut connection, root).await
+    {
+        tracing::warn!(%error,"Optional preference projection is unavailable in instance recovery mode");
+    }
+    connection.execute("PRAGMA query_only=ON").await?;
+    drop(connection);
+    super::recovery_mode::register(&pool, root);
+    Ok(pool)
+}
+
+async fn import_recovery_snapshot(
+    connection: &mut SqliteConnection,
+    snapshot: &crate::state::instances::manifest::RecoverySnapshot,
+) -> crate::Result<()> {
+    let id = &snapshot.metadata.instance.id;
+    // Validate references against this copy before importing into a projection
+    // that may already contain other recovered instances.
+    let ids = |table: &str| {
+        snapshot
+            .relationships
+            .get(table)
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|row| row.get("id").and_then(serde_json::Value::as_str))
+            .collect::<HashSet<_>>()
+    };
+    let sets = ids("instance_content_sets");
+    let files = ids("instance_files");
+    let entries = ids("instance_content_entries");
+    let members = ids("instance_pack_members");
+    for (table, rows) in &snapshot.relationships {
+        let Some(rows) = rows.as_array() else {
+            continue;
+        };
+        for row in rows {
+            for (key, targets) in [
+                ("content_set_id", &sets),
+                ("content_entry_id", &entries),
+                ("parent_entry_id", &entries),
+                ("child_entry_id", &entries),
+                ("entry_id", &entries),
+                ("file_id", &files),
+                ("pack_member_id", &members),
+            ] {
+                if let Some(target) =
+                    row.get(key).and_then(serde_json::Value::as_str)
+                    && !targets.contains(target)
+                {
+                    return Err(crate::ErrorKind::InputError(format!("Recovery relationship {table}.{key} escapes its instance copy")).into());
+                }
+            }
+        }
+    }
+
+    for table in &baseline().tables {
+        let Some(rows) = snapshot
+            .relationships
+            .get(&table.name)
+            .and_then(serde_json::Value::as_array)
+        else {
+            continue;
+        };
+        if table.domain != "instances" {
+            continue;
+        }
+        for raw in rows {
+            let object = raw.as_object().ok_or_else(|| {
+                crate::ErrorKind::InputError(
+                    "Recovery row must be an object".into(),
+                )
+            })?;
+            if object
+                .get("instance_id")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|owner| owner != id)
+                || (table.name == "instances"
+                    && object.get("id").and_then(serde_json::Value::as_str)
+                        != Some(id.as_str()))
+            {
+                return Err(crate::ErrorKind::InputError(
+                    "Recovery row belongs to another instance".into(),
+                )
+                .into());
+            }
+            for key in [
+                "content_set_id",
+                "content_entry_id",
+                "parent_entry_id",
+                "child_entry_id",
+                "entry_id",
+                "file_id",
+                "pack_member_id",
+            ] {
+                let Some(target) =
+                    object.get(key).and_then(serde_json::Value::as_str)
+                else {
+                    continue;
+                };
+                let ownership = match key {
+                    "content_set_id" => {
+                        "SELECT instance_id FROM instance_content_sets WHERE id=?"
+                    }
+                    "file_id" => {
+                        "SELECT instance_id FROM instance_files WHERE id=?"
+                    }
+                    "pack_member_id" => {
+                        "SELECT content.instance_id FROM instance_pack_members member JOIN instance_content_sets content ON content.id=member.content_set_id WHERE member.id=?"
+                    }
+                    _ => {
+                        "SELECT instance_id FROM instance_content_entries WHERE id=?"
+                    }
+                };
+                let owner: Option<String> =
+                    sqlx::query_scalar(sqlx::AssertSqlSafe(ownership))
+                        .bind(target)
+                        .fetch_optional(&mut *connection)
+                        .await?;
+                if owner.as_deref().is_some_and(|owner| owner != id) {
+                    return Err(crate::ErrorKind::InputError(
+                        "Recovery relationship points into another instance"
+                            .into(),
+                    )
+                    .into());
+                }
+            }
+            if let Some(key) =
+                object.get("id").and_then(serde_json::Value::as_str)
+                && table.columns.iter().any(|column| column == "instance_id")
+            {
+                let owner: Option<String> =
+                    sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+                        "SELECT instance_id FROM {} WHERE id=?",
+                        qualified(table)
+                    )))
+                    .bind(key)
+                    .fetch_optional(&mut *connection)
+                    .await?;
+                if owner.as_deref().is_some_and(|owner| owner != id) {
+                    return Err(crate::ErrorKind::InputError(
+                        "Recovery identity collides with another instance"
+                            .into(),
+                    )
+                    .into());
+                }
+            }
+            let columns = table
+                .columns
+                .iter()
+                .filter(|name| object.contains_key(*name))
+                .collect::<Vec<_>>();
+            if columns.is_empty() {
+                return Err(crate::ErrorKind::InputError(
+                    "Recovery row has no supported columns".into(),
+                )
+                .into());
+            }
+            let shared = matches!(
+                table.name.as_str(),
+                "resources"
+                    | "resource_source_projects"
+                    | "resource_source_types"
+                    | "resource_aliases"
+                    | "resource_identity_evidence"
+            );
+            let conflict = if shared {
+                " ON CONFLICT DO NOTHING"
+            } else {
+                ""
+            };
+            let sql = format!(
+                "INSERT INTO {} ({}) VALUES ({}){conflict}",
+                qualified(table),
+                columns
+                    .iter()
+                    .map(|name| quote(name))
+                    .collect::<Vec<_>>()
+                    .join(","),
+                vec!["?"; columns.len()].join(",")
+            );
+            let mut query = sqlx::query(sqlx::AssertSqlSafe(sql));
+            for name in columns {
+                let value = &object[name];
+                query = match value {
+                    serde_json::Value::Null => query.bind(None::<String>),
+                    serde_json::Value::Number(value) if value.is_i64() => {
+                        query.bind(value.as_i64())
+                    }
+                    serde_json::Value::Number(value) => {
+                        query.bind(value.as_f64())
+                    }
+                    serde_json::Value::String(value) => {
+                        query.bind(value.clone())
+                    }
+                    serde_json::Value::Object(value)
+                        if value.contains_key("sqlite_blob") =>
+                    {
+                        query.bind(serde_json::from_value::<Vec<u8>>(
+                            value["sqlite_blob"].clone(),
+                        )?)
+                    }
+                    _ => {
+                        return Err(crate::ErrorKind::InputError(
+                            "Unsupported recovery SQL value".into(),
+                        )
+                        .into());
+                    }
+                };
+            }
+            query.execute(&mut *connection).await?;
+        }
+    }
+    if super::compatibility::unsupported_on(connection)
+        .await?
+        .contains(id)
+    {
+        return Err(crate::ErrorKind::InputError(
+            "Recovery copy contains unsupported persistent data".into(),
+        )
+        .into());
+    }
+    let record=crate::state::instances::adapters::sqlite::instance_rows::recovery_metadata_on(id,connection).await?.ok_or_else(||crate::ErrorKind::InputError("Recovery identity is missing".into()))?;
+    let metadata = &snapshot.metadata;
+    if record.instance.id != *id
+        || record.instance.path != metadata.instance.path
+        || record.applied_content_set.id != metadata.applied_content_set.id
+        || record.applied_content_set.revision
+            != metadata.applied_content_set.revision
+        || record.applied_content_set.instance_id != *id
+    {
+        return Err(crate::ErrorKind::InputError("Recovery descriptor disagrees with authoritative relationship rows".into()).into());
+    }
+    crate::state::instances::adapters::sqlite::loader_component_rows::recovery_components_on(id,connection).await?;
+    Ok(())
 }

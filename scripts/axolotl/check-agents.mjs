@@ -26,6 +26,7 @@ function walk(directory) {
         const relativePath = relative(root, path).replaceAll('\\', '/')
         if (relativePath === '.agents/tmp' || relativePath.startsWith('.agents/tmp/')) return []
         if (relativePath === '.agents/cache' || relativePath.startsWith('.agents/cache/')) return []
+        if (relativePath === '.agents/plans' || relativePath.startsWith('.agents/plans/')) return []
         if (entry.isSymbolicLink()) return [path]
         if (entry.isDirectory()) return walk(path)
         return [path]

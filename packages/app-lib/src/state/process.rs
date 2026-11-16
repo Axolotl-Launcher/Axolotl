@@ -1453,6 +1453,11 @@ impl Process {
         )
         .await?;
 
+        crate::state::recovery::coordinator::after_exit(
+            std::sync::Arc::clone(&state),
+            &instance_id,
+        );
+
         // File changes detected while Minecraft was running are intentionally
         // deferred by synced-option reconciliation. Run one final pass after
         // the process has exited so changes to servers.dat (and other synced

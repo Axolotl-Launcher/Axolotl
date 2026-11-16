@@ -1,6 +1,6 @@
 //! An install job: what it was asked to do, how far it got, and its state.
 
-use sqlx::{Executor, Sqlite, SqliteConnection};
+use sqlx::SqliteConnection;
 
 use super::Collection;
 
@@ -21,7 +21,7 @@ pub(crate) enum InstallJobScope {
 ///
 /// The progress a job has made is kept as the text it is stored as: what the
 /// text says is the caller's business.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct InstallJobRecord {
     pub instance_id: Option<String>,
     pub kind: String,
@@ -50,6 +50,11 @@ impl Collection for InstallJobs {
         conn: &mut SqliteConnection,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::read(conn, "install_jobs", key)
+                .await;
+        }
+
         let row: Option<JobRow> = sqlx::query_as(
             "
             SELECT instance_id, kind, status, state, created, modified,
@@ -70,6 +75,16 @@ impl Collection for InstallJobs {
         key: &Self::Key,
         record: Option<&Self::Record>,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::write(
+                conn,
+                "install_jobs",
+                key,
+                record,
+            )
+            .await;
+        }
+
         let Some(record) = record else {
             sqlx::query("DELETE FROM install_jobs WHERE id = ?")
                 .bind(key)
@@ -85,6 +100,10 @@ impl Collection for InstallJobs {
     async fn read_all(
         conn: &mut SqliteConnection,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::all(conn, "install_jobs").await;
+        }
+
         let rows: Vec<JobRowWithKey> = sqlx::query_as(
             "
             SELECT id, instance_id, kind, status, state, created, modified,
@@ -102,6 +121,22 @@ impl Collection for InstallJobs {
         conn: &mut SqliteConnection,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, _) in super::recovery_documents::strict_all::<
+                InstallJobRecord,
+            >(conn, "install_jobs")
+            .await?
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         delete_omitted(conn, None, records).await?;
         for (key, record) in records {
             write_row(conn, key, record).await?;
@@ -113,6 +148,19 @@ impl Collection for InstallJobs {
         conn: &mut SqliteConnection,
         scope: &Self::Scope,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return Ok(Self::read_all(conn)
+                .await?
+                .into_iter()
+                .filter(|(key, record)| match scope {
+                    InstallJobScope::Status(status) => &record.status == status,
+                    InstallJobScope::Instance(id) => {
+                        record.instance_id.as_deref() == Some(id)
+                    }
+                })
+                .collect());
+        }
+
         let rows: Vec<JobRowWithKey> = match scope {
             InstallJobScope::Status(status) => {
                 sqlx::query_as(
@@ -150,6 +198,72 @@ impl Collection for InstallJobs {
         scope: &Self::Scope,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, _) in records {
+                if let Some(existing) = Self::read(conn, key).await? {
+                    let record = &existing;
+                    if !(match scope {
+                        InstallJobScope::Status(status) => {
+                            &record.status == status
+                        }
+                        InstallJobScope::Instance(id) => {
+                            record.instance_id.as_deref() == Some(id)
+                        }
+                    }) {
+                        return Err(crate::ErrorKind::InputError(
+                            "Operation key belongs to another scope".into(),
+                        )
+                        .into());
+                    }
+                }
+            }
+            for (key, record) in records {
+                if !(match scope {
+                    InstallJobScope::Status(status) => &record.status == status,
+                    InstallJobScope::Instance(id) => {
+                        record.instance_id.as_deref() == Some(id)
+                    }
+                }) {
+                    return Err(crate::ErrorKind::InputError(
+                        "Operation record outside replacement scope".into(),
+                    )
+                    .into());
+                }
+            }
+            for (key, _) in match scope {
+                InstallJobScope::Instance(owner) => {
+                    super::recovery_documents::strict_owner::<InstallJobRecord>(
+                        conn,
+                        "install_jobs",
+                        owner,
+                    )
+                    .await?
+                }
+                InstallJobScope::Status(_) => {
+                    super::recovery_documents::strict_all::<InstallJobRecord>(
+                        conn,
+                        "install_jobs",
+                    )
+                    .await?
+                }
+            }
+            .into_iter()
+            .filter(|(key, record)| match scope {
+                InstallJobScope::Status(status) => &record.status == status,
+                InstallJobScope::Instance(id) => {
+                    record.instance_id.as_deref() == Some(id)
+                }
+            }) {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         ensure_records_are_in_scope(scope, records)?;
         ensure_keys_belong_to_scope(conn, scope, records).await?;
         delete_omitted(conn, Some(scope), records).await?;
@@ -377,6 +491,16 @@ impl InstallJobs {
         key: &InstallJobKey,
         record: &InstallJobRecord,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            if Self::read(conn, key).await?.is_some() {
+                return Err(crate::ErrorKind::InputError(
+                    "Job id already exists".into(),
+                )
+                .into());
+            }
+            return Self::write(conn, key, Some(record)).await;
+        }
+
         sqlx::query(
             "
             INSERT INTO install_jobs (
@@ -402,14 +526,48 @@ impl InstallJobs {
     }
 
     /// Whether one instance still has a job in one of `statuses`.
-    pub(crate) async fn unfinished_in<'e, E>(
-        exec: E,
+    pub(crate) async fn unfinished_in(
+        exec: &mut SqliteConnection,
         instance_id: &str,
         statuses: &[&str],
-    ) -> crate::Result<bool>
-    where
-        E: Executor<'e, Database = Sqlite>,
-    {
+    ) -> crate::Result<bool> {
+        if super::recovery_documents::active(exec).await? {
+            let keys:Vec<String>=sqlx::query_scalar("SELECT id FROM main.operation_publications WHERE kind='install_jobs' AND instance_id=? AND deleted=0").bind(instance_id).fetch_all(&mut *exec).await?;
+            for key in keys {
+                match super::recovery_documents::read_raw(
+                    exec,
+                    "install_jobs",
+                    &key,
+                )
+                .await
+                {
+                    Ok(Some(row)) => {
+                        if row["status"] == "succeeded"
+                            && row["finished"].as_i64().is_some()
+                        {
+                            continue;
+                        }
+                        if super::recovery_documents::read::<InstallJobRecord>(
+                            exec,
+                            "install_jobs",
+                            &key,
+                        )
+                        .await
+                        .is_err()
+                            || row["status"].as_str().is_some_and(|status| {
+                                statuses.contains(&status)
+                            })
+                        {
+                            return Ok(true);
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(_) => return Ok(true),
+                }
+            }
+            return Ok(false);
+        }
+
         let filter = status_filter(statuses);
         let unknown = super::compatibility::unsupported_active_job("");
         let sql = format!(
@@ -430,13 +588,31 @@ impl InstallJobs {
     /// one whose restore failed. A completed rollback discards its content but
     /// keeps the instance metadata, so failed and interrupted jobs stop
     /// counting once their rollback has succeeded.
-    pub(crate) async fn unfinished_or_rollback<'e, E>(
-        exec: E,
+    pub(crate) async fn unfinished_or_rollback(
+        exec: &mut SqliteConnection,
         statuses: &[&str],
-    ) -> crate::Result<bool>
-    where
-        E: Executor<'e, Database = Sqlite>,
-    {
+    ) -> crate::Result<bool> {
+        if super::recovery_documents::active(exec).await? {
+            return Ok(
+                super::recovery_documents::strict_all::<InstallJobRecord>(
+                    exec,
+                    "install_jobs",
+                )
+                .await?
+                .into_iter()
+                .any(|(_, row)| {
+                    statuses.contains(&row.status.as_str())
+                        || serde_json::from_str::<serde_json::Value>(&row.state)
+                            .ok()
+                            .is_some_and(|state| {
+                                !state["rollback"]["content"].is_null()
+                                    || (!state["rollback"].is_null()
+                                        && !state["rollback_error"].is_null())
+                            })
+                }),
+            );
+        }
+
         let filter = status_filter(statuses);
         let unknown = super::compatibility::unsupported_active_job("");
         let opaque = super::compatibility::unsupported_job("");
@@ -459,6 +635,27 @@ impl InstallJobs {
         conn: &mut SqliteConnection,
         finish: &JobFinish<'_>,
     ) -> crate::Result<u64> {
+        if super::recovery_documents::active(conn).await? {
+            let Some(mut row) =
+                Self::read(conn, &finish.key.to_owned()).await?
+            else {
+                return Ok(0);
+            };
+            if row.status != finish.running_status
+                && !(row.status == finish.canceling_status
+                    && finish.accept_canceling)
+            {
+                return Ok(0);
+            }
+            row.instance_id = finish.instance_id.map(str::to_owned);
+            row.status = finish.status.into();
+            row.state = finish.state.into();
+            row.modified = finish.modified;
+            row.finished = Some(finish.finished);
+            Self::write(conn, &finish.key.to_owned(), Some(&row)).await?;
+            return Ok(1);
+        }
+
         let result = sqlx::query(
             "
             UPDATE install_jobs

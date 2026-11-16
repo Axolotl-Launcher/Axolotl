@@ -214,7 +214,8 @@ pub(crate) async fn has_any_unfinished_job(
     pool: &sqlx::SqlitePool,
 ) -> crate::Result<bool> {
     let statuses = InstallJobStatus::unfinished();
-    InstallJobs::unfinished_or_rollback(pool, &statuses).await
+    InstallJobs::unfinished_or_rollback(&mut *pool.acquire().await?, &statuses)
+        .await
 }
 
 pub async fn list(
@@ -363,6 +364,22 @@ pub async fn update_status(
         write_job(&mut unit, &key, row).await?;
     }
     unit.commit().await?;
+    if status.is_finished() {
+        if let Err(error) = crate::state::store::operations_db::archive(
+            &app_state.directories.settings_dir,
+            &key,
+            instance_id(state).as_deref(),
+            state.request.kind().as_str(),
+            status.as_str(),
+            modified,
+            finished,
+            &serialize_status_state(id, status, state)?,
+        )
+        .await
+        {
+            tracing::warn!(%error,"Optional task history unavailable; operation remains durable");
+        }
+    }
 
     get_required(id, app_state).await
 }
@@ -505,6 +522,20 @@ pub async fn complete_running_job(
         .await?;
     }
     transaction.commit().await?;
+    if let Err(error) = crate::state::store::operations_db::archive(
+        &app_state.directories.settings_dir,
+        &id_value,
+        instance_id.as_deref(),
+        state.request.kind().as_str(),
+        InstallJobStatus::Succeeded.as_str(),
+        now.timestamp(),
+        Some(now.timestamp()),
+        &json,
+    )
+    .await
+    {
+        tracing::warn!(%error,"Optional task history unavailable; completed installation retained");
+    }
 
     if completes_instance_install_stage
         && let Some(instance_id) = instance_id.as_deref()

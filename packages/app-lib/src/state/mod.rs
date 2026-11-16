@@ -96,6 +96,7 @@ pub mod favorite_groups;
 pub mod instance_groups;
 pub(crate) mod media;
 pub(crate) mod persistence;
+pub(crate) mod recovery;
 pub(crate) mod store;
 pub(crate) mod sync_state;
 pub(crate) mod telemetry_state;
@@ -797,18 +798,7 @@ impl State {
             // replay, adoption, cleanup, directory migration or watcher writes.
             return Ok(());
         }
-        if let Err(error) =
-            instances::commands::recover_content_file_operations(&state).await
-        {
-            tracing::error!(%error, "Error recovering content file operations");
-            return Err(error);
-        }
-        if let Err(e) =
-            crate::install::recovery::recover_interrupted_jobs(&state).await
-        {
-            tracing::error!("Error recovering interrupted install jobs: {e}");
-            return Err(e);
-        }
+        recovery::coordinator::start(Arc::clone(&state)).await;
         if let Err(e) =
             crate::api::curseforge::reconcile_persisted_curseforge_waiting_jobs(
                 &state,

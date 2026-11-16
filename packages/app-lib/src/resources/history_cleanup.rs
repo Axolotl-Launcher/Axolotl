@@ -144,6 +144,9 @@ async fn root(
 }
 
 async fn idle(instance_id: &str, state: &crate::State) -> ResourceResult<()> {
+    if crate::state::instance_has_running_process(instance_id, state).await? {
+        return Err(invalid("Cleanup deferred while the instance is running"));
+    }
     crate::state::store::compatibility::ensure_history_cleanup_supported(
         &state.pool,
         instance_id,

@@ -627,6 +627,7 @@ async fn create_schema(
 ) -> Result<(), sqlx::Error> {
     let attached = attached_domains(connection).await?;
     if durable {
+        super::recovery_documents::install(connection).await?;
         super::sync_documents::install(connection).await?;
         connection.execute("CREATE TABLE IF NOT EXISTS main.database_imports (source TEXT PRIMARY KEY NOT NULL, completed INTEGER NOT NULL)").await?;
         for table in &baseline().tables {

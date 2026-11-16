@@ -1079,6 +1079,11 @@ pub(crate) async fn recover_plan(
 ) -> crate::Result<()> {
     crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _writer = state.acquire_install_db_permit().await?;
+    if crate::state::instance_has_running_process(&plan.instance_id, state)
+        .await?
+    {
+        return Err(input("Recovery deferred while the instance is running"));
+    }
     let _lock = state
         .lock_instance_content_exclusive(&plan.instance_id)
         .await;

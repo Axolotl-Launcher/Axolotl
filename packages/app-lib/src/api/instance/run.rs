@@ -82,9 +82,14 @@ async fn run_with_extra_launch_args_inner(
         )
         .into());
     }
+    let state = State::get().await?;
+    crate::state::recovery::coordinator::before_launch(
+        std::sync::Arc::clone(&state),
+        instance_id,
+    )
+    .await;
     let _maintenance_guard =
         crate::api::instance::lock_instance_maintenance(instance_id).await;
-    let state = State::get().await?;
     let launch_preparation_timeout =
         crate::state::instances::commands::get_instance_launch_context(
             instance_id,
@@ -174,6 +179,7 @@ async fn run_credentials(
         })?;
 
     if offline_mode
+        && !crate::state::recovery::coordinator::fail_ok(instance_id)
         && context.instance.install_stage != InstanceInstallStage::Installed
     {
         return Err(crate::ErrorKind::LauncherError(

@@ -1396,7 +1396,7 @@ async fn enqueue_with_content_plan(
     if let Some(existing) = admission::existing(state, &request, None).await? {
         if let Some((plan_id, _)) = content_plan {
             ContentUpdateJobs::insert_in(
-                &state.pool,
+                &mut *state.pool.acquire().await?,
                 &plan_id.to_string(),
                 &ContentUpdateJobRecord {
                     job_id: Some(existing.job_id.to_string()),

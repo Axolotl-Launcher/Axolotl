@@ -26,6 +26,12 @@ async fn remove_instance_with_policy(
     crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _maintenance_guard =
         crate::api::instance::lock_instance_maintenance(instance_id).await;
+    if crate::state::instance_has_running_process(instance_id, state).await? {
+        return Err(crate::ErrorKind::InputError(
+            "Cannot remove files while the instance is running".into(),
+        )
+        .into());
+    }
     crate::api::instance::begin_instance_deletion(instance_id).await?;
     state.content_refresh.invalidate(instance_id).await;
     let result = remove_instance_files_and_state(

@@ -58,8 +58,10 @@ pub(crate) mod modrinth_users;
 pub(crate) mod official_login_proof;
 #[cfg(test)]
 pub(crate) mod offline_minecraft_skins;
+pub(crate) mod operations_db;
 pub(crate) mod pending_backup_repository_cleanups;
 pub(crate) mod records_db;
+pub(crate) mod recovery_documents;
 pub(crate) mod recovery_mode;
 pub(crate) mod resource_artifact_evidence;
 pub(crate) mod resource_cache_entries;

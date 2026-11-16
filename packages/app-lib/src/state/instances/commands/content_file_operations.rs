@@ -199,6 +199,11 @@ pub(super) async fn recover(
     root: &Path,
 ) -> crate::Result<()> {
     crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
+    if crate::state::instance_has_running_process(instance_id, state).await? {
+        return Err(recovery_error(
+            "File recovery deferred while the instance is running",
+        ));
+    }
     let row = journals::get(&state.data, instance_id).await?;
     let Some((payload, committed)) = row else {
         return Ok(());
@@ -345,33 +350,43 @@ pub(super) async fn finish(state: &State, instance_id: &str, root: &Path) {
     }
 }
 
+pub(crate) async fn recover_content_file_operations_for_instance(
+    state: &State,
+    instance_id: &str,
+) -> crate::Result<()> {
+    let _maintenance =
+        crate::api::instance::lock_instance_maintenance(instance_id).await;
+    if crate::state::instance_has_running_process(instance_id, state).await? {
+        return Ok(());
+    }
+    let expected = journals::get(&state.data, instance_id).await?;
+    if expected.is_none() {
+        return Ok(());
+    }
+    let _lock = state
+        .lock_instance_content_with_timeout(
+            instance_id,
+            std::time::Duration::from_secs(20),
+        )
+        .await?;
+    let scope = super::resolve_content_scope(instance_id, None, state).await?;
+    let root = instance_content_root(&state.directories, &scope.instance)?;
+    if journals::get(&state.data, instance_id).await? != expected {
+        return Ok(());
+    }
+    recover(state, instance_id, &root).await
+}
+
 pub(crate) async fn recover_content_file_operations(
     state: &State,
 ) -> crate::Result<()> {
-    let instances = journals::get_instance_ids(&state.data).await?;
-    let mut errors = Vec::new();
-    for instance_id in instances {
-        let result = async {
-            let _lock = state
-                .lock_instance_content_with_timeout(
-                    &instance_id,
-                    std::time::Duration::from_secs(20),
-                )
-                .await?;
-            let scope =
-                super::resolve_content_scope(&instance_id, None, state).await?;
-            let root =
-                instance_content_root(&state.directories, &scope.instance)?;
-            recover(state, &instance_id, &root).await
-        }
-        .await;
-        if let Err(error) = result {
-            errors.push(format!("{instance_id}: {error}"));
+    for instance_id in journals::get_instance_ids(&state.data).await? {
+        if let Err(error) =
+            recover_content_file_operations_for_instance(state, &instance_id)
+                .await
+        {
+            tracing::warn!(%instance_id,%error,"One file recovery remains pending; other instances continue");
         }
     }
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(recovery_error(errors.join("; ")))
-    }
+    Ok(())
 }

@@ -13,25 +13,16 @@
 //! before this entry runs.
 
 use crate::State;
+#[cfg(test)]
 use crate::state::store::Collection as _;
+#[cfg(test)]
 use crate::state::store::install_jobs::InstallJobs;
+#[cfg(test)]
 use crate::state::store::scheduler_tags::SchedulerTags;
 
 pub(crate) async fn at_startup(state: &State) {
     if let Err(error) = crate::telemetry::reconcile(state).await {
         tracing::warn!(%error, "Telemetry startup reconciliation failed");
-    }
-    match clear_orphaned_tags(state).await {
-        Ok(kept) if kept > 0 => {
-            tracing::info!(
-                kept,
-                "Scheduling tags of unfinished install jobs survive the restart"
-            );
-        }
-        Ok(_) => {}
-        Err(error) => {
-            tracing::warn!(%error, "Scheduling tag reconciliation failed");
-        }
     }
 }
 
@@ -55,6 +46,7 @@ pub(crate) async fn at_startup(state: &State) {
 /// A row the collection cannot interpret, such as one with an unknown level,
 /// is not returned by `get_all` and stays in the database. It grants nothing
 /// either, and the store reports it with a warning each time it is read.
+#[cfg(test)]
 pub(crate) async fn clear_orphaned_tags(state: &State) -> crate::Result<u64> {
     let mut kept = 0;
     for (id, record) in SchedulerTags::get_all(&state.data).await? {

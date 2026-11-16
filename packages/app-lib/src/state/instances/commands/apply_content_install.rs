@@ -3957,7 +3957,7 @@ async fn rollback_project_inner(
     rollback_journals::set_journal(
         instance_id,
         &serde_json::to_string(&journal)?,
-        &state.pool,
+        &mut *state.pool.acquire().await?,
     )
     .await?;
     let work = critical_section::SharedWork::new(
@@ -4148,8 +4148,18 @@ async fn recover_legacy_rollback_with(
     state: &State,
     _access: critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
-    let payload =
-        rollback_journals::get_journal(instance_id, &state.pool).await?;
+    if crate::state::instance_has_running_process(instance_id, state).await? {
+        return Err(crate::ErrorKind::InputError(
+            "Legacy file recovery deferred while the instance is running"
+                .into(),
+        )
+        .into());
+    }
+    let payload = rollback_journals::get_journal(
+        instance_id,
+        &mut *state.pool.acquire().await?,
+    )
+    .await?;
     let Some(payload) = payload else {
         return Ok(());
     };
@@ -4233,15 +4243,34 @@ async fn recover_legacy_rollback_with(
 pub(crate) async fn recover_legacy_rollbacks(
     state: &State,
 ) -> crate::Result<()> {
-    let instances =
-        rollback_journals::get_journal_instance_ids(&state.pool).await?;
+    let instances = rollback_journals::get_journal_instance_ids(
+        &mut *state.pool.acquire().await?,
+    )
+    .await?;
     for instance_id in instances {
-        let _writer = state.acquire_install_db_permit().await?;
-        let _lock = state.lock_instance_content_exclusive(&instance_id).await;
-        let scope = resolve_content_scope(&instance_id, None, state).await?;
-        let root = instance_content_root(&state.directories, &scope.instance)?;
-        recover_legacy_rollback_for_instance(&instance_id, &root, state)
-            .await?;
+        let result = async {
+            let _maintenance =
+                crate::api::instance::lock_instance_maintenance(&instance_id)
+                    .await;
+            if crate::state::instance_has_running_process(&instance_id, state)
+                .await?
+            {
+                return Ok::<_, crate::Error>(());
+            }
+            let _writer = state.acquire_install_db_permit().await?;
+            let _lock =
+                state.lock_instance_content_exclusive(&instance_id).await;
+            let scope =
+                resolve_content_scope(&instance_id, None, state).await?;
+            let root =
+                instance_content_root(&state.directories, &scope.instance)?;
+            recover_legacy_rollback_for_instance(&instance_id, &root, state)
+                .await
+        }
+        .await;
+        if let Err(error) = result {
+            tracing::warn!(%instance_id,%error,"Legacy operation retained; other instances continue");
+        }
     }
     Ok(())
 }

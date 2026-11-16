@@ -2088,8 +2088,10 @@ pub async fn launch_minecraft(
     let instance = &context.instance;
     let content_set = &context.applied_content_set;
 
-    if instance.install_stage == InstanceInstallStage::PackInstalling
-        || instance.install_stage == InstanceInstallStage::MinecraftInstalling
+    if !crate::state::recovery::coordinator::fail_ok(&instance.id)
+        && (instance.install_stage == InstanceInstallStage::PackInstalling
+            || instance.install_stage
+                == InstanceInstallStage::MinecraftInstalling)
     {
         return Err(crate::ErrorKind::LauncherError(
             "Instance is still installing".to_string(),
@@ -2097,7 +2099,9 @@ pub async fn launch_minecraft(
         .into());
     }
 
-    if instance.install_stage != InstanceInstallStage::Installed {
+    if instance.install_stage != InstanceInstallStage::Installed
+        && !crate::state::recovery::coordinator::fail_ok(&instance.id)
+    {
         return Err(crate::ErrorKind::LauncherError(
             "Instance is not installed; start an install job first".to_string(),
         )

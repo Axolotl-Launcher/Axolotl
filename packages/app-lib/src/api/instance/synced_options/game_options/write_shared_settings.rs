@@ -282,7 +282,6 @@ pub(super) async fn capture_instance_options(
         &metadata.instance.id,
         SyncedOption::GameOptions,
         "default",
-        &proof,
         state,
     )
     .await?;

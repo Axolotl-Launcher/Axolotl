@@ -811,7 +811,7 @@ mod tests {
             instance(&dirs, &pool, id).await;
             publish(&dirs, &pool, id).await.unwrap();
         }
-        sqlx::query("INSERT INTO instance_files(id,instance_id,relative_path,file_name,enabled,size,missing,added_at,modified_at) VALUES('file','one','mods/local.jar','local.jar',1,0,0,0,0)").execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO instance_files(id,instance_id,relative_path,file_name,enabled,sha1,size,missing,added_at,modified_at) VALUES('file','one','mods/local.jar','local.jar',1,'',0,0,0,0)").execute(&pool).await.unwrap();
         for id in ["one", "two"] {
             publish(&dirs, &pool, id).await.unwrap();
         }

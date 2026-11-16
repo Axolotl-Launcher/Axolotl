@@ -221,10 +221,9 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         .await
         .unwrap();
     finished(&state).await;
-    let successful =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let successful = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     let records = content_snapshot::get(&state.data, "instance")
         .await
         .unwrap();
@@ -291,10 +290,9 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
             .iter()
             .any(|(stored, _)| stored == &key)
     );
-    let after =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let after = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert_eq!(after.len(), successful.len() + 1);
     for (key, record) in successful {
         assert_eq!(
@@ -442,10 +440,9 @@ async fn exact_saved_provider_references_skip_unnecessary_hash_identification()
         .await
         .unwrap();
     finished(&state).await;
-    let checks =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let checks = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert_eq!(checks.len(), 2);
     assert!(
         checks
@@ -569,10 +566,9 @@ async fn all_refresh_content_kinds_recover_candidates_and_reuse_hashes() {
                 .unwrap()
                 .background_failed
         );
-        let checks =
-            ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-                .await
-                .unwrap();
+        let checks = ContentRefreshChecks::get_scoped(&state.data, "instance")
+            .await
+            .unwrap();
         assert_eq!(checks.len(), 2);
         assert_eq!(
             state
@@ -678,7 +674,7 @@ async fn failed_database_commit_never_publishes_and_retry_revisits_only_unsaved_
         presentation: None,
         artifact: None,
     };
-    sqlx::query("CREATE TRIGGER reject_refresh_result BEFORE INSERT ON content_refresh_checks BEGIN SELECT RAISE(FAIL, 'simulated write failure'); END").execute(&state.pool).await.unwrap();
+    sqlx::query("CREATE TRIGGER reject_refresh_result BEFORE INSERT ON content_evidence WHEN NEW.kind='check' BEGIN SELECT RAISE(FAIL, 'simulated write failure'); END").execute(state.derived.pool()).await.unwrap();
     let mut events = state.content_refresh.subscribe();
     assert!(
         state
@@ -710,7 +706,7 @@ async fn failed_database_commit_never_publishes_and_retry_revisits_only_unsaved_
             .contains("fast")
     );
     sqlx::query("DROP TRIGGER reject_refresh_result")
-        .execute(&state.pool)
+        .execute(state.derived.pool())
         .await
         .unwrap();
     state
@@ -867,10 +863,9 @@ async fn fast_results_are_saved_before_slow_work_finishes_and_survive_unsubscrib
     provider.hold_slow.store(false, Ordering::SeqCst);
     provider.slow.notify_waiters();
     finished(&state).await;
-    let saved =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let saved = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert_eq!(saved.len(), 2);
     assert!(saved.iter().all(|(_, check)| {
         check.last_success.as_ref().unwrap().candidate.is_some()
@@ -964,10 +959,9 @@ async fn repeat_requests_join_and_force_remote_bypasses_recent_success_without_r
         .unwrap();
     finished(&state).await;
     assert!(provider.queries.load(Ordering::SeqCst) > before);
-    let saved =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let saved = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert!(
         saved
             .iter()
@@ -1073,10 +1067,9 @@ async fn shutdown_cancels_the_active_check_and_preserves_already_saved_results()
             .unwrap()
             .running
     );
-    let saved =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let saved = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert!(saved.iter().any(|(key, check)| key.entry_id == "fast"
         && check.last_success.as_ref().unwrap().candidate.is_some()));
     assert!(!saved.iter().any(|(key, _)| key.entry_id == "slow"));
@@ -1122,10 +1115,9 @@ async fn a_disk_edit_during_network_work_cannot_publish_a_candidate_for_the_old_
     provider.hold_slow.store(false, Ordering::SeqCst);
     provider.slow.notify_waiters();
     finished(&state).await;
-    let saved =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let saved = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert!(!saved.iter().any(|(key, _)| key.entry_id == "slow"));
     state.content_refresh.shutdown().await;
     state.pool.close().await;

@@ -166,7 +166,7 @@ pub(crate) async fn upsert_instance_file(
     let local_mod_data = None::<&str>;
     let icon_path = None::<&str>;
 
-    sqlx::query!(
+    sqlx::query(
         "
         INSERT INTO instance_files (
             id,
@@ -193,19 +193,19 @@ pub(crate) async fn upsert_instance_file(
             local_mod_data = NULL,
             icon_path = NULL
         ",
-        id,
-        instance_id,
-        relative_path,
-        file_name,
-        enabled,
-        sha1,
-        size,
-        missing,
-        added_at,
-        modified_at,
-        local_mod_data,
-        icon_path,
     )
+    .bind(id)
+    .bind(instance_id)
+    .bind(relative_path)
+    .bind(file_name)
+    .bind(enabled)
+    .bind(sha1)
+    .bind(size)
+    .bind(missing)
+    .bind(added_at)
+    .bind(modified_at)
+    .bind(local_mod_data)
+    .bind(icon_path)
     .execute(&mut **tx)
     .await?;
 

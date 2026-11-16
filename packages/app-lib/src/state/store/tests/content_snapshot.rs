@@ -182,7 +182,8 @@ async fn local_snapshot_preserves_file_dates_across_scans_and_link_modes() {
 }
 
 #[tokio::test]
-async fn local_snapshot_ignores_missing_or_stale_file_date_evidence() {
+async fn local_snapshot_uses_observed_file_date_when_hash_evidence_is_missing_or_stale()
+ {
     let pool = seeded().await;
     sqlx::query("UPDATE instance_files SET added_at = 100, modified_at = 5000")
         .execute(&pool)
@@ -224,8 +225,8 @@ async fn local_snapshot_ignores_missing_or_stale_file_date_evidence() {
                 .unwrap()
                 .date_added
                 .as_deref(),
-            Some("1970-01-01T00:01:40+00:00"),
-            "{stale} evidence must use the original tracked date"
+            Some("1970-01-01T01:23:20+00:00"),
+            "{stale} evidence must use the supplied native observation, not the old tracked date"
         );
     }
     pool.close().await;
@@ -293,14 +294,15 @@ async fn local_author_survives_an_older_presentation_without_an_owner() {
     let pool = seeded().await;
     let metadata =
         serde_json::json!({"mod_id":"example", "authors":["LocalAuthor"]});
-    sqlx::query(
-        "UPDATE instance_files SET local_mod_data = ? WHERE id = 'file'",
+    let handle = Handle::new(pool.clone());
+    super::super::content_evidence::seed_artifact(
+        &handle,
+        &"a".repeat(40),
+        3,
+        metadata.to_string(),
     )
-    .bind(metadata.to_string())
-    .execute(&pool)
     .await
     .unwrap();
-    let handle = Handle::new(pool.clone());
     let records = get(&handle, "instance").await.unwrap();
     let location = location_key(&records.instance);
     let mut snapshot = local::project(records);
@@ -343,12 +345,9 @@ async fn local_declarations_fill_remote_unknown_dimensions_without_overriding_mi
         Compatible, Incompatible, Unknown,
     };
     let pool = seeded().await;
-    sqlx::query(
-        "UPDATE instance_files SET local_mod_data = ? WHERE id = 'file'",
-    )
-    .bind(serde_json::json!({"mod_id":"example", "minecraft_version":"[1.21,)", "loader":"fabric"}).to_string())
-    .execute(&pool).await.unwrap();
     let handle = Handle::new(pool.clone());
+    super::super::content_evidence::seed_artifact(&handle, &"a".repeat(40), 3,
+        serde_json::json!({"mod_id":"example", "minecraft_version":"[1.21,)", "loader":"fabric"}).to_string()).await.unwrap();
     for (game_versions, loaders, expected_game, expected_loader) in [
         (vec![], vec![], Compatible, Compatible),
         (
@@ -413,11 +412,12 @@ async fn multi_loader_projection_selects_instance_metadata_over_saved_local_fall
         }]
     })
     .to_string();
-    sqlx::query(
-        "UPDATE instance_files SET local_mod_data = ? WHERE id = 'file'",
+    super::super::content_evidence::seed_artifact(
+        &handle,
+        &"a".repeat(40),
+        3,
+        metadata.clone(),
     )
-    .bind(&metadata)
-    .execute(&pool)
     .await
     .unwrap();
     let mut old_records = get(&handle, "instance").await.unwrap();

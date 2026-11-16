@@ -146,6 +146,13 @@ pub(crate) async fn attach_compatibility(
         instance_id,
     )
     .await?;
+    let mut parsed = crate::state::store::content_evidence::parsed_for_entries(
+        pool,
+        instance_id,
+    )
+    .await?
+    .into_iter()
+    .collect::<std::collections::HashMap<_, _>>();
     let target = ipc::ResourceTarget {
         game_versions: vec![game_version.into()],
         loaders: vec![loader.into()],
@@ -158,10 +165,11 @@ pub(crate) async fn attach_compatibility(
         .collect();
     let rows: Vec<_> = rows
         .into_iter()
-        .map(|(id, sha1, size, local, artifact)| {
+        .map(|(id, sha1, size, _legacy_local, artifact)| {
             let record = artifact.and_then(|payload| {
                 serde_json::from_str::<InstalledArtifactRecord>(&payload).ok()
             });
+            let local = parsed.remove(&id);
             (id, sha1, size, local, record)
         })
         .collect();

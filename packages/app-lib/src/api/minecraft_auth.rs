@@ -307,8 +307,7 @@ pub async fn remove_user(account_id: &str) -> crate::Result<()> {
 
 #[derive(Serialize)]
 pub struct MinecraftUser {
-    pub credential_persistence:
-        Option<crate::state::minecraft_auth::CredentialPersistence>,
+    pub credential_persistence: Option<crate::state::CredentialPersistence>,
     pub account_id: String,
     pub profile: MinecraftProfile,
     pub account_type: MinecraftAccountType,

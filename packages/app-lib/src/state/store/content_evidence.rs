@@ -49,12 +49,7 @@ pub(crate) async fn entry_files(
 }
 
 async fn cache(handle: &Handle) -> Option<Arc<DerivedDb>> {
-    cache_at(
-        super::persistence_for_pool(handle.pool())
-            .root()
-            .join("databases/derived.db"),
-    )
-    .await
+    cache_at(handle.persistence().root().join("databases/derived.db")).await
 }
 
 async fn cache_at(path: PathBuf) -> Option<Arc<DerivedDb>> {
@@ -143,9 +138,17 @@ pub(crate) async fn read_scoped<T: DeserializeOwned>(
             let file =
                 entries.and_then(|entries| entries.get(&id)).unwrap_or(&id);
             let expected = expected.get(file)?;
-            if serde_json::from_str::<Guard>(&guard).ok().as_ref()
-                != Some(expected)
+            let mut saved = serde_json::from_str::<Guard>(&guard).ok()?;
+            // Byte fingerprints still require current path, identity, bytes
+            // and location; unrelated relationship revisions do not change
+            // that physical baseline. Consumers validate native attributes.
+            if kind == "fingerprint"
+                && matches!((saved.revision, expected.revision),
+                    (Some(previous), Some(current)) if previous >= 0 && previous <= current)
             {
+                saved.revision = expected.revision;
+            }
+            if &saved != expected {
                 return None;
             }
             let raw: serde_json::Value = serde_json::from_str(&payload).ok()?;
@@ -160,6 +163,44 @@ pub(crate) async fn read_scoped<T: DeserializeOwned>(
         .collect()
 }
 
+/// Used only after a journaled rename. The caller must validate the new
+/// physical file against the saved byte and modification-time baseline.
+pub(crate) async fn read_for_transfer<T: DeserializeOwned>(
+    handle: &Handle,
+    kind: &str,
+    instance: &str,
+    id: &str,
+    expected_new: &Guard,
+    original_path: &str,
+) -> Option<T> {
+    let database = cache(handle).await?;
+    let (guard, payload) = sqlx::query_as::<_, (String, String)>(
+        "SELECT guard,payload FROM content_evidence WHERE kind=? AND instance_id=? AND record_id=?",
+    )
+    .bind(kind).bind(instance).bind(id)
+    .fetch_optional(database.pool()).await.ok()??;
+    let mut saved: Guard = serde_json::from_str(&guard).ok()?;
+    if saved.relative_path != original_path
+        || !matches!((saved.revision, expected_new.revision),
+            (Some(previous), Some(current)) if previous >= 0 && previous <= current)
+    {
+        return None;
+    }
+    saved.relative_path = expected_new.relative_path.clone();
+    saved.revision = expected_new.revision;
+    if &saved != expected_new {
+        return None;
+    }
+    let raw: serde_json::Value = serde_json::from_str(&payload).ok()?;
+    if ["schema_version", "schemaVersion", "protocol"]
+        .iter()
+        .any(|key| raw.get(*key).is_some())
+    {
+        return None;
+    }
+    serde_json::from_value(raw).ok()
+}
+
 pub(crate) struct Write {
     pub kind: &'static str,
     pub id: String,
@@ -171,27 +212,127 @@ pub(crate) async fn write_batch(
     instance: &str,
     records: Vec<Write>,
 ) {
-    let Ok(current) = current(handle, instance).await else {
-        return;
-    };
+    if let Err(error) = try_write_batch(handle, instance, records).await {
+        tracing::warn!(%error, "Optional evidence batch was not persisted");
+    }
+}
+
+/// A refresh reports persistence failure to its own retry queue. Scans use the
+/// best-effort wrapper because losing disposable evidence must not block them.
+pub(crate) async fn try_write_batch(
+    handle: &Handle,
+    instance: &str,
+    records: Vec<Write>,
+) -> crate::Result<()> {
+    if records.is_empty() {
+        return Ok(());
+    }
+    let current = current(handle, instance).await?;
+    let database = cache(handle).await.ok_or_else(|| {
+        crate::ErrorKind::FSError(
+            "Optional content evidence is unavailable".into(),
+        )
+    })?;
+    let mut tx = database.pool().begin().await?;
+    for record in records {
+        if current.get(&record.guard.file_id) != Some(&record.guard) {
+            return Err(crate::ErrorKind::InputError(
+                "Content changed before refresh evidence publication".into(),
+            )
+            .into());
+        }
+        let guard = serde_json::to_string(&record.guard)?;
+        sqlx::query("INSERT INTO content_evidence(kind,instance_id,record_id,guard,payload) VALUES(?,?,?,?,?) ON CONFLICT(kind,instance_id,record_id) DO UPDATE SET guard=excluded.guard,payload=excluded.payload")
+            .bind(record.kind).bind(instance).bind(record.id).bind(guard).bind(record.payload).execute(&mut *tx).await?;
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Only the scanner can carry completed cache rows over its own revision bump.
+/// Async writers still require the exact current revision. Identity, location,
+/// bytes and entry-to-file associations must remain unchanged, and opaque
+/// payload text is copied exactly rather than round-tripped through typed rows.
+pub(crate) async fn rebase_scanned_evidence(
+    handle: &Handle,
+    instance: &str,
+    before: &HashMap<String, Guard>,
+    after: &HashMap<String, Guard>,
+    before_entries: &HashMap<String, String>,
+    after_entries: &HashMap<String, String>,
+) {
     let Some(database) = cache(handle).await else {
         return;
     };
-    let Ok(mut tx) = database.pool().begin().await else {
+    let Ok(live) = current(handle, instance).await else {
         return;
     };
-    for record in records {
-        if current.get(&record.guard.file_id) != Some(&record.guard) {
-            continue;
+    let Ok(rows) = sqlx::query_as::<_, (String, String, String, String)>(
+        "SELECT kind,record_id,guard,payload FROM content_evidence WHERE instance_id=? AND kind IN ('check','presentation','fingerprint')"
+    ).bind(instance).fetch_all(database.pool()).await else { return };
+    for (kind, id, saved, payload) in rows {
+        let candidate = (|| {
+            let file = if kind == "check" {
+                let previous = before_entries.get(&id)?;
+                if after_entries.get(&id) != Some(previous) {
+                    return None;
+                }
+                previous
+            } else {
+                &id
+            };
+            let previous = before.get(file)?;
+            let current = after.get(file)?;
+            if previous.revision == current.revision
+                || live.get(file) != Some(current)
+            {
+                return None;
+            }
+            let mut carried = previous.clone();
+            carried.revision = current.revision;
+            if &carried != current
+                || serde_json::from_str::<Guard>(&saved).ok().as_ref()
+                    != Some(previous)
+            {
+                return None;
+            }
+            let raw: serde_json::Value = serde_json::from_str(&payload).ok()?;
+            if ["schema_version", "schemaVersion", "protocol"]
+                .iter()
+                .any(|key| raw.get(*key).is_some())
+            {
+                return None;
+            }
+            match kind.as_str() {
+                "check" => {
+                    serde_json::from_value::<
+                        super::content_refresh_checks::RefreshCheckRecord,
+                    >(raw)
+                    .ok()?;
+                }
+                "presentation" => {
+                    serde_json::from_value::<super::content_refresh_presentations::PresentationRecord>(raw).ok()?;
+                }
+                "fingerprint" => {
+                    let record = serde_json::from_value::<
+                        super::content_file_fingerprints::FileFingerprintRecord,
+                    >(raw)
+                    .ok()?;
+                    if !record.valid() {
+                        return None;
+                    }
+                }
+                _ => return None,
+            }
+            serde_json::to_string(current).ok()
+        })();
+        let Some(next) = candidate else { continue };
+        // A writer that already installed the new generation wins. Never copy
+        // an older payload over its result merely because a scan finished.
+        if let Err(error) = sqlx::query("UPDATE content_evidence SET guard=? WHERE kind=? AND instance_id=? AND record_id=? AND guard=? AND payload=?")
+            .bind(next).bind(kind).bind(instance).bind(id).bind(saved).bind(payload).execute(database.pool()).await {
+            tracing::warn!(%error,"Unchanged scan evidence could not be retained");
         }
-        let Ok(guard) = serde_json::to_string(&record.guard) else {
-            continue;
-        };
-        if let Err(error)=sqlx::query("INSERT INTO content_evidence(kind,instance_id,record_id,guard,payload) VALUES(?,?,?,?,?) ON CONFLICT(kind,instance_id,record_id) DO UPDATE SET guard=excluded.guard,payload=excluded.payload")
-            .bind(record.kind).bind(instance).bind(record.id).bind(guard).bind(record.payload).execute(&mut *tx).await {tracing::warn!(%error,"Evidence batch dropped");return;}
-    }
-    if let Err(error) = tx.commit().await {
-        tracing::warn!(%error,"Evidence batch commit dropped");
     }
 }
 
@@ -442,9 +583,41 @@ pub(crate) async fn remember_parsed(
         metadata: metadata.map(str::to_owned),
         icon: icon.map(str::to_owned),
     };
-    let Ok(payload) = serde_json::to_string(&parsed) else {
-        return;
-    };
-    if let Err(error)=sqlx::query("INSERT INTO content_evidence(kind,instance_id,record_id,guard,payload) VALUES('artifact','',?,'',?) ON CONFLICT(kind,instance_id,record_id) DO UPDATE SET payload=excluded.payload")
-        .bind(format!("{}:{size}",sha1.to_ascii_lowercase())).bind(payload).execute(database.pool()).await {tracing::warn!(%error,"Parsed content cache write dropped");}
+    if let Err(error) = save_artifact(&database, sha1, size, &parsed).await {
+        tracing::warn!(%error,"Parsed content cache write dropped");
+    }
+}
+
+async fn save_artifact(
+    database: &DerivedDb,
+    sha1: &str,
+    size: i64,
+    parsed: &Parsed,
+) -> crate::Result<()> {
+    let payload = serde_json::to_string(parsed)?;
+    sqlx::query("INSERT INTO content_evidence(kind,instance_id,record_id,guard,payload) VALUES('artifact','',?,'',?) ON CONFLICT(kind,instance_id,record_id) DO UPDATE SET payload=excluded.payload")
+        .bind(artifact_key(sha1,size)).bind(payload).execute(database.pool()).await?;
+    Ok(())
+}
+
+#[cfg(test)]
+pub(crate) async fn seed_artifact(
+    handle: &Handle,
+    sha1: &str,
+    size: i64,
+    metadata: String,
+) -> crate::Result<()> {
+    let database = cache(handle).await.ok_or_else(|| {
+        crate::ErrorKind::FSError("Test evidence unavailable".into())
+    })?;
+    save_artifact(
+        &database,
+        sha1,
+        size,
+        &Parsed {
+            metadata: Some(metadata),
+            icon: None,
+        },
+    )
+    .await
 }

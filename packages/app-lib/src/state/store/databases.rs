@@ -1165,21 +1165,7 @@ mod tests {
             .unwrap();
         pool.close().await;
         drop(pool);
-        let persistence =
-            crate::state::persistence::Persistence::new(temporary.path());
         for domain in ["accounts", "telemetry", "media", "sync"] {
-            let document = persistence
-                .document(format!("state/{domain}.json"), "test", 1)
-                .unwrap();
-            crate::state::persistence::import::Import::new(
-                &persistence,
-                domain,
-                document,
-            )
-            .unwrap()
-            .run(|| async { Ok(serde_json::Map::new()) }, |_| Ok(()))
-            .await
-            .unwrap();
             tokio::fs::write(
                 directory(temporary.path()).join(format!("{domain}.db")),
                 b"obsolete corrupt database",
@@ -1187,6 +1173,15 @@ mod tests {
             .await
             .unwrap();
         }
+        // Takeover already completed on the first open. A newer authority
+        // stays unavailable and must not be replaced from the retired SQL.
+        let newer_media = br#"{"protocol":"axolotl-media","schema_version":2,"revision":1,"data":{"future_reference":"retain"}}"#;
+        tokio::fs::write(
+            temporary.path().join("state/media.json"),
+            newer_media,
+        )
+        .await
+        .unwrap();
         let pool = open(temporary.path()).await.unwrap();
         let mut first = pool.acquire().await.unwrap();
         let mut second = pool.acquire().await.unwrap();
@@ -1208,6 +1203,12 @@ mod tests {
         drop(first);
         drop(second);
         assert!(ensure_cleanup_supported(&pool).await.is_err());
+        assert_eq!(
+            tokio::fs::read(temporary.path().join("state/media.json"))
+                .await
+                .unwrap(),
+            newer_media
+        );
         for domain in ["accounts", "telemetry", "media", "sync"] {
             assert_eq!(
                 tokio::fs::read(
@@ -1668,19 +1669,31 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn concurrent_instance_and_preference_writes_reserve_domains_in_order()
      {
+        use super::super::instance_sync_preferences::{
+            InstancePreferenceKey, InstancePreferenceRecord,
+            InstanceSyncPreferences,
+        };
         let temporary = tempfile::tempdir().unwrap();
         let pool = open(temporary.path()).await.unwrap();
         let write = |prefix: &'static str| {
             let pool = pool.clone();
             async move {
+                let handle = super::super::Handle::new(pool);
                 for index in 0..3 {
                     let id = format!("{prefix}-{index}");
-                    let mut transaction =
-                        pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
-                    sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES(?,?,'installed','none','concurrent',0,0)").bind(&id).bind(&id).execute(&mut *transaction).await.unwrap();
-                    super::super::configuration::commit(transaction, &pool)
-                        .await
-                        .unwrap();
+                    let mut unit = super::super::atom(&handle).await.unwrap();
+                    sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES(?,?,'installed','none','concurrent',0,0)").bind(&id).bind(&id).execute(unit.connection()).await.unwrap();
+                    InstanceSyncPreferences::atom_set(
+                        &mut unit,
+                        &InstancePreferenceKey {
+                            instance_id: id,
+                            feature: "screenshots".into(),
+                        },
+                        Some(&InstancePreferenceRecord { enabled: true }),
+                    )
+                    .await
+                    .unwrap();
+                    unit.commit().await.unwrap();
                 }
             }
         };
@@ -1708,6 +1721,19 @@ mod tests {
                 .await
                 .unwrap(),
             12
+        );
+        let preferences = InstanceSyncPreferences::get_all(
+            &super::super::Handle::new(pool.clone()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(preferences.len(), 12);
+        assert!(preferences.iter().all(|(_, record)| record.enabled));
+        assert_eq!(
+            cross_domain_issues(&mut pool.acquire().await.unwrap())
+                .await
+                .unwrap(),
+            0
         );
     }
 
@@ -1745,12 +1771,19 @@ mod tests {
         .unwrap();
         main.close().await.unwrap();
         let pool = open(temporary.path()).await.unwrap();
+        let domains = attached_domains(&mut pool.acquire().await.unwrap())
+            .await
+            .unwrap();
         assert_eq!(
-            attached_domains(&mut pool.acquire().await.unwrap())
-                .await
-                .unwrap()
-                .len(),
-            3
+            domains
+                .into_iter()
+                .filter(|name| name != "temp")
+                .collect::<HashSet<_>>(),
+            HashSet::from_iter([
+                "main".into(),
+                "instances".into(),
+                "storage".into()
+            ])
         );
         pool.close().await;
     }

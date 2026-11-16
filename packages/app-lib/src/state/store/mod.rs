@@ -187,6 +187,17 @@ impl Handle {
         pool: SqlitePool,
         persistence: &crate::state::persistence::Persistence,
     ) -> Self {
+        #[cfg(test)]
+        {
+            let options = pool.connect_options();
+            let mut roots =
+                explicit_test_roots().lock().expect("explicit test roots");
+            roots.retain(|_, (options, _)| options.strong_count() > 0);
+            roots.insert(
+                std::sync::Arc::as_ptr(&options) as usize,
+                (std::sync::Arc::downgrade(&options), persistence.clone()),
+            );
+        }
         Self {
             persistence: Some(persistence.clone()),
             pool,
@@ -715,6 +726,13 @@ fn test_persistence(
     static ROOTS: OnceLock<Mutex<Roots>> = OnceLock::new();
     let options = pool.connect_options();
     let key = Arc::as_ptr(&options) as usize;
+    if let Some((_, persistence)) = explicit_test_roots()
+        .lock()
+        .expect("explicit test roots")
+        .get(&key)
+    {
+        return persistence.clone();
+    }
     let mut roots = ROOTS
         .get_or_init(|| Mutex::new(std::collections::HashMap::new()))
         .lock()
@@ -727,4 +745,28 @@ fn test_persistence(
         )
     });
     crate::state::persistence::Persistence::new(directory.path())
+}
+
+#[cfg(test)]
+fn explicit_test_roots() -> &'static std::sync::Mutex<
+    std::collections::HashMap<
+        usize,
+        (
+            std::sync::Weak<sqlx::sqlite::SqliteConnectOptions>,
+            crate::state::persistence::Persistence,
+        ),
+    >,
+> {
+    static ROOTS: std::sync::OnceLock<
+        std::sync::Mutex<
+            std::collections::HashMap<
+                usize,
+                (
+                    std::sync::Weak<sqlx::sqlite::SqliteConnectOptions>,
+                    crate::state::persistence::Persistence,
+                ),
+            >,
+        >,
+    > = std::sync::OnceLock::new();
+    ROOTS.get_or_init(std::sync::Mutex::default)
 }

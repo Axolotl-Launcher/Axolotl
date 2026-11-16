@@ -169,13 +169,16 @@ pub(super) async fn enable_feature(
     instance_id: &str,
     feature: &str,
 ) {
-    sqlx::query(
-        "INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
-         VALUES (?, ?, 1)",
+    super::super::instance_sync_preferences::InstanceSyncPreferences::set(
+        &Handle::new(pool.clone()),
+        &super::super::instance_sync_preferences::InstancePreferenceKey {
+            instance_id: instance_id.into(),
+            feature: feature.into(),
+        },
+        Some(&super::super::instance_sync_preferences::InstancePreferenceRecord {
+            enabled: true,
+        }),
     )
-    .bind(instance_id)
-    .bind(feature)
-    .execute(pool)
     .await
     .unwrap();
 }

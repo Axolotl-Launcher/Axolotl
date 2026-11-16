@@ -1304,6 +1304,31 @@ impl CachedEntry {
             .collect())
     }
 
+    pub(crate) async fn get_version_many_with_service(
+        ids: &[ModrinthVersionId],
+        service: &std::sync::Arc<crate::resources::ResourceService>,
+    ) -> crate::Result<Vec<Version>> {
+        let keys = ids
+            .iter()
+            .map(ModrinthVersionId::as_str)
+            .collect::<Vec<_>>();
+        let entries = crate::resources::protocol::many(
+            service,
+            CacheValueType::Version,
+            &keys,
+            None,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .await?;
+        Ok(entries
+            .into_iter()
+            .filter_map(|entry| match entry.data {
+                Some(CacheValue::Version(version)) => Some(version),
+                _ => None,
+            })
+            .collect())
+    }
+
     pub async fn get_version_v3(
         id: &ModrinthVersionId,
         cache_behaviour: Option<CacheBehaviour>,

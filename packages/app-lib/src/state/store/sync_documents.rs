@@ -118,7 +118,8 @@ async fn capture_raw(
         });
         let query = format!("SELECT * FROM \"{}\"", name.replace('"', "\"\""));
         let mut rows = Map::new();
-        let mut source_rows = sqlx::query(&query).fetch(&mut *connection);
+        let mut source_rows = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
+            .fetch(&mut *connection);
         use futures::TryStreamExt;
         while let Some(row) = source_rows.try_next().await? {
             let mut fields = Map::new();
@@ -634,6 +635,7 @@ mod tests {
             .await
             .unwrap();
         pool.close().await;
+        drop(pool);
         let shared = root.path().join("synced-options");
         tokio::fs::remove_file(shared.join("state/head.json"))
             .await

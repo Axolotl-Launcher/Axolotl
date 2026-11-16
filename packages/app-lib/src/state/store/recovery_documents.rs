@@ -182,7 +182,17 @@ async fn write_inner<T: Serialize>(
                 {
                     let previous: Value = serde_json::from_str(previous)?;
                     let mut incoming: Value = serde_json::from_str(incoming)?;
-                    retain_unknown(&previous, &mut incoming);
+                    if kind == "install_jobs" && name == "state" {
+                        let known =
+                            serde_json::to_value(serde_json::from_value::<
+                                crate::install::model::InstallJobState,
+                            >(
+                                previous.clone()
+                            )?)?;
+                        retain_extensions(&previous, &known, &mut incoming);
+                    } else {
+                        retain_unknown(&previous, &mut incoming);
+                    }
                     next = Value::String(serde_json::to_string(&incoming)?);
                 }
                 old.insert(name.clone(), next);
@@ -598,6 +608,28 @@ fn retain_unknown(previous: &Value, incoming: &mut Value) {
                 None => {
                     incoming.insert(key.clone(), value.clone());
                 }
+            }
+        }
+    }
+}
+
+/// Missing known optional fields represent deletion. Only fields omitted by
+/// the old record's typed representation are extensions to carry forward.
+fn retain_extensions(previous: &Value, known: &Value, incoming: &mut Value) {
+    if let (Some(previous), Some(known), Some(incoming)) = (
+        previous.as_object(),
+        known.as_object(),
+        incoming.as_object_mut(),
+    ) {
+        for (key, value) in previous {
+            match (known.get(key), incoming.get_mut(key)) {
+                (None, None) => {
+                    incoming.insert(key.clone(), value.clone());
+                }
+                (Some(known), Some(current)) => {
+                    retain_extensions(value, known, current);
+                }
+                _ => {}
             }
         }
     }
@@ -1034,6 +1066,15 @@ pub(crate) async fn strict_owner<T: DeserializeOwned>(
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn clearing_known_optional_recovery_data_preserves_only_extensions() {
+        let previous = json!({"rollback":{"content":{"files":["old"]},"future":{"retain":true}}});
+        let known = json!({"rollback":{"content":{"files":["old"]}}});
+        let mut incoming = json!({"rollback":{}});
+        retain_extensions(&previous, &known, &mut incoming);
+        assert!(incoming["rollback"].get("content").is_none());
+        assert_eq!(incoming["rollback"]["future"], json!({"retain":true}));
+    }
     async fn fixture() -> (tempfile::TempDir, sqlx::SqlitePool) {
         let root = tempfile::tempdir().unwrap();
         tokio::fs::create_dir(root.path().join("databases"))
@@ -1188,7 +1229,12 @@ mod tests {
         .unwrap();
         let path:String=sqlx::query_scalar("SELECT object_path FROM main.operation_publications WHERE id='external'").fetch_one(&mut *connection).await.unwrap();
         assert!(
-            Path::new(&path).starts_with(root.path().join("state/instances"))
+            Path::new(&path).starts_with(
+                tokio::fs::canonicalize(root.path())
+                    .await
+                    .unwrap()
+                    .join("state/instances")
+            )
         );
         assert!(!external.path().join(".axolotl").exists());
     }

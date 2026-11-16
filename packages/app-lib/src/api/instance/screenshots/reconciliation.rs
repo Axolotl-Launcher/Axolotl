@@ -19,6 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 
+#[derive(Clone)]
 pub(super) struct ScannedScreenshot {
     file_name: String,
     created_at: DateTime<Utc>,
@@ -168,12 +169,30 @@ pub(super) async fn reconcile_source_screenshots(
     if existing.iter().any(|row| {
         row.fingerprint.is_some() && !present.contains(&row.file_name)
     }) {
-        let hashes=stream::iter(scanned.iter().filter(|file|!known.contains(&file.file_name) && newly_observed(previous.as_ref(), &file.file_name)).map(|file|async move{
-            match candidate_hash(file).await {
-                Ok(hash) => Some((file.file_name.clone(),hash)),
-                Err(error) => { tracing::warn!(%error, "Screenshot rename candidate unavailable; retaining native listing"); None }
-            }
-        })).buffer_unordered(8).filter_map(|value|async move {value}).collect::<Vec<_>>().await;
+        let candidates = scanned
+            .iter()
+            .filter(|file| {
+                !known.contains(&file.file_name)
+                    && newly_observed(previous.as_ref(), &file.file_name)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let hashes = stream::iter(candidates)
+            .map(|file| async move {
+                match candidate_hash(&file).await {
+                    Ok(hash) => Some((file.file_name, hash)),
+                    Err(error) => {
+                        tracing::warn!(%error, "Screenshot rename candidate unavailable; retaining native listing");
+                        None
+                    }
+                }
+            })
+            .buffer_unordered(4)
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
         for (id, name) in unique_renames(&existing, &present, &hashes) {
             match media.relocate(&id, &source.id, &name).await {
                 Ok(()) => {

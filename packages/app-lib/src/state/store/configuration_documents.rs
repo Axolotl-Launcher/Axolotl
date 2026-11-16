@@ -444,7 +444,9 @@ pub(crate) async fn lock_files(root: &Path) -> crate::Result<tokio::fs::File> {
         .write(true)
         .open(root.join("settings/.writer-lock"))
         .await?;
-    file.lock_exclusive().await?;
+    while !file.try_lock_exclusive()? {
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    }
     Ok(file)
 }
 

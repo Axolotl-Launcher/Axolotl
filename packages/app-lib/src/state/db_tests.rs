@@ -4290,6 +4290,7 @@ async fn legacy_startup_snapshot_keeps_pins_favorites_world_choices_and_daily_to
         .unwrap();
     sqlx::raw_sql("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified,pinned_at) VALUES('handover','path','installed','none','Example',0,0,456);INSERT INTO resource_favorites(source,project_id,content_type,saved_at) VALUES('modrinth','12345678','mod',123);INSERT INTO attached_world_data(instance_id,world_type,world_id,display_status,project_id,content_kind) VALUES('handover','singleplayer','world','favorite','project','world_save');INSERT INTO instance_daily_playtime(played_on,instance_id,instance_name,played_seconds,session_count) VALUES('2026-11-15','handover','Example',77,1);").execute(&legacy).await.unwrap();
     legacy.close().await;
+    drop(legacy);
     let core = connect_at(temporary.path()).await.unwrap();
     let persistence =
         crate::state::persistence::Persistence::new(temporary.path());

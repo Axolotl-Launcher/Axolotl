@@ -70,6 +70,8 @@ pub(crate) async fn set_results(
     let evidence_guards =
         super::content_evidence::guards(unit.connection(), instance_id).await?;
     let mut applied = Vec::new();
+    let mut presentations =
+        std::collections::HashMap::<String, PresentationRecord>::new();
     for mut write in writes {
         if write
             .context
@@ -150,15 +152,20 @@ pub(crate) async fn set_results(
             else {
                 continue;
             };
-            if let Some(previous) =
-                super::content_evidence::read::<PresentationRecord>(
-                    handle,
-                    "presentation",
-                    instance_id,
-                    &write.file_id,
-                    evidence_guard,
-                )
-                .await
+            let previous =
+                if let Some(previous) = presentations.get(&write.file_id) {
+                    Some(previous.clone())
+                } else {
+                    super::content_evidence::read::<PresentationRecord>(
+                        handle,
+                        "presentation",
+                        instance_id,
+                        &write.file_id,
+                        evidence_guard,
+                    )
+                    .await
+                };
+            if let Some(previous) = previous
                 && previous.location_key == presentation.location_key
                 && previous.content.id == presentation.content.id
                 && previous.content.size == presentation.content.size
@@ -190,36 +197,49 @@ pub(crate) async fn set_results(
                     .or(previous.content.environment);
                 presentation.content.external &= previous.content.external;
             }
+            presentations.insert(write.file_id.clone(), presentation.clone());
         }
         applied.push(write);
     }
     let accepted_guards =
         super::content_evidence::guards(unit.connection(), instance_id).await?;
     unit.commit().await?;
+    let mut evidence = Vec::new();
     for write in &applied {
         let Some(guard) = accepted_guards.get(&write.file_id) else {
             continue;
         };
-        if let Some(check) = &write.check {
-            super::content_evidence::write(
-                handle,
+        for (kind, id, payload) in [
+            (
                 "check",
                 &write.entry_id,
-                guard,
-                check,
-            )
-            .await;
-        }
-        if let Some(presentation) = &write.presentation {
-            super::content_evidence::write(
-                handle,
+                write
+                    .check
+                    .as_ref()
+                    .map(serde_json::to_string)
+                    .transpose()?,
+            ),
+            (
                 "presentation",
                 &write.file_id,
-                guard,
-                presentation,
-            )
-            .await;
+                write
+                    .presentation
+                    .as_ref()
+                    .map(serde_json::to_string)
+                    .transpose()?,
+            ),
+        ] {
+            if let Some(payload) = payload {
+                evidence.push(super::content_evidence::Write {
+                    kind,
+                    id: id.clone(),
+                    guard: guard.clone(),
+                    payload,
+                });
+            }
         }
     }
+    super::content_evidence::try_write_batch(handle, instance_id, evidence)
+        .await?;
     Ok(applied)
 }

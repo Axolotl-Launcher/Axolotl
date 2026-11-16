@@ -93,7 +93,7 @@ pub(crate) async fn native_text(
         .collections
         .entry("native_text".into())
         .or_default()
-        .entry(name.into())
+        .entry(name)
         .or_insert_with(|| serde_json::json!({"record":{}}));
     if !supported(raw) || !supported(&raw["record"]) {
         return Err(crate::ErrorKind::InputError(

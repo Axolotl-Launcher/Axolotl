@@ -82,6 +82,10 @@ where
     } = scan;
     let mut tx = handle.pool().begin_with("BEGIN IMMEDIATE").await?;
     sqlite::write_guards::ensure_instance_exists(instance_id, &mut tx).await?;
+    let previous_guards =
+        super::content_evidence::guards(&mut tx, instance_id).await?;
+    let previous_entries =
+        super::content_evidence::entry_files(&mut tx, instance_id).await?;
     if complete {
         sqlite::files::mark_instance_files_missing(instance_id, &mut tx)
             .await?;
@@ -211,7 +215,18 @@ where
     }
     let accepted_guards =
         super::content_evidence::guards(&mut tx, instance_id).await?;
+    let accepted_entries =
+        super::content_evidence::entry_files(&mut tx, instance_id).await?;
     tx.commit().await?;
+    super::content_evidence::rebase_scanned_evidence(
+        handle,
+        instance_id,
+        &previous_guards,
+        &accepted_guards,
+        &previous_entries,
+        &accepted_entries,
+    )
+    .await;
     let mut evidence = Vec::new();
     for file in &synced_files {
         let Some(guard) = accepted_guards.get(&file.id) else {

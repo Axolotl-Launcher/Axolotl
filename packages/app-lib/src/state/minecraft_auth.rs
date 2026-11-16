@@ -8,7 +8,7 @@ use crate::state::store::minecraft_users::{
 };
 use crate::state::store::{Collection as _, atom};
 use crate::util::fetch::authentication_client;
-use crate::util::mojang::{mojang_service_url, should_use_mojang_mirror};
+use crate::util::mojang::{mojang_service_url, selected_mojang_proxy};
 use base64::Engine;
 use base64::prelude::BASE64_URL_SAFE_NO_PAD;
 use chrono::{DateTime, Duration, TimeZone, Utc};
@@ -1396,7 +1396,7 @@ async fn minecraft_token(
 
     let url = mojang_service_url(
         "https://api.minecraftservices.com/launcher/login",
-        should_use_mojang_mirror(),
+        selected_mojang_proxy(),
     );
     let res = auth_retry(|| {
         authentication_client()
@@ -1626,7 +1626,7 @@ async fn minecraft_profile(
 ) -> Result<MinecraftProfile, MinecraftAuthenticationError> {
     let url = mojang_service_url(
         "https://api.minecraftservices.com/minecraft/profile",
-        should_use_mojang_mirror(),
+        selected_mojang_proxy(),
     );
     let res = auth_retry(|| {
         authentication_client()
@@ -1691,7 +1691,7 @@ async fn minecraft_entitlements(
         "https://api.minecraftservices.com/entitlements/license?requestId={}",
         Uuid::new_v4()
     );
-    let url = mojang_service_url(&request_url, should_use_mojang_mirror());
+    let url = mojang_service_url(&request_url, selected_mojang_proxy());
     let res = auth_retry(|| {
         authentication_client()
             .get(url.as_ref())

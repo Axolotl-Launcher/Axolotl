@@ -24,18 +24,21 @@ export async function check_reachable() {
 }
 
 /**
- * Check the Mojang services mirrored by the Fallen proxy, returning their
- * individual reachability states.
+ * Check the Mojang services a forwarding proxy mirrors, returning their
+ * individual reachability states. Omitting the proxy checks the official
+ * services.
+ * @param {'fallen' | 'sakurin' | null} [proxy]
  */
-export async function check_mojang_services(useMirror = false) {
-    return await invoke('plugin:auth|check_mojang_services', { useMirror })
+export async function check_mojang_services(proxy = null) {
+    return await invoke('plugin:auth|check_mojang_services', { proxy })
 }
 
 /**
- * Whether Mojang service requests currently go out through the Fallen proxy.
+ * The forwarding proxy Mojang service requests currently go out through, or
+ * null when they go out directly.
  */
-export async function mojang_auth_use_mirror() {
-    return await invoke('plugin:auth|mojang_auth_use_mirror')
+export async function mojang_auth_proxy() {
+    return await invoke('plugin:auth|mojang_auth_proxy')
 }
 
 /**

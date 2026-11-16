@@ -329,7 +329,7 @@ fn mojang_monitor_commands_are_registered_and_allowed_for_the_main_window() {
         "check_reachable",
         "check_mojang_services",
         "network_scope",
-        "set_mojang_auth_use_mirror",
+        "set_mojang_auth_proxy",
     ] {
         assert!(runtime.contains(command));
         assert!(manifest.contains(command));

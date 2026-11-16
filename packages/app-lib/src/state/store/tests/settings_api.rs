@@ -8,6 +8,7 @@ use crate::api::settings::{
 use crate::state::DownloadSourceMode;
 use crate::state::settings::Settings;
 use crate::state::store::Handle;
+use crate::util::mojang::MojangProxy;
 use serde_json::json;
 
 fn handle_of(pool: &sqlx::SqlitePool) -> Handle {
@@ -20,12 +21,17 @@ async fn mojang_probe_updates_preserve_arguments_and_reject_stale_modes() {
     let handle = handle_of(&pool);
     patch_with(&handle, json!({"extra_launch_args": ["-Xmx4G", "-Dcustom=keep"], "mojang_auth_source": "auto"})).await.unwrap();
     assert!(
-        apply_mojang_auth_source_with(&handle, DownloadSourceMode::Auto, true)
-            .await
-            .unwrap()
+        apply_mojang_auth_source_with(
+            &handle,
+            DownloadSourceMode::Auto,
+            Some(MojangProxy::Fallen),
+        )
+        .await
+        .unwrap()
     );
     let mirrored = Settings::get(&handle).await.unwrap();
-    assert_eq!(mirrored.extra_launch_args.len(), 7);
+    // Six host properties, plus the two launch arguments the user had.
+    assert_eq!(mirrored.extra_launch_args.len(), 8);
     assert!(
         mirrored
             .extra_launch_args
@@ -33,9 +39,13 @@ async fn mojang_probe_updates_preserve_arguments_and_reject_stale_modes() {
     );
     patch_with(&handle, json!({"extra_launch_args": ["-Dnew=user-edit"], "mojang_auth_source": "official_only"})).await.unwrap();
     assert!(
-        !apply_mojang_auth_source_with(&handle, DownloadSourceMode::Auto, true)
-            .await
-            .unwrap()
+        !apply_mojang_auth_source_with(
+            &handle,
+            DownloadSourceMode::Auto,
+            Some(MojangProxy::Fallen),
+        )
+        .await
+        .unwrap()
     );
     assert_eq!(
         Settings::get(&handle).await.unwrap().extra_launch_args,
@@ -46,7 +56,7 @@ async fn mojang_probe_updates_preserve_arguments_and_reject_stale_modes() {
         apply_mojang_auth_source_with(
             &handle,
             DownloadSourceMode::OfficialOnly,
-            true
+            Some(MojangProxy::Fallen),
         )
         .await
         .unwrap()
@@ -62,7 +72,7 @@ async fn mojang_probe_updates_preserve_arguments_and_reject_stale_modes() {
         apply_mojang_auth_source_with(
             &handle,
             DownloadSourceMode::MirrorPreferred,
-            false
+            None,
         )
         .await
         .unwrap()
@@ -73,7 +83,7 @@ async fn mojang_probe_updates_preserve_arguments_and_reject_stale_modes() {
             .unwrap()
             .extra_launch_args
             .len(),
-        6
+        7
     );
     patch_with(&handle, json!({"mojang_auth_source": "official_preferred"}))
         .await
@@ -82,7 +92,7 @@ async fn mojang_probe_updates_preserve_arguments_and_reject_stale_modes() {
         apply_mojang_auth_source_with(
             &handle,
             DownloadSourceMode::OfficialPreferred,
-            false
+            None,
         )
         .await
         .unwrap()
@@ -91,6 +101,57 @@ async fn mojang_probe_updates_preserve_arguments_and_reject_stale_modes() {
         Settings::get(&handle).await.unwrap().extra_launch_args,
         ["-Dnew=user-edit"]
     );
+}
+
+#[tokio::test]
+async fn sakurin_mode_swaps_the_proxy_without_stacking_host_properties() {
+    let pool = support::pool().await;
+    let handle = handle_of(&pool);
+    patch_with(&handle, json!({"extra_launch_args": ["-Xmx4G"], "mojang_auth_source": "mirror_preferred"})).await.unwrap();
+    assert!(
+        apply_mojang_auth_source_with(
+            &handle,
+            DownloadSourceMode::MirrorPreferred,
+            None,
+        )
+        .await
+        .unwrap()
+    );
+    let fallen = Settings::get(&handle).await.unwrap().extra_launch_args;
+    // Six host properties, plus the one launch argument the user had.
+    assert_eq!(fallen.len(), 7);
+    assert!(
+        fallen
+            .iter()
+            .any(|arg| arg.contains("services.msp.fallenbreath.me"))
+    );
+
+    patch_with(&handle, json!({"mojang_auth_source": "sakurin_preferred"}))
+        .await
+        .unwrap();
+    assert!(
+        apply_mojang_auth_source_with(
+            &handle,
+            DownloadSourceMode::SakurinPreferred,
+            None,
+        )
+        .await
+        .unwrap()
+    );
+    let sakurin = Settings::get(&handle).await.unwrap().extra_launch_args;
+    assert_eq!(sakurin.len(), 7);
+    assert!(
+        sakurin
+            .iter()
+            .any(|arg| arg.contains("services.mc.sakurin.cn"))
+    );
+    assert!(
+        sakurin
+            .iter()
+            .any(|arg| arg.contains("discovery.mc.sakurin.cn/minecraft/client"))
+    );
+    assert!(!sakurin.iter().any(|arg| arg.contains("fallenbreath")));
+    assert!(sakurin.contains(&"-Xmx4G".to_string()));
 }
 
 #[tokio::test]

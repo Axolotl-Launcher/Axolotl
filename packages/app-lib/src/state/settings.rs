@@ -27,8 +27,11 @@ pub enum DownloadSourceMode {
     #[default]
     Auto = 0,
     OfficialOnly = 1,
+    /// Prefer the Fallen forwarding proxy.
     MirrorPreferred = 2,
     OfficialPreferred = 3,
+    /// Prefer the Sakurin forwarding proxy.
+    SakurinPreferred = 4,
 }
 
 impl DownloadSourceMode {
@@ -38,6 +41,7 @@ impl DownloadSourceMode {
             Self::OfficialOnly => "official_only",
             Self::MirrorPreferred => "mirror_preferred",
             Self::OfficialPreferred => "official_preferred",
+            Self::SakurinPreferred => "sakurin_preferred",
         }
     }
 
@@ -46,6 +50,7 @@ impl DownloadSourceMode {
             "official_only" => Self::OfficialOnly,
             "mirror_preferred" => Self::MirrorPreferred,
             "official_preferred" => Self::OfficialPreferred,
+            "sakurin_preferred" => Self::SakurinPreferred,
             _ => Self::Auto,
         }
     }
@@ -55,7 +60,29 @@ impl DownloadSourceMode {
             1 => Self::OfficialOnly,
             2 => Self::MirrorPreferred,
             3 => Self::OfficialPreferred,
+            4 => Self::SakurinPreferred,
             _ => Self::Auto,
+        }
+    }
+
+    /// The forwarding proxy this mode selects, or `None` when it selects a
+    /// direct connection.
+    ///
+    /// Only the Mojang authentication source reads this: the other download
+    /// sources route files, not Mojang services, and cannot use a proxy.
+    pub(crate) fn mojang_proxy(
+        self,
+        auto_proxy: Option<crate::util::mojang::MojangProxy>,
+    ) -> Option<crate::util::mojang::MojangProxy> {
+        match self {
+            Self::Auto => auto_proxy,
+            Self::OfficialOnly | Self::OfficialPreferred => None,
+            Self::MirrorPreferred => {
+                Some(crate::util::mojang::MojangProxy::Fallen)
+            }
+            Self::SakurinPreferred => {
+                Some(crate::util::mojang::MojangProxy::Sakurin)
+            }
         }
     }
 
@@ -63,7 +90,7 @@ impl DownloadSourceMode {
         match self {
             Self::Auto => auto_prefers_mirror,
             Self::OfficialOnly | Self::OfficialPreferred => false,
-            Self::MirrorPreferred => true,
+            Self::MirrorPreferred | Self::SakurinPreferred => true,
         }
     }
 }
@@ -1435,6 +1462,9 @@ fn to_source_mode(source: StoredDownloadSource) -> DownloadSourceMode {
         StoredDownloadSource::OfficialPreferred => {
             DownloadSourceMode::OfficialPreferred
         }
+        StoredDownloadSource::SakurinPreferred => {
+            DownloadSourceMode::SakurinPreferred
+        }
     }
 }
 
@@ -1447,6 +1477,9 @@ fn from_source_mode(mode: DownloadSourceMode) -> StoredDownloadSource {
         }
         DownloadSourceMode::OfficialPreferred => {
             StoredDownloadSource::OfficialPreferred
+        }
+        DownloadSourceMode::SakurinPreferred => {
+            StoredDownloadSource::SakurinPreferred
         }
     }
 }

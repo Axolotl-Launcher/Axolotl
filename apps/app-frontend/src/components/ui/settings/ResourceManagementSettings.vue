@@ -508,6 +508,10 @@ const messages = defineMessages({
         id: 'app.settings.resources.source.mojang-mirror-preferred',
         defaultMessage: 'Prefer Fallen-Proxy',
     },
+    mojangAuthSakurinPreferred: {
+        id: 'app.settings.resources.source.mojang-sakurin-preferred',
+        defaultMessage: 'Prefer Sakurin-Proxy',
+    },
     mojangAuthOfficialOnly: {
         id: 'app.settings.resources.source.mojang-official-only',
         defaultMessage: 'Official source only',
@@ -782,6 +786,7 @@ const mojangAuthSourceOptions = computed(() => [
     automaticSourceOption.value,
     { value: 'official_preferred', label: formatMessage(messages.mojangAuthOfficialPreferred) },
     { value: 'mirror_preferred', label: formatMessage(messages.mojangAuthMirrorPreferred) },
+    { value: 'sakurin_preferred', label: formatMessage(messages.mojangAuthSakurinPreferred) },
     { value: 'official_only', label: formatMessage(messages.mojangAuthOfficialOnly) },
 ])
 const downloadConcurrencyMode = computed({

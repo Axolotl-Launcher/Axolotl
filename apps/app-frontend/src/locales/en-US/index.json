@@ -17402,6 +17402,9 @@
   "app.settings.resources.source.mojang-official-preferred": {
     "message": "Prefer official source"
   },
+  "app.settings.resources.source.mojang-sakurin-preferred": {
+    "message": "Prefer Sakurin-Proxy"
+  },
   "app.settings.resources.source.official-only": {
     "message": "Original sources only (no mirrors)"
   },
@@ -18744,10 +18747,10 @@
     "message": "Appearance snapshot exported."
   },
   "app.theme-suite.export-snapshot-failed": {
-    "message": "The snapshot could not be exported: {error}"
+    "message": "The appearance snapshot could not be exported: {error}"
   },
   "app.theme-suite.exporting-snapshot": {
-    "message": "Exporting…"
+    "message": "Exporting snapshot…"
   },
   "app.theme-suite.import-description": {
     "message": "Theme packs are .zip archives that contain a manifest.json file describing their colors, styles and pages."

@@ -1,4 +1,8 @@
-export type MojangAuthSource = 'auto' | 'official_only' | 'mirror_preferred' | 'official_preferred'
+export type MojangAuthSource =
+    'auto' | 'official_only' | 'mirror_preferred' | 'official_preferred' | 'sakurin_preferred'
+
+/** A forwarding proxy the launcher can route Mojang service requests through. */
+export type MojangProxy = 'fallen' | 'sakurin'
 
 export const mojangAuthKeys = { status: ['mojang', 'auth', 'reachability'] as const }
 
@@ -21,12 +25,15 @@ export function officialMojangServicesReachable(statuses: MojangServiceStatus[])
 interface Dependencies {
     configuration: () => Promise<MojangAuthConfiguration>
     probeOfficial: () => Promise<MojangServiceStatus[]>
-    probeMirror: () => Promise<MojangServiceStatus[]>
-    applySource: (source: MojangAuthSource, useMirror: boolean) => Promise<boolean>
+    probeProxy: (proxy: MojangProxy) => Promise<MojangServiceStatus[]>
+    applySource: (source: MojangAuthSource, proxy: MojangProxy | null) => Promise<boolean>
     probeSelected: () => Promise<void>
     enabled: () => boolean
     publish: (reachable: boolean) => void
 }
+
+/** Proxies tried in order when the official services are unreachable. */
+const FALLBACK_PROXIES: MojangProxy[] = ['fallen', 'sakurin']
 
 /** One application-owned worker for startup, periodic, reconnect and settings checks. */
 export function createMojangAuthMonitor(deps: Dependencies) {
@@ -46,16 +53,27 @@ export function createMojangAuthMonitor(deps: Dependencies) {
         configurationKey = configuration.key
         const automatic =
             configuration.source === 'auto' || configuration.source === 'official_preferred'
-        let useMirror = configuration.source === 'mirror_preferred'
+        let proxy: MojangProxy | null =
+            configuration.source === 'mirror_preferred'
+                ? 'fallen'
+                : configuration.source === 'sakurin_preferred'
+                  ? 'sakurin'
+                  : null
         if (automatic) {
             const official = await deps.probeOfficial()
             if (!isCurrent()) return null
             // A failed auxiliary endpoint must not replace working core
-            // authentication services. Probe a fallback before applying it to authentication.
+            // authentication services. Probe each proxy before applying one to
+            // authentication, preferring the first that answers.
             if (!officialMojangServicesReachable(official)) {
-                const mirror = await deps.probeMirror()
-                if (!isCurrent()) return null
-                useMirror = officialMojangServicesReachable(mirror)
+                for (const candidate of FALLBACK_PROXIES) {
+                    const reachable = await deps.probeProxy(candidate)
+                    if (!isCurrent()) return null
+                    if (officialMojangServicesReachable(reachable)) {
+                        proxy = candidate
+                        break
+                    }
+                }
             }
         }
         if (!isCurrent()) return null
@@ -68,7 +86,7 @@ export function createMojangAuthMonitor(deps: Dependencies) {
             pending = true
             return null
         }
-        if (!(await deps.applySource(configuration.source, useMirror))) {
+        if (!(await deps.applySource(configuration.source, proxy))) {
             if (isCurrent()) {
                 generation++
                 pending = true

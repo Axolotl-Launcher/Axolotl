@@ -17402,6 +17402,9 @@
   "app.settings.resources.source.mojang-official-preferred": {
     "message": "优先官方源"
   },
+  "app.settings.resources.source.mojang-sakurin-preferred": {
+    "message": "优先 Sakurin Proxy"
+  },
   "app.settings.resources.source.official-only": {
     "message": "仅原始源（不使用镜像）"
   },

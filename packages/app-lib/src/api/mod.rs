@@ -90,6 +90,7 @@ pub mod prelude {
         translation,
         util::{
             io::{IOError, canonicalize},
+            mojang::MojangProxy,
             network::{is_network_metered, tcp_listen_any_loopback},
         },
     };

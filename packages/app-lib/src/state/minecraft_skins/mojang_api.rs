@@ -15,7 +15,7 @@ use crate::{
         ProfileCacheEntry,
     },
     util::fetch::authentication_client,
-    util::mojang::{mojang_service_url, should_use_mojang_mirror},
+    util::mojang::{mojang_service_url, selected_mojang_proxy},
 };
 
 /// Provides operations for interacting with capes on a Minecraft player profile.
@@ -28,7 +28,7 @@ impl MinecraftCapeOperation {
     ) -> crate::Result<()> {
         let url = mojang_service_url(
             "https://api.minecraftservices.com/minecraft/profile/capes/active",
-            should_use_mojang_mirror(),
+            selected_mojang_proxy(),
         );
         update_profile_cache_from_response(
             authentication_client()
@@ -52,7 +52,7 @@ impl MinecraftCapeOperation {
     pub async fn unequip_any(credentials: &Credentials) -> crate::Result<()> {
         let url = mojang_service_url(
             "https://api.minecraftservices.com/minecraft/profile/capes/active",
-            should_use_mojang_mirror(),
+            selected_mojang_proxy(),
         );
         update_profile_cache_from_response(
             authentication_client()
@@ -107,7 +107,7 @@ impl MinecraftSkinOperation {
 
         let url = mojang_service_url(
             "https://api.minecraftservices.com/minecraft/profile/skins",
-            should_use_mojang_mirror(),
+            selected_mojang_proxy(),
         );
         let profile = update_profile_cache_from_response(
             authentication_client()
@@ -128,7 +128,7 @@ impl MinecraftSkinOperation {
     pub async fn unequip_any(credentials: &Credentials) -> crate::Result<()> {
         let url = mojang_service_url(
             "https://api.minecraftservices.com/minecraft/profile/skins/active",
-            should_use_mojang_mirror(),
+            selected_mojang_proxy(),
         );
         update_profile_cache_from_response(
             authentication_client()

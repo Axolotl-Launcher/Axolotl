@@ -29,6 +29,7 @@ pub(crate) enum DownloadSource {
     OfficialOnly,
     MirrorPreferred,
     OfficialPreferred,
+    SakurinPreferred,
 }
 
 impl DownloadSource {
@@ -38,6 +39,7 @@ impl DownloadSource {
             Self::OfficialOnly => "official_only",
             Self::MirrorPreferred => "mirror_preferred",
             Self::OfficialPreferred => "official_preferred",
+            Self::SakurinPreferred => "sakurin_preferred",
         }
     }
 
@@ -47,6 +49,7 @@ impl DownloadSource {
             "official_only" => Some(Self::OfficialOnly),
             "mirror_preferred" => Some(Self::MirrorPreferred),
             "official_preferred" => Some(Self::OfficialPreferred),
+            "sakurin_preferred" => Some(Self::SakurinPreferred),
             _ => None,
         }
     }

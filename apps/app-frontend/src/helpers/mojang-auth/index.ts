@@ -3,7 +3,12 @@ import { invoke } from '@tauri-apps/api/core'
 import { check_mojang_services, check_reachable } from '@/helpers/auth.js'
 import { get, getProxyConfig } from '@/helpers/settings'
 
-import type { MojangAuthConfiguration, MojangAuthSource, MojangServiceStatus } from './monitor'
+import type {
+    MojangAuthConfiguration,
+    MojangAuthSource,
+    MojangProxy,
+    MojangServiceStatus,
+} from './monitor'
 
 export const getNetworkScope = (): Promise<string> => invoke('plugin:auth|network_scope')
 
@@ -24,14 +29,14 @@ export async function getMojangAuthConfiguration(): Promise<MojangAuthConfigurat
 
 export const probeOfficialMojangServices = (): Promise<MojangServiceStatus[]> =>
     check_mojang_services()
-export const probeMirrorMojangServices = (): Promise<MojangServiceStatus[]> =>
-    check_mojang_services(true)
+export const probeMojangProxyServices = (proxy: MojangProxy): Promise<MojangServiceStatus[]> =>
+    check_mojang_services(proxy)
 export const probeSelectedMojangSource = (): Promise<void> => check_reachable()
 
 /** Backend compares the expected mode and merges JVM arguments under its settings write lock. */
 export async function applyMojangAuthSource(
     expectedSource: MojangAuthSource,
-    useMirror: boolean,
+    proxy: MojangProxy | null,
 ): Promise<boolean> {
-    return invoke('plugin:auth|set_mojang_auth_use_mirror', { expectedSource, useMirror })
+    return invoke('plugin:auth|set_mojang_auth_proxy', { expectedSource, proxy })
 }

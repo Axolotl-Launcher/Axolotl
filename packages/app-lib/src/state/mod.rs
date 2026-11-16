@@ -12,6 +12,7 @@ use crate::util::download::constants::{
     AUTO_DOWNLOAD_MIN_GAIN_PERCENT, AUTO_DOWNLOAD_PERCENT_BASE,
 };
 use crate::util::fetch::{FetchSemaphore, IoSemaphore};
+use crate::util::mojang::MojangProxy;
 use dashmap::DashMap;
 use parking_lot::{Mutex, RwLock};
 use std::collections::{HashMap, HashSet};
@@ -118,6 +119,20 @@ static STARTUP_WORK: OnceCell<()> = OnceCell::const_new();
 /// that never reports readiness (for example, a hidden lightweight-mode
 /// window) must not stall maintenance forever.
 const FRONTEND_READY_FALLBACK: Duration = Duration::from_secs(5);
+
+/// Stored form of the selected Mojang forwarding proxy: a `None` that reads as
+/// "no proxy", so an atomic can hold the selection.
+const MOJANG_PROXY_NONE: u8 = 0;
+const MOJANG_PROXY_FALLEN: u8 = 1;
+const MOJANG_PROXY_SAKURIN: u8 = 2;
+
+const fn mojang_proxy_code(proxy: Option<MojangProxy>) -> u8 {
+    match proxy {
+        None => MOJANG_PROXY_NONE,
+        Some(MojangProxy::Fallen) => MOJANG_PROXY_FALLEN,
+        Some(MojangProxy::Sakurin) => MOJANG_PROXY_SAKURIN,
+    }
+}
 
 struct FrontendReadiness {
     ready: OnceCell<()>,
@@ -234,7 +249,7 @@ pub struct State {
     modrinth_source: AtomicU8,
     curseforge_source: AtomicU8,
     bypass_curseforge_download_restrictions: AtomicBool,
-    mojang_auth_use_mirror: AtomicBool,
+    mojang_auth_proxy: AtomicU8,
     auto_prefers_mirror: AtomicBool,
     download_concurrency_target: AtomicUsize,
     download_concurrency_limit: AtomicUsize,
@@ -966,13 +981,17 @@ impl State {
             .load(Ordering::Relaxed)
     }
 
-    pub fn mojang_auth_use_mirror(&self) -> bool {
-        self.mojang_auth_use_mirror.load(Ordering::Relaxed)
+    pub fn mojang_auth_proxy(&self) -> Option<MojangProxy> {
+        match self.mojang_auth_proxy.load(Ordering::Relaxed) {
+            MOJANG_PROXY_SAKURIN => Some(MojangProxy::Sakurin),
+            MOJANG_PROXY_FALLEN => Some(MojangProxy::Fallen),
+            _ => None,
+        }
     }
 
-    pub fn set_mojang_auth_use_mirror(&self, use_mirror: bool) {
-        self.mojang_auth_use_mirror
-            .store(use_mirror, Ordering::Relaxed);
+    pub fn set_mojang_auth_proxy(&self, proxy: Option<MojangProxy>) {
+        self.mojang_auth_proxy
+            .store(mojang_proxy_code(proxy), Ordering::Relaxed);
     }
 
     pub async fn proxy_config(
@@ -1125,13 +1144,16 @@ impl State {
         );
         match settings.mojang_auth_source {
             DownloadSourceMode::MirrorPreferred => {
-                self.mojang_auth_use_mirror.store(true, Ordering::Relaxed);
+                self.set_mojang_auth_proxy(Some(MojangProxy::Fallen));
             }
-            DownloadSourceMode::OfficialOnly => {
-                self.mojang_auth_use_mirror.store(false, Ordering::Relaxed);
+            DownloadSourceMode::SakurinPreferred => {
+                self.set_mojang_auth_proxy(Some(MojangProxy::Sakurin));
             }
-            DownloadSourceMode::Auto
-            | DownloadSourceMode::OfficialPreferred => {}
+            DownloadSourceMode::OfficialOnly
+            | DownloadSourceMode::OfficialPreferred => {
+                self.set_mojang_auth_proxy(None);
+            }
+            DownloadSourceMode::Auto => {}
         }
         self.auto_prefers_mirror
             .store(settings.auto_prefers_mirror(), Ordering::Relaxed);
@@ -1546,14 +1568,15 @@ impl State {
             bypass_curseforge_download_restrictions: AtomicBool::new(
                 settings.bypass_curseforge_download_restrictions,
             ),
-            mojang_auth_use_mirror: AtomicBool::new(
-                match settings.mojang_auth_source {
-                    DownloadSourceMode::MirrorPreferred => true,
-                    DownloadSourceMode::Auto => auto_prefers_mirror,
-                    DownloadSourceMode::OfficialOnly
-                    | DownloadSourceMode::OfficialPreferred => false,
-                },
-            ),
+            mojang_auth_proxy: AtomicU8::new(mojang_proxy_code(
+                settings.mojang_auth_source.mojang_proxy(
+                    if auto_prefers_mirror {
+                        Some(MojangProxy::Fallen)
+                    } else {
+                        None
+                    },
+                ),
+            )),
             auto_prefers_mirror: AtomicBool::new(auto_prefers_mirror),
             download_concurrency_target: AtomicUsize::new(download_concurrency),
             download_concurrency_limit: AtomicUsize::new(download_concurrency),
@@ -1771,7 +1794,7 @@ pub(crate) async fn test_state(
         modrinth_source: AtomicU8::new(0),
         curseforge_source: AtomicU8::new(0),
         bypass_curseforge_download_restrictions: AtomicBool::new(true),
-        mojang_auth_use_mirror: AtomicBool::new(false),
+        mojang_auth_proxy: AtomicU8::new(MOJANG_PROXY_NONE),
         auto_prefers_mirror: AtomicBool::new(false),
         download_concurrency_target: AtomicUsize::new(8),
         download_concurrency_limit: AtomicUsize::new(8),

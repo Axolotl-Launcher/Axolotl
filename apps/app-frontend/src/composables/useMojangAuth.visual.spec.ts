@@ -12,7 +12,7 @@ const backend = vi.hoisted(() => ({
     configuration: vi.fn(),
     scope: vi.fn(),
     official: vi.fn(),
-    mirror: vi.fn(),
+    proxy: vi.fn(),
     apply: vi.fn(),
     selected: vi.fn(),
     listen: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('@/helpers/mojang-auth', () => ({
     getMojangAuthConfiguration: backend.configuration,
     getNetworkScope: backend.scope,
     probeOfficialMojangServices: backend.official,
-    probeMirrorMojangServices: backend.mirror,
+    probeMojangProxyServices: backend.proxy,
     applyMojangAuthSource: backend.apply,
     probeSelectedMojangSource: backend.selected,
 }))
@@ -37,7 +37,7 @@ beforeEach(() => {
     backend.scope.mockReset().mockResolvedValue('network-1')
     backend.configuration.mockReset().mockResolvedValue({ source: 'auto', key: 'auto' })
     backend.official.mockReset().mockResolvedValue(healthy())
-    backend.mirror.mockReset().mockResolvedValue(healthy())
+    backend.proxy.mockReset().mockResolvedValue(healthy())
     backend.apply.mockReset().mockResolvedValue(true)
     backend.selected.mockReset().mockResolvedValue(undefined)
     backend.dispose.mockReset()

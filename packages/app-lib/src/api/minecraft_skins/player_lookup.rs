@@ -11,7 +11,7 @@ use uuid::Uuid;
 use super::{MinecraftSkinVariant, UrlOrBlob, png_util};
 use crate::{
     State,
-    util::mojang::{mojang_service_url, should_use_mojang_mirror},
+    util::mojang::{mojang_service_url, selected_mojang_proxy},
 };
 
 #[derive(Debug, Serialize)]
@@ -199,7 +199,7 @@ async fn lookup(input: &str) -> Result<PlayerSkinLookup, PlayerSkinLookup> {
         unavailable("initialization", "could not access application state")
     })?;
     let client = state.configured_http_client();
-    let mirror = should_use_mojang_mirror();
+    let mirror = selected_mojang_proxy();
     let id = match id {
         Some(id) => id,
         None => {

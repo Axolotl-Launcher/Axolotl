@@ -16,8 +16,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             check_reachable,
             check_mojang_services,
             network_scope,
-            set_mojang_auth_use_mirror,
-            mojang_auth_use_mirror,
+            set_mojang_auth_proxy,
+            mojang_auth_proxy,
             login,
             browser_login,
             begin_device_login,
@@ -46,15 +46,12 @@ pub async fn check_reachable() -> Result<()> {
     Ok(())
 }
 
-/// Checks all Mojang services that the Fallen proxy mirrors.
+/// Checks all Mojang services that the forwarding proxies mirror.
 #[tauri::command]
 pub async fn check_mojang_services(
-    use_mirror: Option<bool>,
+    proxy: Option<MojangProxy>,
 ) -> Result<Vec<minecraft_auth::MojangServiceStatus>> {
-    Ok(
-        minecraft_auth::check_mojang_services_for(use_mirror.unwrap_or(false))
-            .await,
-    )
+    Ok(minecraft_auth::check_mojang_services_for(proxy).await)
 }
 
 #[tauri::command]
@@ -62,24 +59,21 @@ pub async fn network_scope() -> Result<String> {
     Ok(State::get().await?.network_scope())
 }
 
-/// Stores whether the launcher should route Mojang service requests through
-/// the Fallen proxy.
+/// Stores which forwarding proxy the launcher routes Mojang service requests
+/// through.
 #[tauri::command]
-pub async fn set_mojang_auth_use_mirror(
-    use_mirror: bool,
+pub async fn set_mojang_auth_proxy(
+    proxy: Option<MojangProxy>,
     expected_source: theseus::settings::DownloadSourceMode,
 ) -> Result<bool> {
-    Ok(
-        minecraft_auth::set_mojang_auth_use_mirror(use_mirror, expected_source)
-            .await?,
-    )
+    Ok(minecraft_auth::set_mojang_auth_proxy(proxy, expected_source).await?)
 }
 
-/// Whether the launcher currently routes Mojang service requests through the
-/// Fallen proxy.
+/// The forwarding proxy the launcher currently routes Mojang service requests
+/// through.
 #[tauri::command]
-pub fn mojang_auth_use_mirror() -> bool {
-    minecraft_auth::mojang_auth_use_mirror()
+pub fn mojang_auth_proxy() -> Option<MojangProxy> {
+    minecraft_auth::mojang_auth_proxy()
 }
 
 #[derive(Deserialize, Serialize)]

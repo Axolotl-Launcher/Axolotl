@@ -10696,5 +10696,8 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "未知檔案警告"
+  },
+  "app.settings.resources.source.mojang-sakurin-preferred": {
+    "message": "優先 Sakurin Proxy"
   }
 }

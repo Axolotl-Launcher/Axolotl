@@ -499,6 +499,7 @@ fn valid_privileged_setting(key: &str, value: &str) -> bool {
                 | "official_only"
                 | "mirror_preferred"
                 | "official_preferred"
+                | "sakurin_preferred"
         ),
         "accent_color" => valid_accent_color(value),
         "sidebar_instance_count" => in_range(value, 0, 50),

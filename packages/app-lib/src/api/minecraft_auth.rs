@@ -16,7 +16,9 @@ use crate::state::{
 };
 pub use crate::state::{MinecraftDeviceLoginFlow, MinecraftDeviceLoginPoll};
 use crate::util::fetch::authentication_client;
-use crate::util::mojang::{mojang_service_url, should_use_mojang_mirror};
+use crate::util::mojang::{
+    MojangProxy, mojang_service_url, selected_mojang_proxy,
+};
 
 /// Budget for the Mojang reachability probes.
 ///
@@ -31,8 +33,7 @@ const REACHABILITY_TIMEOUT: Duration = Duration::from_secs(12);
 
 #[tracing::instrument]
 pub async fn check_reachable() -> crate::Result<()> {
-    let statuses =
-        probe_mojang_services(should_use_mojang_mirror(), true).await;
+    let statuses = probe_mojang_services(selected_mojang_proxy(), true).await;
     if let Some(failed) = statuses.iter().find(|status| !status.reachable) {
         return Err(crate::ErrorKind::NetworkError(format!(
             "Mojang {} service is unreachable",
@@ -43,17 +44,15 @@ pub async fn check_reachable() -> crate::Result<()> {
     Ok(())
 }
 
-pub async fn set_mojang_auth_use_mirror(
-    use_mirror: bool,
+pub async fn set_mojang_auth_proxy(
+    proxy: Option<MojangProxy>,
     expected_source: crate::state::DownloadSourceMode,
 ) -> crate::Result<bool> {
-    let applied = crate::api::settings::apply_mojang_auth_source(
-        expected_source,
-        use_mirror,
-    )
-    .await?;
+    let applied =
+        crate::api::settings::apply_mojang_auth_source(expected_source, proxy)
+            .await?;
     if applied
-        && use_mirror
+        && let Some(proxy) = proxy
         && matches!(
             expected_source,
             crate::state::DownloadSourceMode::Auto
@@ -61,15 +60,21 @@ pub async fn set_mojang_auth_use_mirror(
         )
     {
         tracing::info!(
-            "Mojang services are unreachable; routing Mojang service requests through the Fallen proxy"
+            proxy = ?proxy,
+            "Mojang services are unreachable; routing Mojang service requests through a forwarding proxy"
         );
     }
     Ok(applied)
 }
 
-/// Whether Mojang service requests currently go out through the Fallen proxy.
+/// The forwarding proxy Mojang service requests currently go out through.
+pub fn mojang_auth_proxy() -> Option<MojangProxy> {
+    selected_mojang_proxy()
+}
+
+/// Whether Mojang service requests currently go out through a forwarding proxy.
 pub fn mojang_auth_use_mirror() -> bool {
-    should_use_mojang_mirror()
+    selected_mojang_proxy().is_some()
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -79,7 +84,13 @@ pub struct MojangServiceStatus {
     pub reachable: bool,
 }
 
-const MOJANG_SERVICES: [(&str, &str); 4] = [
+/// The endpoints the reachability probes ask, one per Mojang service a
+/// forwarding proxy mirrors.
+///
+/// `discovery` leads the core set because Minecraft 26.3 and later resolve every
+/// other endpoint from its document; a proxy that answers the older hosts but
+/// not this one leaves those versions unable to authenticate.
+const PROBE_ENDPOINTS: [(&str, &str); 5] = [
     ("account", "https://api.mojang.com/"),
     (
         "session",
@@ -89,6 +100,10 @@ const MOJANG_SERVICES: [(&str, &str); 4] = [
     (
         "profiles",
         "https://api.mojang.com/users/profiles/minecraft/Notch",
+    ),
+    (
+        "discovery",
+        "https://discovery.minecraftservices.com/minecraft/client",
     ),
 ];
 
@@ -102,32 +117,33 @@ fn service_response_reachable(service: &str, status: StatusCode) -> bool {
 }
 
 pub async fn check_mojang_services() -> Vec<MojangServiceStatus> {
-    check_mojang_services_for(false).await
+    check_mojang_services_for(None).await
 }
 
 #[tracing::instrument]
 pub async fn check_mojang_services_for(
-    use_mirror: bool,
+    proxy: Option<MojangProxy>,
 ) -> Vec<MojangServiceStatus> {
-    probe_mojang_services(use_mirror, false).await
+    probe_mojang_services(proxy, false).await
 }
 
 async fn probe_mojang_services(
-    use_mirror: bool,
+    proxy: Option<MojangProxy>,
     core_only: bool,
 ) -> Vec<MojangServiceStatus> {
     let client = authentication_client();
     futures::future::join_all(
-        MOJANG_SERVICES
+        PROBE_ENDPOINTS
             .into_iter()
             .filter(|(service, _)| {
-                !core_only || matches!(*service, "session" | "services")
+                !core_only
+                    || matches!(*service, "session" | "services" | "discovery")
             })
             .map(|(service, url)| {
                 let client = client.clone();
                 async move {
                     let reachable = client
-                        .get(mojang_service_url(url, use_mirror).as_ref())
+                        .get(mojang_service_url(url, proxy).as_ref())
                         .timeout(REACHABILITY_TIMEOUT)
                         .send()
                         .await
@@ -398,7 +414,9 @@ mod tests {
             StatusCode::TOO_MANY_REQUESTS,
             StatusCode::BAD_GATEWAY,
         ] {
-            for service in ["account", "session", "services", "profiles"] {
+            for service in
+                ["account", "session", "services", "profiles", "discovery"]
+            {
                 assert!(!service_response_reachable(service, status));
             }
         }
@@ -409,12 +427,16 @@ mod tests {
         ));
         assert!(service_response_reachable("services", StatusCode::OK));
         assert!(service_response_reachable("account", StatusCode::NOT_FOUND));
+        assert!(service_response_reachable("discovery", StatusCode::OK));
     }
 
     #[test]
     fn mojang_monitor_probes_only_current_required_services() {
-        let services = MOJANG_SERVICES.map(|(service, _)| service);
-        assert_eq!(services, ["account", "session", "services", "profiles"]);
+        let services = PROBE_ENDPOINTS.map(|(service, _)| service);
+        assert_eq!(
+            services,
+            ["account", "session", "services", "profiles", "discovery"]
+        );
     }
 
     /// The probes run against hosts that answer in one to six seconds on a

@@ -471,6 +471,11 @@ pub fn resolve_download_routes_for(
         crate::state::DownloadSourceMode::MirrorPreferred => {
             routes.sort_by_key(|route| !route.is_mirror);
         }
+        // A forwarding proxy serves Mojang services, not downloadable files, so
+        // for a file download it is a mirror preference like any other.
+        crate::state::DownloadSourceMode::SakurinPreferred => {
+            routes.sort_by_key(|route| !route.is_mirror);
+        }
     }
     // A preference for MCIM covers its APIs only: it asks for files to come
     // from the official CDN first.

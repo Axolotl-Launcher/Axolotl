@@ -6,7 +6,7 @@ import {
     applyMojangAuthSource,
     getMojangAuthConfiguration,
     getNetworkScope,
-    probeMirrorMojangServices,
+    probeMojangProxyServices,
     probeOfficialMojangServices,
     probeSelectedMojangSource,
 } from '@/helpers/mojang-auth'
@@ -29,7 +29,7 @@ export function setupMojangAuthMonitor(ready: Ref<boolean>) {
     const monitor = createMojangAuthMonitor({
         configuration: getMojangAuthConfiguration,
         probeOfficial: probeOfficialMojangServices,
-        probeMirror: probeMirrorMojangServices,
+        probeProxy: probeMojangProxyServices,
         applySource: applyMojangAuthSource,
         probeSelected: probeSelectedMojangSource,
         enabled: () => enabled.value,

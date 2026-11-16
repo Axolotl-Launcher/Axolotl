@@ -56,6 +56,9 @@ const CHANNELS = ['release', 'beta']
 // Only recent migrations are listed. Dropping to a threshold before them is
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
+    // settings.mojang_auth_source widens its CHECK list; the column itself
+    // already existed, so the rebuild leaves no schema to remove.
+    20261116120000: {},
     20261113120000: {},
     20261114120000: {
         columns: [

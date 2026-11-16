@@ -8,6 +8,7 @@ use serde_json::{Map, Value};
 use crate::state::documents::settings::{DANGER_ZONE, DOMAINS};
 pub use crate::state::documents::settings::{DangerousImport, SettingLayer};
 use crate::state::store::{Handle, atom};
+use crate::util::mojang::MojangProxy;
 pub use crate::{
     State,
     state::{
@@ -141,7 +142,7 @@ pub async fn patch(patch: serde_json::Value) -> crate::Result<Settings> {
 pub(crate) async fn apply_mojang_auth_source_with(
     handle: &Handle,
     expected_source: DownloadSourceMode,
-    use_mirror: bool,
+    probe_proxy: Option<MojangProxy>,
 ) -> crate::Result<bool> {
     let mut unit = atom(handle).await?;
     let mut settings = Settings::load_in(&mut unit).await?;
@@ -149,16 +150,10 @@ pub(crate) async fn apply_mojang_auth_source_with(
         return Ok(false);
     }
     // Explicit choices cannot be overridden by a delayed automatic probe.
-    let use_mirror = match expected_source {
-        DownloadSourceMode::MirrorPreferred => true,
-        DownloadSourceMode::OfficialOnly => false,
-        DownloadSourceMode::Auto | DownloadSourceMode::OfficialPreferred => {
-            use_mirror
-        }
-    };
+    let proxy = expected_source.mojang_proxy(probe_proxy);
     let args = crate::util::mojang::auth_proxy_java_args(
         &settings.extra_launch_args,
-        use_mirror,
+        proxy,
     );
     if args != settings.extra_launch_args {
         settings.extra_launch_args = args;
@@ -171,20 +166,18 @@ pub(crate) async fn apply_mojang_auth_source_with(
 /// Applies a probe result only while its source mode is still selected, preserving concurrent edits.
 pub(crate) async fn apply_mojang_auth_source(
     expected_source: DownloadSourceMode,
-    use_mirror: bool,
+    probe_proxy: Option<MojangProxy>,
 ) -> crate::Result<bool> {
     let _guard = SETTINGS_WRITE.lock().await;
     let state = State::get().await?;
-    let applied =
-        apply_mojang_auth_source_with(&state.data, expected_source, use_mirror)
-            .await?;
+    let applied = apply_mojang_auth_source_with(
+        &state.data,
+        expected_source,
+        probe_proxy,
+    )
+    .await?;
     if applied {
-        state.set_mojang_auth_use_mirror(match expected_source {
-            DownloadSourceMode::MirrorPreferred => true,
-            DownloadSourceMode::OfficialOnly => false,
-            DownloadSourceMode::Auto
-            | DownloadSourceMode::OfficialPreferred => use_mirror,
-        });
+        state.set_mojang_auth_proxy(expected_source.mojang_proxy(probe_proxy));
     }
     Ok(applied)
 }

@@ -211,11 +211,16 @@ pub(crate) async fn get(
     let pack_resource: Option<String> = sqlx::query_scalar("SELECT resource_id FROM resource_instance_pack_links WHERE instance_id = ?")
         .bind(instance_id).fetch_optional(&mut *tx).await?;
     let pack_resource = pack_resource.and_then(|id| ResourceId::new(id).ok());
-    let preferred: String = sqlx::query_scalar(
-        "SELECT preferred_source FROM resource_preferences WHERE id = 1",
-    )
-    .fetch_one(&mut *tx)
-    .await?;
+    let preferred = if super::configuration_documents::runtime(handle.pool()) {
+        super::configuration_documents::preferred_source(handle).await?
+    } else {
+        let preferred: String = sqlx::query_scalar(
+            "SELECT preferred_source FROM resource_preferences WHERE id = 1",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        preferred
+    };
     let preferred_source =
         SourceId::new(preferred).unwrap_or_else(|_| SourceId::modrinth());
     let evidence_guards =

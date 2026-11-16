@@ -1,6 +1,6 @@
 //! Stable, attached database domains. Application release numbers never decide
-//! whether these files may be opened. The frozen baseline is additive only;
-//! historical SQLx migrations are used solely when importing the old app.db.
+//! whether these files may be opened. The runtime core contract is additive;
+//! the frozen historical baseline and SQLx migrations are import-only inputs.
 //!
 //! A durable main database and rollback journals are intentional: SQLite's
 //! super-journal makes transactions spanning attached files atomic. Changing
@@ -65,11 +65,20 @@ struct Object {
     sql: String,
 }
 
-fn baseline() -> &'static Baseline {
+fn legacy_baseline() -> &'static Baseline {
     static VALUE: OnceLock<Baseline> = OnceLock::new();
     VALUE.get_or_init(|| {
         serde_json::from_str(include_str!("database_baseline.json"))
             .expect("the checked-in database baseline is valid")
+    })
+}
+
+/// The runtime contract has no release gate and only relational authorities.
+fn baseline() -> &'static Baseline {
+    static VALUE: OnceLock<Baseline> = OnceLock::new();
+    VALUE.get_or_init(|| {
+        serde_json::from_str(include_str!("core_baseline.json"))
+            .expect("the checked-in core contract is valid")
     })
 }
 
@@ -138,6 +147,7 @@ pub(crate) async fn ensure_cleanup_supported(
         .and_then(Path::parent)
         .expect("domain data root");
     super::legacy_documents::ensure_cleanup_supported(root).await?;
+    super::recovery_documents::ensure_cleanup_supported(pool).await?;
     let shared = crate::state::sync_state::root(
         &crate::state::persistence::Persistence::new(root),
     )
@@ -148,7 +158,12 @@ pub(crate) async fn ensure_cleanup_supported(
         .filter(|domain| {
             !matches!(
                 **domain,
-                "accounts" | "telemetry" | "media" | "records" | "sync"
+                "accounts"
+                    | "telemetry"
+                    | "media"
+                    | "records"
+                    | "sync"
+                    | "operations"
             )
         })
         .any(|domain| !attached.contains(*domain))
@@ -245,8 +260,6 @@ pub(crate) async fn backup(
     // Keep their documents and the attached SQL image in the same snapshot.
     // sched-order: theseus::api::settings::SETTINGS_WRITE
     let _settings = crate::api::settings::SETTINGS_WRITE.lock().await;
-    // sched-order: theseus::state::documents::WRITES
-    let _documents = crate::state::documents::WRITES.lock().await;
     let mut transaction = loop {
         super::configuration::flush_committed(pool).await?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
@@ -260,7 +273,13 @@ pub(crate) async fn backup(
         }
         transaction.rollback().await?;
     };
+    // Reserve core before document locks, matching ordinary coordinated writers.
+    // sched-order: theseus::state::documents::WRITES
+    let _documents = crate::state::documents::WRITES.lock().await;
+    let _document_files =
+        super::configuration_documents::lock_files(settings_dir).await?;
     let result = async {
+        let mut exclusions = Vec::<String>::new();
         let domains = attached_domains(&mut *transaction).await?;
         for name in std::iter::once("system").chain(
             DOMAINS
@@ -335,12 +354,12 @@ pub(crate) async fn backup(
                 ).await;
                 let files = match snapshot {
                     Ok(files)=>files,
-                    Err(error) if name=="daily-playtime"=>{
-                        tracing::warn!(%error,"Core backup excludes unavailable optional daily history descriptor");
-                        crate::state::persistence::document::write_json(&staging.join("backup-status.json"),serde_json::to_vec(&serde_json::json!({"optional_exclusions":["records.db","state/records.json"]}))?).await?;
+                    Err(error)=>{
+                        tracing::warn!(domain=%name,%error,"Core backup preserves unavailable independent state as raw evidence");
+                        exclusions.push(name.clone());
+                        preserve_raw_receipt(settings_dir,&staging,&name).await?;
                         continue;
                     }
-                    Err(error)=>return Err(error),
                 };
                 for (relative,bytes) in files {
                     let destination = staging.join(relative);
@@ -364,13 +383,25 @@ pub(crate) async fn backup(
         }
         if let Err(error)=super::sync_documents::backup_in(&mut transaction,&crate::state::persistence::Persistence::new(settings_dir),&staging.join("synced-options")).await{
             tracing::warn!(%error,"Backup excludes unavailable shared sync state");
+            exclusions.push("sync".into());
             crate::state::persistence::document::write_json(&staging.join("sync-backup-status.json"),serde_json::to_vec(&serde_json::json!({"unavailable":true}))?).await?;
         }
         if let Err(error) = super::records_db::backup(settings_dir, &staging.join("records.db")).await {
             tracing::warn!(%error,"Core snapshot excludes unavailable optional daily history");
+            exclusions.push("daily-playtime".into());
             crate::state::persistence::document::write_json(&staging.join("backup-status.json"),serde_json::to_vec(&serde_json::json!({"optional_exclusions":["records.db"]}))?).await?;
         }
-        crate::state::instances::manifest::backup(settings_dir,&staging).await?;
+        if let Err(error)=crate::state::instances::manifest::backup(settings_dir,&staging).await {
+            tracing::warn!(%error,"Instance recovery copies excluded from this core snapshot");
+            exclusions.push("instance-recovery-copies".into());
+        }
+        if let Err(error)=super::operations_db::backup(settings_dir,&staging.join(super::operations_db::FILE)).await {
+            tracing::warn!(%error,"Optional task history excluded from core snapshot");
+            exclusions.push("operation-history".into());
+        }
+        super::recovery_documents::backup(settings_dir,&staging).await?;
+        backup_independent_files(settings_dir,&staging).await?;
+        crate::state::persistence::document::write_json(&staging.join("snapshot.json"),serde_json::to_vec(&serde_json::json!({"protocol":"axolotl-storage-snapshot","version":1,"optional_exclusions":exclusions,"core":["system.db","instances.db","storage.db"]}))?).await?;
         tokio::fs::write(staging.join("complete"), b"axolotl database set\n")
             .await?;
         tokio::fs::rename(&staging, &destination).await?;
@@ -384,6 +415,121 @@ pub(crate) async fn backup(
     }
     result?;
     Ok(destination)
+}
+
+/// Damaged authorities and receipts remain evidence, never usable takeover markers.
+async fn preserve_raw_receipt(
+    root: &Path,
+    staging: &Path,
+    name: &str,
+) -> crate::Result<()> {
+    let relative =
+        PathBuf::from("state/persistence/imports").join(format!("{name}.json"));
+    let source = root.join(&relative);
+    if tokio::fs::try_exists(&source).await? {
+        copy_regular(&source, &staging.join("unavailable").join(&relative))
+            .await?;
+        if let Ok(bytes) = tokio::fs::read(&source).await {
+            if let Ok(value) =
+                serde_json::from_slice::<serde_json::Value>(&bytes)
+            {
+                if let Some(target) = value["data"]["target"].as_str() {
+                    let relative = Path::new(target);
+                    if !relative.is_absolute()
+                        && relative.components().all(|part| {
+                            matches!(part, std::path::Component::Normal(_))
+                        })
+                    {
+                        let source = root.join(relative);
+                        if tokio::fs::try_exists(&source).await? {
+                            copy_regular(
+                                &source,
+                                &staging.join("unavailable").join(relative),
+                            )
+                            .await?;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+async fn copy_regular(source: &Path, target: &Path) -> crate::Result<()> {
+    if !tokio::fs::symlink_metadata(source)
+        .await?
+        .file_type()
+        .is_file()
+    {
+        return Err(crate::ErrorKind::FSError(
+            "Snapshot refuses a linked or nonregular authority".into(),
+        )
+        .into());
+    }
+    tokio::fs::create_dir_all(target.parent().expect("snapshot parent"))
+        .await?;
+    tokio::fs::copy(source, target).await?;
+    tokio::fs::OpenOptions::new()
+        .write(true)
+        .open(target)
+        .await?
+        .sync_all()
+        .await?;
+    Ok(())
+}
+/// Preserve file authorities that predate receipt-based import, as well as
+/// opaque originals. Refuse traversal through links in the private state tree.
+async fn backup_independent_files(
+    root: &Path,
+    staging: &Path,
+) -> crate::Result<()> {
+    for name in [
+        "instance_groups.json",
+        "favorite_groups.json",
+        "axolotl_config.json",
+    ] {
+        let source = root.join(name);
+        if tokio::fs::try_exists(&source).await? {
+            copy_regular(&source, &staging.join(name)).await?;
+        }
+    }
+    let mut pending =
+        vec![PathBuf::from("state"), PathBuf::from("media/skins")];
+    while let Some(relative) = pending.pop() {
+        let source = root.join(&relative);
+        if !tokio::fs::try_exists(&source).await? {
+            continue;
+        }
+        let metadata = tokio::fs::symlink_metadata(&source).await?;
+        if !metadata.is_dir() {
+            continue;
+        }
+        let mut entries = tokio::fs::read_dir(&source).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let relative = relative.join(entry.file_name());
+            if relative == Path::new("state/persistence/imports")
+                || relative == Path::new("state/instances")
+            {
+                continue;
+            }
+            let kind = entry.file_type().await?;
+            if kind.is_dir() {
+                pending.push(relative);
+            } else if kind.is_file()
+                && !entry.file_name().to_string_lossy().ends_with(".lock")
+            {
+                let target = staging.join(&relative);
+                if !tokio::fs::try_exists(&target).await? {
+                    copy_regular(
+                        &entry.path(),
+                        &staging.join("unavailable").join(&relative),
+                    )
+                    .await?;
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Keep at most three complete snapshot sets, taking a new one at most daily.
@@ -431,10 +577,20 @@ pub(crate) async fn maintain_backups(
     Ok(())
 }
 
-/// All connections attach the same files before any collection can use them.
-/// The configuration attachment is shared memory, not another durable copy of
-/// the JSON configuration. A keeper connection preserves it for the pool's life.
+/// All connections attach only the relational instance and ownership files.
+/// Independent documents, history and derived databases are never attachments.
 pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
+    if tokio::fs::try_exists(
+        settings_dir.join("databases/storage-restore.json"),
+    )
+    .await?
+    {
+        let _ownership = crate::state::db::acquire_domain_ownership(
+            &directory(settings_dir).join("system.db"),
+        )
+        .await?;
+        super::maintenance::finish_restore(settings_dir).await?;
+    }
     super::legacy_documents::initialize(settings_dir).await;
     let retired = crate::state::persistence::import::retired_database_domains(
         settings_dir,
@@ -466,7 +622,12 @@ async fn open_with_retired(
             .filter(|domain| {
                 !matches!(
                     *domain,
-                    "accounts" | "telemetry" | "media" | "records" | "sync"
+                    "accounts"
+                        | "telemetry"
+                        | "media"
+                        | "records"
+                        | "sync"
+                        | "operations"
                 )
             })
             .filter(|domain| {
@@ -477,21 +638,19 @@ async fn open_with_retired(
     );
     let root = directory(settings_dir);
     tokio::fs::create_dir_all(&root).await?;
+    let ownership = Arc::new(
+        crate::state::db::acquire_domain_ownership(&root.join("system.db"))
+            .await?,
+    );
+    super::maintenance::finish_restore(settings_dir).await?;
     if !root.join("system.db").is_file()
-        && DOMAINS
+        && ["instances", "storage"]
             .iter()
             .any(|domain| root.join(format!("{domain}.db")).is_file())
     {
         return Err(crate::ErrorKind::FSError("The database coordinator is missing; existing domain files were preserved instead of reimported".into()).into());
     }
-    let ownership = Arc::new(
-        crate::state::db::acquire_domain_ownership(&root.join("system.db"))
-            .await?,
-    );
-    let memory_name = format!(
-        "file:/axolotl-configuration-{}?vfs=memdb",
-        uuid::Uuid::new_v4()
-    );
+    let memory_name = String::new();
     let options = SqliteConnectOptions::new()
         .filename(directory(settings_dir).join("system.db"))
         .create_if_missing(true)
@@ -543,7 +702,6 @@ async fn open_with_retired(
         .await?;
     super::configuration::recover_and_load(&mut keeper, settings_dir).await?;
     keeper.close().await?;
-    super::configuration::hydrate_settings(&pool, settings_dir).await?;
     Ok(pool)
 }
 
@@ -575,16 +733,10 @@ async fn initialize_connection(
 async fn attach_connection(
     connection: &mut SqliteConnection,
     root: &Path,
-    memory_name: &str,
+    _memory_name: &str,
     durable: bool,
     domains: &[String],
 ) -> Result<(), sqlx::Error> {
-    // memdb shares the volatile projection without SQLite's shared-cache
-    // schema locks, which can invert the attached files' writer lock order.
-    sqlx::query("ATTACH DATABASE ? AS configuration")
-        .bind(memory_name)
-        .execute(&mut *connection)
-        .await?;
     for domain in domains {
         sqlx::query(sqlx::AssertSqlSafe(
             format!("ATTACH DATABASE ? AS {}", quote(domain)).as_str(),
@@ -627,8 +779,9 @@ async fn create_schema(
 ) -> Result<(), sqlx::Error> {
     let attached = attached_domains(connection).await?;
     if durable {
-        super::recovery_documents::install(connection).await?;
         super::sync_documents::install(connection).await?;
+        super::configuration::install_decisions(connection).await?;
+        super::recovery_documents::install(connection).await?;
         connection.execute("CREATE TABLE IF NOT EXISTS main.database_imports (source TEXT PRIMARY KEY NOT NULL, completed INTEGER NOT NULL)").await?;
         for table in &baseline().tables {
             if !attached.contains(&table.domain) {
@@ -656,9 +809,6 @@ async fn create_schema(
             }
             connection.execute(sqlx::AssertSqlSafe(format!("CREATE TABLE IF NOT EXISTS {}.extension_records (namespace TEXT NOT NULL, id TEXT NOT NULL, format TEXT NOT NULL, payload BLOB NOT NULL, PRIMARY KEY(namespace,id))", quote(domain)).as_str())).await?;
         }
-        connection
-            .execute("UPDATE configuration.settings SET version = 3")
-            .await?;
     }
     crate::state::instances::adapters::sqlite::manifest_rows::install(
         connection, durable,
@@ -873,12 +1023,63 @@ async fn create_schema(
         })
         .collect::<Vec<_>>();
     super::compatibility::install(connection, &owned).await?;
-    super::configuration::install_tracking(connection, durable).await?;
     Ok(())
 }
 
-/// Copy a fully migrated legacy snapshot exactly once. Configuration is only
-/// copied into memory and must be handed to JSON before import is marked done.
+/// Validate a closed snapshot against this build's additive relational contract.
+pub(crate) async fn validate_snapshot(
+    connection: &mut SqliteConnection,
+) -> crate::Result<()> {
+    for schema in ["main", "instances", "storage"] {
+        let status: Vec<String> = sqlx::query_scalar(sqlx::AssertSqlSafe(
+            format!("PRAGMA {schema}.quick_check"),
+        ))
+        .fetch_all(&mut *connection)
+        .await?;
+        if status != ["ok"] {
+            return Err(crate::ErrorKind::InputError(
+                "Snapshot database integrity check failed".into(),
+            )
+            .into());
+        }
+        if !sqlx::query(sqlx::AssertSqlSafe(format!(
+            "PRAGMA {schema}.foreign_key_check"
+        )))
+        .fetch_all(&mut *connection)
+        .await?
+        .is_empty()
+        {
+            return Err(crate::ErrorKind::InputError(
+                "Snapshot database references are incomplete".into(),
+            )
+            .into());
+        }
+    }
+    for table in &baseline().tables {
+        let columns = table
+            .columns
+            .iter()
+            .map(|column| quote(column))
+            .collect::<Vec<_>>()
+            .join(",");
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "SELECT {columns} FROM {} LIMIT 0",
+            qualified(table)
+        )))
+        .execute(&mut *connection)
+        .await?;
+    }
+    if cross_domain_issues(connection).await? != 0 {
+        return Err(crate::ErrorKind::InputError(
+            "Snapshot cross-domain references are incomplete".into(),
+        )
+        .into());
+    }
+    Ok(())
+}
+
+/// Copy a fully migrated legacy snapshot exactly once. Configuration is handed
+/// directly to its documents before the core import is marked complete.
 pub(crate) async fn import(
     pool: &SqlitePool,
     source: &Path,
@@ -888,6 +1089,18 @@ pub(crate) async fn import(
     if completed {
         return Ok(());
     }
+    super::configuration::import_legacy(source, settings_dir).await?;
+    let legacy = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(
+            SqliteConnectOptions::new().filename(source).read_only(true),
+        )
+        .await?;
+    let groups =
+        crate::state::instance_groups::import_from_pool(&legacy, settings_dir)
+            .await;
+    legacy.close().await;
+    groups?;
     let mut connection = pool.acquire().await?;
     sqlx::query("ATTACH DATABASE ? AS legacy_import")
         .bind(source.to_string_lossy().as_ref())
@@ -910,7 +1123,8 @@ pub(crate) async fn import(
     connection.execute("BEGIN IMMEDIATE").await?;
     let result = async {
         let attached = attached_domains(&mut connection).await?;
-        for table in &baseline().tables {
+        for legacy_table in &legacy_baseline().tables {
+            let Some(table)=baseline().tables.iter().find(|table|table.name==legacy_table.name) else {continue};
             if !attached.contains(&table.domain) { continue; }
             if table.name == "cache" { continue; }
             let columns = table.columns.iter().map(|column| quote(column)).collect::<Vec<_>>().join(", ");
@@ -932,18 +1146,7 @@ pub(crate) async fn import(
     connection.execute("DETACH DATABASE legacy_import").await?;
     connection.execute("PRAGMA foreign_keys = ON").await?;
     create_schema(&mut connection, false).await?;
-    super::configuration::recover_and_load(&mut connection, settings_dir)
-        .await?;
     drop(connection);
-    crate::state::Settings::migrate_legacy_row(&super::Handle::new(
-        pool.clone(),
-    ))
-    .await?;
-    if !crate::state::documents::hand_over(pool, settings_dir).await {
-        return Err(crate::ErrorKind::FSError("Configuration handover did not finish; the legacy database is retained for retry".into()).into());
-    }
-    super::configuration::hand_over(pool).await?;
-    super::configuration::hydrate_settings(pool, settings_dir).await?;
     sqlx::query("INSERT INTO main.database_imports (source, completed) VALUES ('app.db', 1) ON CONFLICT(source) DO UPDATE SET completed = 1").execute(pool).await?;
     Ok(())
 }
@@ -992,9 +1195,7 @@ mod tests {
             for domain in ["accounts", "telemetry", "media", "sync"] {
                 assert!(!attached.contains(domain));
             }
-            for domain in
-                ["instances", "storage", "operations", "configuration"]
-            {
+            for domain in ["instances", "storage"] {
                 assert!(attached.contains(domain));
             }
             assert_eq!(cross_domain_issues(connection).await.unwrap(), 0);
@@ -1135,20 +1336,21 @@ mod tests {
         let mut second = pool.acquire().await.unwrap();
         for connection in [&mut first, &mut second] {
             let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM pragma_database_list WHERE name IN ('instances', 'accounts', 'sync', 'media', 'operations', 'storage', 'records', 'telemetry', 'configuration')").fetch_one(&mut **connection).await.unwrap();
-            assert_eq!(count, 4);
+            assert_eq!(count, 2);
             let migrations: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM main.sqlite_schema WHERE name = '_sqlx_migrations'").fetch_one(&mut **connection).await.unwrap();
             assert_eq!(migrations, 0);
-            let version: i64 =
-                sqlx::query_scalar("SELECT version FROM settings WHERE id = 0")
-                    .fetch_one(&mut **connection)
-                    .await
-                    .unwrap();
-            assert_eq!(version, 3);
+            let forbidden:i64=sqlx::query_scalar("SELECT COUNT(*) FROM pragma_database_list WHERE name IN ('configuration','operations')").fetch_one(&mut **connection).await.unwrap();
+            assert_eq!(forbidden, 0);
             for schema in std::iter::once("main").chain(
                 DOMAINS.iter().copied().filter(|domain| {
                     !matches!(
                         *domain,
-                        "accounts" | "telemetry" | "media" | "records" | "sync"
+                        "accounts"
+                            | "telemetry"
+                            | "media"
+                            | "records"
+                            | "sync"
+                            | "operations"
                     )
                 }),
             ) {
@@ -1168,17 +1370,6 @@ mod tests {
                 assert_eq!(synchronous, 2, "{schema}");
             }
         }
-        sqlx::query("UPDATE settings SET default_page = 'test'")
-            .execute(&mut *first)
-            .await
-            .unwrap();
-        let value: String = sqlx::query_scalar(
-            "SELECT default_page FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *second)
-        .await
-        .unwrap();
-        assert_eq!(value, "test");
         drop(first);
         drop(second);
         pool.close().await;
@@ -1190,7 +1381,12 @@ mod tests {
         for domain in DOMAINS.iter().filter(|domain| {
             !matches!(
                 **domain,
-                "accounts" | "telemetry" | "media" | "records" | "sync"
+                "accounts"
+                    | "telemetry"
+                    | "media"
+                    | "records"
+                    | "sync"
+                    | "operations"
             )
         }) {
             assert!(
@@ -1202,23 +1398,39 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cross_domain_foreign_keys_and_rollback_are_preserved() {
+    async fn core_ownership_foreign_keys_and_rollback_are_preserved() {
         let temporary = tempfile::tempdir().unwrap();
         let pool = open(temporary.path()).await.unwrap();
-        sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES ('instance','path','installed','none','test',0,0)").execute(&pool).await.unwrap();
-        sqlx::query("INSERT INTO instance_sync_preferences(instance_id, feature, enabled) VALUES ('instance','screenshots',1)").execute(&pool).await.unwrap();
-        assert!(sqlx::query("INSERT INTO instance_sync_preferences(instance_id, feature, enabled) VALUES ('missing','screenshots',1)").execute(&pool).await.is_err());
-        let mut transaction = pool.begin().await.unwrap();
-        sqlx::query("DELETE FROM instances WHERE id='instance'")
-            .execute(&mut *transaction)
+        sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES('instance','profile','installed','none','name',0,0)").execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO store_blobs(digest,size,state,created_at,last_used_at) VALUES('digest',1,'ready',0,0)").execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO store_instance_files(instance_id,relative_path,digest,created_at,modified_at) VALUES('instance','mods/a.jar','digest',0,0)").execute(&pool).await.unwrap();
+        assert!(sqlx::query("INSERT INTO store_instance_files(instance_id,relative_path,digest,created_at,modified_at) VALUES('instance','mods/b.jar','missing',0,0)").execute(&pool).await.is_err());
+        let mut tx = pool.begin().await.unwrap();
+        sqlx::query(
+            "DELETE FROM store_instance_files WHERE instance_id='instance'",
+        )
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM store_instance_files"
+            )
+            .fetch_one(&mut *tx)
             .await
-            .unwrap();
-        let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instance_sync_preferences WHERE instance_id='instance'").fetch_one(&mut *transaction).await.unwrap();
-        assert_eq!(remaining, 0);
-        transaction.rollback().await.unwrap();
-        let restored: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instance_sync_preferences WHERE instance_id='instance'").fetch_one(&pool).await.unwrap();
-        assert_eq!(restored, 1);
-        pool.close().await;
+            .unwrap(),
+            0
+        );
+        tx.rollback().await.unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM store_instance_files"
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+            1
+        );
     }
 
     #[tokio::test]
@@ -1229,7 +1441,12 @@ mod tests {
             sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES(?,?,'installed','none','test',0,0)")
                 .bind(id).bind(id).execute(&pool).await.unwrap();
         }
-        sqlx::query("INSERT INTO instance_sync_preferences VALUES('first','screenshots',1),('second','game_options',1)").execute(&pool).await.unwrap();
+        for (instance, feature) in [
+            ("first", crate::state::SyncedOption::Screenshots),
+            ("second", crate::state::SyncedOption::GameOptions),
+        ] {
+            crate::state::instances::adapters::sqlite::instance_rows::set_instance_sync_preference(instance,feature,true,&pool).await.unwrap();
+        }
         use super::super::instance_sync_checkpoints::{
             CheckpointKey, CheckpointRecord, CheckpointStatus,
             InstanceSyncCheckpoints,
@@ -1263,14 +1480,7 @@ mod tests {
         )
         .await
         .unwrap();
-        let mut unit = super::super::atom(&handle).await.unwrap();
-        sqlx::query(
-            "DELETE FROM instance_sync_preferences WHERE instance_id='second'",
-        )
-        .execute(unit.connection())
-        .await
-        .unwrap();
-        unit.commit().await.unwrap();
+        crate::state::instances::adapters::sqlite::instance_rows::set_instance_sync_preference("second",crate::state::SyncedOption::GameOptions,false,&pool).await.unwrap();
         assert!(
             InstanceSyncCheckpoints::get(&handle, &key("screenshots"))
                 .await
@@ -1387,12 +1597,8 @@ mod tests {
             tokio::fs::read(directory.join("game.json")).await.unwrap(),
             original
         );
-        let version: i64 =
-            sqlx::query_scalar("SELECT version FROM settings WHERE id=0")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
-        assert_eq!(version, 3);
+        let count:i64=sqlx::query_scalar("SELECT COUNT(*) FROM pragma_database_list WHERE name='configuration'").fetch_one(&pool).await.unwrap();
+        assert_eq!(count, 0);
     }
 
     #[tokio::test]
@@ -1472,7 +1678,6 @@ mod tests {
                     let mut transaction =
                         pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
                     sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES(?,?,'installed','none','concurrent',0,0)").bind(&id).bind(&id).execute(&mut *transaction).await.unwrap();
-                    sqlx::query("INSERT INTO instance_sync_preferences VALUES(?,'screenshots',1)").bind(&id).execute(&mut *transaction).await.unwrap();
                     super::super::configuration::commit(transaction, &pool)
                         .await
                         .unwrap();
@@ -1497,39 +1702,57 @@ mod tests {
         pool.close().await;
         drop(pool);
         let pool = open(temporary.path()).await.unwrap();
-        let preferences: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM instance_sync_preferences",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(preferences, 12);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM instances")
+                .fetch_one(&pool)
+                .await
+                .unwrap(),
+            12
+        );
     }
 
     #[tokio::test]
-    async fn new_connection_resumes_after_a_configuration_writer_commits() {
+    async fn optional_database_damage_never_attaches_to_core() {
         let temporary = tempfile::tempdir().unwrap();
-        let pool = open(temporary.path()).await.unwrap();
-        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
-        sqlx::query("UPDATE settings SET default_page='instances'")
-            .execute(&mut *transaction)
+        tokio::fs::create_dir_all(directory(temporary.path()))
             .await
             .unwrap();
-        let commit = async {
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            transaction.commit().await.unwrap();
-        };
-        let read = async {
-            let mut reader = pool.acquire().await.unwrap();
-            sqlx::query_scalar::<_, String>(
-                "SELECT default_page FROM settings WHERE id=0",
+        for name in [
+            "operations.db",
+            "operations-history.db",
+            "records.db",
+            "derived.db",
+            "accounts.db",
+            "sync.db",
+            "media.db",
+            "telemetry.db",
+        ] {
+            tokio::fs::write(
+                directory(temporary.path()).join(name),
+                b"corrupt optional source",
             )
-            .fetch_one(&mut *reader)
             .await
-            .unwrap()
-        };
-        let ((), value) = tokio::time::timeout(Duration::from_secs(5), async { tokio::join!(commit, read) }).await.expect("new connections must resume after the configuration transaction commits");
-        assert_eq!(value, "instances");
+            .unwrap();
+        }
+        // Coordinator absence with old domains is intentionally refused; create
+        // it first so this fixture represents a handed-over database set.
+        let main = SqliteConnection::connect_with(
+            &SqliteConnectOptions::new()
+                .filename(directory(temporary.path()).join("system.db"))
+                .create_if_missing(true),
+        )
+        .await
+        .unwrap();
+        main.close().await.unwrap();
+        let pool = open(temporary.path()).await.unwrap();
+        assert_eq!(
+            attached_domains(&mut pool.acquire().await.unwrap())
+                .await
+                .unwrap()
+                .len(),
+            3
+        );
+        pool.close().await;
     }
 }
 
@@ -1554,10 +1777,7 @@ pub(crate) async fn open_recovery(root: &Path) -> crate::Result<SqlitePool> {
         )
         .await?;
     let mut connection = pool.acquire().await?;
-    connection
-        .execute("ATTACH DATABASE ':memory:' AS configuration")
-        .await?;
-    for domain in ["instances", "storage", "operations", "sync"] {
+    for domain in ["instances", "storage"] {
         connection
             .execute(sqlx::AssertSqlSafe(format!(
                 "ATTACH DATABASE ':memory:' AS {}",

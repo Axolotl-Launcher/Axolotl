@@ -1075,15 +1075,13 @@ async fn promote_external_instance_link(
         &mut tx,
     )
     .await?;
+    tx.commit().await?;
     if let Some(group) = direct_link_group(&direct.dot_minecraft) {
-        crate::state::instances::adapters::sqlite::instance_rows::replace_instance_groups(
+        crate::state::instance_groups::set_instance_groups(
             &instance.id,
             &[group],
-            &mut tx,
-        )
-        .await?;
+        );
     }
-    tx.commit().await?;
     emit_instance(&instance.id, InstancePayloadType::Edited).await?;
     Ok(())
 }

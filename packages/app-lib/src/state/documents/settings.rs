@@ -460,7 +460,27 @@ pub(crate) async fn read(
 
     // The row is read whether or not a domain needs it, because
     // `personalized_ads` is in no document and only it can answer that key.
-    let (row_settings, row) = row_values(handle).await?;
+    let (row_settings, row) =
+        if crate::state::store::configuration_documents::runtime(
+            documents.pool(),
+        ) {
+            let mut defaults = Settings::default();
+            defaults.version = 3;
+            if let Ok(internal) =
+                crate::state::store::configuration_documents::composed(
+                    handle, "internal",
+                )
+                .await
+            {
+                defaults.personalized_ads = internal
+                    .get("personalized_ads")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+            }
+            (defaults, Map::new())
+        } else {
+            row_values(handle).await?
+        };
     for keys in without_a_document {
         contribute(&mut values, keys, &row);
     }
@@ -863,7 +883,7 @@ pub(crate) async fn sanitise(handle: &Handle) -> crate::Result<usize> {
     // Read under the lock: these values are what every document is rewritten
     // from, and a write landing between the two would be stated at this shape
     // without its value.
-    let settings = Settings::get(handle).await?;
+    let settings = read(&documents, handle).await?;
     let values: Document =
         serde_json::from_value(serde_json::to_value(settings.normalize())?)?;
     let mut written = 0_usize;
@@ -1006,7 +1026,7 @@ pub(crate) async fn import(
     // What each imported value is judged against: the settings as they read now,
     // so a key beside the one being judged answers this build's type for it.
     let mut projection: Document = serde_json::from_value(
-        serde_json::to_value(Settings::get(handle).await?)?,
+        serde_json::to_value(read(&documents, handle).await?)?,
     )?;
     // What a domain without a document is drafted from, taken before anything is
     // laid over the projection above.
@@ -1454,10 +1474,25 @@ pub(crate) async fn staged_row_documents(
         if existing.is_none() && target.is_empty() {
             continue;
         }
-        result.push((
-            name.to_owned(),
-            serde_json::json!({"schema_version": version, "data": target}),
-        ));
+        if existing.as_ref() == Some(&target) {
+            continue;
+        }
+        let mut envelope = if existing.is_some() {
+            let path = documents.path(name);
+            let metadata = tokio::fs::metadata(&path).await?;
+            if !metadata.is_file() || metadata.len() > 1 << 20 {
+                return Err(crate::ErrorKind::InputError(
+                    "Settings document exceeds its bound".into(),
+                )
+                .into());
+            }
+            serde_json::from_slice::<Value>(&tokio::fs::read(path).await?)?
+        } else {
+            serde_json::json!({})
+        };
+        envelope["schema_version"] = Value::from(version);
+        envelope["data"] = Value::Object(target);
+        result.push((name.to_owned(), envelope));
     }
     Ok(result)
 }
@@ -1869,7 +1904,16 @@ pub(crate) fn same_setting(
 async fn row_values(
     handle: &Handle,
 ) -> crate::Result<(Settings, Map<String, Value>)> {
-    let settings = Settings::read_row(handle).await?;
+    use crate::state::store::{
+        Collection,
+        settings::{Settings as LegacySettings, Singleton},
+    };
+    let record = <LegacySettings as Collection>::get(handle, &Singleton)
+        .await?
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError("Legacy settings row missing".into())
+        })?;
+    let settings = Settings::from_record(record);
     let values = serde_json::from_value(serde_json::to_value(&settings)?)?;
     Ok((settings, values))
 }

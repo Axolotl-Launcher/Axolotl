@@ -154,19 +154,14 @@ impl InstanceSyncPreferences {
         handle: &Handle,
         feature: &str,
     ) -> crate::Result<Vec<String>> {
-        let mut connection = handle.connection().await?;
-        let rows: Vec<String> = sqlx::query_scalar(
-            "
-            SELECT instance_id
-            FROM instance_sync_preferences
-            WHERE feature = ? AND enabled = 1
-            ",
-        )
-        .bind(feature)
-        .fetch_all(&mut *connection)
-        .await?;
-
-        Ok(rows)
+        Ok(Self::get_all(handle)
+            .await?
+            .into_iter()
+            .filter_map(|(key, record)| {
+                (key.feature == feature && record.enabled)
+                    .then_some(key.instance_id)
+            })
+            .collect())
     }
 }
 
@@ -257,5 +252,108 @@ async fn delete_omitted(
         .await?;
     }
 
+    Ok(())
+}
+
+impl super::configuration_documents::Preference for InstanceSyncPreferences {
+    async fn guard(
+        unit: &mut super::Atom,
+        key: &InstancePreferenceKey,
+        record: Option<&InstancePreferenceRecord>,
+    ) -> crate::Result<()> {
+        if record.is_some() {
+            let exists: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM instances WHERE id=?)",
+            )
+            .bind(&key.instance_id)
+            .fetch_one(unit.connection())
+            .await?;
+            if !exists {
+                return Err(crate::ErrorKind::InputError(
+                    "This instance has been deleted".into(),
+                )
+                .into());
+            }
+        } else {
+            super::instance_sync_checkpoints::InstanceSyncCheckpoints::atom_set_scoped(unit,&super::instance_sync_checkpoints::CheckpointScope{instance_id:key.instance_id.clone(),feature:key.feature.clone()},&[]).await?;
+        }
+        Ok(())
+    }
+    fn rows(
+        data: &serde_json::Map<String, serde_json::Value>,
+    ) -> crate::Result<Vec<(InstancePreferenceKey, InstancePreferenceRecord)>>
+    {
+        let mut result = Vec::new();
+        if let Some(instances) =
+            data.get("instances").and_then(serde_json::Value::as_object)
+        {
+            for (instance_id, value) in instances {
+                if let Some(features) = value.as_object() {
+                    for (feature, value) in features {
+                        if let Some(enabled) = value.as_bool() {
+                            result.push((
+                                InstancePreferenceKey {
+                                    instance_id: instance_id.clone(),
+                                    feature: feature.clone(),
+                                },
+                                InstancePreferenceRecord { enabled },
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(result)
+    }
+    fn put(
+        data: &mut serde_json::Map<String, serde_json::Value>,
+        key: &InstancePreferenceKey,
+        record: Option<&InstancePreferenceRecord>,
+    ) -> crate::Result<()> {
+        let instances = super::configuration_documents::map(data, "instances")?;
+        let features =
+            super::configuration_documents::map(instances, &key.instance_id)?;
+        if features
+            .get(&key.feature)
+            .is_some_and(|value| !value.is_boolean())
+        {
+            return Err(crate::ErrorKind::InputError(
+                "Unknown instance synchronization preference retained".into(),
+            )
+            .into());
+        }
+        if let Some(record) = record {
+            features
+                .insert(key.feature.clone(), serde_json::json!(record.enabled));
+        } else {
+            features.remove(&key.feature);
+        }
+        Ok(())
+    }
+}
+super::configuration_documents::preference_verbs!(InstanceSyncPreferences);
+
+/// Seed defaults in the same core decision as instance creation. The file lock
+/// remains owned by Atom until publication has finished.
+pub(crate) async fn seed_instance_defaults(
+    unit: &mut super::Atom,
+    instance_id: &str,
+) -> crate::Result<()> {
+    let defaults =
+        super::sync_feature_settings::SyncFeatureSettings::atom_get_all(unit)
+            .await?;
+    for (key, record) in defaults {
+        InstanceSyncPreferences::atom_set(
+            unit,
+            &InstancePreferenceKey {
+                instance_id: instance_id.into(),
+                feature: key.feature,
+            },
+            Some(&InstancePreferenceRecord {
+                enabled: record.new_instance_default,
+            }),
+        )
+        .await?;
+    }
     Ok(())
 }

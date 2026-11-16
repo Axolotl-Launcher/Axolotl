@@ -730,6 +730,7 @@ pub(crate) async fn restore_references(
         if *deleted {
             continue;
         }
+        ensure_known_kind(kind)?;
         let filename = Path::new(path)
             .file_name()
             .ok_or_else(|| invalid("Invalid operation filename"))?;

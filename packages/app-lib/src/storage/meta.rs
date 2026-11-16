@@ -5,7 +5,7 @@ use cap_fs_ext::{DirExt, FollowSymlinks, OpenOptionsFollowExt};
 use cap_std::fs::{Dir, OpenOptions};
 use serde_json::Value;
 use sqlx::{
-    Row, SqlitePool,
+    SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
 use std::collections::{BTreeMap, HashMap};
@@ -215,11 +215,9 @@ async fn channel_references(
     directories: &DirectoryInfo,
 ) -> crate::Result<()> {
     refs.busy |= crate::install::store::has_any_unfinished_job(pool).await?;
-    let overrides: Vec<String> = sqlx::query_scalar(
-        "SELECT json(overrides) FROM instance_launch_overrides",
-    )
-    .fetch_all(pool)
-    .await?;
+    let overrides =
+        crate::state::store::maintenance::launch_override_documents(pool)
+            .await?;
     let settings: Vec<String> = if pool
         .connect_options()
         .get_filename()
@@ -232,9 +230,7 @@ async fn channel_references(
         .await?;
         vec![serde_json::to_string(&settings.extra_launch_args)?]
     } else {
-        sqlx::query_scalar("SELECT json(extra_launch_args) FROM settings")
-            .fetch_all(pool)
-            .await?
+        crate::state::store::maintenance::legacy_launch_arguments(pool).await?
     };
     if overrides.iter().chain(settings.iter()).any(|value| {
         let value = value.to_lowercase();
@@ -278,14 +274,15 @@ async fn channel_references(
             refs.natives.insert(key(&direct.natives_cache_key()));
             continue;
         }
-        let rows = sqlx::query("SELECT game_version, loader, loader_version FROM instance_content_sets WHERE instance_id = ?").bind(&instance.id).fetch_all(pool).await?;
+        let rows = crate::state::store::maintenance::content_versions(
+            pool,
+            &instance.id,
+        )
+        .await?;
         if rows.is_empty() {
             return Err(invalid("An instance has no local content version"));
         }
-        for row in rows {
-            let game: String = row.try_get("game_version")?;
-            let loader: String = row.try_get("loader")?;
-            let version: Option<String> = row.try_get("loader_version")?;
+        for (game, loader, version) in rows {
             if !component(&game) {
                 return Err(invalid("Unresolved game version"));
             }

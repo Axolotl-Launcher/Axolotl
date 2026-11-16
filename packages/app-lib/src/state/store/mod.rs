@@ -16,6 +16,7 @@
 pub(crate) mod cache;
 pub(crate) mod compatibility;
 pub(crate) mod configuration;
+pub(crate) mod configuration_documents;
 pub(crate) mod content_dependencies;
 pub(crate) mod content_evidence;
 pub(crate) mod content_file_fingerprints;
@@ -205,7 +206,17 @@ impl Handle {
     pub(crate) fn settings_documents(
         &self,
     ) -> Option<crate::state::documents::Documents<'_>> {
-        crate::state::documents::Documents::of_launch(&self.pool)
+        if configuration_documents::runtime(&self.pool) {
+            Some(
+                crate::state::documents::Documents::at(
+                    self.persistence().root().join("settings"),
+                    &self.pool,
+                )
+                .with_config_root(crate::state::documents::config_root()),
+            )
+        } else {
+            crate::state::documents::Documents::of_launch(&self.pool)
+        }
     }
 
     async fn connection(
@@ -220,6 +231,7 @@ impl Handle {
 /// join this unit. Settings retain their explicit durable publication journal.
 /// Dropping an uncommitted unit rolls it back.
 pub(crate) struct Atom {
+    configuration: Option<configuration_documents::Pending>,
     sync_transaction: Option<crate::state::sync_state::journal::Transaction>,
     transaction: sqlx::Transaction<'static, Sqlite>,
     /// Whether a settings read has to be composed again once this unit lands.
@@ -238,26 +250,67 @@ pub(crate) struct Atom {
 }
 
 impl Atom {
+    pub(crate) async fn configuration(
+        &mut self,
+    ) -> crate::Result<&mut configuration_documents::Pending> {
+        if self.configuration.is_none() {
+            let pending =
+                configuration_documents::Pending::begin(&self.handle).await?;
+            configuration::publish_committed_in(
+                &mut self.transaction,
+                self.handle.persistence().root(),
+            )
+            .await?;
+            self.configuration = Some(pending);
+        }
+        Ok(self
+            .configuration
+            .as_mut()
+            .expect("initialized document transaction"))
+    }
     pub(crate) async fn validate_sync_parents(
         &mut self,
         collection: &str,
         key: &serde_json::Value,
     ) -> crate::Result<()> {
-        sync_documents::validate_parents(&mut self.transaction, collection, key)
-            .await
+        sync_documents::validate_parents(
+            &mut self.transaction,
+            collection,
+            key,
+        )
+        .await?;
+        if collection == "instance_sync_checkpoints" {
+            let instance_id =
+                key["instance_id"].as_str().unwrap_or_default().to_owned();
+            let feature =
+                key["feature"].as_str().unwrap_or_default().to_owned();
+            if instance_sync_preferences::InstanceSyncPreferences::atom_get(
+                self,
+                &instance_sync_preferences::InstancePreferenceKey {
+                    instance_id,
+                    feature,
+                },
+            )
+            .await?
+            .is_none()
+            {
+                return Err(crate::ErrorKind::InputError(
+                    "Sync checkpoint has no matching instance preference"
+                        .into(),
+                )
+                .into());
+            }
+        }
+        Ok(())
     }
     pub(crate) async fn sync(
         &mut self,
     ) -> crate::Result<&mut crate::state::sync_state::journal::Transaction>
     {
         if self.sync_transaction.is_none() {
+            self.configuration().await?;
             let decision =
                 sync_documents::decision(&mut self.transaction).await?;
-            configuration::publish_committed_in(
-                &mut self.transaction,
-                self.handle.persistence().root(),
-            )
-            .await?;
             let root =
                 sync_documents::authority(&self.handle.persistence()).await?;
             self.sync_transaction = Some(
@@ -271,6 +324,11 @@ impl Atom {
             .sync_transaction
             .as_mut()
             .expect("initialized sync transaction"))
+    }
+    pub(crate) fn transaction(
+        &mut self,
+    ) -> &mut sqlx::Transaction<'static, Sqlite> {
+        &mut self.transaction
     }
     fn connection(&mut self) -> &mut SqliteConnection {
         &mut self.transaction
@@ -315,23 +373,6 @@ impl Atom {
             .get_filename()
             .file_name()
             .is_some_and(|name| name == "system.db");
-        if persistent {
-            let removed =
-                configuration::removed_sync_preferences(&mut self.transaction)
-                    .await?;
-            for (instance_id, feature) in removed {
-                instance_sync_checkpoints::InstanceSyncCheckpoints::atom_set_scoped(
-                    &mut self,
-                    &instance_sync_checkpoints::CheckpointScope { instance_id, feature },
-                    &[],
-                ).await?;
-            }
-            sqlx::query(
-                "DELETE FROM configuration.document_removed_sync_preferences",
-            )
-            .execute(&mut *self.transaction)
-            .await?;
-        }
         let sync_token = if let Some(sync) = &self.sync_transaction {
             sync.prepare().await?
         } else {
@@ -340,17 +381,50 @@ impl Atom {
         if let Some(token) = &sync_token {
             sync_documents::decide(&mut self.transaction, token).await?;
         }
-        if persistent {
-            configuration::prepare_settings(
+        if let Some(pending) = &self.configuration {
+            let documents = pending
+                .snapshot(&self.handle, self.changed_settings.as_ref())
+                .await?;
+            configuration::prepare_documents(
                 &mut self.transaction,
                 self.handle.persistence().root(),
-                self.invalidate_settings
-                    .then_some(self.changed_settings.as_ref()),
-                Some(&self.handle.pool),
+                documents,
             )
             .await?;
         }
+        if !persistent {
+            configuration::commit_settings(
+                self.transaction,
+                &self.handle.pool,
+                self.invalidate_settings,
+                self.changed_settings.as_ref(),
+            )
+            .await?;
+            if self.invalidate_settings {
+                crate::state::documents::settings::invalidate();
+                crate::state::documents::settings::store_cut_over(
+                    &self.handle,
+                    self.changed_settings.as_ref(),
+                )
+                .await;
+            }
+            return Ok(());
+        }
+        let settings_token = if self.configuration.is_some() {
+            configuration::pending_token(&mut self.transaction).await?
+        } else {
+            None
+        };
         self.transaction.commit().await?;
+        if let Some(token) = &settings_token {
+            let publication = configuration::publish_prepared(
+                self.handle.persistence().root(),
+                token,
+            )
+            .await;
+            crate::state::documents::settings::invalidate();
+            publication?;
+        }
         if let (Some(sync), Some(token)) = (&self.sync_transaction, &sync_token)
         {
             sync.finish(token).await?;
@@ -358,8 +432,9 @@ impl Atom {
         // Release the file writer before any pool/SQL writer acquisition. A
         // competing Atom always reserves core first, then the file authority.
         drop(self.sync_transaction);
-        if persistent {
-            configuration::flush_committed(&self.handle.pool).await?;
+        drop(self.configuration);
+        if persistent && let Some(token) = settings_token {
+            configuration::clear_published(&self.handle.pool, &token).await?;
         }
         if self.invalidate_settings {
             crate::state::documents::settings::invalidate();
@@ -397,6 +472,7 @@ pub(crate) fn names_a_missing_row(error: &crate::Error) -> bool {
 pub(crate) async fn atom(handle: &Handle) -> crate::Result<Atom> {
     recovery_mode::ensure_writable(&handle.pool)?;
     Ok(Atom {
+        configuration: None,
         sync_transaction: None,
         transaction: handle.pool.begin_with("BEGIN IMMEDIATE").await?,
         invalidate_settings: false,

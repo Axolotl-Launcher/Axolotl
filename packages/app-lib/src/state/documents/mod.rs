@@ -355,10 +355,16 @@ impl<'a> Documents<'a> {
             }
             OnDisk::Missing => {}
         }
-        let contents = serde_json::to_vec_pretty(&NewDocument {
-            schema_version,
-            data: document,
-        })?;
+        let mut raw = match tokio::fs::read(&path).await {
+            Ok(bytes) => serde_json::from_slice::<Value>(&bytes)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                serde_json::json!({})
+            }
+            Err(error) => return Err(error.into()),
+        };
+        raw["schema_version"] = Value::from(schema_version);
+        raw["data"] = serde_json::to_value(document)?;
+        let contents = serde_json::to_vec_pretty(&raw)?;
         if let Some(parent) = path.parent() {
             crate::util::io::create_dir_all(parent).await?;
         }
@@ -425,6 +431,12 @@ where
     let local = documents.stored_keys(name, schema_version).await;
     let base = match local {
         Some(_) => T::default(),
+        None if crate::state::store::configuration_documents::runtime(
+            documents.pool(),
+        ) =>
+        {
+            T::default()
+        }
         None => from_rows.await?,
     };
     let mut values = keys_of(&base)?;
@@ -749,6 +761,9 @@ struct StoredDocument<T> {
 /// build that takes over another domain has to reach the installations that
 /// already carry a marker.
 pub(crate) async fn hand_over(pool: &SqlitePool, settings_dir: &Path) -> bool {
+    if crate::state::store::configuration_documents::runtime(pool) {
+        return true;
+    }
     let documents = Documents {
         root: settings_dir.join(DIR_NAME),
         // The handover fills in what the rows hold, but not for a key the

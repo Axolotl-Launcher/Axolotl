@@ -1,5 +1,7 @@
 //! Database maintenance statements stay behind the storage boundary.
+mod restore;
 use super::Handle;
+pub(crate) use restore::{finish_restore, restore_snapshot};
 use serde::Serialize;
 #[cfg(test)]
 mod tests {
@@ -92,4 +94,29 @@ pub(crate) async fn check(handle: &Handle) -> crate::Result<IntegrityReport> {
 
 pub(crate) fn database_path(handle: &Handle) -> std::path::PathBuf {
     handle.pool().connect_options().get_filename().to_path_buf()
+}
+
+pub(crate) async fn launch_override_documents(
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<Vec<String>> {
+    Ok(sqlx::query_scalar(
+        "SELECT json(overrides) FROM instance_launch_overrides",
+    )
+    .fetch_all(pool)
+    .await?)
+}
+pub(crate) async fn legacy_launch_arguments(
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<Vec<String>> {
+    Ok(
+        sqlx::query_scalar("SELECT json(extra_launch_args) FROM settings")
+            .fetch_all(pool)
+            .await?,
+    )
+}
+pub(crate) async fn content_versions(
+    pool: &sqlx::SqlitePool,
+    instance: &str,
+) -> crate::Result<Vec<(String, String, Option<String>)>> {
+    Ok(sqlx::query_as("SELECT game_version,loader,loader_version FROM instance_content_sets WHERE instance_id=?").bind(instance).fetch_all(pool).await?)
 }

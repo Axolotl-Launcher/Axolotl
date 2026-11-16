@@ -433,6 +433,24 @@ async fn import_sql_groups(
     Ok(file)
 }
 
+/// Import a preserved legacy image before the compact core stops exposing its
+/// grouping tables. Existing documents always take precedence.
+pub(crate) async fn import_from_pool(
+    pool: &sqlx::SqlitePool,
+    root: &std::path::Path,
+) -> crate::Result<()> {
+    let path = root.join(INSTANCE_GROUPS_FILE_NAME);
+    if tokio::fs::try_exists(&path).await? {
+        return Ok(());
+    }
+    let file = import_sql_groups(pool).await?;
+    crate::state::persistence::document::write_json(
+        &path,
+        serde_json::to_vec_pretty(&file)?,
+    )
+    .await
+}
+
 /// Creates `instance_groups.json` from the pre-existing SQLite tables and
 /// instance sidecars, the first time the app runs after this change.
 ///

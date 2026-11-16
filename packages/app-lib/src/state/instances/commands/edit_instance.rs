@@ -227,17 +227,18 @@ pub(crate) async fn edit_instance(
         }
     }
 
-    if let Some(groups) = &patch.groups {
-        instance_rows::replace_instance_groups(&instance.id, groups, &mut tx)
-            .await?;
-    }
-
     if let Some(overrides) = launch_overrides.as_mut() {
         instance_rows::upsert_instance_launch_overrides(overrides, &mut tx)
             .await?;
     }
 
     tx.commit().await?;
+    if let Some(groups) = &patch.groups {
+        crate::state::instance_groups::set_instance_groups(
+            &instance.id,
+            groups,
+        );
+    }
 
     config_sync::mark_dirty(&instance.id);
 
@@ -262,15 +263,13 @@ pub(crate) async fn restore_instance_metadata(
     )
     .await?;
     links::upsert_instance_link(&instance.id, &metadata.link, &mut tx).await?;
-    instance_rows::replace_instance_groups(
-        &instance.id,
-        &metadata.groups,
-        &mut tx,
-    )
-    .await?;
     instance_rows::upsert_instance_launch_overrides(&launch_overrides, &mut tx)
         .await?;
     tx.commit().await?;
+    crate::state::instance_groups::set_instance_groups(
+        &instance.id,
+        &metadata.groups,
+    );
     Ok(())
 }
 

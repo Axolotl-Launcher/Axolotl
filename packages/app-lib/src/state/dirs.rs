@@ -411,6 +411,14 @@ impl DirectoryInfo {
             let new_dir = move_dir.to_string_lossy().to_string();
 
             if prev_dir != move_dir {
+                crate::state::store::recovery_documents::import_legacy(
+                    pool, &app_dir,
+                )
+                .await?;
+                crate::state::store::recovery_documents::ensure_directory_move_supported(
+                    pool, &prev_dir,
+                )
+                .await?;
                 let loader_bar_id = init_loading(
                     LoadingBarType::DirectoryMove {
                         old: prev_dir.clone(),
@@ -446,6 +454,14 @@ impl DirectoryInfo {
                         .await?;
                     }
                 }
+
+                crate::state::store::sync_documents::move_authority(
+                    pool,
+                    &crate::state::persistence::Persistence::new(&app_dir),
+                    &prev_dir,
+                    &move_dir,
+                )
+                .await?;
 
                 const MOVE_DIRS: &[&str] = &[
                     CACHES_FOLDER_NAME,
@@ -614,6 +630,10 @@ impl DirectoryInfo {
                     }))
                     .await?;
 
+                    crate::state::store::recovery_documents::move_authority(
+                        pool, &app_dir, &prev_dir, &move_dir,
+                    )
+                    .await?;
                     futures::future::join_all(paths.iter().map(|x| {
                         let loader_bar_id = loader_bar_id.clone();
 
@@ -645,6 +665,10 @@ impl DirectoryInfo {
 
                 let new_root =
                     new_dir.trim_end_matches('/').trim_end_matches('\\');
+                crate::state::store::recovery_documents::move_authority(
+                    pool, &app_dir, &prev_dir, &move_dir,
+                )
+                .await?;
                 // Derived records stay under the original settings directory;
                 // only their Java executable paths follow the content move.
                 let derived =

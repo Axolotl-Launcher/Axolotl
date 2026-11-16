@@ -482,7 +482,7 @@ impl InstanceMetadataRow {
             imported_filename: self.imported_filename,
         }
         .try_into()?;
-        let groups = parse_groups(self.groups)?;
+        let groups = crate::state::instance_groups::group_ids_for(&instance_id);
         let launch_overrides =
             launch_overrides_from_json(instance_id, self.launch_overrides)?;
 
@@ -791,15 +791,7 @@ pub(crate) async fn recovery_metadata_on(
             link.imported_name,
             link.imported_version_number,
             link.imported_filename,
-            COALESCE((
-                SELECT json_group_array(group_name)
-                FROM (
-                    SELECT group_name
-                    FROM instance_groups
-                    WHERE instance_id = i.id
-                    ORDER BY group_name
-                )
-            ), '[]') AS groups,
+            '[]' AS groups,
             json(overrides.overrides) AS launch_overrides
         FROM instances i
         LEFT JOIN instance_content_sets cs
@@ -873,15 +865,7 @@ pub(crate) async fn get_instance_metadata_by_id(
             link.imported_name,
             link.imported_version_number,
             link.imported_filename,
-            COALESCE((
-                SELECT json_group_array(group_name)
-                FROM (
-                    SELECT group_name
-                    FROM instance_groups
-                    WHERE instance_id = i.id
-                    ORDER BY group_name
-                )
-            ), '[]') AS groups,
+            '[]' AS groups,
             json(overrides.overrides) AS launch_overrides
         FROM instances i
         LEFT JOIN instance_content_sets cs
@@ -974,15 +958,7 @@ pub(crate) async fn get_instance_metadata_many(
             link.imported_name,
             link.imported_version_number,
             link.imported_filename,
-            COALESCE((
-                SELECT json_group_array(group_name)
-                FROM (
-                    SELECT group_name
-                    FROM instance_groups
-                    WHERE instance_id = i.id
-                    ORDER BY group_name
-                )
-            ), '[]') AS groups,
+            '[]' AS groups,
             json(overrides.overrides) AS launch_overrides
         FROM requested
         INNER JOIN instances i
@@ -1074,15 +1050,7 @@ pub(crate) async fn list_instance_metadata(
             link.imported_name,
             link.imported_version_number,
             link.imported_filename,
-            COALESCE((
-                SELECT json_group_array(group_name)
-                FROM (
-                    SELECT group_name
-                    FROM instance_groups
-                    WHERE instance_id = i.id
-                    ORDER BY group_name
-                )
-            ), '[]') AS groups,
+            '[]' AS groups,
             json(overrides.overrides) AS launch_overrides
         FROM instances i
         LEFT JOIN instance_content_sets cs
@@ -1429,6 +1397,7 @@ pub(crate) async fn update_instance(
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) async fn replace_instance_groups(
     instance_id: &str,
     groups: &[String],
@@ -1535,7 +1504,13 @@ pub(crate) async fn delete_instance_by_id(
     instance_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    crate::state::store::recovery_documents::ensure_instance_supported(
+        pool,
+        instance_id,
+    )
+    .await?;
+    let handle = crate::state::store::Handle::new(pool.clone());
+    let mut unit = crate::state::store::atom(&handle).await?;
     sqlx::query!(
         "
         DELETE FROM instances
@@ -1543,11 +1518,14 @@ pub(crate) async fn delete_instance_by_id(
         ",
         instance_id,
     )
-    .execute(&mut *transaction)
+    .execute(&mut **unit.transaction())
     .await?;
 
-    crate::state::store::configuration::commit(transaction, pool).await?;
+    unit.commit().await?;
     if core_root(pool.connect_options().get_filename()).is_some() {
+        if let Err(error)=crate::state::store::instance_sync_preferences::InstanceSyncPreferences::set_scoped(&handle,&instance_id.to_owned(),&[]).await {
+            tracing::warn!(instance_id,%error,"Deleted instance preference cleanup deferred");
+        }
         crate::state::user_state::forget_instance(
             &crate::state::store::persistence_for_pool(pool),
             instance_id,
@@ -1563,32 +1541,31 @@ pub(crate) async fn set_instance_sync_preference(
     enabled: bool,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
-    sqlx::query(
-        "INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
-         VALUES (?, ?, ?)
-         ON CONFLICT(instance_id, feature) DO UPDATE SET enabled = excluded.enabled",
+    use crate::state::store::instance_sync_preferences::*;
+    InstanceSyncPreferences::set(
+        &crate::state::store::Handle::new(pool.clone()),
+        &InstancePreferenceKey {
+            instance_id: instance_id.into(),
+            feature: option.as_str().into(),
+        },
+        Some(&InstancePreferenceRecord { enabled }),
     )
-    .bind(instance_id)
-    .bind(option.as_str())
-    .bind(enabled)
-    .execute(&mut *transaction)
-    .await?;
-    crate::state::store::configuration::commit(transaction, pool).await?;
-    Ok(())
+    .await
 }
 
 pub(crate) async fn get_instance_synced_options(
     instance_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<crate::state::InstanceSyncedOptions> {
-    let rows = sqlx::query("SELECT feature, enabled FROM instance_sync_preferences WHERE instance_id = ?")
-        .bind(instance_id).fetch_all(pool).await?;
+    use crate::state::store::instance_sync_preferences::*;
+    let rows = InstanceSyncPreferences::get_scoped(
+        &crate::state::store::Handle::new(pool.clone()),
+        &instance_id.to_owned(),
+    )
+    .await?;
     let mut options = crate::state::InstanceSyncedOptions::default();
-    for row in rows {
-        let feature: String = sqlx::Row::get(&row, "feature");
-        let enabled: bool = sqlx::Row::get(&row, "enabled");
-        apply_sync_preference(&mut options, &feature, enabled);
+    for (key, record) in rows {
+        apply_sync_preference(&mut options, &key.feature, record.enabled);
     }
     Ok(options)
 }
@@ -1597,24 +1574,20 @@ pub(crate) async fn get_instance_synced_options_many(
     instance_ids: &[&str],
     pool: &SqlitePool,
 ) -> crate::Result<HashMap<String, crate::state::InstanceSyncedOptions>> {
-    use sqlx::Row;
-    let rows = sqlx::query(
-        "SELECT instance_id, feature, enabled FROM instance_sync_preferences
-         WHERE instance_id IN (SELECT value FROM json_each(?))",
+    use crate::state::store::instance_sync_preferences::*;
+    let rows = InstanceSyncPreferences::get_all(
+        &crate::state::store::Handle::new(pool.clone()),
     )
-    .bind(serde_json::to_string(instance_ids)?)
-    .fetch_all(pool)
     .await?;
     let mut grouped = HashMap::new();
-    for row in rows {
-        let id: String = row.try_get("instance_id")?;
-        let feature: String = row.try_get("feature")?;
-        let enabled: bool = row.try_get("enabled")?;
-        apply_sync_preference(
-            grouped.entry(id).or_default(),
-            &feature,
-            enabled,
-        );
+    for (key, record) in rows {
+        if instance_ids.contains(&key.instance_id.as_str()) {
+            apply_sync_preference(
+                grouped.entry(key.instance_id).or_default(),
+                &key.feature,
+                record.enabled,
+            );
+        }
     }
     Ok(grouped)
 }
@@ -1975,22 +1948,6 @@ where
     .ok_or_else(|| {
         crate::ErrorKind::InputError("Unknown instance".to_string()).into()
     })
-}
-
-/// Seeds an instance's sync preferences from the launcher defaults.
-pub(crate) async fn insert_default_sync_preferences_in_transaction(
-    instance_id: &str,
-    tx: &mut Transaction<'_, Sqlite>,
-) -> crate::Result<()> {
-    sqlx::query(
-        "INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
-         SELECT ?, feature, new_instance_default FROM sync_feature_settings",
-    )
-    .bind(instance_id)
-    .execute(&mut **tx)
-    .await?;
-
-    Ok(())
 }
 
 /// One row of the install-candidate query: the instance and whether the

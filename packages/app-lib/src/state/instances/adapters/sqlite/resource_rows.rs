@@ -421,6 +421,17 @@ impl ResourceStore {
     }
 
     pub async fn preferred_source(&self) -> ResourceResult<SourceId> {
+        if crate::state::store::configuration_documents::runtime(&self.pool) {
+            let value =
+                crate::state::store::configuration_documents::preferred_source(
+                    &crate::state::store::Handle::new(self.pool.clone()),
+                )
+                .await
+                .map_err(|error| {
+                    database_error(sqlx::Error::Protocol(error.to_string()))
+                })?;
+            return SourceId::new(value).map_err(Into::into);
+        }
         let value: String = sqlx::query_scalar(
             "SELECT preferred_source FROM resource_preferences WHERE id = 1",
         )
@@ -434,6 +445,9 @@ impl ResourceStore {
         &self,
         source: &SourceId,
     ) -> ResourceResult<()> {
+        if crate::state::store::configuration_documents::runtime(&self.pool) {
+            return crate::state::store::configuration_documents::set_preferred_source(&crate::state::store::Handle::new(self.pool.clone()),source.as_str()).await.map_err(|error|database_error(sqlx::Error::Protocol(error.to_string())));
+        }
         let mut transaction = self
             .pool
             .begin_with("BEGIN IMMEDIATE")

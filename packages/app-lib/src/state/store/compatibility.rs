@@ -1,7 +1,7 @@
 //! Unsupported persistent data is opaque, not absent. Reads may omit it, but
 //! mutation and collection cleanup must not consume its recovery information.
 
-use sqlx::{Connection, Executor, Row, SqliteConnection, SqlitePool};
+use sqlx::{Connection, Executor, SqliteConnection, SqlitePool};
 use std::collections::HashSet;
 
 const STAGES: &str = "'installed','minecraft_installing','installing','pack_installed','pack_installing','not_installed'";
@@ -12,15 +12,9 @@ const COMPONENTS: &str = "'vanilla','forge','neoforge','fabric','quilt','cleanro
 const SOURCES: &str = "'local','curseforge','mcarchive','modrinth_modpack','server_project','imported_modpack','shared_instance'";
 
 fn unsupported(id: &str) -> String {
-    let jobs = unsupported_active_job("j.");
-    let file_journal = unsupported_protocol("j.payload", None);
-    let legacy_journal = unsupported_protocol("j.payload", None);
-    let cleanup = unsupported_protocol("j.payload", None);
-    let plan = unsupported_protocol("j.payload", Some("$.plan.schemaVersion"));
-    let execution = unsupported_protocol("j.payload", None);
     let artifact = unsupported_protocol("j.artifact", None);
     format!(
-        "EXISTS(SELECT 1 FROM instances i WHERE i.id={id} AND (i.install_stage NOT IN ({STAGES}) OR i.launcher_feature_version NOT IN ({FEATURES}) OR i.update_channel NOT IN ('release','beta'))) OR EXISTS(SELECT 1 FROM instance_loader_components c WHERE c.instance_id={id} AND (c.kind NOT IN ({COMPONENTS}) OR c.role NOT IN ('primary','adjunct'))) OR EXISTS(SELECT 1 FROM instance_content_sets c WHERE c.instance_id={id} AND (c.loader NOT IN ({LOADERS}) OR c.source_kind NOT IN ({SOURCES}) OR c.status NOT IN ('available','installing','stale','missing_files'))) OR EXISTS(SELECT 1 FROM instance_content_provider_refs r JOIN instance_content_entries e ON e.id=r.content_entry_id WHERE e.instance_id={id} AND r.provider NOT IN ('modrinth','curseforge','mcarchive','local')) OR EXISTS(SELECT 1 FROM instance_content_entries e WHERE e.instance_id={id} AND (e.project_type NOT IN ('mod','datapack','resourcepack','shader','shaderpack','schematic','world_save') OR e.source_kind NOT IN ({SOURCES}) OR e.ownership_kind NOT IN ('pack_managed','user_added','local_discovered') OR e.server_requirement NOT IN ('required','optional','unsupported','unknown') OR e.client_requirement NOT IN ('required','optional','unsupported','unknown'))) OR EXISTS(SELECT 1 FROM install_jobs j WHERE j.instance_id={id} AND ({jobs})) OR EXISTS(SELECT 1 FROM content_file_operations j WHERE j.instance_id={id} AND ({file_journal})) OR EXISTS(SELECT 1 FROM resource_legacy_rollback_journals j WHERE j.instance_id={id} AND ({legacy_journal})) OR EXISTS(SELECT 1 FROM resource_history_cleanup_plans j WHERE j.instance_id={id} AND j.consumed=0 AND ({cleanup})) OR EXISTS(SELECT 1 FROM resource_operation_plans j WHERE j.instance_id={id} AND j.completed=0 AND ({plan})) OR EXISTS(SELECT 1 FROM resource_execution_journals j JOIN resource_operation_plans p ON p.id=j.plan_id WHERE p.instance_id={id} AND p.completed=0 AND ({execution})) OR EXISTS(SELECT 1 FROM resource_installed_artifacts j JOIN instance_content_entries e ON e.id=j.entry_id WHERE e.instance_id={id} AND ({artifact}))"
+        "EXISTS(SELECT 1 FROM instances i WHERE i.id={id} AND (i.install_stage NOT IN ({STAGES}) OR i.launcher_feature_version NOT IN ({FEATURES}) OR i.update_channel NOT IN ('release','beta'))) OR EXISTS(SELECT 1 FROM instance_loader_components c WHERE c.instance_id={id} AND (c.kind NOT IN ({COMPONENTS}) OR c.role NOT IN ('primary','adjunct'))) OR EXISTS(SELECT 1 FROM instance_content_sets c WHERE c.instance_id={id} AND (c.loader NOT IN ({LOADERS}) OR c.source_kind NOT IN ({SOURCES}) OR c.status NOT IN ('available','installing','stale','missing_files'))) OR EXISTS(SELECT 1 FROM instance_content_provider_refs r JOIN instance_content_entries e ON e.id=r.content_entry_id WHERE e.instance_id={id} AND r.provider NOT IN ('modrinth','curseforge','mcarchive','local')) OR EXISTS(SELECT 1 FROM instance_content_entries e WHERE e.instance_id={id} AND (e.project_type NOT IN ('mod','datapack','resourcepack','shader','shaderpack','schematic','world_save') OR e.source_kind NOT IN ({SOURCES}) OR e.ownership_kind NOT IN ('pack_managed','user_added','local_discovered') OR e.server_requirement NOT IN ('required','optional','unsupported','unknown') OR e.client_requirement NOT IN ('required','optional','unsupported','unknown'))) OR EXISTS(SELECT 1 FROM resource_installed_artifacts j JOIN instance_content_entries e ON e.id=j.entry_id WHERE e.instance_id={id} AND ({artifact}))"
     )
 }
 
@@ -145,14 +139,19 @@ pub(super) fn unsupported_active_job(prefix: &str) -> String {
 pub(crate) async fn unknown_recovery_payloads(
     pool: &SqlitePool,
 ) -> crate::Result<bool> {
-    for (table, nested) in [
-        ("resource_history", None),
-        ("content_file_operations", None),
-        ("resource_legacy_rollback_journals", None),
-        ("resource_history_cleanup_plans", None),
-        ("resource_operation_plans", Some("$.plan.schemaVersion")),
-        ("resource_execution_journals", None),
-    ] {
+    let mut connection = pool.acquire().await?;
+    let file_records =
+        super::recovery_documents::active(&mut connection).await?;
+    drop(connection);
+    if file_records {
+        if super::recovery_documents::ensure_cleanup_supported(pool)
+            .await
+            .is_err()
+        {
+            return Ok(true);
+        }
+    }
+    for (table, nested) in [("resource_history", None)] {
         let unknown = unsupported_protocol("payload", nested);
         let active = match table {
             "resource_history_cleanup_plans" => "consumed=0 AND ",
@@ -179,6 +178,14 @@ pub(crate) async fn ensure_history_cleanup_supported(
     pool: &SqlitePool,
     instance_id: &str,
 ) -> crate::Result<()> {
+    let mut connection = pool.acquire().await?;
+    let file_records =
+        super::recovery_documents::active(&mut connection).await?;
+    drop(connection);
+    if file_records {
+        super::recovery_documents::ensure_instance_supported(pool, instance_id)
+            .await?;
+    }
     let unknown = unsupported_protocol("payload", None);
     let statement = format!(
         "SELECT EXISTS(SELECT 1 FROM resource_history WHERE instance_id=? AND ({unknown}))"
@@ -225,71 +232,6 @@ pub(super) async fn install(
         connection
             .execute(sqlx::AssertSqlSafe(statement.as_str()))
             .await?;
-    }
-    let columns = sqlx::query("PRAGMA operations.table_info(install_jobs)")
-        .fetch_all(&mut *connection)
-        .await?;
-    let unchanged = columns
-        .iter()
-        .map(|row| row.try_get::<String, _>("name"))
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .filter(|name| name != "instance_id")
-        .map(|name| {
-            let name = name.replace('"', "\"\"");
-            format!("NEW.\"{name}\" IS OLD.\"{name}\"")
-        })
-        .collect::<Vec<_>>()
-        .join(" AND ");
-    for event in ["UPDATE", "DELETE"] {
-        let unknown = unsupported_job("OLD.");
-        let detach = if event == "UPDATE" {
-            format!(
-                " AND NOT (OLD.status='succeeded' AND OLD.finished IS NOT NULL AND OLD.instance_id IS NOT NULL AND NEW.instance_id IS NULL AND {unchanged})"
-            )
-        } else {
-            String::new()
-        };
-        let statement = format!(
-            "CREATE TEMP TRIGGER IF NOT EXISTS opaque_job_{event} BEFORE {event} ON operations.install_jobs WHEN ({unknown}){detach} BEGIN SELECT RAISE(ABORT,'unsupported operation data is preserved'); END"
-        );
-        connection
-            .execute(sqlx::AssertSqlSafe(statement.as_str()))
-            .await?;
-    }
-    for (table, payload, nested) in [
-        ("content_file_operations", "payload", None),
-        ("resource_legacy_rollback_journals", "payload", None),
-        ("resource_history_cleanup_plans", "payload", None),
-        (
-            "resource_operation_plans",
-            "payload",
-            Some("$.plan.schemaVersion"),
-        ),
-        ("resource_execution_journals", "payload", None),
-    ] {
-        let unknown = unsupported_protocol(&format!("OLD.{payload}"), nested);
-        for event in ["UPDATE", "DELETE"] {
-            let pending = if table == "resource_history_cleanup_plans"
-                && event == "DELETE"
-            {
-                " AND OLD.consumed=0"
-            } else {
-                ""
-            };
-            let owner = if table == "resource_execution_journals" {
-                String::new()
-            } else {
-                " AND EXISTS(SELECT 1 FROM instances WHERE id=OLD.instance_id)"
-                    .into()
-            };
-            let statement = format!(
-                "CREATE TEMP TRIGGER IF NOT EXISTS opaque_protocol_{table}_{event} BEFORE {event} ON operations.{table} WHEN ({unknown}){owner}{pending} BEGIN SELECT RAISE(ABORT,'unsupported recovery protocol is preserved'); END"
-            );
-            connection
-                .execute(sqlx::AssertSqlSafe(statement.as_str()))
-                .await?;
-        }
     }
     Ok(())
 }
@@ -556,9 +498,21 @@ mod tests {
                 .unwrap()
                 .contains("instance")
         );
-        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
-        sqlx::query("UPDATE sync_feature_settings SET globally_enabled=1 WHERE feature='screenshots'").execute(&mut *transaction).await.unwrap();
-        configuration::commit(transaction, &pool).await.unwrap();
+        use crate::state::store::sync_feature_settings::{
+            FeatureSettingsKey, FeatureSettingsRecord, SyncFeatureSettings,
+        };
+        SyncFeatureSettings::set(
+            &crate::state::store::Handle::new(pool.clone()),
+            &FeatureSettingsKey {
+                feature: "screenshots".into(),
+            },
+            Some(&FeatureSettingsRecord {
+                globally_enabled: true,
+                new_instance_default: false,
+            }),
+        )
+        .await
+        .unwrap();
         let bytes =
             tokio::fs::read(temporary.path().join("settings/sync.json"))
                 .await
@@ -568,119 +522,60 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unknown_operations_keep_their_recovery_data_and_count_as_busy() {
-        use crate::state::store::install_jobs::InstallJobs;
-        let temporary = tempfile::tempdir().unwrap();
-        let pool = databases::open(temporary.path()).await.unwrap();
-        instance(&pool, "instance", "installed").await;
-        sqlx::query("INSERT INTO install_jobs(id,instance_id,kind,status,state,created,modified) VALUES('future','instance','future-install','future-status','{}',0,0)").execute(&pool).await.unwrap();
-        assert!(
-            InstallJobs::unfinished_in(&pool, "instance", &[])
-                .await
-                .unwrap()
-        );
-        assert!(
-            InstallJobs::unfinished_or_rollback(&pool, &[])
-                .await
-                .unwrap()
-        );
-        assert!(
-            sqlx::query("DELETE FROM install_jobs WHERE id='future'")
-                .execute(&pool)
-                .await
-                .is_err()
-        );
-        assert!(
-            sqlx::query(
-                "UPDATE install_jobs SET status='canceled' WHERE id='future'"
-            )
-            .execute(&pool)
-            .await
-            .is_err()
-        );
-        instance(&pool, "schema-instance", "installed").await;
-        sqlx::query("INSERT INTO install_jobs(id,instance_id,kind,status,state,created,modified,finished) VALUES('schema-future','schema-instance','create_instance','succeeded','{\"schema_version\":2}',0,0,10)").execute(&pool).await.unwrap();
-        assert!(
-            !InstallJobs::unfinished_in(&pool, "schema-instance", &[])
-                .await
-                .unwrap()
-        );
-        assert!(
-            !unsupported_instances(&pool)
-                .await
-                .unwrap()
-                .contains("schema-instance")
-        );
-        assert!(crate::state::instances::adapters::sqlite::instance_rows::list_instances(&pool).await.unwrap().iter().any(|instance| instance.id == "schema-instance"));
-        assert!(
-            sqlx::query("DELETE FROM install_jobs WHERE id='schema-future'")
-                .execute(&pool)
-                .await
-                .is_err()
-        );
-        instance_rows::delete_instance_by_id("schema-instance", &pool)
-            .await
-            .unwrap();
-        let detached: (Option<String>, String) = sqlx::query_as("SELECT instance_id,state FROM install_jobs WHERE id='schema-future'").fetch_one(&pool).await.unwrap();
-        assert_eq!(detached.0, None);
-        assert_eq!(detached.1, "{\"schema_version\":2}");
-    }
-
-    #[tokio::test]
-    async fn future_recovery_protocols_protect_only_the_affected_instance_and_pause_gc()
+    async fn future_file_recovery_is_preserved_without_hiding_launchable_instances()
      {
+        use crate::state::store::{
+            Collection, Handle, content_file_operations::ContentFileOperations,
+        };
         let temporary = tempfile::tempdir().unwrap();
         let pool = databases::open(temporary.path()).await.unwrap();
         instance(&pool, "future", "installed").await;
         instance(&pool, "known", "installed").await;
-        sqlx::query("INSERT INTO content_file_operations(instance_id,payload,committed) VALUES('future','{\"schema_version\":2}',1)").execute(&pool).await.unwrap();
+        let handle = Handle::new(pool.clone());
+        let path = temporary.path().join("state/future-record.json");
+        let value = serde_json::json!({"payload":"{\"schema_version\":2}","committed":true});
+        let hash = crate::state::recovery::record::write(
+            &path,
+            "content_file_operations",
+            "future",
+            Some("future"),
+            1,
+            value,
+        )
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO main.operation_publications(kind,id,instance_id,revision,object_path,sha256,deleted) VALUES('content_file_operations','future','future',1,?,?,0)").bind(path.to_string_lossy().into_owned()).bind(hash).execute(&pool).await.unwrap();
         assert!(
-            unsupported_instances(&pool)
-                .await
-                .unwrap()
-                .contains("future")
+            crate::state::store::recovery_documents::ensure_instance_supported(
+                &pool, "future"
+            )
+            .await
+            .is_err()
         );
         assert!(
-            !unsupported_instances(&pool)
-                .await
-                .unwrap()
-                .contains("known")
+            crate::state::store::recovery_documents::ensure_instance_supported(
+                &pool, "known"
+            )
+            .await
+            .is_ok()
         );
-        assert!(databases::ensure_cleanup_supported(&pool).await.is_err());
         assert!(
-            instance_rows::delete_instance_by_id("future", &pool)
+            crate::state::store::recovery_documents::ensure_cleanup_supported(
+                &pool
+            )
+            .await
+            .is_err()
+        );
+        assert!(
+            ContentFileOperations::set(&handle, &"future".into(), None)
                 .await
                 .is_err()
         );
         assert!(
-            sqlx::query(
-                "DELETE FROM content_file_operations WHERE instance_id='future'"
-            )
-            .execute(&pool)
-            .await
-            .is_err()
+            instance_rows::get_instance_by_id("future", &pool)
+                .await
+                .unwrap()
+                .is_some()
         );
-        sqlx::query(
-            "UPDATE instances SET name='still usable' WHERE id='known'",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-    }
-
-    #[tokio::test]
-    async fn consumed_unknown_cleanup_does_not_permanently_hide_its_instance() {
-        let temporary = tempfile::tempdir().unwrap();
-        let pool = databases::open(temporary.path()).await.unwrap();
-        instance(&pool, "instance", "installed").await;
-        sqlx::query("INSERT INTO resource_history_cleanup_plans(id,instance_id,revision,payload,consumed) VALUES('done','instance',1,'{\"schema_version\":2}',1)").execute(&pool).await.unwrap();
-        assert!(unsupported_instances(&pool).await.unwrap().is_empty());
-        assert!(databases::ensure_cleanup_supported(&pool).await.is_ok());
-        let payload: String = sqlx::query_scalar("SELECT payload FROM resource_history_cleanup_plans WHERE id='done'").fetch_one(&pool).await.unwrap();
-        assert_eq!(payload, "{\"schema_version\":2}");
-        assert!(sqlx::query("UPDATE resource_history_cleanup_plans SET payload='{}' WHERE id='done'").execute(&pool).await.is_err());
-        instance_rows::delete_instance_by_id("instance", &pool)
-            .await
-            .unwrap();
     }
 }

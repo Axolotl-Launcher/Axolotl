@@ -49,11 +49,16 @@ pub(crate) async fn set_results(
     else {
         return Ok(vec![]);
     };
-    let preferred: String = sqlx::query_scalar(
-        "SELECT preferred_source FROM resource_preferences WHERE id = 1",
-    )
-    .fetch_one(unit.connection())
-    .await?;
+    let preferred = if super::configuration_documents::runtime(handle.pool()) {
+        super::configuration_documents::preferred_source(handle).await?
+    } else {
+        let preferred: String = sqlx::query_scalar(
+            "SELECT preferred_source FROM resource_preferences WHERE id = 1",
+        )
+        .fetch_one(unit.connection())
+        .await?;
+        preferred
+    };
     let target = ipc::ResourceTarget {
         game_versions: vec![content_set.game_version],
         loaders: vec![content_set.loader.as_str().into()],

@@ -239,13 +239,11 @@ pub(crate) async fn sync_direct_link_instances(
                         &mut tx,
                     )
                     .await?;
-                    instance_rows::replace_instance_groups(
+                    tx.commit().await?;
+                    crate::state::instance_groups::set_instance_groups(
                         &instance.id,
                         &groups,
-                        &mut tx,
-                    )
-                    .await?;
-                    tx.commit().await?;
+                    );
                     let _ = emit_instance(
                         &instance.id,
                         InstancePayloadType::Edited,

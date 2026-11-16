@@ -316,23 +316,6 @@ pub(crate) async fn validate_parents(
         )
         .into());
     }
-    if collection == "instance_sync_checkpoints" {
-        let feature =
-            key.get("feature").and_then(Value::as_str).ok_or_else(|| {
-                crate::ErrorKind::InputError(
-                    "Sync checkpoint feature missing".into(),
-                )
-            })?;
-        let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM instance_sync_preferences WHERE instance_id=? AND feature=?)",
-        ).bind(instance).bind(feature).fetch_one(connection).await?;
-        if !exists {
-            return Err(crate::ErrorKind::InputError(
-                "Sync checkpoint has no matching instance preference".into(),
-            )
-            .into());
-        }
-    }
     Ok(())
 }
 
@@ -382,6 +365,101 @@ pub(crate) async fn authority(
         .into());
     }
     Ok(configured)
+}
+
+/// Directory moves copy and validate the complete immutable generation before
+/// changing the descriptor. The original remains a retryable recovery source.
+pub(crate) async fn move_authority(
+    pool: &SqlitePool,
+    persistence: &Persistence,
+    old: &Path,
+    new: &Path,
+) -> crate::Result<()> {
+    let descriptor =
+        persistence.document("state/sync.json", "axolotl-sync-authority", 1)?;
+    let read = descriptor.read().await?;
+    if read.availability
+        == crate::state::persistence::status::Availability::Missing
+    {
+        return Ok(());
+    }
+    let data = read
+        .snapshot
+        .and_then(|snapshot| snapshot.data().cloned())
+        .ok_or_else(|| {
+            crate::ErrorKind::FSError("Sync move descriptor unavailable".into())
+        })?;
+    if data.get("contract").and_then(Value::as_u64) != Some(1) {
+        return Err(crate::ErrorKind::InputError(
+            "Unsupported sync move descriptor".into(),
+        )
+        .into());
+    }
+    let old = old.join("synced-options");
+    let new = new.join("synced-options");
+    let stored = data
+        .get("root")
+        .and_then(Value::as_str)
+        .map(Path::new)
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError("Sync root missing".into())
+        })?;
+    if stored == new {
+        manifest::load(&new).await?;
+        return Ok(());
+    }
+    if stored != old {
+        return Err(crate::ErrorKind::FSError(
+            "Sync authority root does not match directory move source".into(),
+        )
+        .into());
+    }
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let committed = decision(&mut tx).await?;
+    let transaction =
+        sync_state::journal::Transaction::begin(old.clone(), committed.clone())
+            .await?;
+    let source = manifest::load(&old).await?.0;
+    let current = manifest::document(&new).read().await?;
+    if current.availability
+        != crate::state::persistence::status::Availability::Missing
+    {
+        let target = manifest::load(&new).await?.0;
+        if serde_json::to_value(&target)? != serde_json::to_value(&source)? {
+            return Err(crate::ErrorKind::FSError(
+                "Sync destination contains another generation".into(),
+            )
+            .into());
+        }
+    }
+    manifest::backup(&old, &new, committed.as_deref()).await?;
+    let target = manifest::load(&new).await?.0;
+    if serde_json::to_value(target)? != serde_json::to_value(source)? {
+        return Err(crate::ErrorKind::FSError(
+            "Sync move verification failed".into(),
+        )
+        .into());
+    }
+    let old_value = old.to_string_lossy().to_string();
+    let new_value = new.to_string_lossy().to_string();
+    descriptor
+        .update(move |data| {
+            if data.get("contract").and_then(Value::as_u64) != Some(1)
+                || data.get("root").and_then(Value::as_str)
+                    != Some(old_value.as_str())
+            {
+                return Err(crate::ErrorKind::InputError(
+                    "Sync descriptor changed while moving".into(),
+                )
+                .into());
+            }
+            data.insert("root".into(), Value::String(new_value));
+            Ok(())
+        })
+        .await?;
+    drop(transaction);
+    tx.rollback().await?;
+    Ok(())
 }
 
 pub(crate) async fn backup_in(
@@ -508,16 +586,7 @@ mod tests {
         sync.changed = true;
         let token = sync.prepare().await.unwrap().unwrap();
         decide(&mut sql, &token).await.unwrap();
-        sqlx::query("UPDATE resource_preferences SET preferred_source='curseforge' WHERE id=1")
-            .execute(&mut *sql).await.unwrap();
-        super::super::configuration::prepare_settings(
-            &mut sql,
-            root.path(),
-            None,
-            Some(&pool),
-        )
-        .await
-        .unwrap();
+        super::super::configuration::prepare_documents(&mut sql,root.path(),vec![("resources".into(),json!({"schema_version":1,"data":{"preferred_source":"curseforge"}}))]).await.unwrap();
         sql.commit().await.unwrap();
         drop(sync);
         for _ in 0..2 {

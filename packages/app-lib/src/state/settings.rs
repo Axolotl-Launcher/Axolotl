@@ -1032,14 +1032,7 @@ impl Settings {
     pub(crate) async fn migrate_legacy_row(
         handle: &Handle,
     ) -> crate::Result<()> {
-        let mut settings = Self::read_row(handle).await?;
-        while settings.version < Self::CURRENT_VERSION {
-            settings.perform_migration()?;
-        }
-        StoredSettings::set(handle, &Singleton, Some(&settings.to_record()?))
-            .await?;
-        super::documents::settings::invalidate();
-        Ok(())
+        StoredSettings::migrate_import_row(handle, Self::CURRENT_VERSION).await
     }
 
     pub async fn migrate(handle: &Handle) -> crate::Result<()> {

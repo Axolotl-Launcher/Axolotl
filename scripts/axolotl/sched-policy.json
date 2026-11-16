@@ -17,9 +17,10 @@
     "state/instances/commands/remove_instance.rs: instance maintenance lock (S2) -> synced_options_lock (S7) -> instance content lock (S3)",
     "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)",
     "api/theme_pack/store.rs install: INSTALL_LOCK (S7) serializes extraction and directory replacement and takes no other managed lock; ThemePackPageState.pages (S8) only guards the label map",
-    "Theme pack storage accounting and writes share THEME_STORAGE_LOCK so quota and file caps are enforced under one order."
+    "Theme pack storage accounting and writes share THEME_STORAGE_LOCK so quota and file caps are enforced under one order.",
+    "Storage document services add seven S8 maps for screenshot observations/hints, recovery availability, derived/record pool lookup and share-token sessions; guards cover memory-only access and are released before database initialization, hashing, keyring or file I/O."
   ],
-  "rankFingerprint": "8025aa26a7dd25ae690198bbbebc4744e0fc5c7e43b31d648b8e5212b7ee406c",
+  "rankFingerprint": "3c0bc9ee7241e300200702c5d07ae194b0473bfa353842d6a8dea63c3e565a2a",
   "classes": {
     "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
     "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",

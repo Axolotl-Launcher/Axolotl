@@ -45,7 +45,7 @@ pub(super) async fn remember_processed_sha(
 ) -> crate::Result<()> {
     let (canonical_revision, _) =
         load_game_options_sync_state(&state.data, CATALOG_REVISION).await?;
-    synced_options::begin_checkpoint(
+    let proof = synced_options::begin_checkpoint(
         instance_id,
         SyncedOption::GameOptions,
         "default",
@@ -59,6 +59,7 @@ pub(super) async fn remember_processed_sha(
         instance_id,
         SyncedOption::GameOptions,
         "default",
+        &proof,
         state,
     )
     .await
@@ -224,15 +225,17 @@ pub(super) async fn apply_shared_settings_to_instance(
     // watcher can observe the write immediately on some platforms; recording
     // the checkpoint first prevents that event from being misclassified as a
     // user edit and importing stale data back into the shared store.
-    synced_options::begin_checkpoint(
+    let projection_revision =
+        load_game_options_sync_state(&state.data, CATALOG_REVISION)
+            .await?
+            .0 as i64;
+    let proof = synced_options::begin_checkpoint(
         &metadata.instance.id,
         SyncedOption::GameOptions,
         "default",
         &output_sha1,
         None,
-        load_game_options_sync_state(&state.data, CATALOG_REVISION)
-            .await?
-            .0 as i64,
+        projection_revision,
         state,
     )
     .await?;
@@ -243,6 +246,7 @@ pub(super) async fn apply_shared_settings_to_instance(
         &metadata.instance.id,
         SyncedOption::GameOptions,
         "default",
+        &proof,
         state,
     )
     .await?;
@@ -278,6 +282,7 @@ pub(super) async fn capture_instance_options(
         &metadata.instance.id,
         SyncedOption::GameOptions,
         "default",
+        &proof,
         state,
     )
     .await?;

@@ -446,3 +446,23 @@ pub(crate) async fn write_blob(
     })
     .await
 }
+
+/// Replace a writable native projection with a fresh inode even for equal
+/// bytes. This deliberately breaks any legacy hard/symbolic shared alias.
+pub(crate) async fn write_detached_blob(
+    path: &Path,
+    bytes: Vec<u8>,
+) -> crate::Result<()> {
+    let path = path.to_owned();
+    blocking(move || {
+        if bytes.len() as u64 > MAX_BYTES {
+            return Err(crate::ErrorKind::InputError(
+                "Native projection exceeds size limit".into(),
+            )
+            .into());
+        }
+        let _lock = Writer::acquire(&path)?;
+        replace_bytes(&path, &bytes)
+    })
+    .await
+}

@@ -60,6 +60,36 @@ pub(super) async fn handle() -> Handle {
     Handle::new(pool().await)
 }
 
+/// A complete current database layout and independent sync authority. Keep the
+/// directory alive as long as any pool sharing its connect options remains.
+pub(super) async fn sync_pool() -> SqlitePool {
+    use std::sync::{Arc, Mutex, OnceLock, Weak};
+    type Roots =
+        Vec<(Weak<sqlx::sqlite::SqliteConnectOptions>, tempfile::TempDir)>;
+    static ROOTS: OnceLock<Mutex<Roots>> = OnceLock::new();
+    let directory = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(directory.path())
+        .await
+        .unwrap();
+    let mut roots =
+        ROOTS.get_or_init(|| Mutex::new(Vec::new())).lock().unwrap();
+    roots.retain(|(options, _)| options.strong_count() > 0);
+    roots.push((Arc::downgrade(&pool.connect_options()), directory));
+    pool
+}
+
+pub(super) async fn sync_handle() -> Handle {
+    Handle::new(sync_pool().await)
+}
+
+pub(super) async fn sync_handle_with_instances(instances: &[&str]) -> Handle {
+    let pool = sync_pool().await;
+    for instance in instances {
+        add_instance(&pool, instance).await;
+    }
+    Handle::new(pool)
+}
+
 /// A handle on a derived database of its own, with every derived migration
 /// applied, and the directory that holds it.
 pub(super) async fn derived() -> (tempfile::TempDir, Handle) {

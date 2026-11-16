@@ -138,10 +138,18 @@ pub(crate) async fn ensure_cleanup_supported(
         .and_then(Path::parent)
         .expect("domain data root");
     super::legacy_documents::ensure_cleanup_supported(root).await?;
+    let shared = crate::state::sync_state::root(
+        &crate::state::persistence::Persistence::new(root),
+    )
+    .await?;
+    crate::state::sync_state::ensure_supported(&shared).await?;
     if DOMAINS
         .iter()
         .filter(|domain| {
-            !matches!(**domain, "accounts" | "telemetry" | "media" | "records")
+            !matches!(
+                **domain,
+                "accounts" | "telemetry" | "media" | "records" | "sync"
+            )
         })
         .any(|domain| !attached.contains(*domain))
     {
@@ -354,6 +362,10 @@ pub(crate) async fn backup(
                 }
             }
         }
+        if let Err(error)=super::sync_documents::backup_in(&mut transaction,&crate::state::persistence::Persistence::new(settings_dir),&staging.join("synced-options")).await{
+            tracing::warn!(%error,"Backup excludes unavailable shared sync state");
+            crate::state::persistence::document::write_json(&staging.join("sync-backup-status.json"),serde_json::to_vec(&serde_json::json!({"unavailable":true}))?).await?;
+        }
         if let Err(error) = super::records_db::backup(settings_dir, &staging.join("records.db")).await {
             tracing::warn!(%error,"Core snapshot excludes unavailable optional daily history");
             crate::state::persistence::document::write_json(&staging.join("backup-status.json"),serde_json::to_vec(&serde_json::json!({"optional_exclusions":["records.db"]}))?).await?;
@@ -433,6 +445,13 @@ pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
     {
         tracing::warn!(%error,"Optional daily history unavailable; core startup continues");
     }
+    if !["app.db", "release/app.db", "beta/app.db"]
+        .iter()
+        .any(|path| settings_dir.join(path).is_file())
+        || settings_dir.join("settings/bootstrap.json").is_file()
+    {
+        super::sync_documents::initialize(settings_dir, None).await;
+    }
     Ok(pool)
 }
 
@@ -447,7 +466,7 @@ async fn open_with_retired(
             .filter(|domain| {
                 !matches!(
                     *domain,
-                    "accounts" | "telemetry" | "media" | "records"
+                    "accounts" | "telemetry" | "media" | "records" | "sync"
                 )
             })
             .filter(|domain| {
@@ -608,6 +627,7 @@ async fn create_schema(
 ) -> Result<(), sqlx::Error> {
     let attached = attached_domains(connection).await?;
     if durable {
+        super::sync_documents::install(connection).await?;
         connection.execute("CREATE TABLE IF NOT EXISTS main.database_imports (source TEXT PRIMARY KEY NOT NULL, completed INTEGER NOT NULL)").await?;
         for table in &baseline().tables {
             if !attached.contains(&table.domain) {
@@ -1114,7 +1134,7 @@ mod tests {
         let mut second = pool.acquire().await.unwrap();
         for connection in [&mut first, &mut second] {
             let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM pragma_database_list WHERE name IN ('instances', 'accounts', 'sync', 'media', 'operations', 'storage', 'records', 'telemetry', 'configuration')").fetch_one(&mut **connection).await.unwrap();
-            assert_eq!(count, 5);
+            assert_eq!(count, 4);
             let migrations: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM main.sqlite_schema WHERE name = '_sqlx_migrations'").fetch_one(&mut **connection).await.unwrap();
             assert_eq!(migrations, 0);
             let version: i64 =
@@ -1127,7 +1147,7 @@ mod tests {
                 DOMAINS.iter().copied().filter(|domain| {
                     !matches!(
                         *domain,
-                        "accounts" | "telemetry" | "media" | "records"
+                        "accounts" | "telemetry" | "media" | "records" | "sync"
                     )
                 }),
             ) {
@@ -1167,7 +1187,10 @@ mod tests {
                 .exists()
         );
         for domain in DOMAINS.iter().filter(|domain| {
-            !matches!(**domain, "accounts" | "telemetry" | "media" | "records")
+            !matches!(
+                **domain,
+                "accounts" | "telemetry" | "media" | "records" | "sync"
+            )
         }) {
             assert!(
                 directory(temporary.path())
@@ -1206,18 +1229,53 @@ mod tests {
                 .bind(id).bind(id).execute(&pool).await.unwrap();
         }
         sqlx::query("INSERT INTO instance_sync_preferences VALUES('first','screenshots',1),('second','game_options',1)").execute(&pool).await.unwrap();
-        assert!(sqlx::query("INSERT INTO instance_sync_checkpoints(instance_id,feature,variant,expected_sha1,source_revision,status) VALUES('first','game_options','default','hash',0,'ready')")
-            .execute(&pool).await.is_err());
-        sqlx::query("INSERT INTO instance_sync_checkpoints(instance_id,feature,variant,expected_sha1,source_revision,status) VALUES('first','screenshots','default','hash',0,'ready')")
-            .execute(&pool).await.unwrap();
+        use super::super::instance_sync_checkpoints::{
+            CheckpointKey, CheckpointRecord, CheckpointStatus,
+            InstanceSyncCheckpoints,
+        };
+        let handle = super::super::Handle::new(pool.clone());
+        let record = CheckpointRecord {
+            expected_sha1: "hash".into(),
+            merge_base: None,
+            source_revision: 0,
+            status: CheckpointStatus::Ready,
+            link_mode: None,
+        };
+        let key = |feature: &str| CheckpointKey {
+            instance_id: "first".into(),
+            feature: feature.into(),
+            variant: "default".into(),
+        };
+        assert!(
+            InstanceSyncCheckpoints::set(
+                &handle,
+                &key("game_options"),
+                Some(&record)
+            )
+            .await
+            .is_err()
+        );
+        InstanceSyncCheckpoints::set(
+            &handle,
+            &key("screenshots"),
+            Some(&record),
+        )
+        .await
+        .unwrap();
+        let mut unit = super::super::atom(&handle).await.unwrap();
         sqlx::query(
             "DELETE FROM instance_sync_preferences WHERE instance_id='second'",
         )
-        .execute(&pool)
+        .execute(unit.connection())
         .await
         .unwrap();
-        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instance_sync_checkpoints WHERE instance_id='first'").fetch_one(&pool).await.unwrap();
-        assert_eq!(count, 1);
+        unit.commit().await.unwrap();
+        assert!(
+            InstanceSyncCheckpoints::get(&handle, &key("screenshots"))
+                .await
+                .unwrap()
+                .is_some()
+        );
     }
 
     #[tokio::test]

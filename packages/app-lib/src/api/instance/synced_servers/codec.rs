@@ -64,14 +64,49 @@ pub(crate) async fn write_servers(
     if let Some(parent) = path.parent() {
         crate::util::io::create_dir_all(parent).await?;
     }
-    crate::util::io::write(path, servers_to_bytes(servers)?).await?;
+    let template = match read_server_bytes(path).await {
+        Ok(bytes) => Some(bytes),
+        Err(error) if matches!(error.raw.as_ref(),crate::ErrorKind::StdIOError(error) if error.kind()==std::io::ErrorKind::NotFound) => {
+            None
+        }
+        Err(error) => return Err(error),
+    };
+    let bytes = servers_to_bytes_with_template(servers, template.as_deref())?;
+    super::super::synced_options::publish_detached_copy(path, bytes).await?;
     Ok(())
 }
 
 pub(super) fn servers_to_bytes(
     servers: &[NbtCompound],
 ) -> crate::Result<Vec<u8>> {
+    servers_to_bytes_with_template(servers, None)
+}
+
+pub(super) fn servers_to_bytes_with_root(
+    servers: &[NbtCompound],
+    root: NbtCompound,
+) -> crate::Result<Vec<u8>> {
+    let template = nbt_to_bytes(&root)?;
+    servers_to_bytes_with_template(servers, Some(&template))
+}
+
+/// Retain the complete native document and change only its server list.
+/// Templates are bytes so the root name survives too.
+pub(super) fn servers_to_bytes_with_template(
+    servers: &[NbtCompound],
+    template: Option<&[u8]>,
+) -> crate::Result<Vec<u8>> {
     validate_size(servers.len(), 0)?;
+    let (mut root, name) = match template {
+        Some(bytes) => {
+            validate_size(0, bytes.len())?;
+            quartz_nbt::io::read_nbt(
+                &mut std::io::Cursor::new(bytes),
+                quartz_nbt::io::Flavor::Uncompressed,
+            )?
+        }
+        None => (NbtCompound::new(), String::new()),
+    };
     let mut size = 0;
     let mut list = NbtList::new();
     for server in servers {
@@ -79,9 +114,14 @@ pub(super) fn servers_to_bytes(
         validate_size(servers.len(), size)?;
         list.push(server.clone());
     }
-    let mut root = NbtCompound::new();
     root.insert("servers", list);
-    let bytes = nbt_to_bytes(&root)?;
+    let mut bytes = Vec::new();
+    quartz_nbt::io::write_nbt(
+        &mut bytes,
+        Some(&name),
+        &root,
+        quartz_nbt::io::Flavor::Uncompressed,
+    )?;
     validate_size(servers.len(), bytes.len())?;
     Ok(bytes)
 }
@@ -135,4 +175,41 @@ pub(super) fn server_identity_name(server: &NbtCompound) -> String {
         .unwrap_or_default()
         .trim()
         .to_ascii_lowercase()
+}
+
+#[cfg(test)]
+mod preservation_tests {
+    use super::*;
+    #[test]
+    fn replacing_server_list_keeps_unknown_root_and_entry_fields_and_root_name()
+    {
+        let mut root = NbtCompound::new();
+        root.insert("future_root", 42_i32);
+        root.insert("servers", NbtList::new());
+        let mut template = Vec::new();
+        quartz_nbt::io::write_nbt(
+            &mut template,
+            Some("NamedRoot"),
+            &root,
+            quartz_nbt::io::Flavor::Uncompressed,
+        )
+        .unwrap();
+        let mut server =
+            server_data("A".into(), "example.invalid".into(), None);
+        server.insert("future_server", "preserve");
+        let bytes =
+            servers_to_bytes_with_template(&[server], Some(&template)).unwrap();
+        let (root, name) = quartz_nbt::io::read_nbt(
+            &mut std::io::Cursor::new(bytes),
+            quartz_nbt::io::Flavor::Uncompressed,
+        )
+        .unwrap();
+        assert_eq!(name, "NamedRoot");
+        assert_eq!(root.get::<_, i32>("future_root").unwrap(), 42);
+        let entries = servers_from_root(root).unwrap();
+        assert_eq!(
+            entries[0].get::<_, &str>("future_server").unwrap(),
+            "preserve"
+        );
+    }
 }

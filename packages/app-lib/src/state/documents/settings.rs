@@ -4118,3 +4118,42 @@ mod tests {
         );
     }
 }
+
+/// Resolve content storage before State exists using the same deployment and
+/// local bootstrap layers. The legacy row is handed over before this call.
+pub(crate) async fn content_root_before_state(
+    root: &Path,
+    documents: &Documents<'_>,
+) -> crate::Result<std::path::PathBuf> {
+    let mut values = default_values()?;
+    match documents.shipped_keys("bootstrap", 1).await {
+        Shipped::Keys(provided) => {
+            overlay(&mut values, &["custom_dir"], &provided, "bootstrap");
+        }
+        Shipped::Unreadable => {
+            return Err(crate::ErrorKind::FSError(
+                "Deployment storage bootstrap is unavailable".into(),
+            )
+            .into());
+        }
+        Shipped::Missing => {}
+    }
+    match documents.stored::<Document>("bootstrap", 1).await {
+        Stored::Ready { document, .. } | Stored::Newer { document, .. } => {
+            overlay(&mut values, &["custom_dir"], &document, "bootstrap")
+        }
+        Stored::Unreadable => {
+            return Err(crate::ErrorKind::FSError(
+                "Storage bootstrap document unavailable".into(),
+            )
+            .into());
+        }
+        Stored::Missing => {}
+    }
+    Ok(values
+        .get("custom_dir")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| root.to_owned()))
+}

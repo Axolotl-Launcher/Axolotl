@@ -8,7 +8,7 @@ use super::Collection;
 pub(crate) struct SyncedPackInstances;
 
 /// A link is identified by the pack and the instance.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct SyncedPackInstanceKey {
     pub pack_id: String,
     pub instance_id: String,
@@ -18,7 +18,7 @@ pub(crate) struct SyncedPackInstanceKey {
 pub(crate) type SyncedPackInstanceScope = String;
 
 /// What a link carries.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct SyncedPackInstanceRecord {
     pub excluded: bool,
     pub materialized_path: Option<String>,
@@ -220,3 +220,19 @@ async fn write_row(
 
     Ok(())
 }
+
+impl crate::state::sync_state::collection::Collection for SyncedPackInstances {
+    type Key = SyncedPackInstanceKey;
+    type Scope = SyncedPackInstanceScope;
+    type Record = SyncedPackInstanceRecord;
+    const NAME: &'static str = "synced_pack_instances";
+    fn in_scope(scope: &Self::Scope, key: &Self::Key) -> bool {
+        key.pack_id == *scope
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    SyncedPackInstances,
+    SyncedPackInstanceKey,
+    SyncedPackInstanceScope,
+    SyncedPackInstanceRecord
+);

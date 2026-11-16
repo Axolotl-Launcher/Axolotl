@@ -1,14 +1,14 @@
 use super::super::synced_options::{
-    CheckpointStatus, checkpoint, ensure_link, finish_checkpoint,
-    instance_game_dir, instance_is_running, instance_option_enabled,
-    instance_option_supported, sha1_bytes, sync_files_are_protected,
+    CheckpointStatus, checkpoint, finish_checkpoint, instance_game_dir,
+    instance_is_running, instance_option_enabled, instance_option_supported,
+    sha1_bytes, sync_files_are_protected,
 };
-use crate::state::instances::adapters::sqlite::projection_entries;
 use crate::state::store::Collection as _;
 use crate::state::store::instance_sync_checkpoints::{
     CheckpointScope, InstanceSyncCheckpoints,
 };
 use crate::state::store::sync_feature_settings::SyncFeatureSettings;
+use crate::state::sync_state::servers::Projections;
 use crate::state::{InstanceMetadata, SyncedOption};
 use crate::{ErrorKind, State};
 use quartz_nbt::NbtCompound;
@@ -18,7 +18,7 @@ use super::SERVERS_FILE;
 use super::codec::{
     read_server_bytes, read_servers, server_address, server_hidden,
     server_identity_address, server_identity_name, servers_from_bytes,
-    servers_to_bytes, update_server_data, write_servers,
+    servers_to_bytes_with_template, update_server_data, write_servers,
 };
 use super::modpack::{
     is_modpack_link, pack_state_exists, pack_state_matches_link,
@@ -206,9 +206,8 @@ pub(in crate::api::instance) async fn detach_servers(
         feature: "multiplayer_servers".to_string(),
     };
     InstanceSyncCheckpoints::set_scoped(&state.data, &scope, &[]).await?;
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-    projection_entries::clear_projection(&mut tx, &metadata.instance.id)
-        .await?;
+    let mut tx = crate::state::store::atom(&state.data).await?;
+    Projections::atom_set_scoped(&mut tx, &metadata.instance.id, &[]).await?;
     tx.commit().await?;
     Ok(())
 }
@@ -723,17 +722,30 @@ async fn publish_instance(
     root: &std::path::Path,
     state: &State,
 ) -> crate::Result<()> {
+    if instance_is_running(metadata, state).await?
+        || sync_files_are_protected(metadata)
+    {
+        return Ok(());
+    }
     let target = root.join(SERVERS_FILE);
     let records = compose_records(metadata, state).await?;
-    let bytes = servers_to_bytes(
+    let template = match read_server_bytes(&target).await {
+        Ok(bytes) => Some(bytes),
+        Err(error) if matches!(error.raw.as_ref(), ErrorKind::StdIOError(error) if error.kind() == std::io::ErrorKind::NotFound) => {
+            None
+        }
+        Err(error) => return Err(error),
+    };
+    let bytes = servers_to_bytes_with_template(
         &records
             .iter()
             .map(|record| record.data.clone())
             .collect::<Vec<_>>(),
+        template.as_deref(),
     )?;
     let expected = sha1_bytes(&bytes);
     let revision = server_revision(state).await?;
-    begin_server_checkpoint(
+    let proof = begin_server_checkpoint(
         &metadata.instance.id,
         &records,
         &expected,
@@ -745,13 +757,26 @@ async fn publish_instance(
     if let Some(parent) = generated.parent() {
         crate::util::io::create_dir_all(parent).await?;
     }
-    crate::util::io::write(&generated, &bytes).await?;
-    let mode = ensure_link(&generated, &target).await?;
+    crate::state::persistence::document::write_blob(&generated, bytes.clone())
+        .await?;
+    if instance_is_running(metadata, state).await?
+        || sync_files_are_protected(metadata)
+    {
+        return Ok(());
+    }
+    super::super::synced_options::publish_detached_copy(&target, bytes).await?;
+    if instance_is_running(metadata, state).await?
+        || sync_files_are_protected(metadata)
+    {
+        return Ok(());
+    }
+    let mode = super::super::synced_options::LinkMode::Copy;
     finish_checkpoint(
         &metadata.instance.id,
         SyncedOption::MultiplayerServers,
         "default",
         mode,
+        &proof,
         state,
     )
     .await

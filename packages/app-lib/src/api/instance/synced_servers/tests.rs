@@ -26,15 +26,12 @@ async fn fixture() -> (tempfile::TempDir, Arc<State>, InstanceMetadata) {
         app_identifier: "server-sync-test".into(),
     };
     std::fs::create_dir_all(dirs.instances_dir().join("a")).unwrap();
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
+    let pool = crate::state::store::databases::open(&dirs.settings_dir)
         .await
         .unwrap();
-    sqlx::migrate!().run(&pool).await.unwrap();
     sqlx::raw_sql(
         "INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified)
-         VALUES ('a', 'a', 'installed', '1', 'A', 1, 1);
+         VALUES ('a', 'a', 'installed', 'none', 'A', 1, 1);
          INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified)
          VALUES ('set-a', 'a', 'A', 'local', 'available', '1.20.1', 'vanilla', 1, 1);
          UPDATE instances SET applied_content_set_id = 'set-a' WHERE id = 'a';

@@ -43,10 +43,12 @@ pub(super) async fn install_tracking(
     initialize: bool,
 ) -> Result<(), sqlx::Error> {
     if initialize {
+        connection.execute("CREATE TABLE IF NOT EXISTS configuration.document_removed_sync_preferences (instance_id TEXT NOT NULL,feature TEXT NOT NULL,PRIMARY KEY(instance_id,feature))").await?;
         connection.execute("CREATE TABLE IF NOT EXISTS configuration.document_dirty (name TEXT PRIMARY KEY)").await?;
         connection.execute("CREATE TABLE IF NOT EXISTS configuration.document_removed_instances (id TEXT PRIMARY KEY)").await?;
         connection.execute("CREATE TABLE IF NOT EXISTS main.document_commits (id INTEGER PRIMARY KEY CHECK(id=1), token TEXT NOT NULL)").await?;
     }
+    connection.execute("CREATE TEMP TRIGGER IF NOT EXISTS document_sync_preference_removed AFTER DELETE ON configuration.instance_sync_preferences BEGIN INSERT OR IGNORE INTO document_removed_sync_preferences VALUES(OLD.instance_id,OLD.feature); END").await?;
     connection.execute("CREATE TEMP TRIGGER IF NOT EXISTS document_instance_removed AFTER DELETE ON instances.instances BEGIN INSERT INTO document_removed_instances SELECT OLD.id WHERE NOT EXISTS(SELECT 1 FROM document_removed_instances WHERE id=OLD.id); INSERT INTO document_dirty SELECT 'sync' WHERE NOT EXISTS(SELECT 1 FROM document_dirty WHERE name='sync'); END").await?;
     for (table, document) in [
         ("resource_preferences", "resources"),
@@ -81,6 +83,16 @@ pub(super) async fn install_tracking(
             .await?;
     }
     Ok(())
+}
+
+pub(super) async fn removed_sync_preferences(
+    connection: &mut SqliteConnection,
+) -> crate::Result<Vec<(String, String)>> {
+    Ok(sqlx::query_as(
+        "SELECT removed.instance_id,removed.feature FROM configuration.document_removed_sync_preferences removed
+         WHERE NOT EXISTS(SELECT 1 FROM configuration.instance_sync_preferences current
+             WHERE current.instance_id=removed.instance_id AND current.feature=removed.feature)",
+    ).fetch_all(&mut *connection).await?)
 }
 
 async fn read_document(path: &Path) -> Result<Value, sqlx::Error> {
@@ -240,7 +252,7 @@ async fn prepare(
     prepare_settings(connection, root, None, None).await
 }
 
-async fn prepare_settings(
+pub(super) async fn prepare_settings(
     connection: &mut SqliteConnection,
     root: &Path,
     changed: Option<Option<&BTreeSet<String>>>,
@@ -608,6 +620,9 @@ pub(super) async fn recover_and_load(
         .await?;
     connection
         .execute("DELETE FROM configuration.document_removed_instances")
+        .await?;
+    connection
+        .execute("DELETE FROM configuration.document_removed_sync_preferences")
         .await?;
     Ok(())
 }
@@ -1069,4 +1084,25 @@ mod tests {
         .unwrap();
         assert_eq!(document["data"]["preferred_source"], "curseforge");
     }
+}
+
+/// Complete an already committed settings decision under the caller's core
+/// reservation. No nested pool acquisition is allowed while sync owns its lock.
+pub(super) async fn publish_committed_in(
+    connection: &mut SqliteConnection,
+    root: &Path,
+) -> Result<(), sqlx::Error> {
+    let token: Option<String> = sqlx::query_scalar(
+        "SELECT token FROM main.document_commits WHERE id=1",
+    )
+    .fetch_optional(&mut *connection)
+    .await?;
+    if let Some(token) = token {
+        publish(root, &token).await?;
+        sqlx::query("DELETE FROM main.document_commits WHERE id=1 AND token=?")
+            .bind(token)
+            .execute(connection)
+            .await?;
+    }
+    Ok(())
 }

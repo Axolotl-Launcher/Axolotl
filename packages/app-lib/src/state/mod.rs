@@ -97,6 +97,7 @@ pub mod instance_groups;
 pub(crate) mod media;
 pub(crate) mod persistence;
 pub(crate) mod store;
+pub(crate) mod sync_state;
 pub(crate) mod telemetry_state;
 pub(crate) mod user_state;
 
@@ -1516,6 +1517,8 @@ impl State {
             DirectoryInfo::init(settings.custom_dir, &app_identifier).await?;
         if !recovery_mode {
             documents::hand_over(&pool, &directories.settings_dir).await;
+            store::sync_documents::initialize(&directories.settings_dir, None)
+                .await;
         }
 
         let documents = documents::Documents::at(

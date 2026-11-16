@@ -1,7 +1,6 @@
 //! What the shared game option values collection promises.
 
 use super::support;
-use crate::state::store::Collection as _;
 use crate::state::store::Handle;
 use crate::state::store::synced_game_option_values::{
     GameOptionValueKind, GameOptionValueOrigin, GameOptionValueRecord,
@@ -26,7 +25,7 @@ fn vanilla() -> GameOptionValueRecord {
 
 #[tokio::test]
 async fn a_value_round_trips_and_clears() {
-    let handle = Handle::new(support::pool().await);
+    let handle = support::sync_handle().await;
     let option_id = "renderDistance".to_string();
     SyncedGameOptionValues::set(&handle, &option_id, Some(&vanilla()))
         .await
@@ -76,15 +75,20 @@ async fn a_value_this_build_cannot_read_is_no_record() {
         .unwrap();
 
     assert_eq!(
-        SyncedGameOptionValues::get(&handle, &"future".to_string())
-            .await
-            .unwrap(),
+        <SyncedGameOptionValues as crate::state::store::Collection>::get(
+            &handle,
+            &"future".to_string()
+        )
+        .await
+        .unwrap(),
         None
     );
     assert!(
-        SyncedGameOptionValues::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <SyncedGameOptionValues as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
 }

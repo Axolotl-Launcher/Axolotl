@@ -1,7 +1,6 @@
 //! What the pack bases collection promises.
 
 use super::support;
-use crate::state::store::Collection as _;
 use crate::state::store::game_option_pack_bases::{
     GameOptionPackBases, PackBaseKey, PackBaseRecord, PackBaseSource,
 };
@@ -14,7 +13,7 @@ fn key(instance_id: &str) -> PackBaseKey {
 
 #[tokio::test]
 async fn a_pack_base_round_trips_and_clears() {
-    let handle = support::handle_with_instances(&["instance"]).await;
+    let handle = support::sync_handle_with_instances(&["instance"]).await;
     let record = PackBaseRecord {
         pack_version_id: Some("version".to_string()),
         source: PackBaseSource::Overrides,

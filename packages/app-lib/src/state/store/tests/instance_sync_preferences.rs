@@ -27,7 +27,7 @@ fn enabled(enabled: bool) -> InstancePreferenceRecord {
 
 #[tokio::test]
 async fn a_preference_round_trips_and_clears() {
-    let pool = support::pool().await;
+    let pool = support::sync_pool().await;
     support::add_instance(&pool, "instance").await;
     let handle = handle_of(&pool);
     let preference = key("instance", "screenshots");
@@ -55,7 +55,7 @@ async fn a_preference_round_trips_and_clears() {
 
 #[tokio::test]
 async fn a_scope_reads_only_that_instances_preferences() {
-    let pool = support::pool().await;
+    let pool = support::sync_pool().await;
     support::add_instance(&pool, "first").await;
     support::add_instance(&pool, "second").await;
     let handle = handle_of(&pool);
@@ -84,7 +84,7 @@ async fn a_scope_reads_only_that_instances_preferences() {
 
 #[tokio::test]
 async fn a_replacement_keeps_the_checkpoint_of_a_preference_it_keeps() {
-    let pool = support::pool().await;
+    let pool = support::sync_pool().await;
     support::add_instance(&pool, "instance").await;
     support::enable_feature(&pool, "instance", "game_options").await;
     let handle = handle_of(&pool);

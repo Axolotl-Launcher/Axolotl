@@ -65,6 +65,7 @@ async fn remove_instance_files_and_state(
         // idempotent, so finish cleanup successfully instead of surfacing a
         // spurious "Unknown instance" error.
         tracing::debug!(instance_id, "Instance was already removed");
+        forget_sync_rows(instance_id, state).await;
         forget_derived_rows(instance_id, &state.derived).await;
         return Ok(());
     };
@@ -146,6 +147,7 @@ async fn remove_instance_files_and_state(
     let jobs = crate::install::store::mark_instance_deleted(instance_id, state)
         .await?;
     instance_rows::delete_instance_by_id(&instance.id, &state.pool).await?;
+    forget_sync_rows(&instance.id, state).await;
     forget_derived_rows(&instance.id, &state.derived).await;
     config_sync::remove_config_file(&state.directories, &instance.path).await?;
     for job in jobs {
@@ -159,6 +161,14 @@ async fn remove_instance_files_and_state(
     }
 
     Ok(())
+}
+
+async fn forget_sync_rows(instance_id: &str, state: &State) {
+    if let Err(error) =
+        crate::state::sync_state::forget_instance(state, instance_id).await
+    {
+        tracing::warn!(instance_id, %error, "Independent sync cleanup deferred");
+    }
 }
 
 /// A missing profile can be forgotten only while its storage is reachable.

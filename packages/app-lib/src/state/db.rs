@@ -146,6 +146,11 @@ async fn connect_at(settings_dir: &Path) -> crate::Result<Pool<Sqlite>> {
         .await;
         super::store::databases::import(&pool, &snapshot, &settings_dir)
             .await?;
+        super::store::sync_documents::initialize(
+            settings_dir,
+            Some(snapshot.clone()),
+        )
+        .await;
     }
     if new_install {
         let documents = super::documents::Documents::at(

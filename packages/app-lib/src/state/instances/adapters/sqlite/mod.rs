@@ -7,6 +7,7 @@ pub(crate) mod content_store_files;
 pub(crate) mod files;
 pub(crate) mod instance_groups;
 pub(crate) mod instance_rows;
+#[cfg(test)]
 pub(crate) mod instance_servers;
 pub(crate) mod legacy_import;
 pub(crate) mod links;
@@ -15,6 +16,7 @@ pub(crate) mod manifest_rows;
 pub(crate) mod pack_members;
 pub(crate) mod playtime;
 pub(crate) mod post_upgrade_notices;
+#[cfg(test)]
 pub(crate) mod projection_entries;
 pub(crate) mod resource_rows;
 pub(crate) mod rollback_journals;
@@ -23,6 +25,7 @@ pub(crate) mod screenshot_groups;
 #[cfg(test)]
 pub(crate) mod screenshot_rows;
 pub(crate) mod screenshot_sources;
+#[cfg(test)]
 pub(crate) mod server_pack_state;
 pub(crate) mod stored_paths;
 mod values;

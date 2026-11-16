@@ -46,7 +46,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Run typos checks
-        uses: crate-ci/typos@4c8b7f51ca60df14e3c5ca82770dfbbe6c3dae85 # v1.52.0
+        uses: crate-ci/typos@276087d9a4f06398b3e04825487805e2d7375888 # v1.52.2
 
   # see <https://github.com/influxdata/datafusion-udf-wasm/pull/275>
   tombi:
@@ -57,7 +57,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install tombi
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: tombi@1.1.2
       - name: Run tombi lint
@@ -81,7 +81,7 @@ jobs:
       - name: Show active Rust toolchain
         run: rustup show active-toolchain
       - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@851112458b5f28a29e5bc14a690c3f283d9dcc6f # v1.26.2
+        uses: cargo-bins/cargo-binstall@5885714d0a40a14b2535c6ffc051fd8e49aa9665 # v1.27.0
       - name: Install cargo-shear
         run: cargo binstall --no-confirm --locked cargo-shear@1.13.0
       - name: Run cargo-shear
@@ -104,7 +104,7 @@ jobs:
       - name: Show active Rust toolchain
         run: rustup show active-toolchain
       - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@851112458b5f28a29e5bc14a690c3f283d9dcc6f # v1.26.2
+        uses: cargo-bins/cargo-binstall@5885714d0a40a14b2535c6ffc051fd8e49aa9665 # v1.27.0
       - name: Setup Clippy
         run: rustup component add clippy
       # Build scripts and proc macros are still linked under clippy.

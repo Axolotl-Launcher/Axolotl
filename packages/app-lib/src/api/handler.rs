@@ -765,17 +765,23 @@ mod tests {
         for name in [
             "house.litematic",
             "house.schem",
-            "house.SCHEM",
             "house.schematic",
+            // The shell passes whatever case the file was saved with.
+            "upper.LITEMATIC",
         ] {
             let path = directory.path().join(name);
             std::fs::write(&path, b"").unwrap();
             let command = parse_command(&path.to_string_lossy()).await.unwrap();
+            // Canonicalization reports the name stored on disk, which on a
+            // case-insensitive filesystem is not necessarily the name asked
+            // for, so compare without regard to case.
             assert!(
                 matches!(
                     &command,
                     CommandPayload::OpenSchematic { path: opened }
-                        if opened.file_name() == Some(std::ffi::OsStr::new(name))
+                        if opened.file_name().is_some_and(|file| file
+                            .to_string_lossy()
+                            .eq_ignore_ascii_case(name))
                 ),
                 "{name} did not open the schematic workshop"
             );

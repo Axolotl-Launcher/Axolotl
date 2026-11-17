@@ -63,7 +63,8 @@
         "ext": ["litematic", "schem", "schematic"],
         "name": "AxolotlSchematic",
         "description": "Minecraft schematic",
-        "role": "Editor"
+        "role": "Editor",
+        "mimeType": "application/x-axolotl-schematic"
       }
     ]
   },

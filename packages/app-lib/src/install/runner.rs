@@ -371,7 +371,12 @@ pub async fn queue_resource_plan(
     .await?;
     let _admission = admission::lock(&state, Some(&instance)).await?;
     let _writer = state.acquire_install_db_permit().await?;
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     let existing =
         ResourceOperationPlans::job_at_in(&mut tx, plan_id.as_str(), revision)
             .await?;
@@ -490,7 +495,8 @@ pub async fn queue_resource_plan(
         )
         .into());
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     drop(_lock);
     drop(_writer);
     let record = store::get(id, &state).await?.ok_or_else(|| {

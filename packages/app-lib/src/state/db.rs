@@ -109,22 +109,63 @@ pub(crate) async fn connect(
 async fn connect_at(settings_dir: &Path) -> crate::Result<Pool<Sqlite>> {
     crate::util::io::create_dir_all(settings_dir).await?;
     let existed = super::store::databases::exists(settings_dir);
-    // Domain handover receipts are consulted before any legacy file is opened.
-    // A retired source must stay retired even if its new authority is damaged.
+    let progress = if !existed && has_legacy_storage(settings_dir) {
+        Some(crate::event::migration::MigrationProgress::new().await)
+    } else {
+        None
+    };
+    // Only failure to open the current core may enter read-only recovery.
+    // A failed takeover must remain visible and retryable at the next start.
     let persistence = super::persistence::Persistence::new(settings_dir);
     let pool = super::store::databases::open(persistence.root()).await?;
+    complete_startup_import(&pool, settings_dir, existed, progress)
+        .await
+        .map_err(|error| crate::ErrorKind::InputError(format!(
+            "Launcher data migration did not complete; original data is retained. {error}"
+        )))?;
+    Ok(pool)
+}
+
+fn has_legacy_storage(settings_dir: &Path) -> bool {
+    [
+        "app.db",
+        "release/app.db",
+        "beta/app.db",
+        "databases/operations.db",
+        "databases/legacy-document-import.db",
+    ]
+    .iter()
+    .any(|path| settings_dir.join(path).is_file())
+}
+
+async fn complete_startup_import(
+    pool: &Pool<Sqlite>,
+    settings_dir: &Path,
+    existed: bool,
+    mut progress: Option<crate::event::migration::MigrationProgress>,
+) -> crate::Result<()> {
+    use crate::event::migration::MigrationProgress;
     let imported: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.database_imports WHERE source = 'app.db' AND completed = 1)")
-        .fetch_one(&pool).await?;
-    if imported {
-        return Ok(pool);
+        .fetch_one(pool).await?;
+    // Consult every receipt before opening any old source, including an
+    // installation whose core was imported by an earlier experimental build.
+    if imported
+        && !super::store::recovery_documents::legacy_import_pending(pool)
+            .await?
+    {
+        return Ok(());
     }
-    // Channel files belong only to the pre-baseline importer. A later launch
-    // must not repair, copy, validate or lock a stale legacy channel database.
-    migrate_legacy_release_database(settings_dir).await?;
-    reconcile_default_channel_database(settings_dir).await?;
-    let db_path = app_db_path(settings_dir).await?;
-    let new_install = !db_path.try_exists()? && !existed;
+    if progress.is_none() && has_legacy_storage(settings_dir) {
+        progress = Some(MigrationProgress::new().await);
+    }
+    let mut new_install = false;
     if !imported {
+        // Channel files belong only to the pre-baseline importer. A later
+        // launch must never repair, copy, validate or lock a retired source.
+        migrate_legacy_release_database(settings_dir).await?;
+        reconcile_default_channel_database(settings_dir).await?;
+        let db_path = app_db_path(settings_dir).await?;
+        new_install = !db_path.try_exists()? && !existed;
         let temporary = tempfile::tempdir()?;
         let snapshot = temporary.path().join("app.db");
         if db_path.try_exists()? {
@@ -137,6 +178,9 @@ async fn connect_at(settings_dir: &Path) -> crate::Result<Pool<Sqlite>> {
             .await?;
             source.close().await?;
         }
+        if let Some(progress) = &mut progress {
+            progress.update("core", 0, 0, 0.1);
+        }
         let legacy = connect_app_db(&snapshot).await?;
         legacy.close().await;
         super::store::legacy_documents::initialize_from_snapshot(
@@ -144,8 +188,7 @@ async fn connect_at(settings_dir: &Path) -> crate::Result<Pool<Sqlite>> {
             &snapshot,
         )
         .await;
-        super::store::databases::import(&pool, &snapshot, &settings_dir)
-            .await?;
+        super::store::databases::import(pool, &snapshot, settings_dir).await?;
         super::store::sync_documents::initialize(
             settings_dir,
             Some(snapshot.clone()),
@@ -155,13 +198,24 @@ async fn connect_at(settings_dir: &Path) -> crate::Result<Pool<Sqlite>> {
     if new_install {
         let documents = super::documents::Documents::at(
             settings_dir.join(super::documents::DIR_NAME),
-            &pool,
+            pool,
         )
         .with_config_root(super::documents::config_root());
         super::documents::translation::initialize_new_install(&documents)
             .await?;
     }
-    Ok(pool)
+    // This is an uncapped first takeover, not the bounded interpretation of
+    // daily recovery records. State and its consumers are not published yet.
+    super::store::recovery_documents::import_legacy_with_progress(
+        pool,
+        settings_dir,
+        progress.as_mut(),
+    )
+    .await?;
+    if let Some(progress) = &mut progress {
+        progress.finish();
+    }
+    Ok(())
 }
 
 pub async fn copy_release_database_to_beta(

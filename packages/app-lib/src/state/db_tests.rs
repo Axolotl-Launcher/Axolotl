@@ -4258,6 +4258,12 @@ async fn initialized_domains_do_not_reconcile_or_open_legacy_channel_files() {
         .execute(&pool)
         .await
         .unwrap();
+    crate::state::store::recovery_documents::import_legacy(
+        &pool,
+        temporary.path(),
+    )
+    .await
+    .unwrap();
     pool.close().await;
     drop(pool);
     tokio::fs::write(temporary.path().join("app.db"), b"obsolete legacy file")
@@ -4312,4 +4318,163 @@ async fn legacy_startup_snapshot_keeps_pins_favorites_world_choices_and_daily_to
     let day = "2026-11-15".parse().unwrap();
     assert_eq!(crate::state::instances::adapters::sqlite::playtime::get_daily_playtime(day,day,&core).await.unwrap()[0].played_seconds,77);
     core.close().await;
+}
+
+#[tokio::test]
+async fn startup_retries_pending_operation_takeover_without_opening_retired_channel()
+ {
+    let temporary = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(temporary.path())
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO main.database_imports VALUES('app.db',1)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    // Simulate a process interrupted after it took over only one category.
+    sqlx::query("INSERT INTO main.operation_imports VALUES('install_jobs')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    drop(pool);
+    let source = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(
+            SqliteConnectOptions::new()
+                .filename(temporary.path().join("databases/operations.db"))
+                .create_if_missing(true),
+        )
+        .await
+        .unwrap();
+    // The already retired kind is deliberately malformed. Retrying must skip
+    // it, while preserving an unknown kind as an opaque attachment.
+    sqlx::raw_sql("CREATE TABLE install_jobs(broken TEXT); INSERT INTO install_jobs VALUES('retired'); CREATE TABLE resource_legacy_rollback_journals(instance_id TEXT,payload TEXT); CREATE TABLE future_operations(id TEXT,payload TEXT); INSERT INTO future_operations VALUES('future','{\"version\":2}');")
+        .execute(&source).await.unwrap();
+    source.close().await;
+    tokio::fs::write(
+        temporary.path().join("app.db"),
+        b"retired source must not open",
+    )
+    .await
+    .unwrap();
+    let pool = connect_at(temporary.path()).await.unwrap();
+    assert!(
+        !crate::state::store::recovery_documents::legacy_import_pending(&pool)
+            .await
+            .unwrap()
+    );
+    let receipts: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM main.operation_imports")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(receipts, 10);
+    let unknown: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM main.operation_publications WHERE kind='$legacy'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(unknown, 1);
+    assert_eq!(
+        tokio::fs::read(temporary.path().join("app.db"))
+            .await
+            .unwrap(),
+        b"retired source must not open"
+    );
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn failed_first_operation_takeover_does_not_fall_back_to_empty_recovery()
+{
+    let temporary = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(temporary.path())
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO main.database_imports VALUES('app.db',1)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    drop(pool);
+    tokio::fs::write(
+        temporary.path().join("app.db"),
+        b"preserved legacy source",
+    )
+    .await
+    .unwrap();
+    let error = connect_at(temporary.path()).await.unwrap_err();
+    assert!(error.to_string().contains("migration did not complete"));
+    assert!(!crate::state::store::recovery_mode::can_recover(&error));
+    assert_eq!(
+        tokio::fs::read(temporary.path().join("app.db"))
+            .await
+            .unwrap(),
+        b"preserved legacy source"
+    );
+}
+
+#[cfg(not(feature = "tauri"))]
+#[tokio::test]
+async fn startup_waits_for_hundreds_of_legacy_jobs_past_daily_recovery_budget()
+{
+    let temporary = tempfile::tempdir().unwrap();
+    let legacy = connect_app_db(&temporary.path().join("app.db"))
+        .await
+        .unwrap();
+    sqlx::query("WITH RECURSIVE jobs(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM jobs WHERE n<423) INSERT INTO install_jobs(id,kind,status,state,created,modified,dismissed) SELECT 'legacy-'||n,'create_instance','succeeded','{}',n,n,0 FROM jobs")
+        .execute(&legacy).await.unwrap();
+    legacy.close().await;
+    drop(legacy);
+    let events = crate::event::EventState::init().await.unwrap();
+    let root = temporary.path().to_owned();
+    let startup = tokio::spawn(async move { connect_at(&root).await });
+    // Observe the actual importer after it started preserving records. The
+    // startup future must remain pending across a daily interpretation budget.
+    tokio::time::timeout(Duration::from_secs(60), async {
+        loop {
+            let migrating = events.loading_bars.iter().any(|bar| matches!(
+                &bar.bar_type,
+                crate::event::LoadingBarType::DatabaseMigration { stage, completed, total }
+                    if stage == "recovery" && *completed > 1 && *completed < 423 && *completed < *total
+            ));
+            if migrating { break; }
+            assert!(!startup.is_finished(), "startup returned before operation takeover progress");
+            tokio::task::yield_now().await;
+        }
+    }).await.unwrap();
+    tokio::time::pause();
+    tokio::time::advance(Duration::from_secs(60)).await;
+    tokio::time::resume();
+    assert!(
+        !startup.is_finished(),
+        "a first takeover must not release startup on the 15-second recovery budget"
+    );
+    let pool = startup.await.unwrap().unwrap();
+    let counts: (i64, i64) = sqlx::query_as("SELECT (SELECT COUNT(*) FROM main.operation_imports),(SELECT COUNT(*) FROM main.operation_publications WHERE kind='install_jobs')")
+        .fetch_one(&pool).await.unwrap();
+    assert_eq!(counts, (10, 423));
+    let preserved: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM main.operation_publications WHERE kind='$legacy' AND id LIKE 'install_jobs:%'")
+        .fetch_one(&pool).await.unwrap();
+    assert_eq!(preserved, 423);
+    pool.close().await;
+    drop(pool);
+    tokio::fs::write(
+        temporary.path().join("app.db"),
+        b"obsolete source after takeover",
+    )
+    .await
+    .unwrap();
+    let reopened = connect_at(temporary.path()).await.unwrap();
+    assert_eq!(
+        tokio::fs::read(temporary.path().join("app.db"))
+            .await
+            .unwrap(),
+        b"obsolete source after takeover"
+    );
+    let counts: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM main.operation_publications WHERE kind='install_jobs'").fetch_one(&reopened).await.unwrap();
+    assert_eq!(counts, 423);
+    reopened.close().await;
 }

@@ -1007,9 +1007,11 @@ async fn hydrate_entries_with_service(
             "instance changed while verifying installed resources".into(),
         ));
     }
-    let mut tx = state
-        .pool
-        .begin_with("BEGIN IMMEDIATE")
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
         .await
         .map_err(plans::db)?;
     for (id, artifact, scope) in persisted {
@@ -1032,7 +1034,11 @@ async fn hydrate_entries_with_service(
         };
         set_installed_artifact(id.as_str(), &record, &scope, &mut tx).await?;
     }
-    tx.commit().await.map_err(plans::db)?;
+    tx_diagnostics
+        .observe("commit_wait", tx.commit())
+        .await
+        .map_err(plans::db)?;
+    tx_diagnostics.complete("committed");
     Ok(HydratedInstalled { entries, failures })
 }
 

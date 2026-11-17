@@ -483,6 +483,89 @@ async fn ensure_keys_belong_to_scope(
 }
 
 impl InstallJobs {
+    pub(crate) async fn snapshot_unfinished_or_rollback(
+        handle: &super::Handle,
+        statuses: &[&str],
+    ) -> crate::Result<bool> {
+        {
+            let mut connection = handle.pool().acquire().await?;
+            if !super::recovery_documents::active(&mut connection).await? {
+                return Self::unfinished_or_rollback(&mut connection, statuses)
+                    .await;
+            }
+        }
+        Ok(Self::snapshot(handle, None, None, true)
+            .await?
+            .into_iter()
+            .any(|(_, row)| {
+                statuses.contains(&row.status.as_str())
+                    || serde_json::from_str::<serde_json::Value>(&row.state)
+                        .ok()
+                        .is_some_and(|state| {
+                            !state["rollback"]["content"].is_null()
+                                || (!state["rollback"].is_null()
+                                    && !state["rollback_error"].is_null())
+                        })
+            }))
+    }
+
+    /// A browse snapshot needs committed publication decisions, not a core
+    /// write reservation. Release SQL before opening the immutable payloads.
+    pub(crate) async fn snapshot(
+        handle: &super::Handle,
+        key: Option<&str>,
+        statuses: Option<&[&str]>,
+        strict: bool,
+    ) -> crate::Result<Vec<(InstallJobKey, InstallJobRecord)>> {
+        let selected = {
+            let mut connection = handle.pool().acquire().await?;
+            if !super::recovery_documents::active(&mut connection).await? {
+                let rows = match key {
+                    Some(key) => Self::read(&mut connection, &key.to_owned())
+                        .await?
+                        .map(|row| vec![(key.to_owned(), row)])
+                        .unwrap_or_default(),
+                    None => Self::read_all(&mut connection).await?,
+                };
+                return Ok(rows
+                    .into_iter()
+                    .filter(|(_, row)| {
+                        statuses.is_none_or(|statuses| {
+                            statuses.contains(&row.status.as_str())
+                        })
+                    })
+                    .collect());
+            }
+            super::recovery_documents::select_records(
+                &mut connection,
+                "install_jobs",
+                key,
+                None,
+            )
+            .await?
+        };
+        let mut rows = Vec::new();
+        // Each publication is decoded once even when several statuses are
+        // requested. Filtering six statuses must not reread every file six times.
+        for selected in selected {
+            match selected.decode::<InstallJobRecord>().await {
+                Ok(row)
+                    if statuses.is_none_or(|statuses| {
+                        statuses.contains(&row.status.as_str())
+                    }) =>
+                {
+                    rows.push((selected.key, row));
+                }
+                Ok(_) => {}
+                Err(error) if strict => return Err(error),
+                Err(error) => {
+                    tracing::warn!(key=%selected.key,%error,"Recovery record unavailable; original retained and other records continue")
+                }
+            }
+        }
+        Ok(rows)
+    }
+
     /// Opens a job under `key`, refusing an id that is already taken: a job is
     /// opened once, and a second row under the same id would stand for the
     /// history the first one keeps.

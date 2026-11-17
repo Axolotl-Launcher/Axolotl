@@ -51,6 +51,7 @@ pub(crate) mod join_log;
 pub(crate) mod legacy_documents;
 pub(crate) mod legacy_media;
 pub(crate) mod legacy_user_state;
+pub(crate) mod lock_diagnostics;
 pub(crate) mod maintenance;
 pub(crate) mod minecraft_device_tokens;
 pub(crate) mod minecraft_users;
@@ -242,6 +243,8 @@ impl Handle {
 /// join this unit. Settings retain their explicit durable publication journal.
 /// Dropping an uncommitted unit rolls it back.
 pub(crate) struct Atom {
+    diagnostics: lock_diagnostics::Scope,
+    operation_id: uuid::Uuid,
     configuration: Option<configuration_documents::Pending>,
     sync_transaction: Option<crate::state::sync_state::journal::Transaction>,
     transaction: sqlx::Transaction<'static, Sqlite>,
@@ -261,18 +264,32 @@ pub(crate) struct Atom {
 }
 
 impl Atom {
+    #[tracing::instrument(level = "debug", skip_all, fields(operation_id = %self.operation_id))]
     pub(crate) async fn configuration(
         &mut self,
     ) -> crate::Result<&mut configuration_documents::Pending> {
         if self.configuration.is_none() {
+            self.diagnostics.phase("configuration_acquire");
+            tracing::debug!(
+                phase = "configuration_acquire",
+                "Core transaction phase"
+            );
             let pending =
                 configuration_documents::Pending::begin(&self.handle).await?;
+            tracing::debug!(
+                phase = "configuration_replay",
+                "Core transaction phase"
+            );
             configuration::publish_committed_in(
                 &mut self.transaction,
                 self.handle.persistence().root(),
             )
             .await?;
             self.configuration = Some(pending);
+            tracing::debug!(
+                phase = "configuration_ready",
+                "Core transaction phase"
+            );
         }
         Ok(self
             .configuration
@@ -314,22 +331,37 @@ impl Atom {
         }
         Ok(())
     }
+    #[tracing::instrument(level = "debug", skip_all, fields(operation_id = %self.operation_id))]
     pub(crate) async fn sync(
         &mut self,
     ) -> crate::Result<&mut crate::state::sync_state::journal::Transaction>
     {
         if self.sync_transaction.is_none() {
+            self.diagnostics.phase("sync_acquire");
             self.configuration().await?;
+            tracing::debug!(
+                phase = "sync_decision_read",
+                "Core transaction phase"
+            );
             let decision =
                 sync_documents::decision(&mut self.transaction).await?;
+            tracing::debug!(
+                phase = "sync_authority_read",
+                "Core transaction phase"
+            );
             let root =
                 sync_documents::authority(&self.handle.persistence()).await?;
+            tracing::debug!(
+                phase = "sync_transaction_acquire",
+                "Core transaction phase"
+            );
             self.sync_transaction = Some(
                 crate::state::sync_state::journal::Transaction::begin(
                     root, decision,
                 )
                 .await?,
             );
+            tracing::debug!(phase = "sync_ready", "Core transaction phase");
         }
         Ok(self
             .sync_transaction
@@ -376,7 +408,12 @@ impl Atom {
             .extend(keys);
     }
 
+    #[tracing::instrument(level = "debug", skip_all, fields(operation_id = %self.operation_id))]
     pub(crate) async fn commit(mut self) -> crate::Result<()> {
+        tracing::debug!(
+            phase = "commit_prepare_sync",
+            "Core transaction phase"
+        );
         let persistent = self
             .handle
             .pool
@@ -384,6 +421,7 @@ impl Atom {
             .get_filename()
             .file_name()
             .is_some_and(|name| name == "system.db");
+        self.diagnostics.phase("prepare_sync");
         let sync_token = if let Some(sync) = &self.sync_transaction {
             sync.prepare().await?
         } else {
@@ -393,6 +431,11 @@ impl Atom {
             sync_documents::decide(&mut self.transaction, token).await?;
         }
         if let Some(pending) = &self.configuration {
+            self.diagnostics.phase("prepare_configuration");
+            tracing::debug!(
+                phase = "commit_prepare_configuration",
+                "Core transaction phase"
+            );
             let documents = pending
                 .snapshot(&self.handle, self.changed_settings.as_ref())
                 .await?;
@@ -404,13 +447,22 @@ impl Atom {
             .await?;
         }
         if !persistent {
-            configuration::commit_settings(
-                self.transaction,
-                &self.handle.pool,
-                self.invalidate_settings,
-                self.changed_settings.as_ref(),
-            )
-            .await?;
+            tracing::debug!(
+                phase = "commit_legacy_sql",
+                "Core transaction phase"
+            );
+            self.diagnostics
+                .observe(
+                    "commit_wait",
+                    configuration::commit_settings(
+                        self.transaction,
+                        &self.handle.pool,
+                        self.invalidate_settings,
+                        self.changed_settings.as_ref(),
+                    ),
+                )
+                .await?;
+            self.diagnostics.complete("committed");
             if self.invalidate_settings {
                 crate::state::documents::settings::invalidate();
                 crate::state::documents::settings::store_cut_over(
@@ -419,6 +471,7 @@ impl Atom {
                 )
                 .await;
             }
+            tracing::debug!(phase = "complete", "Core transaction phase");
             return Ok(());
         }
         let settings_token = if self.configuration.is_some() {
@@ -426,8 +479,18 @@ impl Atom {
         } else {
             None
         };
-        self.transaction.commit().await?;
+        tracing::debug!(phase = "commit_sql", "Core transaction phase");
+        self.diagnostics
+            .observe("commit_wait", self.transaction.commit())
+            .await?;
+        self.diagnostics.complete("committed");
+        tracing::debug!(phase = "core_released", "Core transaction phase");
         if let Some(token) = &settings_token {
+            self.diagnostics.phase("file_publish_configuration");
+            tracing::debug!(
+                phase = "publish_configuration",
+                "Core transaction phase"
+            );
             let publication = configuration::publish_prepared(
                 self.handle.persistence().root(),
                 token,
@@ -438,14 +501,30 @@ impl Atom {
         }
         if let (Some(sync), Some(token)) = (&self.sync_transaction, &sync_token)
         {
-            sync.finish(token).await?;
+            tracing::debug!(phase = "publish_sync", "Core transaction phase");
+            self.diagnostics
+                .observe("file_publish_sync", sync.finish(token))
+                .await?;
         }
         // Release the file writer before any pool/SQL writer acquisition. A
         // competing Atom always reserves core first, then the file authority.
         drop(self.sync_transaction);
         drop(self.configuration);
+        tracing::debug!(
+            phase = "file_writers_released",
+            "Core transaction phase"
+        );
         if persistent && let Some(token) = settings_token {
-            configuration::clear_published(&self.handle.pool, &token).await?;
+            tracing::debug!(
+                phase = "clear_configuration_decision",
+                "Core transaction phase"
+            );
+            self.diagnostics
+                .observe(
+                    "decision_cleanup_wait",
+                    configuration::clear_published(&self.handle.pool, &token),
+                )
+                .await?;
         }
         if self.invalidate_settings {
             crate::state::documents::settings::invalidate();
@@ -457,6 +536,7 @@ impl Atom {
                 .await;
             }
         }
+        tracing::debug!(phase = "complete", "Core transaction phase");
         Ok(())
     }
 }
@@ -480,12 +560,22 @@ pub(crate) fn names_a_missing_row(error: &crate::Error) -> bool {
 /// read a record and write it back need: a unit that read first and only then
 /// asked to write could find another writer had committed in between, and be
 /// refused instead of applied.
+#[tracing::instrument(level = "debug", skip_all, fields(operation_id = tracing::field::Empty, database = %handle.pool.connect_options().get_filename().display()))]
 pub(crate) async fn atom(handle: &Handle) -> crate::Result<Atom> {
     recovery_mode::ensure_writable(&handle.pool)?;
+
+    let (transaction, diagnostics) =
+        lock_diagnostics::begin(&handle.pool, "BEGIN IMMEDIATE").await?;
+    let operation_id = diagnostics.id();
+    tracing::Span::current()
+        .record("operation_id", tracing::field::display(operation_id));
+    tracing::debug!(phase = "core_acquired", "Core transaction phase");
     Ok(Atom {
+        diagnostics,
+        operation_id,
         configuration: None,
         sync_transaction: None,
-        transaction: handle.pool.begin_with("BEGIN IMMEDIATE").await?,
+        transaction,
         invalidate_settings: false,
         changed_settings: None,
         handle: handle.clone(),
@@ -548,8 +638,15 @@ pub(crate) trait Collection: Sized {
         handle: &Handle,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
-        let mut connection = handle.connection().await?;
-        Self::read(&mut connection, key).await
+        let diagnostics =
+            lock_diagnostics::Scope::new(handle.pool(), "autocommit_read");
+        diagnostics.label(std::any::type_name::<Self>());
+        let mut connection = diagnostics
+            .observe("pool_acquire_wait", handle.connection())
+            .await?;
+        diagnostics
+            .observe("read_wait", Self::read(&mut connection, key))
+            .await
     }
 
     /// Writes `record` under `key`. Nothing to write removes the record the key
@@ -560,7 +657,14 @@ pub(crate) trait Collection: Sized {
         record: Option<&Self::Record>,
     ) -> crate::Result<()> {
         let mut unit = atom(handle).await?;
-        Self::write(unit.connection(), key, record).await?;
+        unit.diagnostics.label(std::any::type_name::<Self>());
+        unit.diagnostics.phase("collection_write");
+        unit.diagnostics
+            .observe(
+                "collection_write_wait",
+                Self::write(&mut unit.transaction, key, record),
+            )
+            .await?;
         unit.commit().await
     }
 
@@ -568,8 +672,15 @@ pub(crate) trait Collection: Sized {
     async fn get_all(
         handle: &Handle,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
-        let mut connection = handle.connection().await?;
-        Self::read_all(&mut connection).await
+        let diagnostics =
+            lock_diagnostics::Scope::new(handle.pool(), "autocommit_read");
+        diagnostics.label(std::any::type_name::<Self>());
+        let mut connection = diagnostics
+            .observe("pool_acquire_wait", handle.connection())
+            .await?;
+        diagnostics
+            .observe("read_wait", Self::read_all(&mut connection))
+            .await
     }
 
     /// Writes the whole collection as one unit, so it is never left half
@@ -580,7 +691,14 @@ pub(crate) trait Collection: Sized {
     ) -> crate::Result<()> {
         ensure_unique::<Self>(records)?;
         let mut atom = atom(handle).await?;
-        Self::replace_all(atom.connection(), records).await?;
+        atom.diagnostics.label(std::any::type_name::<Self>());
+        atom.diagnostics.phase("collection_replace");
+        atom.diagnostics
+            .observe(
+                "collection_replace_wait",
+                Self::replace_all(&mut atom.transaction, records),
+            )
+            .await?;
         atom.commit().await
     }
 
@@ -589,8 +707,15 @@ pub(crate) trait Collection: Sized {
         handle: &Handle,
         scope: &Self::Scope,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
-        let mut connection = handle.connection().await?;
-        Self::read_scoped(&mut connection, scope).await
+        let diagnostics =
+            lock_diagnostics::Scope::new(handle.pool(), "autocommit_read");
+        diagnostics.label(std::any::type_name::<Self>());
+        let mut connection = diagnostics
+            .observe("pool_acquire_wait", handle.connection())
+            .await?;
+        diagnostics
+            .observe("read_wait", Self::read_scoped(&mut connection, scope))
+            .await
     }
 
     /// Replaces the records `scope` names with `records`, as one unit.
@@ -601,7 +726,14 @@ pub(crate) trait Collection: Sized {
     ) -> crate::Result<()> {
         ensure_in_scope::<Self>(scope, records)?;
         let mut atom = atom(handle).await?;
-        Self::replace_scoped(atom.connection(), scope, records).await?;
+        atom.diagnostics.label(std::any::type_name::<Self>());
+        atom.diagnostics.phase("collection_replace");
+        atom.diagnostics
+            .observe(
+                "collection_replace_wait",
+                Self::replace_scoped(&mut atom.transaction, scope, records),
+            )
+            .await?;
         atom.commit().await
     }
 

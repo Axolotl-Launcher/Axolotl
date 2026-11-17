@@ -80,7 +80,12 @@ where
         refreshed_metadata_file_ids,
         fingerprints,
     } = scan;
-    let mut tx = handle.pool().begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            handle.pool(),
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     sqlite::write_guards::ensure_instance_exists(instance_id, &mut tx).await?;
     let previous_guards =
         super::content_evidence::guards(&mut tx, instance_id).await?;
@@ -210,14 +215,18 @@ where
     }
 
     if !still_current().await {
-        tx.rollback().await?;
+        tx_diagnostics
+            .observe("rollback_wait", tx.rollback())
+            .await?;
+        tx_diagnostics.complete("rolled_back");
         return Ok(None);
     }
     let accepted_guards =
         super::content_evidence::guards(&mut tx, instance_id).await?;
     let accepted_entries =
         super::content_evidence::entry_files(&mut tx, instance_id).await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     super::content_evidence::rebase_scanned_evidence(
         handle,
         instance_id,
@@ -288,7 +297,12 @@ pub(crate) async fn set_discovered_entries(
     use crate::state::{
         ContentOwnershipKind, ContentRequirement, ContentSourceKind,
     };
-    let mut tx = handle.pool().begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            handle.pool(),
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     let content_set =
         sqlite::content_sets::get_applied_content_set(instance_id, &mut *tx)
             .await?
@@ -342,6 +356,7 @@ pub(crate) async fn set_discovered_entries(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }

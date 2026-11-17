@@ -183,16 +183,22 @@ impl ResourceStore {
         types: &[ResourceType],
     ) -> ResourceResult<ResourceId> {
         validate_project(project)?;
-        let mut transaction = self
-            .pool
-            .begin_with("BEGIN IMMEDIATE")
+        let (mut transaction, transaction_diagnostics) =
+            crate::state::store::lock_diagnostics::begin(
+                &self.pool,
+                "BEGIN IMMEDIATE",
+            )
             .await
             .map_err(database_error)?;
         ensure_project(&mut transaction, project, types).await?;
         let id: String = sqlx::query_scalar("SELECT resource_id FROM resource_source_projects WHERE source = ? AND project_id = ?")
             .bind(project.source.as_str()).bind(project.project_id.as_str())
             .fetch_one(&mut *transaction).await.map_err(database_error)?;
-        transaction.commit().await.map_err(database_error)?;
+        transaction_diagnostics
+            .observe("commit_wait", transaction.commit())
+            .await
+            .map_err(database_error)?;
+        transaction_diagnostics.complete("committed");
         ResourceId::new(id).map_err(Into::into)
     }
 
@@ -392,9 +398,11 @@ impl ResourceStore {
     ) -> ResourceResult<ResourceId> {
         validate_project(&left.project)?;
         validate_project(&right.project)?;
-        let mut transaction = self
-            .pool
-            .begin_with("BEGIN IMMEDIATE")
+        let (mut transaction, transaction_diagnostics) =
+            crate::state::store::lock_diagnostics::begin(
+                &self.pool,
+                "BEGIN IMMEDIATE",
+            )
             .await
             .map_err(database_error)?;
         ensure_project(&mut transaction, &left.project, &left.types).await?;
@@ -416,7 +424,11 @@ impl ResourceStore {
             .bind(evidence_id).bind(winner).bind(payload).bind(chrono::Utc::now().timestamp())
             .execute(&mut *transaction).await.map_err(database_error)?;
         let id = ResourceId::new(winner.clone())?;
-        transaction.commit().await.map_err(database_error)?;
+        transaction_diagnostics
+            .observe("commit_wait", transaction.commit())
+            .await
+            .map_err(database_error)?;
+        transaction_diagnostics.complete("committed");
         Ok(id)
     }
 
@@ -448,9 +460,11 @@ impl ResourceStore {
         if crate::state::store::configuration_documents::runtime(&self.pool) {
             return crate::state::store::configuration_documents::set_preferred_source(&crate::state::store::Handle::new(self.pool.clone()),source.as_str()).await.map_err(|error|database_error(sqlx::Error::Protocol(error.to_string())));
         }
-        let mut transaction = self
-            .pool
-            .begin_with("BEGIN IMMEDIATE")
+        let (mut transaction, transaction_diagnostics) =
+            crate::state::store::lock_diagnostics::begin(
+                &self.pool,
+                "BEGIN IMMEDIATE",
+            )
             .await
             .map_err(database_error)?;
         sqlx::query(

@@ -1,7 +1,7 @@
 //! Unsupported persistent data is opaque, not absent. Reads may omit it, but
 //! mutation and collection cleanup must not consume its recovery information.
 
-use sqlx::{Connection, Executor, SqliteConnection, SqlitePool};
+use sqlx::{Executor, SqliteConnection, SqlitePool};
 use std::collections::HashSet;
 
 const STAGES: &str = "'installed','minecraft_installing','installing','pack_installed','pack_installing','not_installed'";
@@ -34,10 +34,9 @@ pub(crate) async fn unsupported_instances(
     {
         return Ok(HashSet::new());
     }
-    let mut transaction = connection.begin_with("BEGIN IMMEDIATE").await?;
-    let unsupported = unsupported_on(&mut transaction).await?;
-    transaction.commit().await?;
-    Ok(unsupported)
+    // One SELECT supplies a consistent read snapshot without reserving the
+    // writer needed by installation, synchronization or recovery publication.
+    Ok(unsupported_on(&mut connection).await?)
 }
 
 pub(crate) async fn ensure_instance_supported(
@@ -56,13 +55,18 @@ pub(crate) async fn ensure_instance_supported(
         "SELECT EXISTS(SELECT 1 FROM instances known WHERE known.id=? AND ({}))",
         unsupported("known.id")
     );
-    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut transaction, transaction_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let unsupported =
         sqlx::query_scalar::<_, bool>(sqlx::AssertSqlSafe(statement))
             .bind(instance_id)
             .fetch_one(&mut *transaction)
             .await?;
-    transaction.commit().await?;
+    transaction_diagnostics
+        .observe("commit_wait", transaction.commit())
+        .await?;
+    transaction_diagnostics.complete("committed");
     if unsupported {
         return Err(crate::ErrorKind::InputError("This instance has newer persistent data or unfinished recovery; it was preserved".into()).into());
     }
@@ -243,10 +247,41 @@ mod tests {
         content_entries, instance_rows, loader_component_rows,
     };
     use crate::state::store::{configuration, databases};
+    use sqlx::Connection;
 
     async fn instance(pool: &SqlitePool, id: &str, stage: &str) {
         sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES(?,?,?,'none','test',0,0)")
             .bind(id).bind(id).bind(stage).execute(pool).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn instance_listing_filters_future_data_while_another_writer_is_reserved()
+     {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = databases::open(temporary.path()).await.unwrap();
+        instance(&pool, "known", "installed").await;
+        instance(&pool, "future", "future-stage").await;
+        // Initialize both connections before the writer reserves core so this
+        // test specifically guards compatibility reads, not connection setup.
+        let mut writer = pool.acquire().await.unwrap();
+        let reader = pool.acquire().await.unwrap();
+        drop(reader);
+        let transaction = writer.begin_with("BEGIN IMMEDIATE").await.unwrap();
+        let listed = tokio::time::timeout(
+            std::time::Duration::from_millis(500),
+            async {
+                let unsupported = unsupported_instances(&pool).await.unwrap();
+                assert_eq!(unsupported, HashSet::from(["future".to_owned()]));
+                instance_rows::list_instances(&pool).await.unwrap()
+            },
+        )
+        .await;
+        transaction.rollback().await.unwrap();
+        let listed = listed.expect(
+            "listing must not reserve a writer for its compatibility SELECT",
+        );
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "known");
     }
 
     #[tokio::test]

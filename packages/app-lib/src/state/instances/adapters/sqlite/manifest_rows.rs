@@ -184,14 +184,17 @@ where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = crate::Result<()>>,
 {
-    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let revision:Option<i64>=sqlx::query_scalar("SELECT revision FROM instance_recovery_publications WHERE instance_id=?").bind(id).fetch_optional(&mut *tx).await?;
     if revision != Some(expected) {
         return Ok(false);
     }
     write().await?;
     sqlx::query("UPDATE instance_recovery_publications SET published_revision=? WHERE instance_id=? AND revision=?").bind(expected).bind(id).bind(expected).execute(&mut *tx).await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(true)
 }
 
@@ -205,7 +208,9 @@ pub(crate) async fn snapshot(
         Map<String, Value>,
     )>,
 > {
-    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let current:Option<i64>=sqlx::query_scalar("SELECT revision FROM instance_recovery_publications WHERE instance_id=? AND deleted=0").bind(id).fetch_optional(&mut *tx).await?;
     if current != Some(expected) {
         return Ok(None);
@@ -234,14 +239,21 @@ pub(crate) async fn snapshot(
         synced_options: Default::default(),
     };
     let result = rows(&mut tx, id).await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(Some((metadata, result)))
 }
 pub(crate) async fn force_dirty(
     pool: &SqlitePool,
     id: &str,
 ) -> crate::Result<()> {
-    sqlx::query("UPDATE instance_recovery_publications SET published_revision=0 WHERE instance_id=?").bind(id).execute(pool).await?;
+    let diagnostics = crate::state::store::lock_diagnostics::Scope::new(
+        pool,
+        "autocommit_write",
+    );
+    diagnostics.label("instance_recovery_force_dirty");
+    diagnostics.observe("statement_wait", sqlx::query("UPDATE instance_recovery_publications SET published_revision=0 WHERE instance_id=?").bind(id).execute(pool)).await?;
+    diagnostics.complete("committed");
     Ok(())
 }
 
@@ -333,7 +345,8 @@ pub(crate) async fn metadata(
     pool: &SqlitePool,
     id: &str,
 ) -> crate::Result<Option<crate::state::instances::InstanceMetadata>> {
-    let mut transaction = pool.begin().await?;
+    let (mut transaction, transaction_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN").await?;
     if crate::state::store::compatibility::unsupported_on(&mut transaction)
         .await?
         .contains(id)
@@ -364,7 +377,10 @@ pub(crate) async fn metadata(
         loader_components,
         synced_options: Default::default(),
     };
-    transaction.commit().await?;
+    transaction_diagnostics
+        .observe("commit_wait", transaction.commit())
+        .await?;
+    transaction_diagnostics.complete("committed");
     Ok(Some(metadata))
 }
 

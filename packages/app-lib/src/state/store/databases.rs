@@ -248,6 +248,18 @@ pub(crate) async fn backup(
     pool: &SqlitePool,
     settings_dir: &Path,
 ) -> crate::Result<PathBuf> {
+    backup_with_copy_hook(pool, settings_dir, || async {}).await
+}
+
+async fn backup_with_copy_hook<F, Fut>(
+    pool: &SqlitePool,
+    settings_dir: &Path,
+    before_copy: F,
+) -> crate::Result<PathBuf>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
     let parent = crate::state::db_backup::app_db_backup_dir_for(
         &directory(settings_dir).join("system.db"),
     )?;
@@ -260,18 +272,26 @@ pub(crate) async fn backup(
     // Keep their documents and the attached SQL image in the same snapshot.
     // sched-order: theseus::api::settings::SETTINGS_WRITE
     let _settings = crate::api::settings::SETTINGS_WRITE.lock().await;
-    let mut transaction = loop {
+    let (mut transaction, transaction_diagnostics) = loop {
         super::configuration::flush_committed(pool).await?;
-        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        let (mut transaction, transaction_diagnostics) =
+            crate::state::store::lock_diagnostics::begin(
+                pool,
+                "BEGIN IMMEDIATE",
+            )
+            .await?;
         let pending: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM main.document_commits)",
         )
         .fetch_one(&mut *transaction)
         .await?;
         if !pending {
-            break transaction;
+            break (transaction, transaction_diagnostics);
         }
-        transaction.rollback().await?;
+        transaction_diagnostics
+            .observe("rollback_wait", transaction.rollback())
+            .await?;
+        transaction_diagnostics.complete("rolled_back");
     };
     // Reserve core before document locks, matching ordinary coordinated writers.
     // sched-order: theseus::state::documents::WRITES
@@ -320,86 +340,51 @@ pub(crate) async fn backup(
                     .await?;
             }
         }
-        // Keep takeover receipts with the snapshot. Restoring only the SQL
-        // files must never make a retired domain active again.
-        let receipts = settings_dir.join("state/persistence/imports");
-        if tokio::fs::try_exists(&receipts).await? {
-            let target = staging.join("state/persistence/imports");
-            tokio::fs::create_dir_all(&target).await?;
-            let mut entries = tokio::fs::read_dir(&receipts).await?;
-            while let Some(entry) = entries.next_entry().await? {
-                if entry.path().extension().and_then(|value| value.to_str())
-                    != Some("json")
-                {
-                    continue;
-                }
-                if !entry.file_type().await?.is_file() {
-                    return Err(crate::ErrorKind::FSError(
-                        "Cannot snapshot a nonregular handover receipt".into(),
-                    )
-                    .into());
-                }
-                let name = entry
-                    .path()
-                    .file_stem()
-                    .and_then(|value| value.to_str())
-                    .map(str::to_owned)
-                    .ok_or_else(|| {
-                        crate::ErrorKind::InputError(
-                            "Invalid handover receipt name".into(),
-                        )
-                    })?;
-                let snapshot = crate::state::persistence::import::snapshot(
-                    &crate::state::persistence::Persistence::new(settings_dir), &name,
-                ).await;
-                let files = match snapshot {
-                    Ok(files)=>files,
-                    Err(error)=>{
-                        tracing::warn!(domain=%name,%error,"Core backup preserves unavailable independent state as raw evidence");
-                        exclusions.push(name.clone());
-                        preserve_raw_receipt(settings_dir,&staging,&name).await?;
-                        continue;
-                    }
-                };
-                for (relative,bytes) in files {
-                    let destination = staging.join(relative);
-                    if destination.extension().and_then(|value| value.to_str())
-                        == Some("json")
-                    {
-                        crate::state::persistence::document::write_json(
-                            &destination,
-                            bytes,
-                        )
-                        .await?;
-                    } else {
-                        crate::state::persistence::document::write_blob(
-                            &destination,
-                            bytes,
-                        )
-                        .await?;
-                    }
-                }
-            }
-        }
+        // The sync descriptor names the immutable generation frozen below.
+        // Other independent domains capture their own authority after core is free.
+        backup_receipts(settings_dir, &staging, &mut exclusions, true).await?;
         if let Err(error)=super::sync_documents::backup_in(&mut transaction,&crate::state::persistence::Persistence::new(settings_dir),&staging.join("synced-options")).await{
             tracing::warn!(%error,"Backup excludes unavailable shared sync state");
             exclusions.push("sync".into());
             crate::state::persistence::document::write_json(&staging.join("sync-backup-status.json"),serde_json::to_vec(&serde_json::json!({"unavailable":true}))?).await?;
         }
+        if let Err(error)=crate::state::instances::manifest::backup(settings_dir,&staging).await {
+            tracing::warn!(%error,"Instance recovery copies excluded from this core snapshot");
+            exclusions.push("instance-recovery-copies".into());
+        }
+        Ok::<_, crate::Error>(exclusions)
+    }
+    .await;
+    transaction_diagnostics
+        .observe("rollback_wait", transaction.rollback())
+        .await?;
+    transaction_diagnostics.complete("rolled_back");
+    // Keep the freeze interval limited to coordinated mutable authorities.
+    // Operation generations are immutable; their exact selection is now in
+    // staging/system.db and can be copied without retaining the live writer.
+    drop(_document_files);
+    drop(_documents);
+    drop(_settings);
+    let mut exclusions = match result {
+        Ok(exclusions) => exclusions,
+        Err(error) => {
+            tracing::warn!(path = %staging.display(), "Incomplete database snapshot retained for inspection");
+            return Err(error);
+        }
+    };
+    before_copy().await;
+    let result = async {
+        backup_receipts(settings_dir, &staging, &mut exclusions, false).await?;
         if let Err(error) = super::records_db::backup(settings_dir, &staging.join("records.db")).await {
             tracing::warn!(%error,"Core snapshot excludes unavailable optional daily history");
             exclusions.push("daily-playtime".into());
             crate::state::persistence::document::write_json(&staging.join("backup-status.json"),serde_json::to_vec(&serde_json::json!({"optional_exclusions":["records.db"]}))?).await?;
         }
-        if let Err(error)=crate::state::instances::manifest::backup(settings_dir,&staging).await {
-            tracing::warn!(%error,"Instance recovery copies excluded from this core snapshot");
-            exclusions.push("instance-recovery-copies".into());
-        }
         if let Err(error)=super::operations_db::backup(settings_dir,&staging.join(super::operations_db::FILE)).await {
             tracing::warn!(%error,"Optional task history excluded from core snapshot");
             exclusions.push("operation-history".into());
         }
-        super::recovery_documents::backup(settings_dir,&staging).await?;
+        super::recovery_documents::backup(&staging.join("system.db"),&staging).await?;
         backup_independent_files(settings_dir,&staging).await?;
         crate::state::persistence::document::write_json(&staging.join("snapshot.json"),serde_json::to_vec(&serde_json::json!({"protocol":"axolotl-storage-snapshot","version":1,"optional_exclusions":exclusions,"core":["system.db","instances.db","storage.db"]}))?).await?;
         tokio::fs::write(staging.join("complete"), b"axolotl database set\n")
@@ -408,13 +393,87 @@ pub(crate) async fn backup(
         Ok::<(), crate::Error>(())
     }
     .await;
-    transaction.rollback().await?;
     if result.is_err() {
         // A partial snapshot never has the final directory name.
         tracing::warn!(path = %staging.display(), "Incomplete database snapshot retained for inspection");
     }
     result?;
     Ok(destination)
+}
+
+async fn backup_receipts(
+    settings_dir: &Path,
+    staging: &Path,
+    exclusions: &mut Vec<String>,
+    sync_only: bool,
+) -> crate::Result<()> {
+    // Keep takeover receipts with the snapshot. Restoring only the SQL
+    // files must never make a retired domain active again.
+    let receipts = settings_dir.join("state/persistence/imports");
+    if tokio::fs::try_exists(&receipts).await? {
+        let target = staging.join("state/persistence/imports");
+        tokio::fs::create_dir_all(&target).await?;
+        let mut entries = tokio::fs::read_dir(&receipts).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            if entry.path().extension().and_then(|value| value.to_str())
+                != Some("json")
+            {
+                continue;
+            }
+            if !entry.file_type().await?.is_file() {
+                return Err(crate::ErrorKind::FSError(
+                    "Cannot snapshot a nonregular handover receipt".into(),
+                )
+                .into());
+            }
+            let name = entry
+                .path()
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .map(str::to_owned)
+                .ok_or_else(|| {
+                    crate::ErrorKind::InputError(
+                        "Invalid handover receipt name".into(),
+                    )
+                })?;
+            if (name == "sync") != sync_only {
+                continue;
+            }
+            let snapshot = crate::state::persistence::import::snapshot(
+                &crate::state::persistence::Persistence::new(settings_dir),
+                &name,
+            )
+            .await;
+            let files = match snapshot {
+                Ok(files) => files,
+                Err(error) => {
+                    tracing::warn!(domain=%name,%error,"Core backup preserves unavailable independent state as raw evidence");
+                    exclusions.push(name.clone());
+                    preserve_raw_receipt(settings_dir, &staging, &name).await?;
+                    continue;
+                }
+            };
+            for (relative, bytes) in files {
+                let destination = staging.join(relative);
+                if destination.extension().and_then(|value| value.to_str())
+                    == Some("json")
+                {
+                    crate::state::persistence::document::write_json(
+                        &destination,
+                        bytes,
+                    )
+                    .await?;
+                } else {
+                    crate::state::persistence::document::write_blob(
+                        &destination,
+                        bytes,
+                    )
+                    .await?;
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Damaged authorities and receipts remain evidence, never usable takeover markers.
@@ -716,18 +775,10 @@ async fn initialize_connection(
         return attach_connection(connection, root, memory_name, true, domains)
             .await;
     }
-    // Attaching schemas and compiling TEMP triggers can acquire read locks.
-    // Reserve main first, exactly as ordinary writers do, so initialization
-    // cannot retain an attached-file read lock while waiting for its writer.
-    connection.execute("BEGIN IMMEDIATE").await?;
-    match attach_connection(connection, root, memory_name, false, domains).await
-    {
-        Ok(()) => connection.execute("COMMIT").await.map(|_| ()),
-        Err(error) => {
-            let _ = connection.execute("ROLLBACK").await;
-            Err(error)
-        }
-    }
+    // Runtime setup only reads durable schemas and creates connection-local
+    // TEMP objects. Keep each statement in autocommit so its read locks end
+    // before the next statement; a new reader must not reserve the core writer.
+    attach_connection(connection, root, memory_name, false, domains).await
 }
 
 async fn attach_connection(
@@ -1156,6 +1207,174 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn backup_releases_core_before_copying_frozen_operation_generations()
+    {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = open(temporary.path()).await.unwrap();
+        {
+            let mut connection = pool.acquire().await.unwrap();
+            super::super::recovery_documents::write(
+                &mut connection,
+                "example",
+                "operation",
+                Some(&serde_json::json!({"count": 1})),
+            )
+            .await
+            .unwrap();
+        }
+        let original: String = sqlx::query_scalar(
+            "SELECT object_path FROM main.operation_publications WHERE kind='example' AND id='operation'",
+        ).fetch_one(&pool).await.unwrap();
+        let (captured, frozen) = tokio::sync::oneshot::channel();
+        let (resume, released) = tokio::sync::oneshot::channel();
+        let backup = backup_with_copy_hook(&pool, temporary.path(), || async {
+            captured.send(()).unwrap();
+            released.await.unwrap();
+        });
+        let foreground = async {
+            frozen.await.unwrap();
+            tokio::time::timeout(Duration::from_secs(2), async {
+                // Consume the existing idle connection so another reader must
+                // pass the real after_connect write-reservation path.
+                let held = pool.acquire().await.unwrap();
+                let mut connection = pool.acquire().await.unwrap();
+                let _: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instances")
+                    .fetch_one(&mut *connection).await.unwrap();
+                super::super::recovery_documents::write(
+                    &mut connection, "example", "operation", Some(&serde_json::json!({"count": 2})),
+                ).await.unwrap();
+                drop(connection);
+                drop(held);
+                let handle = super::super::Handle::new(pool.clone());
+                super::super::configuration_documents::set_preferred_source(&handle, "curseforge")
+                    .await.unwrap();
+                crate::state::instances::adapters::sqlite::instance_rows::list_instances(&pool)
+                    .await.unwrap();
+            }).await.expect("bulk backup must not retain core or document writer locks");
+            resume.send(()).unwrap();
+        };
+        let (destination, ()) = tokio::join!(backup, foreground);
+        let destination = destination.unwrap();
+        let records: Vec<serde_json::Value> = serde_json::from_slice(
+            &tokio::fs::read(
+                destination.join("operation-records/references.json"),
+            )
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        let record = records
+            .iter()
+            .find(|record| record[0] == "example" && record[1] == "operation")
+            .unwrap();
+        assert_eq!(record[4], original);
+        let envelope = destination
+            .join("operation-records")
+            .join(crate::state::recovery::record::digest(original.as_bytes()))
+            .join(Path::new(&original).file_name().unwrap());
+        let value = crate::state::recovery::record::read(
+            &envelope,
+            record[5].as_str().unwrap(),
+            "example",
+            "operation",
+            None,
+            1,
+        )
+        .await
+        .unwrap();
+        assert_eq!(value["count"], 1);
+        let live: serde_json::Value =
+            super::super::recovery_documents::read_raw(
+                &mut *pool.acquire().await.unwrap(),
+                "example",
+                "operation",
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(live["count"], 2);
+    }
+
+    #[tokio::test]
+    async fn backup_refuses_selected_operation_files_deleted_after_core_capture()
+     {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = open(temporary.path()).await.unwrap();
+        super::super::recovery_documents::write(
+            &mut *pool.acquire().await.unwrap(),
+            "example",
+            "operation",
+            Some(&serde_json::json!({"count": 1})),
+        )
+        .await
+        .unwrap();
+        let original: String = sqlx::query_scalar(
+            "SELECT object_path FROM main.operation_publications WHERE kind='example' AND id='operation'",
+        ).fetch_one(&pool).await.unwrap();
+        let parent = Path::new(&original).parent().unwrap().to_path_buf();
+        assert!(parent.starts_with(
+            tokio::fs::canonicalize(temporary.path()).await.unwrap()
+        ));
+        let result = backup_with_copy_hook(&pool, temporary.path(), || async {
+            tokio::fs::remove_dir_all(parent).await.unwrap();
+        })
+        .await;
+        assert!(
+            result.is_err(),
+            "missing selected operation payload cannot form a complete backup"
+        );
+        let backup_parent = crate::state::db_backup::app_db_backup_dir_for(
+            &directory(temporary.path()).join("system.db"),
+        )
+        .unwrap();
+        let mut entries = tokio::fs::read_dir(backup_parent).await.unwrap();
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            assert!(!entry.path().join("complete").exists());
+        }
+    }
+
+    #[tokio::test]
+    async fn backup_keeps_selected_previous_envelope_when_primary_is_missing() {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = open(temporary.path()).await.unwrap();
+        super::super::recovery_documents::write(
+            &mut *pool.acquire().await.unwrap(),
+            "example",
+            "operation",
+            Some(&serde_json::json!({"count": 1})),
+        )
+        .await
+        .unwrap();
+        let original: String = sqlx::query_scalar(
+            "SELECT object_path FROM main.operation_publications WHERE kind='example' AND id='operation'",
+        ).fetch_one(&pool).await.unwrap();
+        let destination =
+            backup_with_copy_hook(&pool, temporary.path(), || async {
+                tokio::fs::remove_file(&original).await.unwrap();
+            })
+            .await
+            .unwrap();
+        let record: (String, String) = sqlx::query_as(
+            "SELECT object_path,sha256 FROM main.operation_publications WHERE kind='example' AND id='operation'",
+        ).fetch_one(&pool).await.unwrap();
+        let envelope = destination
+            .join("operation-records")
+            .join(crate::state::recovery::record::digest(record.0.as_bytes()))
+            .join(Path::new(&record.0).file_name().unwrap());
+        let value = crate::state::recovery::record::read(
+            &envelope,
+            &record.1,
+            "example",
+            "operation",
+            None,
+            1,
+        )
+        .await
+        .unwrap();
+        assert_eq!(value["count"], 1);
+    }
+
+    #[tokio::test]
     async fn retired_domains_are_not_opened_recreated_or_reimported() {
         let temporary = tempfile::tempdir().unwrap();
         let pool = open(temporary.path()).await.unwrap();
@@ -1491,28 +1710,89 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_new_connection_waits_for_the_writer_before_attaching_domains() {
+    async fn a_new_reader_initializes_while_an_existing_writer_is_reserved() {
         let temporary = tempfile::tempdir().unwrap();
         let pool = open(temporary.path()).await.unwrap();
-        let transaction = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
-        let release = async {
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            transaction.rollback().await.unwrap();
-        };
-        let acquire = async {
-            let mut reader = pool.acquire().await.unwrap();
-            let count: i64 =
-                sqlx::query_scalar("SELECT COUNT(*) FROM instances")
-                    .fetch_one(&mut *reader)
-                    .await
-                    .unwrap();
-            assert_eq!(count, 0);
-        };
-        tokio::time::timeout(Duration::from_secs(5), async {
-            tokio::join!(release, acquire);
-        })
+        sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES('reader-test','old','installed','none','Reader',0,0)")
+            .execute(&pool).await.unwrap();
+        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+        sqlx::query(
+            "UPDATE instances SET path='uncommitted' WHERE id='reader-test'",
+        )
+        .execute(&mut *transaction)
         .await
-        .expect("initialization must resume when the existing writer finishes");
+        .unwrap();
+        let read = tokio::time::timeout(Duration::from_millis(200), async {
+            let mut reader = pool.acquire().await.unwrap();
+            let path = crate::state::instances::adapters::sqlite::instance_rows::get_instance_path_by_id(
+                "reader-test", &mut *reader,
+            ).await.unwrap();
+            assert_eq!(path.as_deref(), Some("old"));
+            reader
+        }).await.expect("new reader initialization must not wait for the core writer reservation");
+        transaction.rollback().await.unwrap();
+        let mut reader = read;
+        // The runtime connection still has its normal publication tracking and
+        // cross-domain relationship guards after being initialized concurrently.
+        let revision: i64 = sqlx::query_scalar("SELECT revision FROM instance_recovery_publications WHERE instance_id='reader-test'")
+            .fetch_one(&mut *reader).await.unwrap();
+        sqlx::query(
+            "UPDATE instances SET name='Changed' WHERE id='reader-test'",
+        )
+        .execute(&mut *reader)
+        .await
+        .unwrap();
+        let changed: i64 = sqlx::query_scalar("SELECT revision FROM instance_recovery_publications WHERE instance_id='reader-test'")
+            .fetch_one(&mut *reader).await.unwrap();
+        assert!(changed > revision);
+        assert_eq!(cross_domain_issues(&mut reader).await.unwrap(), 0);
+        assert_eq!(crate::state::instances::adapters::sqlite::instance_rows::get_instance_path_by_id(
+            "reader-test", &mut *reader,
+        ).await.unwrap().as_deref(), Some("old"));
+    }
+
+    #[tokio::test]
+    async fn cold_readers_and_repeated_core_writers_make_progress_together() {
+        let temporary = tempfile::tempdir().unwrap();
+        let pool = open(temporary.path()).await.unwrap();
+        sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES('stress-test','profile','installed','none','Original',0,0)")
+            .execute(&pool).await.unwrap();
+        let writer = async {
+            for round in 0..64 {
+                let mut transaction =
+                    pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+                sqlx::query(
+                    "UPDATE instances SET modified=? WHERE id='stress-test'",
+                )
+                .bind(round)
+                .execute(&mut *transaction)
+                .await
+                .unwrap();
+                tokio::task::yield_now().await;
+                transaction.commit().await.unwrap();
+            }
+        };
+        let readers = futures::future::join_all((0..8).map(|_| async {
+            for _ in 0..8 {
+                let mut reader = pool.acquire().await.unwrap();
+                let path = crate::state::instances::adapters::sqlite::instance_rows::get_instance_path_by_id(
+                    "stress-test", &mut *reader,
+                ).await.unwrap();
+                assert_eq!(path.as_deref(), Some("profile"));
+                // Discard the connection so the next round exercises after_connect.
+                reader.close().await.unwrap();
+            }
+        }));
+        tokio::time::timeout(Duration::from_secs(20), async {
+            tokio::join!(writer, readers);
+        }).await.expect("cold connection initialization and core writers must both complete");
+        let changed: i64 = sqlx::query_scalar(
+            "SELECT modified FROM instances WHERE id='stress-test'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(changed, 63);
     }
 
     #[tokio::test]

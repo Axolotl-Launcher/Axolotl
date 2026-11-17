@@ -18638,6 +18638,24 @@
   "app.splash.checking-for-updates": {
     "message": "正在检查更新……"
   },
+  "app.splash.migrating-data": {
+    "message": "正在迁移启动器数据……"
+  },
+  "app.splash.migration.core": {
+    "message": "正在迁移启动器记录……"
+  },
+  "app.splash.migration.count": {
+    "message": "{completed, number} / {total, number}"
+  },
+  "app.splash.migration.finishing": {
+    "message": "正在完成迁移……"
+  },
+  "app.splash.migration.preparing": {
+    "message": "正在准备迁移……"
+  },
+  "app.splash.migration.recovery": {
+    "message": "正在迁移恢复记录……"
+  },
   "app.splash.updating-app-directory": {
     "message": "正在更新应用目录……"
   },

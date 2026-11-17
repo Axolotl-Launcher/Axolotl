@@ -7,6 +7,9 @@ import { invoke } from '@tauri-apps/api/core'
 
 export interface LoadingBarType {
     type?: string
+    stage?: string
+    completed?: number
+    total?: number
     version?: string
     instance_id?: string
     instance_name?: string

@@ -32,6 +32,10 @@ use super::hotbars::{
 use super::pending::{self, PendingAction, PendingChange};
 use super::{COMMAND_HISTORY_FILE, HOTBAR_FILE};
 
+#[cfg(test)]
+#[path = "startup_concurrency_tests.rs"]
+mod startup_concurrency_tests;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SyncedOptionJoinAction {

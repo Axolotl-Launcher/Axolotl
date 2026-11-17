@@ -62,11 +62,12 @@ pub(crate) async fn get(
         .get_filename()
         .file_name()
         .is_some_and(|name| name == "system.db");
-    let mut tx = if stable {
-        handle.pool().begin_with("BEGIN IMMEDIATE").await?
-    } else {
-        handle.pool().begin().await?
-    };
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            handle.pool(),
+            if stable { "BEGIN IMMEDIATE" } else { "BEGIN" },
+        )
+        .await?;
     let instance = get_instance(&mut tx, instance_id).await?;
     let content_set =
         content_sets::get_applied_content_set(instance_id, &mut *tx)
@@ -212,22 +213,31 @@ pub(crate) async fn get(
         .bind(instance_id).fetch_optional(&mut *tx).await?;
     let pack_resource = pack_resource.and_then(|id| ResourceId::new(id).ok());
     let preferred = if super::configuration_documents::runtime(handle.pool()) {
-        super::configuration_documents::preferred_source(handle).await?
+        None
     } else {
         let preferred: String = sqlx::query_scalar(
             "SELECT preferred_source FROM resource_preferences WHERE id = 1",
         )
         .fetch_one(&mut *tx)
         .await?;
-        preferred
+        Some(preferred)
     };
-    let preferred_source =
-        SourceId::new(preferred).unwrap_or_else(|_| SourceId::modrinth());
     let evidence_guards =
         super::content_evidence::guards(&mut tx, instance_id).await?;
     let evidence_entries =
         super::content_evidence::entry_files(&mut tx, instance_id).await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
+    // The routing preference is presentation state, outside the relationship
+    // snapshot. Reading its documents must not extend the core write reservation.
+    let preferred = match preferred {
+        Some(preferred) => preferred,
+        None => {
+            super::configuration_documents::preferred_source(handle).await?
+        }
+    };
+    let preferred_source =
+        SourceId::new(preferred).unwrap_or_else(|_| SourceId::modrinth());
     let fingerprints = super::content_evidence::read_scoped(
         handle,
         "fingerprint",

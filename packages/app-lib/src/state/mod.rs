@@ -105,6 +105,86 @@ pub(crate) mod user_state;
 // Global state
 // RwLock on state only has concurrent reads, except for config dir change which takes control of the State
 static LAUNCHER_STATE: OnceCell<Arc<State>> = OnceCell::const_new();
+static INITIALIZATION: Initialization = Initialization::new();
+
+/// Commands may arrive before init starts, or while an uncapped first migration
+/// is running. Only the former has a deadline; an ended attempt wakes waiters
+/// even when its future was cancelled before it could publish a State.
+struct Initialization {
+    active: AtomicUsize,
+    attempted: AtomicBool,
+    changed: tokio::sync::Notify,
+}
+
+struct InitializationGuard<'a>(&'a Initialization);
+
+#[derive(Debug, PartialEq, Eq)]
+enum InitializationUnavailable {
+    NeverStarted,
+    Stopped,
+}
+
+impl Initialization {
+    const fn new() -> Self {
+        Self {
+            active: AtomicUsize::new(0),
+            attempted: AtomicBool::new(false),
+            changed: tokio::sync::Notify::const_new(),
+        }
+    }
+
+    fn begin(&self) -> InitializationGuard<'_> {
+        self.active.fetch_add(1, Ordering::AcqRel);
+        self.attempted.store(true, Ordering::Release);
+        self.changed.notify_waiters();
+        InitializationGuard(self)
+    }
+
+    async fn wait(
+        &self,
+        ready: impl Fn() -> bool,
+    ) -> Result<(), InitializationUnavailable> {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        loop {
+            let changed = self.changed.notified();
+            tokio::pin!(changed);
+            changed.as_mut().enable();
+            if ready() {
+                return Ok(());
+            }
+            if self.active.load(Ordering::Acquire) != 0 {
+                changed.await;
+            } else if self.attempted.load(Ordering::Acquire) {
+                if self.active.load(Ordering::Acquire) != 0 {
+                    continue;
+                }
+                // The guard publishes its completion after State was stored.
+                // Check again after observing that release before failing.
+                return if ready() {
+                    Ok(())
+                } else {
+                    Err(InitializationUnavailable::Stopped)
+                };
+            } else if tokio::time::timeout_at(deadline, changed).await.is_err()
+                && self.active.load(Ordering::Acquire) == 0
+                && !ready()
+            {
+                return Err(InitializationUnavailable::NeverStarted);
+            }
+        }
+    }
+}
+
+impl Drop for InitializationGuard<'_> {
+    fn drop(&mut self) {
+        self.0.active.fetch_sub(1, Ordering::AcqRel);
+        self.0.changed.notify_waiters();
+    }
+}
+
+#[cfg(test)]
+#[path = "initialization_tests.rs"]
+mod initialization_tests;
 
 /// Set once the shell reports that its first initialized frame is rendered.
 /// Startup work that is not needed for first paint waits for this signal so it
@@ -400,7 +480,7 @@ impl State {
                 let cache = Arc::new(
                     crate::resources::cache::ResourceCache::open(path).await,
                 );
-                if let Err(error) = cache.import_legacy(&self.pool).await {
+                if let Err(error) = cache.import_legacy(self.cache_pool()).await {
                     tracing::warn!(error = %error, "Legacy resource cache import incomplete");
                 }
                 crate::resources::ResourceService::with_store(
@@ -779,9 +859,11 @@ impl State {
     }
 
     pub async fn init(app_identifier: String) -> crate::Result<()> {
+        let initialization = INITIALIZATION.begin();
         let state = LAUNCHER_STATE
             .get_or_try_init(move || Self::initialize_state(app_identifier))
             .await?;
+        drop(initialization);
 
         STARTUP_WORK
             .get_or_try_init(|| Self::start_background(Arc::clone(state)))
@@ -883,6 +965,7 @@ impl State {
     pub(crate) async fn init_for_test(
         app_identifier: String,
     ) -> crate::Result<Arc<Self>> {
+        let _initialization = INITIALIZATION.begin();
         LAUNCHER_STATE
             .get_or_try_init(move || Self::initialize_state(app_identifier))
             .await
@@ -891,49 +974,26 @@ impl State {
 
     /// Get the current launcher state, waiting for initialization
     ///
-    /// Frontend commands routinely race `init`, so a brief wait is expected and
-    /// must not be turned into an error on the first poll. The wait is bounded
-    /// rather than open-ended: without a ceiling, a host that serves a command in
-    /// a process where nothing ever calls `init` waits forever instead of
-    /// reporting why (this is what made isolated lib tests hang).
+    /// Commands wait for an active initializer, including a long first storage
+    /// migration. If no caller starts init, the wait is bounded; failure or
+    /// cancellation of the initializer releases pending commands promptly.
     pub async fn get() -> crate::Result<Arc<Self>> {
         if !LAUNCHER_STATE.initialized() {
             tracing::debug!(
                 "State not ready yet; waiting for launcher initialization before serving command"
             );
 
-            // Why 10s. The callers that legitimately race `init` are early commands
-            // (deep links, window events) that arrive while the frontend is still on
-            // its loading screen: the frontend awaits `initialize_state` before it
-            // issues its own commands, so the race window is the tail of a startup
-            // the user is already waiting on. Opening the database, running
-            // migrations and loading settings take a few seconds on a cold start, so
-            // 10s keeps a wide margin over that. It is deliberately not larger: this
-            // budget is spent per call and one command can call `get` several times,
-            // so a generous ceiling turns "no longer hangs" into "hangs for minutes"
-            // for every caller that can never succeed. Callers that must not wait at
-            // all can use `get_if_initialized` instead.
-            const MAX_WAIT: Duration = Duration::from_secs(10);
-            // Keep the existing poll cadence: it is cheap next to the startup work
-            // and keeps this loop from interacting with the OnceCell any differently
-            // than it did before.
-            const POLL_INTERVAL: Duration = Duration::from_millis(100);
-
-            let started = Instant::now();
-            while !LAUNCHER_STATE.initialized() {
-                if started.elapsed() >= MAX_WAIT {
-                    tracing::error!(
-                        "Launcher state was still not initialized after {:?}; refusing to wait any longer",
-                        MAX_WAIT
-                    );
-                    return Err(crate::ErrorKind::StateNotInitialized(format!(
-                        "The launcher state was not initialized within {MAX_WAIT:?}. Something must call State::init before commands are served; commands cannot run against an uninitialized state."
-                    ))
-                    .into());
-                }
-
-                tokio::time::sleep(POLL_INTERVAL).await;
-            }
+            INITIALIZATION
+                .wait(|| LAUNCHER_STATE.initialized())
+                .await
+                .map_err(|unavailable| {
+                    crate::ErrorKind::StateNotInitialized(
+                        match unavailable {
+                            InitializationUnavailable::NeverStarted => "The launcher state was not initialized because State::init did not start within 10s. Commands cannot run against an uninitialized state.",
+                            InitializationUnavailable::Stopped => "The launcher state was not initialized because initialization failed or was cancelled. See the initialization error for details.",
+                        }.into(),
+                    )
+                })?;
         }
 
         LAUNCHER_STATE.get().cloned().ok_or_else(|| {

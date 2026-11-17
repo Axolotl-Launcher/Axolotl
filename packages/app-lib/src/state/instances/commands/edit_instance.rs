@@ -185,7 +185,9 @@ pub(crate) async fn edit_instance(
         None => None,
     };
 
-    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     instance_rows::update_instance(&instance, &mut tx).await?;
 
     if let Some(content_set) = content_set.as_mut() {
@@ -232,7 +234,8 @@ pub(crate) async fn edit_instance(
             .await?;
     }
 
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     if let Some(groups) = &patch.groups {
         crate::state::instance_groups::set_instance_groups(
             &instance.id,
@@ -249,7 +252,9 @@ pub(crate) async fn restore_instance_metadata(
     metadata: &crate::state::InstanceMetadata,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let instance = metadata.instance.clone();
     let content_set = metadata.applied_content_set.clone();
     let launch_overrides = metadata.launch_overrides.clone();
@@ -265,7 +270,8 @@ pub(crate) async fn restore_instance_metadata(
     links::upsert_instance_link(&instance.id, &metadata.link, &mut tx).await?;
     instance_rows::upsert_instance_launch_overrides(&launch_overrides, &mut tx)
         .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     crate::state::instance_groups::set_instance_groups(
         &instance.id,
         &metadata.groups,
@@ -277,10 +283,13 @@ pub(crate) async fn repair_recorded_pack_unlink(
     instance_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     pack_members::reconcile_pack_unlink_in_transaction(instance_id, &mut tx)
         .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 

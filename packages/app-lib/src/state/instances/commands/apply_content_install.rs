@@ -1039,7 +1039,12 @@ pub(crate) async fn persist_resolved_plan_dependency_edges(
         .chain(plan.dependencies.iter())
         .collect::<Vec<_>>();
 
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     for (index, dependency) in plan.dependencies.iter().enumerate() {
         let Some(parent) = dependency
             .dependent_on_version_id
@@ -1175,7 +1180,8 @@ pub(crate) async fn persist_resolved_plan_dependency_edges(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     drop(database_permit);
     Ok(())
 }
@@ -2936,7 +2942,7 @@ async fn record_project_files_transaction(
     let _instance_lock = state.lock_instance_content(instance_id).await;
 
     let scope = resolve_content_scope(instance_id, None, state).await?;
-    let mut tx = begin_content_write(&state.pool).await?;
+    let (mut tx, tx_diagnostics) = begin_content_write(&state.pool).await?;
     write_guards::ensure_content_write_parents(
         &scope.instance.id,
         &scope.content_set_id,
@@ -3128,7 +3134,8 @@ async fn record_project_files_transaction(
     .await?;
     CachedEntry::forget_best_effort(&hash_cache_entries, state.cache_pool())
         .await;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     CachedEntry::store_best_effort(&hash_cache_entries, state.cache_pool())
         .await;
     Ok(())
@@ -3237,10 +3244,19 @@ async fn record_resolved_plan_edges(
     Ok(())
 }
 
-async fn begin_content_write(
+#[track_caller]
+fn begin_content_write(
     pool: &sqlx::SqlitePool,
-) -> crate::Result<sqlx::Transaction<'static, sqlx::Sqlite>> {
-    Ok(pool.begin_with("BEGIN IMMEDIATE").await?)
+) -> impl std::future::Future<
+    Output = crate::Result<(
+        sqlx::Transaction<'static, sqlx::Sqlite>,
+        crate::state::store::lock_diagnostics::Scope,
+    )>,
+> + Send
++ '_ {
+    let pending =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE");
+    async move { Ok(pending.await?) }
 }
 
 /// Runs the pre-section recovery of a previous file operation under a
@@ -3416,7 +3432,7 @@ pub(crate) async fn toggle_content_entries(
             }
 
             let database_result = async {
-                let mut tx = begin_content_write(&state.pool).await?;
+                let (mut tx, tx_diagnostics) = begin_content_write(&state.pool).await?;
                 let modified_at = chrono::Utc::now().timestamp();
                 let mut results = Vec::with_capacity(operations.len());
 
@@ -3493,7 +3509,8 @@ pub(crate) async fn toggle_content_entries(
                 )
                 .await?;
                 content_file_operations::mark_committed(instance_id, &mut tx).await?;
-                tx.commit().await?;
+                tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+                tx_diagnostics.complete("committed");
                 Ok(results)
             }
             .await;
@@ -3703,7 +3720,8 @@ async fn remove_project_with_expected(
             }
 
             let db_result = async {
-                let mut tx = begin_content_write(&state.pool).await?;
+                let (mut tx, tx_diagnostics) =
+                    begin_content_write(&state.pool).await?;
                 if let Some(file) = file {
                     let modified_at = chrono::Utc::now().timestamp();
                     if expected.is_none() {
@@ -3735,7 +3753,8 @@ async fn remove_project_with_expected(
                 .await?;
                 content_file_operations::mark_committed(instance_id, &mut tx)
                     .await?;
-                tx.commit().await?;
+                tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+                tx_diagnostics.complete("committed");
                 Ok::<(), crate::Error>(())
             }
             .await;
@@ -4000,7 +4019,7 @@ async fn rollback_project_inner(
                 None
             };
 
-            let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+            let (mut tx, tx_diagnostics) = crate::state::store::lock_diagnostics::begin(&state.pool, "BEGIN IMMEDIATE").await?;
             files::rename_file_in_place_in_transaction(
                 &scope.instance.id,
                 project_path,
@@ -4075,7 +4094,8 @@ async fn rollback_project_inner(
             // entry before the commit, store the new one after it.
             CachedEntry::forget_best_effort(std::slice::from_ref(&hash_cache), state.cache_pool())
                 .await;
-            tx.commit().await?;
+            tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
             CachedEntry::store_best_effort(&[hash_cache], state.cache_pool()).await;
 
             Ok(final_relative_path)
@@ -4233,10 +4253,16 @@ async fn recover_legacy_rollback_with(
         )
         .into());
     }
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     rollback_journals::delete_journal_matching(&mut tx, instance_id, &payload)
         .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 
@@ -4840,7 +4866,8 @@ mod tests {
             .await
             .unwrap();
 
-        let first = begin_content_write(&pool).await.unwrap();
+        let (first, first_diagnostics) =
+            begin_content_write(&pool).await.unwrap();
         let second_pool = pool.clone();
         let second =
             tokio::spawn(
@@ -4850,13 +4877,16 @@ mod tests {
 
         assert!(!second.is_finished());
         first.commit().await.unwrap();
+        first_diagnostics.complete("committed");
 
-        let second = tokio::time::timeout(Duration::from_secs(2), second)
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
+        let (second, second_diagnostics) =
+            tokio::time::timeout(Duration::from_secs(2), second)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
         second.rollback().await.unwrap();
+        second_diagnostics.complete("rolled_back");
     }
 
     #[test]

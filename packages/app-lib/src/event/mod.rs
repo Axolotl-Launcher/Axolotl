@@ -9,6 +9,7 @@ use tokio::sync::OnceCell;
 use uuid::Uuid;
 
 pub mod emit;
+pub(crate) mod migration;
 
 // Global event state
 // Stores the Tauri app handle and other event-related state variables
@@ -53,8 +54,12 @@ impl EventState {
     // Values provided should not be used directly, as they are clones and are not guaranteed to be up-to-date
     pub async fn list_progress_bars() -> crate::Result<DashMap<Uuid, LoadingBar>>
     {
-        let value = Self::get()?;
-        Ok(value.loading_bars.clone())
+        // A webview may request its first snapshot before initialize_state
+        // creates EventState. No loading bars exist until that initialization.
+        Ok(EVENT_STATE
+            .get()
+            .map(|value| value.loading_bars.clone())
+            .unwrap_or_default())
     }
 
     #[cfg(feature = "tauri")]
@@ -135,6 +140,11 @@ impl Drop for LoadingBarId {
 #[serde(rename_all = "snake_case")]
 pub enum LoadingBarType {
     LegacyDataMigration,
+    DatabaseMigration {
+        stage: String,
+        completed: u64,
+        total: u64,
+    },
     DirectoryMove {
         old: PathBuf,
         new: PathBuf,

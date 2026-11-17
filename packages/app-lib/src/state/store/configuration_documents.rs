@@ -23,11 +23,24 @@ pub(crate) struct Pending {
     pub(crate) settings: Option<super::settings::SettingsRecord>,
 }
 impl Pending {
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) async fn begin(handle: &Handle) -> crate::Result<Self> {
         let root = handle.persistence().root().to_owned();
+        tracing::debug!(
+            phase = "configuration_mutex_acquire",
+            "Configuration writer phase"
+        );
         // sched-order: theseus::state::documents::WRITES
         let guard = crate::state::documents::WRITES.lock().await;
+        tracing::debug!(
+            phase = "configuration_mutex_acquired",
+            "Configuration writer phase"
+        );
         let file = lock_files(&root).await?;
+        tracing::debug!(
+            phase = "configuration_writer_ready",
+            "Configuration writer phase"
+        );
         Ok(Self {
             root,
             _guard: guard,
@@ -435,7 +448,12 @@ pub(crate) fn map<'a>(
 }
 
 /// Caller owns document WRITES, after reserving core if it needs both domains.
+#[tracing::instrument(level = "debug", skip_all, fields(root = %root.display()))]
 pub(crate) async fn lock_files(root: &Path) -> crate::Result<tokio::fs::File> {
+    tracing::debug!(
+        phase = "configuration_file_open",
+        "Configuration writer phase"
+    );
     tokio::fs::create_dir_all(root.join("settings")).await?;
     let file = tokio::fs::OpenOptions::new()
         .create(true)
@@ -444,9 +462,17 @@ pub(crate) async fn lock_files(root: &Path) -> crate::Result<tokio::fs::File> {
         .write(true)
         .open(root.join("settings/.writer-lock"))
         .await?;
+    tracing::debug!(
+        phase = "configuration_file_lock_acquire",
+        "Configuration writer phase"
+    );
     while !file.try_lock_exclusive()? {
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     }
+    tracing::debug!(
+        phase = "configuration_file_lock_acquired",
+        "Configuration writer phase"
+    );
     Ok(file)
 }
 

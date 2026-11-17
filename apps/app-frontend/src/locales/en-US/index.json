@@ -18638,6 +18638,24 @@
   "app.splash.checking-for-updates": {
     "message": "Checking for updates..."
   },
+  "app.splash.migrating-data": {
+    "message": "Migrating launcher data..."
+  },
+  "app.splash.migration.core": {
+    "message": "Migrating launcher records..."
+  },
+  "app.splash.migration.count": {
+    "message": "{completed, number} / {total, number}"
+  },
+  "app.splash.migration.finishing": {
+    "message": "Finishing migration..."
+  },
+  "app.splash.migration.preparing": {
+    "message": "Preparing migration..."
+  },
+  "app.splash.migration.recovery": {
+    "message": "Migrating recovery records..."
+  },
   "app.splash.updating-app-directory": {
     "message": "Updating app directory..."
   },

@@ -77,17 +77,35 @@ pub(crate) async fn initialize(
     Ok(())
 }
 async fn open(root: &Path) -> crate::Result<SqlitePool> {
-    initialize(root, None).await?;
+    initialize(root, None).await.map_err(|error| {
+        error.with_context(format!(
+            "Preparing daily history in {}",
+            root.display()
+        ))
+    })?;
     let path = root.join("databases/records.db");
+    if !tokio::fs::try_exists(&path).await? {
+        return Err(crate::ErrorKind::FSError(format!(
+            "Daily history authority is missing at {}; its completed handover prevents importing retired data again",
+            path.display()
+        )).into());
+    }
     let pool = SqlitePoolOptions::new()
         .max_connections(2)
         .connect_with(
             SqliteConnectOptions::new()
-                .filename(path)
+                .filename(&path)
                 .create_if_missing(false)
                 .busy_timeout(std::time::Duration::from_secs(5)),
         )
-        .await?;
+        .await
+        .map_err(|error| {
+            crate::Error::from(error).with_context(format!(
+                "Opening daily history {} (file present: {})",
+                path.display(),
+                path.is_file()
+            ))
+        })?;
     let format: (String, i64) = sqlx::query_as(
         "SELECT protocol,version FROM axolotl_records_format WHERE singleton=1",
     )
@@ -167,4 +185,88 @@ pub(crate) async fn backup(
     .await?;
     connection.close().await?;
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn missing_retired_daily_history_is_not_recreated_from_legacy_rows() {
+        let temporary = tempfile::tempdir().unwrap();
+        initialize(temporary.path(), None).await.unwrap();
+        let receipt_path = temporary
+            .path()
+            .join("state/persistence/imports/daily-playtime.json");
+        let authority_path = temporary.path().join("state/records.json");
+        let receipt = tokio::fs::read(&receipt_path).await.unwrap();
+        let authority = tokio::fs::read(&authority_path).await.unwrap();
+        let records_path = temporary.path().join("databases/records.db");
+        tokio::fs::remove_file(&records_path).await.unwrap();
+        let mut legacy = sqlx::SqliteConnection::connect_with(
+            &SqliteConnectOptions::new()
+                .filename(
+                    temporary
+                        .path()
+                        .join("databases/legacy-document-import.db"),
+                )
+                .create_if_missing(true),
+        )
+        .await
+        .unwrap();
+        sqlx::query(TABLE).execute(&mut legacy).await.unwrap();
+        sqlx::query("INSERT INTO instance_daily_playtime VALUES('2026-11-16','retired','Must not return',99,1)")
+            .execute(&mut legacy).await.unwrap();
+        legacy.close().await.unwrap();
+        let error = open(temporary.path()).await.unwrap_err();
+        assert!(matches!(error.raw.as_ref(), crate::ErrorKind::FSError(_)));
+        assert!(
+            error
+                .to_string()
+                .contains("Daily history authority is missing")
+        );
+        assert!(!records_path.exists());
+        assert_eq!(tokio::fs::read(receipt_path).await.unwrap(), receipt);
+        assert_eq!(tokio::fs::read(authority_path).await.unwrap(), authority);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[tokio::test]
+    async fn canonical_windows_root_can_reopen_daily_history_and_back_it_up() {
+        let temporary = tempfile::tempdir().unwrap();
+        initialize(temporary.path(), None).await.unwrap();
+        let canonical =
+            tokio::fs::canonicalize(temporary.path()).await.unwrap();
+        assert!(canonical.to_string_lossy().starts_with(r"\\?\"));
+        let path = canonical.join("databases/records.db");
+        assert!(!path.to_string_lossy().contains('/'));
+        let core = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::new()
+                    .filename(canonical.join("databases/system.db"))
+                    .create_if_missing(true),
+            )
+            .await
+            .unwrap();
+        let pool = pool_for(&core).await.expect(
+            "canonical core path should resolve the existing daily history",
+        );
+        sqlx::query("INSERT INTO instance_daily_playtime VALUES('2026-11-16','one','Example',42,1)")
+            .execute(&pool).await.unwrap();
+        pool.close().await;
+        let destination = canonical.join("history-backup.db");
+        assert!(backup(&canonical, &destination).await.unwrap());
+        let mut snapshot = sqlx::SqliteConnection::connect_with(
+            &SqliteConnectOptions::new()
+                .filename(destination)
+                .read_only(true),
+        )
+        .await
+        .unwrap();
+        let seconds: i64 = sqlx::query_scalar("SELECT played_seconds FROM instance_daily_playtime WHERE instance_id='one'")
+            .fetch_one(&mut snapshot).await.unwrap();
+        assert_eq!(seconds, 42);
+        snapshot.close().await.unwrap();
+    }
 }

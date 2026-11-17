@@ -821,14 +821,20 @@ async fn persist_prepared_dependency_edges(
         });
     }
     if !edges.is_empty() {
-        let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let (mut tx, tx_diagnostics) =
+            crate::state::store::lock_diagnostics::begin(
+                &state.pool,
+                "BEGIN IMMEDIATE",
+            )
+            .await?;
         for edge in edges {
             content_entries::upsert_content_dependency_edge_in_transaction(
                 &edge, &mut tx,
             )
             .await?;
         }
-        tx.commit().await?;
+        tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+        tx_diagnostics.complete("committed");
     }
     Ok(())
 }

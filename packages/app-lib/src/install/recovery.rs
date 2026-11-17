@@ -986,7 +986,12 @@ async fn remove_snapshotted_db_state(
         .filter_map(|file| file.instance_file.as_ref())
         .map(|file| file.id.clone())
         .collect::<Vec<_>>();
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     pack_members::delete_pack_members_for_set_in_transaction(
         content_set_id,
         &mut tx,
@@ -1016,7 +1021,8 @@ async fn remove_snapshotted_db_state(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 
@@ -1219,7 +1225,12 @@ async fn restore_snapshotted_db_state(
         .filter_map(|entry| entry.file_id.clone())
         .collect::<Vec<_>>();
 
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     pack_members::delete_pack_members_for_set_in_transaction(
         content_set_id,
         &mut tx,
@@ -1296,7 +1307,8 @@ async fn restore_snapshotted_db_state(
         pack_members::upsert_pack_member_in_transaction(member, &mut tx)
             .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 

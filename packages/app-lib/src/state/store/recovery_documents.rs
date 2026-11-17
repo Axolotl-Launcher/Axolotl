@@ -41,6 +41,118 @@ async fn root(connection: &mut SqliteConnection) -> crate::Result<PathBuf> {
 fn invalid(message: &str) -> crate::Error {
     crate::ErrorKind::InputError(message.into()).into()
 }
+
+/// A committed publication decision detached from its SQL connection. Payloads
+/// have unique immutable paths, so a later replacement or tombstone cannot
+/// change what this selection reads. Online publication retains old objects.
+#[derive(sqlx::FromRow)]
+pub(crate) struct SelectedRecord {
+    pub(crate) key: String,
+    kind: String,
+    instance_id: Option<String>,
+    revision: i64,
+    object_path: String,
+    sha256: String,
+    opaque: bool,
+}
+
+impl SelectedRecord {
+    pub(crate) async fn decode<T: DeserializeOwned>(&self) -> crate::Result<T> {
+        if self.opaque {
+            return Err(invalid(
+                "Legacy operation extension preserved without replay",
+            ));
+        }
+        #[cfg(test)]
+        snapshot_pause::before_payload().await;
+        let value = crate::state::recovery::record::read(
+            Path::new(&self.object_path),
+            &self.sha256,
+            &self.kind,
+            &self.key,
+            self.instance_id.as_deref(),
+            self.revision,
+        )
+        .await?;
+        validate_value(&self.kind, &value)?;
+        Ok(serde_json::from_value(value)?)
+    }
+}
+
+/// Captures one SQL statement's decisions, including opacity, without doing any
+/// filesystem work. The caller releases its connection before decoding them.
+pub(crate) async fn select_records(
+    connection: &mut SqliteConnection,
+    kind: &str,
+    key: Option<&str>,
+    owner: Option<&str>,
+) -> crate::Result<Vec<SelectedRecord>> {
+    // Legacy envelopes name their source table inside the payload; they need
+    // the existing legacy reader rather than a kind-level opacity decision.
+    if kind == "$legacy" {
+        return Err(invalid(
+            "Legacy envelopes require source-aware interpretation",
+        ));
+    }
+    Ok(sqlx::query_as("SELECT id AS key, kind, instance_id, revision, object_path, sha256, EXISTS(SELECT 1 FROM main.operation_opaque opaque WHERE opaque.kind=publication.kind) AS opaque FROM main.operation_publications publication WHERE kind=? AND deleted=0 AND (? IS NULL OR id=?) AND (? IS NULL OR instance_id=?) ORDER BY id")
+        .bind(kind).bind(key).bind(key).bind(owner).bind(owner)
+        .fetch_all(connection).await?)
+}
+
+/// `None` selects the legacy SQL reader; an empty snapshot means the current
+/// file authority selected no records. The connection is gone before return.
+pub(crate) async fn snapshot_records(
+    pool: &sqlx::SqlitePool,
+    kind: &str,
+    key: Option<&str>,
+    owner: Option<&str>,
+) -> crate::Result<Option<Vec<SelectedRecord>>> {
+    let mut connection = pool.acquire().await?;
+    if !active(&mut connection).await? {
+        return Ok(None);
+    }
+    Ok(Some(
+        select_records(&mut connection, kind, key, owner).await?,
+    ))
+}
+
+/// Freeze the plan and its journals in one main-database statement. Filtering
+/// by journal owner also selects the matching plans, rather than all plans.
+pub(crate) async fn snapshot_resource_pairs(
+    pool: &sqlx::SqlitePool,
+    key: Option<&str>,
+    owner: Option<&str>,
+) -> crate::Result<Option<Vec<SelectedRecord>>> {
+    let mut connection = pool.acquire().await?;
+    if !active(&mut connection).await? {
+        return Ok(None);
+    }
+    Ok(Some(sqlx::query_as("SELECT id AS key, kind, instance_id, revision, object_path, sha256, EXISTS(SELECT 1 FROM main.operation_opaque opaque WHERE opaque.kind=publication.kind) AS opaque FROM main.operation_publications publication WHERE deleted=0 AND kind IN ('resource_operation_plans','resource_execution_journals') AND (? IS NULL OR id=?) AND (? IS NULL OR (kind='resource_execution_journals' AND instance_id=?) OR (kind='resource_operation_plans' AND id IN (SELECT id FROM main.operation_publications WHERE kind='resource_execution_journals' AND instance_id=? AND deleted=0))) ORDER BY kind,id")
+        .bind(key).bind(key).bind(owner).bind(owner).bind(owner)
+        .fetch_all(&mut *connection).await?))
+}
+
+impl SelectedRecord {
+    pub(crate) fn kind(&self) -> &str {
+        &self.kind
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod snapshot_pause {
+    tokio::task_local! {
+        pub(crate) static PAUSE: (std::sync::Arc<tokio::sync::Notify>, std::sync::Arc<tokio::sync::Notify>);
+    }
+
+    pub(crate) async fn before_payload() {
+        if let Ok(wait) = PAUSE.try_with(|(reached, resume)| {
+            reached.notify_one();
+            std::sync::Arc::clone(resume)
+        }) {
+            wait.notified().await;
+        }
+    }
+}
 pub(crate) async fn read_raw(
     connection: &mut SqliteConnection,
     kind: &str,
@@ -374,13 +486,18 @@ pub(crate) async fn ensure_cleanup_supported(
 }
 
 /// Copy every selected immutable generation, including retained damaged files.
+/// Read decisions from the frozen core snapshot, never the live database whose
+/// selected operation may change while these immutable objects are copied.
 /// A backup keeps the SQL snapshot's object-path mapping in a portable manifest.
-pub(crate) async fn backup(root: &Path, staging: &Path) -> crate::Result<()> {
+pub(crate) async fn backup(
+    snapshot: &Path,
+    staging: &Path,
+) -> crate::Result<()> {
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(1)
         .connect_with(
             sqlx::sqlite::SqliteConnectOptions::new()
-                .filename(root.join("databases/system.db"))
+                .filename(snapshot)
                 .read_only(true),
         )
         .await?;
@@ -405,14 +522,18 @@ pub(crate) async fn backup(root: &Path, staging: &Path) -> crate::Result<()> {
         let folder = destination.join(crate::state::recovery::record::digest(
             path.to_string_lossy().as_bytes(),
         ));
-        let mut entries = match tokio::fs::read_dir(parent).await {
-            Ok(entries) => entries,
-            Err(error) => {
-                tracing::warn!(%error,?parent,"Backup retained unavailable operation reference");
-                continue;
-            }
-        };
+        // The live instance may be removed after the core snapshot was frozen.
+        // Missing selected files invalidate this backup; retaining only their
+        // SQL references would falsely advertise a complete recovery source.
+        let mut entries = tokio::fs::read_dir(parent).await?;
         let mut envelope = None;
+        let mut previous_envelope = false;
+        let previous_name = format!(
+            "{}.previous",
+            path.file_name()
+                .expect("envelope filename")
+                .to_string_lossy()
+        );
         while let Some(entry) = entries.next_entry().await? {
             let name = entry.file_name();
             if !name.to_string_lossy().starts_with(stem)
@@ -425,6 +546,9 @@ pub(crate) async fn backup(root: &Path, staging: &Path) -> crate::Result<()> {
                 envelope = Some((entry.path(), folder.join(name)));
                 continue;
             }
+            if name.to_string_lossy() == previous_name {
+                previous_envelope = true;
+            }
             crate::state::persistence::document::write_blob(
                 &folder.join(name),
                 crate::state::recovery::record::bounded(
@@ -434,6 +558,11 @@ pub(crate) async fn backup(root: &Path, staging: &Path) -> crate::Result<()> {
                 .await?,
             )
             .await?;
+        }
+        if envelope.is_none() && !previous_envelope {
+            return Err(invalid(
+                "Selected operation envelope disappeared during backup",
+            ));
         }
         if let Some((source, target)) = envelope {
             crate::state::persistence::document::write_blob(
@@ -455,17 +584,73 @@ pub(crate) async fn backup(root: &Path, staging: &Path) -> crate::Result<()> {
     Ok(())
 }
 
+const IMPORT_KINDS: [&str; 10] = [
+    "install_jobs",
+    "resource_operation_plans",
+    "resource_execution_journals",
+    "resource_history_cleanup_plans",
+    "resource_entry_graphs",
+    "content_update_jobs",
+    "content_file_operations",
+    "pending_backup_repository_cleanups",
+    "resource_legacy_rollback_journals",
+    "$legacy-extra",
+];
+
+async fn completed_imports(
+    connection: &mut SqliteConnection,
+) -> crate::Result<std::collections::HashSet<String>> {
+    let kinds: Vec<String> =
+        sqlx::query_scalar("SELECT kind FROM main.operation_imports")
+            .fetch_all(connection)
+            .await?;
+    Ok(kinds.into_iter().collect())
+}
+
+pub(crate) async fn legacy_import_pending(
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<bool> {
+    let mut connection = pool.acquire().await?;
+    if !active(&mut connection).await? {
+        return Ok(false);
+    }
+    let completed = completed_imports(&mut connection).await?;
+    Ok(IMPORT_KINDS.iter().any(|kind| !completed.contains(*kind)))
+}
+
+struct ImportProgress<'a> {
+    display: Option<&'a mut crate::event::migration::MigrationProgress>,
+    completed: u64,
+    total: u64,
+}
+impl ImportProgress<'_> {
+    fn advance(&mut self, count: u64) {
+        self.completed = self.completed.saturating_add(count).min(self.total);
+        if let Some(display) = &mut self.display {
+            display.recovery(self.completed, self.total);
+        }
+    }
+}
+
 pub(crate) async fn import_legacy(
     pool: &sqlx::SqlitePool,
     root: &Path,
+) -> crate::Result<()> {
+    import_legacy_with_progress(pool, root, None).await
+}
+
+pub(crate) async fn import_legacy_with_progress(
+    pool: &sqlx::SqlitePool,
+    root: &Path,
+    progress: Option<&mut crate::event::migration::MigrationProgress>,
 ) -> crate::Result<()> {
     use super::Collection;
     let mut destination = pool.acquire().await?;
     if !active(&mut destination).await? {
         return Ok(());
     }
-    let completed:i64=sqlx::query_scalar("SELECT COUNT(*) FROM main.operation_imports WHERE kind IN ('install_jobs','resource_operation_plans','resource_execution_journals','resource_history_cleanup_plans','resource_entry_graphs','content_update_jobs','content_file_operations','pending_backup_repository_cleanups','resource_legacy_rollback_journals','$legacy-extra')").fetch_one(&mut *destination).await?;
-    if completed == 10 {
+    let completed = completed_imports(&mut destination).await?;
+    if IMPORT_KINDS.iter().all(|kind| completed.contains(*kind)) {
         return Ok(());
     }
     let source = super::operations_db::legacy(root).await?;
@@ -478,52 +663,118 @@ pub(crate) async fn import_legacy(
             "Legacy operation source is unavailable; empty handover was refused",
         ));
     }
+    let mut extra_tables = vec![
+        "install_job_items".to_owned(),
+        "scheduler_tags".to_owned(),
+        "scheduler_restart_budget".to_owned(),
+        "resource_legacy_rollback_journals".to_owned(),
+    ];
+    let mut counts = std::collections::HashMap::<String, u64>::new();
+    if let Some(source) = &source {
+        let frozen: Value =
+            serde_json::from_str(include_str!("database_baseline.json"))?;
+        let tables: Vec<String> = sqlx::query_scalar(
+            "SELECT name FROM sqlite_schema WHERE type='table'",
+        )
+        .fetch_all(source)
+        .await?;
+        for table in tables {
+            if !table.starts_with('_')
+                && !table.starts_with("sqlite_")
+                && !frozen["tables"].as_array().is_some_and(|known| {
+                    known.iter().any(|known| known["name"] == table)
+                })
+                && !extra_tables.contains(&table)
+            {
+                extra_tables.push(table.clone());
+            }
+            if IMPORT_KINDS.contains(&table.as_str())
+                || extra_tables.contains(&table)
+            {
+                let count: i64 =
+                    sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+                        "SELECT COUNT(*) FROM \"{}\"",
+                        table.replace('"', "\"\"")
+                    )))
+                    .fetch_one(source)
+                    .await?;
+                counts.insert(table, count.max(0) as u64);
+            }
+        }
+    }
+    // Include a unit for each durable receipt. Processing every row alone is
+    // insufficient to report a completed, crash-safe takeover.
+    let mut total = IMPORT_KINDS
+        .iter()
+        .filter(|kind| !completed.contains(**kind))
+        .count() as u64;
+    if !completed.contains("$legacy-extra") {
+        total += extra_tables
+            .iter()
+            .map(|table| counts.get(table).copied().unwrap_or(0))
+            .sum::<u64>();
+    }
+    for kind in IMPORT_KINDS
+        .iter()
+        .filter(|kind| **kind != "$legacy-extra" && !completed.contains(**kind))
+    {
+        total += counts.get(*kind).copied().unwrap_or(0)
+            * if *kind == "resource_legacy_rollback_journals" {
+                1
+            } else {
+                2
+            };
+    }
+    let mut progress = ImportProgress {
+        display: progress,
+        completed: 0,
+        total,
+    };
+    progress.advance(0);
     macro_rules! import {
-        ($kind:literal,$collection:ty) => {{
-            let completed:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.operation_imports WHERE kind=?)").bind($kind).fetch_one(&mut *destination).await?;
-            if !completed {
-                let raw_count=if let Some(source)=&source{capture_legacy(&mut destination,source,$kind).await?}else{0};
-                let rows=if let Some(source)=&source{let mut connection=source.acquire().await?;match <$collection as Collection>::read_all(&mut connection).await{Ok(rows)=>rows,Err(error)=>{tracing::warn!(kind=$kind,%error,"Legacy operation rows retained as opaque attachments");sqlx::query("INSERT OR IGNORE INTO main.operation_opaque(kind) VALUES(?)").bind($kind).execute(&mut *destination).await?;Vec::new()}}}else{Vec::new()};
-                if rows.len() as u64!=raw_count {sqlx::query("INSERT OR IGNORE INTO main.operation_opaque(kind) VALUES(?)").bind($kind).execute(&mut *destination).await?;}
-                let mut transaction=destination.begin_with("BEGIN IMMEDIATE").await?;
-                for (key,record) in rows {let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.operation_publications WHERE kind=? AND id=?)").bind($kind).bind(&key).fetch_one(&mut *transaction).await?;if !exists{write_imported(&mut transaction,$kind,&key,Some(&record)).await?;}}
+        ($kind:literal, $collection:ty) => {{
+            if !completed.contains($kind) {
+                let raw_count = if let Some(source) = &source {
+                    capture_legacy(&mut destination, source, $kind, &mut progress).await?
+                } else { 0 };
+                let rows = if let Some(source) = &source {
+                    let mut connection = source.acquire().await?;
+                    match <$collection as Collection>::read_all(&mut connection).await {
+                        Ok(rows) => rows,
+                        Err(error) => {
+                            tracing::warn!(kind=$kind,%error,"Legacy operation rows retained as opaque attachments");
+                            sqlx::query("INSERT OR IGNORE INTO main.operation_opaque(kind) VALUES(?)").bind($kind).execute(&mut *destination).await?;
+                            Vec::new()
+                        }
+                    }
+                } else { Vec::new() };
+                if rows.len() as u64 != raw_count {
+                    sqlx::query("INSERT OR IGNORE INTO main.operation_opaque(kind) VALUES(?)").bind($kind).execute(&mut *destination).await?;
+                }
+                let interpreted = rows.len() as u64;
+                let mut transaction = destination.begin_with("BEGIN IMMEDIATE").await?;
+                for (key, record) in rows {
+                    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.operation_publications WHERE kind=? AND id=?)").bind($kind).bind(&key).fetch_one(&mut *transaction).await?;
+                    if !exists { write_imported(&mut transaction, $kind, &key, Some(&record)).await?; }
+                    progress.advance(1);
+                }
+                // Opaque rows have been preserved and examined, not discarded.
+                progress.advance(raw_count.saturating_sub(interpreted));
                 sqlx::query("INSERT OR IGNORE INTO main.operation_imports(kind) VALUES(?)").bind($kind).execute(&mut *transaction).await?;
                 transaction.commit().await?;
+                progress.advance(1);
             }
         }};
     }
-    let raw_done:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.operation_imports WHERE kind='$legacy-extra')").fetch_one(&mut *destination).await?;
-    if !raw_done {
+    if !completed.contains("$legacy-extra") {
         if let Some(source) = &source {
-            for table in [
-                "install_job_items",
-                "scheduler_tags",
-                "scheduler_restart_budget",
-                "resource_legacy_rollback_journals",
-            ] {
-                capture_legacy(&mut destination, source, table).await?;
-            }
-        }
-        if let Some(source) = &source {
-            let frozen: Value =
-                serde_json::from_str(include_str!("database_baseline.json"))?;
-            let tables: Vec<String> = sqlx::query_scalar(
-                "SELECT name FROM sqlite_schema WHERE type='table'",
-            )
-            .fetch_all(source)
-            .await?;
-            for table in tables {
-                if !table.starts_with('_')
-                    && !table.starts_with("sqlite_")
-                    && !frozen["tables"].as_array().is_some_and(|known| {
-                        known.iter().any(|known| known["name"] == table)
-                    })
-                {
-                    capture_legacy(&mut destination, source, &table).await?;
-                }
+            for table in &extra_tables {
+                capture_legacy(&mut destination, source, table, &mut progress)
+                    .await?;
             }
         }
         sqlx::query("INSERT OR IGNORE INTO main.operation_imports(kind) VALUES('$legacy-extra')").execute(&mut *destination).await?;
+        progress.advance(1);
     }
     import!("install_jobs", super::install_jobs::InstallJobs);
     import!(
@@ -550,14 +801,13 @@ pub(crate) async fn import_legacy(
         "content_file_operations",
         super::content_file_operations::ContentFileOperations
     );
-    import!("pending_backup_repository_cleanups",super::pending_backup_repository_cleanups::PendingBackupRepositoryCleanups);
-    let imported:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.operation_imports WHERE kind='resource_legacy_rollback_journals')").fetch_one(&mut *destination).await?;
-    if !imported {
+    import!("pending_backup_repository_cleanups", super::pending_backup_repository_cleanups::PendingBackupRepositoryCleanups);
+    if !completed.contains("resource_legacy_rollback_journals") {
         let mut transaction = destination.begin_with("BEGIN IMMEDIATE").await?;
-        if let Some(source) = source {
-            let rows:Vec<(String,String)>=sqlx::query_as("SELECT instance_id,payload FROM resource_legacy_rollback_journals").fetch_all(&source).await?;
+        if let Some(source) = &source {
+            let rows: Vec<(String, String)> = sqlx::query_as("SELECT instance_id,payload FROM resource_legacy_rollback_journals").fetch_all(source).await?;
             for (key, payload) in rows {
-                let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.operation_publications WHERE kind='resource_legacy_rollback_journals' AND id=?)").bind(&key).fetch_one(&mut *transaction).await?;
+                let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.operation_publications WHERE kind='resource_legacy_rollback_journals' AND id=?)").bind(&key).fetch_one(&mut *transaction).await?;
                 if !exists {
                     write_imported(
                         &mut transaction,
@@ -567,10 +817,12 @@ pub(crate) async fn import_legacy(
                     )
                     .await?;
                 }
+                progress.advance(1);
             }
         }
         sqlx::query("INSERT OR IGNORE INTO main.operation_imports(kind) VALUES('resource_legacy_rollback_journals')").execute(&mut *transaction).await?;
         transaction.commit().await?;
+        progress.advance(1);
     }
     Ok(())
 }
@@ -916,6 +1168,7 @@ async fn capture_legacy(
     destination: &mut SqliteConnection,
     source: &sqlx::SqlitePool,
     table: &str,
+    progress: &mut ImportProgress<'_>,
 ) -> crate::Result<u64> {
     let baseline: Value =
         serde_json::from_str(include_str!("database_baseline.json"))?;
@@ -998,6 +1251,7 @@ async fn capture_legacy(
                 .map(str::to_owned);
             write_imported(destination,"$legacy",&key,Some(&serde_json::json!({"table":table,"instance_id":owner,"cells":cells}))).await?;
         }
+        progress.advance(1);
     }
     Ok(index)
 }

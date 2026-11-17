@@ -415,7 +415,9 @@ pub(crate) async fn move_authority(
         )
         .into());
     }
-    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let committed = decision(&mut tx).await?;
     let transaction =
         sync_state::journal::Transaction::begin(old.clone(), committed.clone())
@@ -459,7 +461,10 @@ pub(crate) async fn move_authority(
         })
         .await?;
     drop(transaction);
-    tx.rollback().await?;
+    tx_diagnostics
+        .observe("rollback_wait", tx.rollback())
+        .await?;
+    tx_diagnostics.complete("rolled_back");
     Ok(())
 }
 

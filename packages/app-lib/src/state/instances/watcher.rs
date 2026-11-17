@@ -618,6 +618,7 @@ pub(crate) async fn watch_instances_init(
         return;
     };
 
+    let mut synced_instance_ids = Vec::with_capacity(instances.len());
     for instance in instances {
         let Ok(content_root) =
             crate::state::instances::commands::instance_content_root(
@@ -637,17 +638,21 @@ pub(crate) async fn watch_instances_init(
             watcher,
         )
         .await;
-        let synced_instance_id = instance.id.clone();
-        tokio::spawn(async move {
-            if let Err(error) =
-                crate::api::instance::synced_options::reconcile_instance(
-                    &synced_instance_id,
-                )
-                .await
-            {
-                tracing::debug!(%error, "Initial synced option reconciliation failed");
-            }
-        });
+        synced_instance_ids.push(instance.id);
+    }
+
+    // Register every watcher before reconciliation can wait on file or core
+    // transactions. The tracked startup task then reconciles serially instead
+    // of creating one competing database writer per installed instance.
+    for instance_id in synced_instance_ids {
+        if let Err(error) =
+            crate::api::instance::synced_options::reconcile_instance(
+                &instance_id,
+            )
+            .await
+        {
+            tracing::debug!(%instance_id, %error, "Initial synced option reconciliation failed");
+        }
     }
 }
 

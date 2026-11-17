@@ -519,7 +519,12 @@ pub(super) async fn rollback_curseforge_update(
     )
     .await?;
     let _instance_lock = state.lock_instance_content(instance_id).await;
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     let old_keys = old_members
         .iter()
         .map(|member| member.member_key.as_str())
@@ -555,6 +560,7 @@ pub(super) async fn rollback_curseforge_update(
         &mut tx,
     )
     .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }

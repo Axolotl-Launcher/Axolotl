@@ -555,7 +555,12 @@ pub async fn restore_pack_member_default(
                 )
             })?;
     let _instance_lock = state.lock_instance_content(instance_id).await;
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     pack_members::set_pack_member_override_in_transaction(
         member_id,
         if pending_manual {
@@ -572,7 +577,8 @@ pub async fn restore_pack_member_default(
         &mut tx,
     )
     .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     emit_content_changed(instance_id).await?;
     Ok(restored_path)
 }

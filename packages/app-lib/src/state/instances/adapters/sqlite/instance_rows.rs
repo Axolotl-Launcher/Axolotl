@@ -1819,7 +1819,9 @@ pub(crate) async fn set_install_stage(
     modified: i64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut transaction, transaction_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let install_stage = install_stage.as_str();
 
     sqlx::query!(
@@ -1834,7 +1836,13 @@ pub(crate) async fn set_install_stage(
     )
     .execute(&mut *transaction)
     .await?;
-    crate::state::store::configuration::commit(transaction, pool).await?;
+    transaction_diagnostics
+        .observe(
+            "commit_wait",
+            crate::state::store::configuration::commit(transaction, pool),
+        )
+        .await?;
+    transaction_diagnostics.complete("committed");
 
     Ok(())
 }
@@ -1846,7 +1854,9 @@ pub(crate) async fn set_last_played(
     modified: i64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut transaction, transaction_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let last_played = last_played.timestamp();
 
     sqlx::query!(
@@ -1861,7 +1871,13 @@ pub(crate) async fn set_last_played(
     )
     .execute(&mut *transaction)
     .await?;
-    crate::state::store::configuration::commit(transaction, pool).await?;
+    transaction_diagnostics
+        .observe(
+            "commit_wait",
+            crate::state::store::configuration::commit(transaction, pool),
+        )
+        .await?;
+    transaction_diagnostics.complete("committed");
 
     Ok(())
 }
@@ -1891,7 +1907,12 @@ pub(crate) async fn set_pinned(
     }
     #[cfg(test)]
     {
-        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        let (mut transaction, transaction_diagnostics) =
+            crate::state::store::lock_diagnostics::begin(
+                pool,
+                "BEGIN IMMEDIATE",
+            )
+            .await?;
         let result = sqlx::query!(
             "
         UPDATE instances
@@ -1904,7 +1925,13 @@ pub(crate) async fn set_pinned(
         )
         .execute(&mut *transaction)
         .await?;
-        crate::state::store::configuration::commit(transaction, pool).await?;
+        transaction_diagnostics
+            .observe(
+                "commit_wait",
+                crate::state::store::configuration::commit(transaction, pool),
+            )
+            .await?;
+        transaction_diagnostics.complete("committed");
 
         if result.rows_affected() == 0 {
             return Err(crate::ErrorKind::InputError(

@@ -231,6 +231,26 @@ impl Collection for ResourceOperationPlans {
 }
 
 impl ResourceOperationPlans {
+    async fn snapshot(
+        handle: &Handle,
+        key: &str,
+    ) -> crate::Result<Option<Option<ResourceOperationPlanRecord>>> {
+        let Some(selected) = super::recovery_documents::snapshot_records(
+            handle.pool(),
+            "resource_operation_plans",
+            Some(key),
+            None,
+        )
+        .await?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(match selected.into_iter().next() {
+            Some(selected) => Some(selected.decode().await?),
+            None => None,
+        }))
+    }
+
     /// Whether `key` completed at `revision`, which only a plan that exists
     /// answers at all.
     pub(crate) async fn completed_at(
@@ -238,24 +258,10 @@ impl ResourceOperationPlans {
         key: &str,
         revision: u32,
     ) -> crate::Result<Option<i64>> {
-        {
-            let mut connection = handle.connection().await?;
-            if super::recovery_documents::active(&mut connection).await? {
-                let mut transaction =
-                    connection.begin_with("BEGIN IMMEDIATE").await?;
-                let result = async {
-                    let conn = &mut *transaction;
-                    return Ok(Self::read(conn, &key.to_owned())
-                        .await?
-                        .filter(|row| row.revision == i64::from(revision))
-                        .map(|row| i64::from(row.completed)));
-                }
-                .await;
-                if result.is_ok() {
-                    transaction.commit().await?;
-                }
-                return result;
-            }
+        if let Some(row) = Self::snapshot(handle, key).await? {
+            return Ok(row
+                .filter(|row| row.revision == i64::from(revision))
+                .map(|row| i64::from(row.completed)));
         }
 
         let completed: Option<i64> = sqlx::query_scalar(
@@ -279,29 +285,15 @@ impl ResourceOperationPlans {
         key: &str,
         revision: u32,
     ) -> crate::Result<String> {
-        {
-            let mut connection = handle.connection().await?;
-            if super::recovery_documents::active(&mut connection).await? {
-                let mut transaction =
-                    connection.begin_with("BEGIN IMMEDIATE").await?;
-                let result = async {
-                    let conn = &mut *transaction;
-                    return Ok(Self::read(conn, &key.to_owned())
-                        .await?
-                        .filter(|row| row.revision == i64::from(revision))
-                        .ok_or_else(|| {
-                            crate::ErrorKind::InputError(
-                                "Operation record is missing or changed".into(),
-                            )
-                        })?
-                        .payload);
-                }
-                .await;
-                if result.is_ok() {
-                    transaction.commit().await?;
-                }
-                return result;
-            }
+        if let Some(row) = Self::snapshot(handle, key).await? {
+            return Ok(row
+                .filter(|row| row.revision == i64::from(revision))
+                .ok_or_else(|| {
+                    crate::ErrorKind::InputError(
+                        "Operation record is missing or changed".into(),
+                    )
+                })?
+                .payload);
         }
 
         let payload: String = sqlx::query_scalar(
@@ -324,31 +316,15 @@ impl ResourceOperationPlans {
         handle: &Handle,
         key: &str,
     ) -> crate::Result<i64> {
-        {
-            let mut connection = handle.connection().await?;
-            if super::recovery_documents::active(&mut connection).await? {
-                let mut transaction =
-                    connection.begin_with("BEGIN IMMEDIATE").await?;
-                let result = async {
-                    let conn = &mut *transaction;
-                    return Ok(i64::from(
-                        Self::read(conn, &key.to_owned())
-                            .await?
-                            .ok_or_else(|| {
-                                crate::ErrorKind::InputError(
-                                    "Operation record is missing or changed"
-                                        .into(),
-                                )
-                            })?
-                            .completed,
-                    ));
-                }
-                .await;
-                if result.is_ok() {
-                    transaction.commit().await?;
-                }
-                return result;
-            }
+        if let Some(row) = Self::snapshot(handle, key).await? {
+            return Ok(i64::from(
+                row.ok_or_else(|| {
+                    crate::ErrorKind::InputError(
+                        "Operation record is missing or changed".into(),
+                    )
+                })?
+                .completed,
+            ));
         }
 
         let completed: i64 = sqlx::query_scalar(
@@ -645,29 +621,15 @@ impl ResourceOperationPlans {
         key: &str,
         revision: u32,
     ) -> crate::Result<String> {
-        {
-            let mut connection = handle.connection().await?;
-            if super::recovery_documents::active(&mut connection).await? {
-                let mut transaction =
-                    connection.begin_with("BEGIN IMMEDIATE").await?;
-                let result = async {
-                    let conn = &mut *transaction;
-                    return Ok(Self::read(conn, &key.to_owned())
-                        .await?
-                        .filter(|row| row.revision == i64::from(revision))
-                        .ok_or_else(|| {
-                            crate::ErrorKind::InputError(
-                                "Operation record is missing or changed".into(),
-                            )
-                        })?
-                        .instance_id);
-                }
-                .await;
-                if result.is_ok() {
-                    transaction.commit().await?;
-                }
-                return result;
-            }
+        if let Some(row) = Self::snapshot(handle, key).await? {
+            return Ok(row
+                .filter(|row| row.revision == i64::from(revision))
+                .ok_or_else(|| {
+                    crate::ErrorKind::InputError(
+                        "Operation record is missing or changed".into(),
+                    )
+                })?
+                .instance_id);
         }
 
         let instance_id: String = sqlx::query_scalar(

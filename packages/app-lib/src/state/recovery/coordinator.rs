@@ -100,7 +100,8 @@ fn ensure_started(state: Arc<State>) {
         impl Drop for Completion {fn drop(&mut self){if !IMPORT_DONE.load(Ordering::Acquire){IMPORT_FAILED.store(true,Ordering::Release);IMPORT_DONE.store(true,Ordering::Release);IMPORT_READY.notify_waiters();}}}
         let _completion=Completion;
         phases(async {
-            if let Err(error)=crate::state::store::recovery_documents::import_legacy(&worker.pool,&worker.directories.settings_dir).await {IMPORT_FAILED.store(true,Ordering::Release);tracing::warn!(%error,"Legacy recovery records retained for later retry");}
+            // First legacy takeover completed before State was published.
+            // Only ordinary record interpretation shares this 15-second budget.
             if let Err(error)=crate::state::store::recovery_documents::interpret_all(&worker.pool).await{tracing::warn!(%error,"Some recovery records remain opaque; other records continue");}
             IMPORT_DONE.store(true,Ordering::Release);IMPORT_READY.notify_waiters();
         },send,async {

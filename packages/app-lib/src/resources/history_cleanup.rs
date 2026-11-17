@@ -518,8 +518,13 @@ pub(crate) async fn execute_with_state(
             .await
             .map_err(|error| invalid(error.to_string()))?;
         }
-        let mut tx =
-            state.pool.begin_with("BEGIN IMMEDIATE").await.map_err(db)?;
+        let (mut tx, tx_diagnostics) =
+            crate::state::store::lock_diagnostics::begin(
+                &state.pool,
+                "BEGIN IMMEDIATE",
+            )
+            .await
+            .map_err(db)?;
         for entry in &plan.entries {
             let history_id = &entry.id;
             ResourceHistory::retire_backup_in(
@@ -541,7 +546,11 @@ pub(crate) async fn execute_with_state(
             &serde_json::to_string(&draft)?,
         )
         .await?;
-        tx.commit().await.map_err(db)?;
+        tx_diagnostics
+            .observe("commit_wait", tx.commit())
+            .await
+            .map_err(db)?;
+        tx_diagnostics.complete("committed");
         Ok::<_, ResourceError>(())
     }
     .await;

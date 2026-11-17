@@ -1164,7 +1164,9 @@ async fn persist_plan(
             mod_metadata.insert(action.entry_id.clone(), metadata);
         }
     }
-    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let mut node_entries: HashMap<SelectionId, Vec<InstalledEntryId>> = plan
         .nodes
         .iter()
@@ -1633,7 +1635,8 @@ async fn persist_plan(
     // from trusting metadata of the file that was just replaced.
     crate::state::CachedEntry::forget_best_effort(&cache_entries, cache_pool)
         .await;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     crate::state::CachedEntry::store_best_effort(&cache_entries, cache_pool)
         .await;
     Ok(())

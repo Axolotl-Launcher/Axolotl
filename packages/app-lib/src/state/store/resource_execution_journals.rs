@@ -203,6 +203,21 @@ impl ResourceExecutionJournals {
         handle: &Handle,
         key: &str,
     ) -> crate::Result<Option<String>> {
+        if let Some(selected) = super::recovery_documents::snapshot_records(
+            handle.pool(),
+            "resource_execution_journals",
+            Some(key),
+            None,
+        )
+        .await?
+        {
+            return match selected.into_iter().next() {
+                Some(row) => Ok(Some(
+                    row.decode::<ExecutionJournalRecord>().await?.payload,
+                )),
+                None => Ok(None),
+            };
+        }
         let key = key.to_owned();
         Ok(Self::get(handle, &key).await?.map(|record| record.payload))
     }
@@ -213,17 +228,37 @@ impl ResourceExecutionJournals {
         handle: &Handle,
         key: &str,
     ) -> crate::Result<Option<String>> {
+        if let Some(selected) =
+            super::recovery_documents::snapshot_resource_pairs(
+                handle.pool(),
+                Some(key),
+                None,
+            )
+            .await?
         {
-            let mut connection = handle.connection().await?;
-            if super::recovery_documents::active(&mut connection).await? {
-                let mut transaction =
-                    connection.begin_with("BEGIN IMMEDIATE").await?;
-                let result=async {let conn=&mut *transaction; let plan=super::resource_operation_plans::ResourceOperationPlans::read(conn,&key.to_owned()).await?;return if plan.is_some_and(|row|!row.completed){Ok(Self::read(conn,&key.to_owned()).await?.map(|row|row.payload))}else{Ok(None)};}.await;
-                if result.is_ok() {
-                    transaction.commit().await?;
+            let plan = selected
+                .iter()
+                .find(|row| row.kind() == "resource_operation_plans");
+            let plan = match plan {
+                Some(plan) => Some(plan.decode::<super::resource_operation_plans::ResourceOperationPlanRecord>().await?),
+                None => None,
+            };
+            return if plan.is_some_and(|row| !row.completed) {
+                match selected
+                    .iter()
+                    .find(|row| row.kind() == "resource_execution_journals")
+                {
+                    Some(journal) => Ok(Some(
+                        journal
+                            .decode::<ExecutionJournalRecord>()
+                            .await?
+                            .payload,
+                    )),
+                    None => Ok(None),
                 }
-                return result;
-            }
+            } else {
+                Ok(None)
+            };
         }
 
         let payload: Option<String> = sqlx::query_scalar(
@@ -246,17 +281,34 @@ impl ResourceExecutionJournals {
         handle: &Handle,
         instance_id: &str,
     ) -> crate::Result<bool> {
+        if let Some(selected) =
+            super::recovery_documents::snapshot_resource_pairs(
+                handle.pool(),
+                None,
+                Some(instance_id),
+            )
+            .await?
         {
-            let mut connection = handle.connection().await?;
-            if super::recovery_documents::active(&mut connection).await? {
-                let mut transaction =
-                    connection.begin_with("BEGIN IMMEDIATE").await?;
-                let result=async {let conn=&mut *transaction; for (key,_) in super::recovery_documents::strict_owner::<ExecutionJournalRecord>(conn,"resource_execution_journals",instance_id).await?{if super::resource_operation_plans::ResourceOperationPlans::read(conn,&key).await?.is_some_and(|row|row.instance_id==instance_id){return Ok(true)}}return Ok(false);}.await;
-                if result.is_ok() {
-                    transaction.commit().await?;
-                }
-                return result;
+            // Decode every selected journal strictly before answering. Missing
+            // or opaque recovery evidence must never authorize cleanup.
+            let mut journals = Vec::new();
+            for row in selected
+                .iter()
+                .filter(|row| row.kind() == "resource_execution_journals")
+            {
+                row.decode::<ExecutionJournalRecord>().await?;
+                journals.push(row.key.as_str());
             }
+            for key in journals {
+                if let Some(plan) = selected.iter().find(|row| {
+                    row.kind() == "resource_operation_plans" && row.key == key
+                }) {
+                    if plan.decode::<super::resource_operation_plans::ResourceOperationPlanRecord>().await?.instance_id == instance_id {
+                        return Ok(true);
+                    }
+                }
+            }
+            return Ok(false);
         }
 
         let pending: i64 = sqlx::query_scalar(

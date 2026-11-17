@@ -224,26 +224,27 @@ impl ResourceHistoryCleanupPlans {
         handle: &Handle,
         instance_id: &str,
     ) -> crate::Result<Vec<String>> {
+        if let Some(selected) = super::recovery_documents::snapshot_records(
+            handle.pool(),
+            "resource_history_cleanup_plans",
+            None,
+            Some(instance_id),
+        )
+        .await?
         {
-            let mut connection = handle.connection().await?;
-            if super::recovery_documents::active(&mut connection).await? {
-                let mut transaction =
-                    connection.begin_with("BEGIN IMMEDIATE").await?;
-                let result = async {
-                    let conn = &mut *transaction;
-                    return Ok(Self::read_all(conn)
-                        .await?
-                        .into_iter()
-                        .filter(|(_, row)| row.instance_id == instance_id)
-                        .map(|(_, row)| row.payload)
-                        .collect());
+            let mut payloads = Vec::new();
+            for row in selected {
+                match row.decode::<CleanupPlanRecord>().await {
+                    Ok(record) if record.instance_id == instance_id => {
+                        payloads.push(record.payload)
+                    }
+                    Ok(_) => {}
+                    Err(error) => {
+                        tracing::warn!(key=%row.key,%error,"Recovery record unavailable; original retained and other records continue")
+                    }
                 }
-                .await;
-                if result.is_ok() {
-                    transaction.commit().await?;
-                }
-                return result;
             }
+            return Ok(payloads);
         }
 
         let rows: Vec<String> = sqlx::query_scalar(
@@ -325,24 +326,20 @@ impl ResourceHistoryCleanupPlans {
         key: &str,
         revision: u32,
     ) -> crate::Result<Option<String>> {
+        if let Some(selected) = super::recovery_documents::snapshot_records(
+            handle.pool(),
+            "resource_history_cleanup_plans",
+            Some(key),
+            None,
+        )
+        .await?
         {
-            let mut connection = handle.connection().await?;
-            if super::recovery_documents::active(&mut connection).await? {
-                let mut transaction =
-                    connection.begin_with("BEGIN IMMEDIATE").await?;
-                let result = async {
-                    let conn = &mut *transaction;
-                    return Ok(Self::read(conn, &key.to_owned())
-                        .await?
-                        .filter(|row| row.revision == revision && !row.consumed)
-                        .map(|row| row.payload));
-                }
-                .await;
-                if result.is_ok() {
-                    transaction.commit().await?;
-                }
-                return result;
-            }
+            return match selected.into_iter().next() {
+                Some(row) => Ok(Some(row.decode::<CleanupPlanRecord>().await?)
+                    .filter(|row| row.revision == revision && !row.consumed)
+                    .map(|row| row.payload)),
+                None => Ok(None),
+            };
         }
 
         let payload: Option<String> = sqlx::query_scalar(
@@ -365,28 +362,20 @@ impl ResourceHistoryCleanupPlans {
         handle: &Handle,
         key: &str,
     ) -> crate::Result<bool> {
+        if let Some(selected) = super::recovery_documents::snapshot_records(
+            handle.pool(),
+            "resource_history_cleanup_plans",
+            Some(key),
+            None,
+        )
+        .await?
         {
-            let mut connection = handle.connection().await?;
-            if super::recovery_documents::active(&mut connection).await? {
-                let mut transaction =
-                    connection.begin_with("BEGIN IMMEDIATE").await?;
-                let result = async {
-                    let conn = &mut *transaction;
-                    return Ok(Self::read(conn, &key.to_owned())
-                        .await?
-                        .ok_or_else(|| {
-                            crate::ErrorKind::InputError(
-                                "Operation record is missing or changed".into(),
-                            )
-                        })?
-                        .consumed);
-                }
-                .await;
-                if result.is_ok() {
-                    transaction.commit().await?;
-                }
-                return result;
-            }
+            let row = selected.into_iter().next().ok_or_else(|| {
+                crate::ErrorKind::InputError(
+                    "Operation record is missing or changed".into(),
+                )
+            })?;
+            return Ok(row.decode::<CleanupPlanRecord>().await?.consumed);
         }
 
         let consumed: bool = sqlx::query_scalar(

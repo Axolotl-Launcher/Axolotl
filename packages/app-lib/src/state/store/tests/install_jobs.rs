@@ -423,3 +423,175 @@ fn finish<'a>(key: &'a str, status: &'a str) -> JobFinish<'a> {
         accept_canceling: false,
     }
 }
+
+async fn detached_fixture() -> (tempfile::TempDir, Handle) {
+    let root = tempfile::tempdir().unwrap();
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(
+            sqlx::sqlite::SqliteConnectOptions::new()
+                .filename(root.path().join("system.db"))
+                .create_if_missing(true),
+        )
+        .await
+        .unwrap();
+    crate::state::store::recovery_documents::install(
+        &mut *pool.acquire().await.unwrap(),
+    )
+    .await
+    .unwrap();
+    (root, Handle::new(pool))
+}
+
+async fn publish_detached_job(
+    handle: &Handle,
+    root: &std::path::Path,
+    key: &str,
+    revision: i64,
+    row: &InstallJobRecord,
+) {
+    let path = root.join(format!("{key}-{revision}.json"));
+    let hash = crate::state::recovery::record::write(
+        &path,
+        "install_jobs",
+        key,
+        None,
+        revision,
+        serde_json::to_value(row).unwrap(),
+    )
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO operation_publications(kind,id,revision,object_path,sha256) VALUES('install_jobs',?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET revision=excluded.revision, object_path=excluded.object_path, sha256=excluded.sha256, deleted=0")
+        .bind(key).bind(revision).bind(path.to_string_lossy().into_owned()).bind(hash)
+        .execute(handle.pool()).await.unwrap();
+}
+
+#[tokio::test]
+async fn slow_job_payload_releases_the_only_connection_and_core_writer() {
+    use crate::state::store::recovery_documents::snapshot_pause;
+    use std::sync::Arc;
+    let (root, handle) = detached_fixture().await;
+    publish_detached_job(&handle, root.path(), "running", 1, &job("running"))
+        .await;
+    let reached = Arc::new(tokio::sync::Notify::new());
+    let resume = Arc::new(tokio::sync::Notify::new());
+    let reading =
+        snapshot_pause::PAUSE.scope((reached.clone(), resume.clone()), async {
+            InstallJobs::snapshot(
+                &handle,
+                None,
+                Some(&["queued", "running", "failed"]),
+                false,
+            )
+            .await
+            .unwrap()
+        });
+    let writing = async {
+        reached.notified().await;
+        let transaction =
+            tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                let transaction =
+                    handle.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
+                transaction.commit().await.unwrap();
+            })
+            .await;
+        resume.notify_one();
+        transaction.expect("payload IO must hold neither the sole pooled connection nor a core transaction");
+    };
+    let (rows, ()) = tokio::join!(reading, writing);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].1.status, "running");
+}
+
+#[tokio::test]
+async fn selected_jobs_keep_their_revision_and_opacity_after_update_and_tombstone()
+ {
+    use crate::state::store::recovery_documents::select_records;
+    let (root, handle) = detached_fixture().await;
+    publish_detached_job(&handle, root.path(), "one", 1, &job("running")).await;
+    let selected = select_records(
+        &mut *handle.pool().acquire().await.unwrap(),
+        "install_jobs",
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    publish_detached_job(&handle, root.path(), "one", 2, &job("succeeded"))
+        .await;
+    sqlx::query("UPDATE operation_publications SET deleted=1; INSERT INTO operation_opaque(kind) VALUES('install_jobs')")
+        .execute(handle.pool()).await.unwrap();
+    assert_eq!(
+        selected[0]
+            .decode::<InstallJobRecord>()
+            .await
+            .unwrap()
+            .status,
+        "running"
+    );
+    sqlx::query("UPDATE operation_publications SET deleted=0")
+        .execute(handle.pool())
+        .await
+        .unwrap();
+    let opaque = select_records(
+        &mut *handle.pool().acquire().await.unwrap(),
+        "install_jobs",
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    sqlx::query("DELETE FROM operation_opaque")
+        .execute(handle.pool())
+        .await
+        .unwrap();
+    assert!(opaque[0].decode::<InstallJobRecord>().await.is_err());
+    let current = InstallJobs::snapshot(&handle, Some("one"), None, true)
+        .await
+        .unwrap();
+    assert_eq!(current[0].1.status, "succeeded");
+}
+
+#[tokio::test]
+async fn detached_browsing_skips_future_or_corrupt_jobs_but_cleanup_fails_closed()
+ {
+    let (root, handle) = detached_fixture().await;
+    publish_detached_job(&handle, root.path(), "good", 1, &job("running"))
+        .await;
+    publish_detached_job(
+        &handle,
+        root.path(),
+        "future",
+        1,
+        &job("future-status"),
+    )
+    .await;
+    publish_detached_job(&handle, root.path(), "broken", 1, &job("queued"))
+        .await;
+    let path = root.path().join("broken-1.json");
+    tokio::fs::write(&path, b"broken").await.unwrap();
+    tokio::fs::write(format!("{}.previous", path.display()), b"broken")
+        .await
+        .unwrap();
+    let rows = InstallJobs::snapshot(&handle, None, None, false)
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].0, "good");
+    assert!(
+        InstallJobs::snapshot(&handle, Some("future"), None, true)
+            .await
+            .is_err()
+    );
+    assert!(
+        InstallJobs::snapshot(&handle, Some("broken"), None, true)
+            .await
+            .is_err()
+    );
+    assert!(
+        InstallJobs::snapshot_unfinished_or_rollback(&handle, &["queued"])
+            .await
+            .is_err()
+    );
+    assert!(path.exists(), "unreadable authorities must be retained");
+}

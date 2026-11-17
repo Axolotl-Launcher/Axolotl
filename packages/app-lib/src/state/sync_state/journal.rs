@@ -18,7 +18,9 @@ pub(crate) struct Transaction {
     pub changed: bool,
     _lock: tokio::fs::File,
 }
+#[tracing::instrument(level = "debug", skip_all, fields(root = %root.display()))]
 async fn lock(root: &Path) -> crate::Result<tokio::fs::File> {
+    tracing::debug!(phase = "sync_file_open", "Sync transaction phase");
     tokio::fs::create_dir_all(root.join("state")).await?;
     let lock = tokio::fs::OpenOptions::new()
         .create(true)
@@ -27,9 +29,14 @@ async fn lock(root: &Path) -> crate::Result<tokio::fs::File> {
         .read(true)
         .open(root.join("state/transaction.lock"))
         .await?;
+    tracing::debug!(phase = "sync_file_lock_acquire", "Sync transaction phase");
     while !lock.try_lock_exclusive()? {
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     }
+    tracing::debug!(
+        phase = "sync_file_lock_acquired",
+        "Sync transaction phase"
+    );
     Ok(lock)
 }
 pub(crate) async fn initial_lock(
@@ -38,15 +45,25 @@ pub(crate) async fn initial_lock(
     lock(root).await
 }
 impl Transaction {
+    #[tracing::instrument(level = "debug", skip_all, fields(root = %root.display()))]
     pub(crate) async fn begin(
         root: PathBuf,
         committed: Option<String>,
     ) -> crate::Result<Self> {
         let lock = lock(&root).await?;
         if let Some(token) = committed {
+            tracing::debug!(
+                phase = "sync_journal_replay",
+                "Sync transaction phase"
+            );
             replay(&root, &token).await?;
         }
+        tracing::debug!(phase = "sync_manifest_load", "Sync transaction phase");
         let (head, collections) = manifest::load(&root).await?;
+        tracing::debug!(
+            phase = "sync_manifest_ready",
+            "Sync transaction phase"
+        );
         Ok(Self {
             root,
             head,

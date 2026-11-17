@@ -709,6 +709,97 @@ async fn changelog_curseforge_uses_release_html_and_rejects_other_projects() {
 }
 
 #[tokio::test]
+async fn state_resource_service_imports_legacy_metadata_from_derived_not_core()
+{
+    let temporary = tempfile::tempdir().unwrap();
+    let core = crate::state::store::databases::open(temporary.path())
+        .await
+        .unwrap();
+    let has_cache: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='cache')",
+    )
+    .fetch_one(&core)
+    .await
+    .unwrap();
+    assert!(
+        !has_cache,
+        "the current core deliberately has no cache table"
+    );
+    let directories = crate::state::DirectoryInfo {
+        settings_dir: temporary.path().into(),
+        config_dir: temporary.path().into(),
+        app_identifier: "resource-cache-import-test".into(),
+    };
+    let state = crate::state::test_state(directories, core).await.unwrap();
+    let project = json!({
+        "id": "abcdefgh", "slug": "locator", "project_type": "mod", "title": "Legacy",
+        "description": "Summary", "body": "Preserved derived description"
+    });
+    sqlx::query("INSERT INTO cache(id,data_type,data,expires) VALUES('abcdefgh','project',?,?)")
+        .bind(project.to_string())
+        .bind(chrono::Utc::now().timestamp() + 100 * 365 * 24 * 60 * 60)
+        .execute(state.cache_pool()).await.unwrap();
+    let service = state.resources().await.unwrap();
+    let query = ProviderQuery::Description {
+        id: SourceProjectId::new("abcdefgh").unwrap(),
+        slug: None,
+    };
+    let key =
+        CacheKey::new("modrinth-v2-dates".into(), SourceId::modrinth(), &query)
+            .unwrap();
+    assert!(matches!(service.cache().get(&key).await,
+        Some(ProviderValue::Description(text)) if text.body == "Preserved derived description"));
+    let probe = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(
+            sqlx::sqlite::SqliteConnectOptions::new()
+                .filename(service.cache().path()),
+        )
+        .await
+        .unwrap();
+    assert!(
+        sqlx::query_scalar::<_, bool>(
+            "SELECT completed FROM resource_legacy_import WHERE id=1"
+        )
+        .fetch_one(&probe)
+        .await
+        .unwrap()
+    );
+    probe.close().await;
+    service.cache().close().await;
+    state.cache_pool().close().await;
+    state.pool.close().await;
+}
+
+#[tokio::test]
+async fn completed_legacy_resource_cache_import_does_not_reopen_the_source() {
+    let source = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    sqlx::query(
+        "CREATE TABLE cache(id TEXT,data_type TEXT,data TEXT,expires INTEGER)",
+    )
+    .execute(&source)
+    .await
+    .unwrap();
+    let (_directory, cache) = cache().await;
+    cache.import_legacy(&source).await.unwrap();
+    sqlx::query("DROP TABLE cache")
+        .execute(&source)
+        .await
+        .unwrap();
+    cache
+        .import_legacy(&source)
+        .await
+        .expect("a completed cache receipt must precede any source query");
+    assert_eq!(cache.info().await.unwrap().entry_count, 0);
+    cache.close().await;
+    source.close().await;
+}
+
+#[tokio::test]
 async fn legacy_cache_import_is_offline_resumable_conservative_and_clear_safe()
 {
     let main = sqlx::sqlite::SqlitePoolOptions::new()

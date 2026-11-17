@@ -59,7 +59,10 @@ vi.mock('@/components/lab/schematic-preview/SchematicMaterialSwatch.vue', () => 
     default: { render: () => null },
 }))
 vi.mock('@/helpers/instance', () => ({ list: async () => [] }))
-vi.mock('vue-router', () => ({ useRoute: () => ({ query: {} }) }))
+vi.mock('vue-router', () => ({
+    useRoute: () => ({ query: {} }),
+    useRouter: () => ({ replace: vi.fn() }),
+}))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: fixture.open, save: fixture.save }))
 vi.mock('@tauri-apps/plugin-fs', () => ({ writeFile: fixture.write, writeTextFile: fixture.write }))
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'windows' }))

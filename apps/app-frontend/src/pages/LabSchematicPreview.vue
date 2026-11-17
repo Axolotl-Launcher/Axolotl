@@ -69,7 +69,7 @@ import {
     useTemplateRef,
     watch,
 } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { schematicMessages, schematicSourceMessages } from '@/components/browse/schematics/messages'
 import SchematicBlockPickerModal from '@/components/lab/schematic-preview/SchematicBlockPickerModal.vue'
@@ -177,6 +177,7 @@ type EditHistoryEntry = BlockEditHistoryEntry | TransformHistoryEntry
 const { addNotification, handleError } = injectNotificationManager()
 const { formatMessage, locale } = useVIntl()
 const route = useRoute()
+const router = useRouter()
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
 const workspace = useTemplateRef<HTMLElement>('workspace')
 const viewport = useTemplateRef<HTMLElement>('viewport')
@@ -622,6 +623,14 @@ async function chooseLocalFile() {
 
 async function openSource(source: SchematicPreviewSource) {
     if (disposed) return
+    // Keep the URL naming the file that is on screen. The picker and the native
+    // drop handler open files without navigating, so without this the route
+    // would keep pointing at whatever the page was mounted with, and opening
+    // that file again from the shell would navigate to an identical location
+    // and never reach the watcher.
+    if (source.kind === 'external' && route.query.external !== source.path) {
+        void router.replace({ query: { external: source.path } })
+    }
     const epoch = ++requestEpoch
     resourceEpoch++
     resourceController?.abort()
@@ -1612,12 +1621,16 @@ function externalFilePath() {
 }
 
 // A second launch hands a new file to an already-mounted workshop, which
-// onMounted cannot observe.
+// onMounted cannot observe. The route alone cannot tell these apart: opening a
+// file through the picker or a drop leaves the previous route value behind, so
+// compare against the file actually on screen as well.
 watch(
     () => route.query.external,
     () => {
         const path = externalFilePath()
-        if (path) void openSource({ kind: 'external', path })
+        const current = currentSource.value
+        if (!path || (current?.kind === 'external' && current.path === path)) return
+        void openSource({ kind: 'external', path })
     },
 )
 

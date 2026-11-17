@@ -127,6 +127,7 @@ struct ConversionOutput {
     bytes: Vec<u8>,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn background_convert_animated<R: Runtime>(
     app: AppHandle<R>,

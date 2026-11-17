@@ -11,6 +11,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn schematics_list(
     sources: Vec<Source>,
@@ -22,11 +23,13 @@ pub async fn schematics_list(
     Ok(schematics::list(sources, page, query, page_size, sort).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn schematics_get(source: Source, id: String) -> Result<Detail> {
     Ok(schematics::detail(source, id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn schematics_install(
     instance_id: String,

@@ -36,6 +36,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_recent_worlds<R: Runtime>(
     app_handle: AppHandle<R>,
@@ -53,6 +54,7 @@ pub async fn get_recent_worlds<R: Runtime>(
     Ok(result)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_favorite_worlds<R: Runtime>(
     app_handle: AppHandle<R>,
@@ -64,6 +66,7 @@ pub async fn get_favorite_worlds<R: Runtime>(
     Ok(result)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_instance_worlds<R: Runtime>(
     app_handle: AppHandle<R>,
@@ -76,6 +79,7 @@ pub async fn get_instance_worlds<R: Runtime>(
     Ok(result)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_singleplayer_world<R: Runtime>(
     app_handle: AppHandle<R>,
@@ -120,6 +124,7 @@ fn adapt_icon_field<R: Runtime>(
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_world_level_data<R: Runtime>(
     app_handle: AppHandle<R>,
@@ -132,6 +137,7 @@ pub async fn get_world_level_data<R: Runtime>(
     Ok(data)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn update_world_settings(
     instance: &str,
@@ -143,6 +149,7 @@ pub async fn update_world_settings(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn set_world_display_status(
     instance: &str,
@@ -159,6 +166,7 @@ pub async fn set_world_display_status(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn rename_world(
     instance: &str,
@@ -170,6 +178,7 @@ pub async fn rename_world(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn reset_world_icon(instance: &str, world: &str) -> Result<()> {
     let instance = get_full_path(instance).await?;
@@ -177,12 +186,14 @@ pub async fn reset_world_icon(instance: &str, world: &str) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn backup_world(instance: &str, world: &str) -> Result<u64> {
     let instance = get_full_path(instance).await?;
     Ok(worlds::backup_world(&instance, world).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn delete_world(instance: &str, world: &str) -> Result<()> {
     let instance = get_full_path(instance).await?;
@@ -190,6 +201,7 @@ pub async fn delete_world(instance: &str, world: &str) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn add_server_to_instance(
     instance_id: &str,
@@ -210,6 +222,7 @@ pub async fn add_server_to_instance(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn edit_server_in_instance(
     instance_id: &str,
@@ -229,6 +242,7 @@ pub async fn edit_server_in_instance(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn remove_server_from_instance(
     instance_id: &str,
@@ -238,6 +252,7 @@ pub async fn remove_server_from_instance(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_instance_protocol_version(
     instance_id: &str,
@@ -245,6 +260,7 @@ pub async fn get_instance_protocol_version(
     Ok(worlds::get_instance_protocol_version(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_server_status(
     address: &str,
@@ -253,6 +269,7 @@ pub async fn get_server_status(
     Ok(worlds::get_server_status(address, protocol_version).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn start_join_singleplayer_world(
     instance_id: &str,
@@ -273,6 +290,7 @@ pub async fn start_join_singleplayer_world(
     Ok(InstanceRunResult { process, gc_notice })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn start_join_server(
     instance_id: &str,

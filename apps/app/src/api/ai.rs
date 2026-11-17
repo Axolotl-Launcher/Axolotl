@@ -24,26 +24,31 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn ai_get_catalog() -> Vec<AiProviderDefinition> {
     ai::catalog()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn ai_get_state() -> Result<AiState> {
     Ok(ai::get_state().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn ai_update_settings(settings: AiSettings) -> Result<()> {
     Ok(ai::update_settings(settings).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn ai_update_provider(update: AiProviderConfigUpdate) -> Result<()> {
     Ok(ai::update_provider(update).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn ai_set_api_key(
     provider_id: String,
@@ -52,6 +57,7 @@ pub fn ai_set_api_key(
     Ok(ai::set_api_key(provider_id, secret)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn ai_set_credential(
     provider_id: String,
@@ -61,11 +67,13 @@ pub fn ai_set_credential(
     Ok(ai::set_credential(provider_id, credential, secret)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn ai_update_model(update: AiModelUpdate) -> Result<()> {
     Ok(ai::update_model(update).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn ai_remove_model(
     provider_id: String,
@@ -74,6 +82,7 @@ pub async fn ai_remove_model(
     Ok(ai::remove_model(provider_id, model_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn ai_fetch_models(
     provider_id: String,
@@ -81,6 +90,7 @@ pub async fn ai_fetch_models(
     Ok(ai::fetch_models(provider_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn ai_test_provider(
     provider_id: String,
@@ -89,16 +99,19 @@ pub async fn ai_test_provider(
     Ok(ai::test_provider(provider_id, model_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn ai_begin_oauth(provider_id: String) -> Result<OAuthDeviceCode> {
     Ok(ai::begin_oauth(provider_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn ai_poll_oauth(flow_id: uuid::Uuid) -> Result<OAuthPollStatus> {
     Ok(ai::poll_oauth(flow_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn ai_disconnect_oauth(provider_id: String) -> Result<()> {
     Ok(ai::disconnect_oauth(provider_id)?)

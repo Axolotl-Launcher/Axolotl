@@ -6,12 +6,14 @@ macro_rules! impl_cache_methods {
     ($(($variant:ident, $type:ty)),*) => {
         $(
             paste::paste! {
+                #[tracing::instrument(skip_all, level = "info")]
                 #[tauri::command]
                 pub async fn [<get_ $variant:snake>](id: &str, cache_behaviour: Option<CacheBehaviour>) -> Result<Option<$type>>
                 {
                     Ok(theseus::cache::[<get_ $variant:snake>](id, cache_behaviour).await?)
                 }
 
+                #[tracing::instrument(skip_all, level = "info")]
                 #[tauri::command]
                 pub async fn [<get_ $variant:snake _many>](
                     ids: Vec<String>,
@@ -39,6 +41,7 @@ impl_cache_methods!(
     (SearchResults, SearchResults)
 );
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_search_results_v3(
     id: &str,
@@ -60,6 +63,7 @@ pub async fn get_search_results_v3(
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_search_results_v3_many(
     ids: Vec<String>,
@@ -72,6 +76,7 @@ pub async fn get_search_results_v3_many(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn cancel_search_request(request_id: String) {
     if let Some(pending) = search_cancellation::cancel(&request_id) {
@@ -108,6 +113,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn purge_cache_types(cache_types: Vec<String>) -> Result<()> {
     let cache_types = supported_cache_types(&cache_types);
@@ -129,6 +135,7 @@ fn supported_cache_types(cache_types: &[String]) -> Vec<CacheValueType> {
         .collect()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_project_versions(
     project_id: &str,

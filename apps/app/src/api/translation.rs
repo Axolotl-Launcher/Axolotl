@@ -18,11 +18,13 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn translation_get_settings() -> Result<TranslationSettings> {
     Ok(translation::get_settings().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn translation_update_settings(
     settings: TranslationSettings,
@@ -30,6 +32,7 @@ pub async fn translation_update_settings(
     Ok(translation::update_settings(settings).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn translation_test_provider(
     provider: TranslationProvider,
@@ -37,6 +40,7 @@ pub async fn translation_test_provider(
     Ok(translation::test_provider(provider).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn translation_translate(
     request: TranslationRequest,
@@ -44,11 +48,13 @@ pub async fn translation_translate(
     Ok(translation::translate(request).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn translation_clear_cache() -> Result<()> {
     Ok(translation::clear_cache().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn translation_google_ip_pool_size() -> usize {
     google_ip::ip_pool_size().await

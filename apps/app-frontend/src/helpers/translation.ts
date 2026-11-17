@@ -2,12 +2,12 @@ import { defineMessages } from '@modrinth/ui'
 import { renderHighlightedString } from '@modrinth/utils'
 import { configuredXss } from '@modrinth/utils/parse'
 import { getVersion } from '@tauri-apps/api/app'
-import { invoke } from '@tauri-apps/api/core'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { type as getOsType } from '@tauri-apps/plugin-os'
 import { LRUCache } from 'lru-cache'
 
 import { AxolotlBrandConfig } from '@/config'
+import { invoke } from '@/helpers/invoke'
 
 import {
     createTranslationBatches,

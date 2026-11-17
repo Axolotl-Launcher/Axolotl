@@ -489,6 +489,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn schematic_preview_open(
     source: SchematicSource,
@@ -530,6 +531,7 @@ pub async fn schematic_preview_open(
     Ok(manifest)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn schematic_preview_list_instance_files(
     instance_id: String,
@@ -544,6 +546,7 @@ pub async fn schematic_preview_list_instance_files(
     .map_err(|error| error.to_string())?
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn schematic_preview_read_chunk(
     session_id: String,
@@ -569,6 +572,7 @@ pub async fn schematic_preview_read_chunk(
     Ok(Response::new(output))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn schematic_preview_block_info(
     session_id: String,
@@ -592,6 +596,7 @@ pub async fn schematic_preview_block_info(
     Ok(session.manifest.palette.get(palette_index).cloned())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn schematic_preview_apply_edits(
     session_id: String,
@@ -739,6 +744,7 @@ fn apply_session_edits(
     Ok(result)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn schematic_preview_export_sponge(
     session_id: String,
@@ -747,6 +753,7 @@ pub fn schematic_preview_export_sponge(
     Ok(Response::new(export_sponge_v3(&session)?))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn schematic_preview_export_litematic(
     session_id: String,
@@ -755,6 +762,7 @@ pub fn schematic_preview_export_litematic(
     Ok(Response::new(export_litematic(&session)?))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn schematic_preview_transform(
     session_id: String,
@@ -776,6 +784,7 @@ pub fn schematic_preview_transform(
     Ok(manifest)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn schematic_preview_cancel(request_id: String) -> Result<(), String> {
     if let Some(cancellation) = request_cancellations()
@@ -788,6 +797,7 @@ pub fn schematic_preview_cancel(request_id: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn schematic_preview_close(session_id: String) -> Result<(), String> {
     sessions()

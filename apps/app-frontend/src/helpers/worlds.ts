@@ -1,11 +1,11 @@
 import type { GameVersion } from '@modrinth/ui'
 import { autoToHTML } from '@sfirew/minecraft-motd-parser'
-import { invoke } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
 
 import { isOfflineMode } from '@/composables/useNetworkStatus'
 import { get_full_path, type InstanceRunResult, resolveGcLaunchIntent } from '@/helpers/instance'
 import { trackInstanceLaunch } from '@/helpers/instance-launch-state'
+import { invoke } from '@/helpers/invoke'
 import { openPath } from '@/helpers/utils'
 
 type BaseWorld = {

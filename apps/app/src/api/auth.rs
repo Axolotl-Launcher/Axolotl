@@ -40,6 +40,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 }
 
 /// Checks if the authentication servers are reachable.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn check_reachable() -> Result<()> {
     minecraft_auth::check_reachable().await?;
@@ -47,6 +48,7 @@ pub async fn check_reachable() -> Result<()> {
 }
 
 /// Checks all Mojang services that the Fallen proxy mirrors.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn check_mojang_services(
     use_mirror: Option<bool>,
@@ -57,6 +59,7 @@ pub async fn check_mojang_services(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn network_scope() -> Result<String> {
     Ok(State::get().await?.network_scope())
@@ -64,6 +67,7 @@ pub async fn network_scope() -> Result<String> {
 
 /// Stores whether the launcher should route Mojang service requests through
 /// the Fallen proxy.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn set_mojang_auth_use_mirror(
     use_mirror: bool,
@@ -77,6 +81,7 @@ pub async fn set_mojang_auth_use_mirror(
 
 /// Whether the launcher currently routes Mojang service requests through the
 /// Fallen proxy.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn mojang_auth_use_mirror() -> bool {
     minecraft_auth::mojang_auth_use_mirror()
@@ -102,6 +107,7 @@ async fn notify_anti_piracy_status<R: Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn login<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -250,6 +256,7 @@ pub async fn login<R: Runtime>(
     Ok(None)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn browser_login<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -312,12 +319,14 @@ pub async fn browser_login<R: Runtime>(
     Ok(Some(credentials))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn begin_device_login()
 -> Result<minecraft_auth::MinecraftDeviceLoginFlow> {
     Ok(minecraft_auth::begin_device_login().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn poll_device_login<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -333,6 +342,7 @@ pub async fn poll_device_login<R: Runtime>(
     Ok(result)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn begin_yggdrasil_login(
     api_root: String,
@@ -345,6 +355,7 @@ pub async fn begin_yggdrasil_login(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn finish_yggdrasil_login(
     flow_id: uuid::Uuid,
@@ -361,11 +372,13 @@ pub struct SavedYggdrasilLogin {
     pub login: String,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn list_yggdrasil_saved_logins() -> Result<Vec<SavedYggdrasilLogin>> {
     read_yggdrasil_saved_logins()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn get_yggdrasil_password(
     api_root: String,
@@ -379,6 +392,7 @@ pub fn get_yggdrasil_password(
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn set_yggdrasil_password(
     api_root: String,
@@ -398,6 +412,7 @@ pub fn set_yggdrasil_password(
     write_yggdrasil_saved_logins(&saved_logins)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn delete_yggdrasil_password(
     api_root: String,
@@ -551,6 +566,7 @@ fn parse_custom_uuid(uuid: Option<String>) -> Result<Option<uuid::Uuid>> {
     })?))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn add_offline_user(
     username: String,
@@ -562,22 +578,26 @@ pub async fn add_offline_user(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn remove_user(user: String) -> Result<()> {
     Ok(minecraft_auth::remove_user(&user).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_default_user(offline_mode: bool) -> Result<Option<String>> {
     Ok(minecraft_auth::get_default_user(offline_mode).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn set_default_user(user: String) -> Result<()> {
     Ok(minecraft_auth::set_default_user(&user).await?)
 }
 
 /// Get a copy of the list of all user credentials
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_users(
     offline_mode: bool,
@@ -590,11 +610,13 @@ pub async fn get_users(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_anti_piracy_status() -> theseus::anti_piracy::Status {
     theseus::anti_piracy::status().await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn clear_official_login_marker<R: Runtime>(
     app: tauri::AppHandle<R>,

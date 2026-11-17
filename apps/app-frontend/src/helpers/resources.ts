@@ -1,4 +1,6 @@
-import { Channel, invoke } from '@tauri-apps/api/core'
+import { Channel } from '@tauri-apps/api/core'
+
+import { invoke } from '@/helpers/invoke'
 
 import { abortable } from './abortable.ts'
 import type { InstallJobSnapshot } from './install'

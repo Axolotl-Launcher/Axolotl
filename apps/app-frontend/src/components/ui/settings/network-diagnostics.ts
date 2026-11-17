@@ -1,5 +1,6 @@
-import { invoke } from '@tauri-apps/api/core'
 import { computed, onScopeDispose, ref } from 'vue'
+
+import { invoke } from '@/helpers/invoke'
 
 export const networkTargets = [
     { id: 'curseforge_api', name: 'CurseForge API', host: 'api.curseforge.com' },

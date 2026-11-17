@@ -54,6 +54,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 }
 
 /// Get all logs for an instance, sorted by filename.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_get_logs(
     instance_id: &str,
@@ -65,6 +66,7 @@ pub async fn logs_get_logs(
 }
 
 /// Get a log struct for an instance by filename.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_get_logs_by_filename(
     instance_id: &str,
@@ -75,6 +77,7 @@ pub async fn logs_get_logs_by_filename(
 }
 
 /// Get the output for an instance by filename.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_get_output_by_filename(
     instance_id: &str,
@@ -84,6 +87,7 @@ pub async fn logs_get_output_by_filename(
     Ok(logs::get_output_by_filename(instance_id, log_type, &filename).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_export_log_file(
     instance_id: &str,
@@ -98,12 +102,14 @@ pub async fn logs_export_log_file(
 }
 
 /// Delete all logs for an instance.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_delete_logs(instance_id: &str) -> Result<()> {
     Ok(logs::delete_logs(instance_id).await?)
 }
 
 /// Delete a log for an instance by filename.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_delete_logs_by_filename(
     instance_id: &str,
@@ -114,6 +120,7 @@ pub async fn logs_delete_logs_by_filename(
 }
 
 /// Get live log from a cursor
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_get_latest_log_cursor(
     instance_id: &str,
@@ -123,6 +130,7 @@ pub async fn logs_get_latest_log_cursor(
 }
 
 /// Get Minecraft's logs/latest.log from a cursor.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_get_minecraft_latest_log_cursor(
     instance_id: &str,
@@ -135,6 +143,7 @@ pub async fn logs_get_minecraft_latest_log_cursor(
 }
 
 /// Get all buffered live log lines for an instance.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_get_live_log_buffer(
     instance_id: &str,
@@ -143,6 +152,7 @@ pub async fn logs_get_live_log_buffer(
 }
 
 /// Clear the live log buffer for an instance.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_clear_live_log_buffer(instance_id: &str) -> Result<()> {
     logs::clear_live_log_buffer(instance_id);
@@ -150,17 +160,20 @@ pub async fn logs_clear_live_log_buffer(instance_id: &str) -> Result<()> {
 }
 
 /// Collect and locally analyze the files produced by the instance's latest run.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_analyze_crash(instance_id: &str) -> Result<CrashAnalysis> {
     Ok(logs::analyze_crash(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_get_crash_analysis_ai_settings()
 -> Result<CrashAnalysisAiSettings> {
     Ok(logs::get_crash_analysis_ai_settings().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_update_crash_analysis_ai_settings(
     settings: CrashAnalysisAiSettings,
@@ -168,6 +181,7 @@ pub async fn logs_update_crash_analysis_ai_settings(
     Ok(logs::update_crash_analysis_ai_settings(settings).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_logagent_prepare(
     instance_id: &str,
@@ -177,6 +191,7 @@ pub async fn logs_logagent_prepare(
     Ok(logs::logagent::prepare(instance_id, run_id, source).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_logagent_model_turn(
     run_id: &str,
@@ -189,6 +204,7 @@ pub async fn logs_logagent_model_turn(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_logagent_tool(
     run_id: &str,
@@ -197,6 +213,7 @@ pub async fn logs_logagent_tool(
     Ok(logs::logagent::tool(run_id, request)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_logagent_cloud(
     run_id: &str,
@@ -209,11 +226,13 @@ pub async fn logs_logagent_cloud(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_logagent_cancel(run_id: &str) -> Result<()> {
     Ok(logs::logagent::cancel(run_id)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_undo_added_mod(
     instance_id: &str,
@@ -224,6 +243,7 @@ pub async fn logs_undo_added_mod(
 }
 
 /// Export the latest run's censored diagnostic context as a ZIP archive.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_export_crash_context(
     instance_id: &str,
@@ -252,11 +272,13 @@ pub async fn logs_export_crash_context(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_get_log_share_settings() -> Result<LogShareSettings> {
     Ok(logs::get_log_share_settings().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_update_log_share_settings(
     settings: LogShareSettings,
@@ -264,6 +286,7 @@ pub async fn logs_update_log_share_settings(
     Ok(logs::update_log_share_settings(settings).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_logshare_upload_crash(
     instance_id: &str,
@@ -271,6 +294,7 @@ pub async fn logs_logshare_upload_crash(
     Ok(logs::upload_crash(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_logshare_get_insights(
     id: &str,
@@ -279,6 +303,7 @@ pub async fn logs_logshare_get_insights(
     Ok(logs::get_insights(id, filename).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_logshare_analyse_crash_direct(
     instance_id: &str,
@@ -286,22 +311,26 @@ pub async fn logs_logshare_analyse_crash_direct(
     Ok(logs::analyse_crash_direct(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_logshare_delete(id: &str, token: &str) -> Result<()> {
     logs::delete_log(id, token).await?;
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_list_shared_logs() -> Result<Vec<SharedLog>> {
     Ok(logs::list_shared_logs().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_record_shared_log(log: SharedLog) -> Result<()> {
     Ok(logs::record_shared_log(log).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn logs_delete_shared_log(id: String, token: String) -> Result<()> {
     Ok(logs::delete_shared_log(id, token).await?)

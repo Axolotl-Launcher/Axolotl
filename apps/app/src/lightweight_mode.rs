@@ -599,6 +599,7 @@ async fn rename_minecraft_window(
 ) {
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn lightweight_mode_frontend_ready(
     app: AppHandle,
@@ -620,11 +621,13 @@ pub struct FrontendReadyPayload {
     pub pending_commands: Vec<CommandPayload>,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn lightweight_mode_set_route(app: AppHandle, route: String) {
     app.state::<LightweightMode>().set_route(route);
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn lightweight_mode_enter(app: AppHandle) -> Result<(), String> {
     // Schedule the window destruction after returning from the IPC command.

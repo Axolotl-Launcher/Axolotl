@@ -1,5 +1,6 @@
-import { invoke } from '@tauri-apps/api/core'
 import { ref } from 'vue'
+
+import { invoke } from '@/helpers/invoke'
 
 export type AIProtocol =
     | 'openai'

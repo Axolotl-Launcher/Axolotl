@@ -1,7 +1,7 @@
-import { invoke } from '@tauri-apps/api/core'
 import { save } from '@tauri-apps/plugin-dialog'
 
 import { get_full_path, get_mod_full_path } from '@/helpers/instance'
+import { invoke } from '@/helpers/invoke'
 
 export async function isDev() {
     return await invoke('is_dev')

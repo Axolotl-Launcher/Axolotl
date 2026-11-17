@@ -21,6 +21,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
 /// Gets a list of importable instances from a launcher type and base path.
 /// Each entry includes the display name and the resolved filesystem path.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_importable_instances(
     launcher_type: ImportLauncherType,
@@ -41,6 +42,7 @@ pub async fn get_importable_instances(
 
 /// Checks if this instance is valid for importing, given a certain launcher type
 /// eg: is_valid_importable_instance(PathBuf::from("C:/MultiMC/Instance 1"), ImportLauncherType::MultiMC)
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn is_valid_importable_instance(
     instance_folder: PathBuf,
@@ -61,6 +63,7 @@ pub async fn is_valid_importable_instance(
 
 /// Returns the default path for the given launcher type
 /// None if it can't be found or doesn't exist
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_default_launcher_path(
     launcher_type: ImportLauncherType,

@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/vue-query'
-import { invoke } from '@tauri-apps/api/core'
+
+import { invoke } from '@/helpers/invoke'
 
 export type GameOptionCanonicalValue =
     | { type: 'bool'; value: boolean }

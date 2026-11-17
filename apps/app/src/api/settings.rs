@@ -45,6 +45,7 @@ pub(crate) fn log_level_for_channel(channel: &str, log_level: &str) -> String {
 static NETWORK_TEST_SLOTS: tokio::sync::Semaphore =
     tokio::sync::Semaphore::const_new(2);
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn network_test(
     request_id: uuid::Uuid,
@@ -66,6 +67,7 @@ pub async fn network_test(
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn network_test_cancel(request_id: uuid::Uuid) {
     if let Some(pending) = super::search_cancellation::cancel(&format!(
@@ -80,6 +82,7 @@ pub fn network_test_cancel(request_id: uuid::Uuid) {
 
 // Get full settings
 // invoke('plugin:settings|settings_get')
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn settings_get() -> Result<Settings> {
     let res = settings::get().await?;
@@ -87,6 +90,7 @@ pub async fn settings_get() -> Result<Settings> {
 }
 
 /// Merges only the edited fields into current settings.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn settings_patch(
     app: tauri::AppHandle<impl Runtime>,
@@ -112,6 +116,7 @@ pub async fn settings_patch(
 
 /// Every settings key with what each layer says about it: what the deployment
 /// provides, what the local document overrides, and what the key reads as.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn settings_layers() -> Result<Vec<SettingLayer>> {
     Ok(settings::layers().await?)
@@ -120,6 +125,7 @@ pub async fn settings_layers() -> Result<Vec<SettingLayer>> {
 /// Drops one key from the local settings document so the deployment's answer
 /// takes over again; `expected` is the value the caller saw, and the key is only
 /// cleared while it still holds it.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn settings_override_clear(
     app: tauri::AppHandle<impl Runtime>,
@@ -135,6 +141,7 @@ pub async fn settings_override_clear(
 
 /// Rewrites every local settings document in the shape this build knows, which
 /// is what releases a document a newer build wrote from being read-only.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn settings_sanitise() -> Result<usize> {
     Ok(settings::sanitise().await?)
@@ -263,6 +270,7 @@ async fn read_archive(input_path: &Path) -> Result<Map<String, Value>> {
 
 /// What importing the archive at `input_path` would find in it, so the user can
 /// be told what it carries before any of it is applied.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn settings_import_scan(input_path: PathBuf) -> Result<ImportScan> {
     let documents = read_archive(&input_path).await?;
@@ -287,6 +295,7 @@ pub enum ImportDanger {
 /// rewritten, and `danger` is the user's answer about what `settings_import_scan`
 /// reported; `Skip` is the one that keeps a file from choosing what the launcher
 /// runs.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn settings_import(
     app: tauri::AppHandle<impl Runtime>,
@@ -319,6 +328,7 @@ pub enum SettingsExportKind {
 /// domain, each in the shape the launcher's own files take and indented for a
 /// human to read and edit: a deployment's document is a file its owner keeps by
 /// hand.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn settings_export(
     output_path: PathBuf,
@@ -373,26 +383,31 @@ mod tests {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn privacy_get() -> Result<PrivacySettings> {
     Ok(settings::get_privacy().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn privacy_set(privacy: PrivacySettings) -> Result<PrivacySettings> {
     Ok(settings::set_privacy(privacy).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn telemetry_set(enabled: bool) -> Result<PrivacySettings> {
     Ok(settings::set_telemetry(enabled).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn discord_rpc_set(enabled: bool) -> Result<PrivacySettings> {
     Ok(settings::set_discord_rpc(enabled).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn cancel_directory_change<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -402,12 +417,14 @@ pub async fn cancel_directory_change<R: Runtime>(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn proxy_get() -> Result<ProxyConfig> {
     let state = State::get().await?;
     Ok(state.proxy_config().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn proxy_set(
     app: tauri::AppHandle<impl Runtime>,
@@ -420,6 +437,7 @@ pub async fn proxy_set(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn proxy_test(config: ProxyConfig) -> Result<ProxyTestResult> {
     Ok(theseus::test_proxy_connection(&config).await?)

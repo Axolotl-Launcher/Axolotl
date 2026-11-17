@@ -17,7 +17,6 @@ import {
     useDebugLogger,
     useVIntl,
 } from '@modrinth/ui'
-import { invoke } from '@tauri-apps/api/core'
 import { join } from '@tauri-apps/api/path'
 import {
     mkdir,
@@ -32,6 +31,7 @@ import { useRouter } from 'vue-router'
 
 import { instance_listener } from '@/helpers/events'
 import { get_full_path } from '@/helpers/instance'
+import { invoke } from '@/helpers/invoke'
 import { createRequestGeneration } from '@/helpers/request-generation'
 import type { GameInstance } from '@/helpers/types'
 import { highlightInFolder } from '@/helpers/utils'

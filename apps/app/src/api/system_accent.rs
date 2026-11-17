@@ -258,6 +258,7 @@ fn start_accent_color_watcher<R: Runtime>(app: AppHandle<R>) {
     });
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn system_accent_color() -> Result<AccentColor, String> {
     #[cfg(target_os = "windows")]

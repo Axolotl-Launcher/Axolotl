@@ -148,6 +148,12 @@ async fn remove_instance_files_and_state(
     .await;
     crate::api::instance::remove_generated_instance_files(instance_id, state)
         .await?;
+    crate::state::store::recovery_documents::preserve_instance_before_removal(
+        &state.pool,
+        instance_id,
+        &path,
+    )
+    .await?;
     io::remove_dir_all(&path).await?;
 
     let jobs = crate::install::store::mark_instance_deleted(instance_id, state)
@@ -260,20 +266,12 @@ mod tests {
         };
         std::fs::create_dir_all(directories.instances_dir().join("example"))
             .unwrap();
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(
-                sqlx::sqlite::SqliteConnectOptions::new()
-                    .filename(temp.path().join("app.db"))
-                    .create_if_missing(true)
-                    .foreign_keys(true),
-            )
+        let pool = crate::state::store::databases::open(temp.path())
             .await
             .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
         sqlx::raw_sql(
             "INSERT INTO instances(id, path, name, install_stage, launcher_feature_version, created, modified)
-                VALUES ('instance', 'example', 'Example', 'installed', '1', 1, 1);
+                VALUES ('instance', 'example', 'Example', 'installed', 'none', 1, 1);
              INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified)
                 VALUES ('set', 'instance', 'Main', 'local', 'available', '1.21', 'fabric', 1, 1);
              UPDATE instances SET applied_content_set_id = 'set' WHERE id = 'instance';",
@@ -323,6 +321,16 @@ mod tests {
                 .unwrap();
             let profile = state.directories.instances_dir().join("example");
             assert!(profile.join(config_sync::CONFIG_FILE_NAME).is_file());
+            if periodic {
+                // Periodic sync follows pending recovery revisions, rather than
+                // the optional compatibility config file's presence.
+                crate::state::instances::adapters::sqlite::manifest_rows::force_dirty(
+                    &state.pool,
+                    "instance",
+                )
+                .await
+                .unwrap();
+            }
 
             let deleting = state.lock_instance_content("instance").await;
             std::fs::remove_file(profile.join(config_sync::CONFIG_FILE_NAME))
@@ -399,6 +407,14 @@ mod tests {
             let (_temp, state) = state_with_one_instance().await;
             let profile = state.directories.instances_dir().join("example");
             record_file_journal(&state, &profile, committed).await;
+            // Model missing game files with the durable journal still available.
+            crate::state::store::recovery_documents::preserve_instance_before_removal(
+                &state.pool,
+                "instance",
+                &profile,
+            )
+            .await
+            .unwrap();
             std::fs::remove_dir_all(&profile).unwrap();
             let result =
                 remove_instance_files_and_state("instance", &state, false)
@@ -499,6 +515,14 @@ mod tests {
         let different = temp.path().join("different");
         std::fs::create_dir_all(&different).unwrap();
         record_file_journal(&state, &different, true).await;
+        // Retain the evidence while making the recorded profile unavailable.
+        crate::state::store::recovery_documents::preserve_instance_before_removal(
+            &state.pool,
+            "instance",
+            &state.directories.instances_dir().join("example"),
+        )
+        .await
+        .unwrap();
         std::fs::remove_dir_all(
             state.directories.instances_dir().join("example"),
         )

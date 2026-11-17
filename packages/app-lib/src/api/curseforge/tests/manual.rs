@@ -365,6 +365,18 @@ async fn curseforge_pending_is_scoped_by_instance() {
     crate::install::store::dismiss(job_a, &state).await.unwrap();
     crate::install::store::dismiss(job_b, &state).await.unwrap();
     crate::api::instance::remove(&instance_a).await.unwrap();
+    assert!(
+        crate::install::store::get_required(job_a, &state)
+            .await
+            .unwrap()
+            .dismissed
+    );
+    assert!(
+        crate::install::store::get_required(job_b, &state)
+            .await
+            .unwrap()
+            .dismissed
+    );
     crate::api::instance::remove(&instance_b).await.unwrap();
 }
 
@@ -389,10 +401,12 @@ async fn curseforge_missing_pending_without_materialization_keeps_real_job_waiti
     .unwrap();
 
     assert_stage6_job_is_unresolved(&state, job_id, "mods/missing.jar").await;
-    crate::install::store::dismiss(job_id, &state)
+    crate::api::instance::remove(&instance_id).await.unwrap();
+    let retained = crate::install::store::get_required(job_id, &state)
         .await
         .unwrap();
-    crate::api::instance::remove(&instance_id).await.unwrap();
+    assert!(!retained.dismissed);
+    assert!(retained.state.instance_deleted());
 }
 
 #[cfg(not(feature = "tauri"))]

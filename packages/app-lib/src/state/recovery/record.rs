@@ -146,6 +146,67 @@ pub(crate) async fn read(
     }
     Ok(serde_json::from_slice(&payload)?)
 }
+
+/// Preserve an exact immutable generation without interpreting its payload.
+/// The destination keeps the filename because shard names belong to it.
+pub(crate) async fn copy_exact(
+    path: &Path,
+    destination: &Path,
+    hash: &str,
+    kind: &str,
+    key: &str,
+    instance_id: Option<&str>,
+    revision: i64,
+) -> crate::Result<()> {
+    let bytes = exact(path, hash, 64 * 1024).await?;
+    let envelope: Envelope = serde_json::from_slice(&bytes)?;
+    if envelope.protocol != "axolotl-operation"
+        || envelope.schema_version != 1
+        || envelope.kind != kind
+        || envelope.key != key
+        || envelope.instance_id.as_deref() != instance_id
+        || envelope.revision != revision
+        || envelope.parts.len() > MAX_BYTES / SHARD_BYTES
+        || path.file_name() != destination.file_name()
+    {
+        return Err(invalid(
+            "Unsupported operation cannot be relocated safely",
+        ));
+    }
+    let folder = path
+        .parent()
+        .ok_or_else(|| invalid("Operation has no parent"))?;
+    let target = destination
+        .parent()
+        .ok_or_else(|| invalid("Operation destination has no parent"))?;
+    let stem = path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .ok_or_else(|| invalid("Invalid operation filename"))?;
+    let mut total = 0usize;
+    for (index, part) in envelope.parts.iter().enumerate() {
+        total = total.saturating_add(part.bytes);
+        if part.name != format!("{stem}-{index}.part")
+            || part.bytes > SHARD_BYTES
+            || total > MAX_BYTES
+        {
+            return Err(invalid("Operation shard cannot be relocated safely"));
+        }
+        let payload =
+            exact(&folder.join(&part.name), &part.sha256, part.bytes).await?;
+        if payload.len() != part.bytes {
+            return Err(invalid("Operation shard size mismatch"));
+        }
+        document::write_blob(
+            &previous(&target.join(&part.name)),
+            payload.clone(),
+        )
+        .await?;
+        document::write_blob(&target.join(&part.name), payload).await?;
+    }
+    document::write_blob(&previous(destination), bytes.clone()).await?;
+    document::write_blob(destination, bytes).await
+}
 pub(crate) async fn bounded(
     path: &Path,
     limit: usize,

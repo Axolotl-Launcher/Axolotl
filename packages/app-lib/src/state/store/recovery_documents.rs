@@ -14,6 +14,7 @@ pub(crate) async fn install(
     connection.execute("CREATE INDEX IF NOT EXISTS main.operation_publications_owner ON operation_publications(instance_id,kind)").await?;
     connection.execute("CREATE TABLE IF NOT EXISTS main.operation_imports(kind TEXT PRIMARY KEY NOT NULL)").await?;
     connection.execute("CREATE TABLE IF NOT EXISTS main.operation_opaque(kind TEXT PRIMARY KEY NOT NULL)").await?;
+    connection.execute("CREATE TABLE IF NOT EXISTS main.operation_detached_owners(instance_id TEXT PRIMARY KEY NOT NULL)").await?;
     Ok(())
 }
 pub(crate) async fn active(
@@ -381,7 +382,13 @@ async fn write_inner<T: Serialize>(
             owner.as_deref().unwrap_or("_launcher"),
         ))
         .join("operations");
-    if let Some(owner) = owner.as_deref() {
+    let detached = if let Some(owner) = owner.as_deref() {
+        sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM main.operation_detached_owners WHERE instance_id=?)")
+            .bind(owner).fetch_one(&mut *connection).await?
+    } else {
+        false
+    };
+    if let Some(owner) = owner.as_deref().filter(|_| !detached) {
         let row:Option<(String,Option<String>,Option<String>,Option<String>)>=sqlx::query_as("SELECT path,symlink_target,game_dir_override,linked_dot_minecraft FROM instances.instances WHERE id=?").bind(owner).fetch_optional(&mut *connection).await?;
         if let Some((path, None, None, None)) = row {
             let content = super::sync_documents::configured_root(&root)
@@ -424,6 +431,121 @@ async fn write_inner<T: Serialize>(
     .await?;
     sqlx::query("INSERT INTO main.operation_publications(kind,id,instance_id,revision,object_path,sha256,deleted) VALUES(?,?,?,?,?,?,0) ON CONFLICT(kind,id) DO UPDATE SET instance_id=excluded.instance_id,revision=excluded.revision,object_path=excluded.object_path,sha256=excluded.sha256,deleted=0").bind(kind).bind(key).bind(owner).bind(revision).bind(path.to_string_lossy().into_owned()).bind(hash).execute(connection).await?;
     Ok(())
+}
+
+type RemovalRecord = (String, String, Option<String>, i64, String, String);
+
+/// A routing fence retains operation history even if deleting the profile
+/// fails. It never marks a task complete or authorizes file recovery.
+pub(crate) async fn preserve_instance_before_removal(
+    pool: &sqlx::SqlitePool,
+    instance_id: &str,
+    removed_path: &Path,
+) -> crate::Result<()> {
+    preserve_instance_before_removal_with_hook(
+        pool,
+        instance_id,
+        removed_path,
+        || async {},
+    )
+    .await
+}
+
+async fn preserve_instance_before_removal_with_hook<F, Fut>(
+    pool: &sqlx::SqlitePool,
+    instance_id: &str,
+    removed_path: &Path,
+    before_publish: F,
+) -> crate::Result<()>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    let (settings_root, records) = {
+        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        if !active(&mut transaction).await? {
+            return Ok(());
+        }
+        sqlx::query("INSERT OR IGNORE INTO main.operation_detached_owners(instance_id) VALUES(?)")
+            .bind(instance_id).execute(&mut *transaction).await?;
+        let settings_root = root(&mut transaction).await?;
+        let records = removal_records(&mut transaction, instance_id).await?;
+        transaction.commit().await?;
+        (settings_root, records)
+    };
+    if records.is_empty() {
+        return Ok(());
+    }
+    let removed_path = match tokio::fs::canonicalize(removed_path).await {
+        Ok(path) => path,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(());
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let mut replacements = Vec::new();
+    for (kind, key, owner, revision, path, hash) in &records {
+        if !Path::new(path).starts_with(&removed_path) {
+            continue;
+        }
+        let directory = settings_root
+            .join("state/instances")
+            .join(crate::state::instances::manifest::id_key(instance_id))
+            .join("operations")
+            .join(uuid::Uuid::new_v4().to_string());
+        if tokio::fs::canonicalize(&settings_root)
+            .await?
+            .starts_with(&removed_path)
+        {
+            return Err(invalid(
+                "Operation preservation destination is inside the removal tree",
+            ));
+        }
+        let directory = owned_directory(&settings_root, &directory).await?;
+        if directory.starts_with(&removed_path) {
+            return Err(invalid(
+                "Operation preservation destination is inside the removal tree",
+            ));
+        }
+        let destination = directory.join(
+            Path::new(path)
+                .file_name()
+                .ok_or_else(|| invalid("Operation filename is missing"))?,
+        );
+        crate::state::recovery::record::copy_exact(
+            Path::new(path),
+            &destination,
+            hash,
+            kind,
+            key,
+            owner.as_deref(),
+            *revision,
+        )
+        .await?;
+        replacements.push((kind, key, destination));
+    }
+    before_publish().await;
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    if removal_records(&mut transaction, instance_id).await? != records {
+        return Err(invalid(
+            "Operation changed while preparing instance removal; retry removal",
+        ));
+    }
+    for (kind, key, destination) in replacements {
+        sqlx::query("UPDATE main.operation_publications SET object_path=? WHERE kind=? AND id=?")
+            .bind(destination.to_string_lossy().into_owned()).bind(kind).bind(key)
+            .execute(&mut *transaction).await?;
+    }
+    transaction.commit().await?;
+    Ok(())
+}
+
+async fn removal_records(
+    connection: &mut SqliteConnection,
+    instance_id: &str,
+) -> crate::Result<Vec<RemovalRecord>> {
+    Ok(sqlx::query_as("SELECT kind,id,instance_id,revision,object_path,sha256 FROM main.operation_publications WHERE instance_id=? AND deleted=0 ORDER BY kind,id")
+        .bind(instance_id).fetch_all(connection).await?)
 }
 
 pub(crate) async fn ensure_instance_supported(
@@ -1320,6 +1442,244 @@ pub(crate) async fn strict_owner<T: DeserializeOwned>(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    async fn removal_fixture() -> (tempfile::TempDir, sqlx::SqlitePool, PathBuf)
+    {
+        let root = tempfile::tempdir().unwrap();
+        let profile = root.path().join("profiles/first");
+        tokio::fs::create_dir_all(&profile).await.unwrap();
+        let pool = super::super::databases::open(root.path()).await.unwrap();
+        sqlx::query("INSERT INTO instances.instances(id,path,name,install_stage,launcher_feature_version,created,modified) VALUES ('first','first','First','installed','none',1,1),('other','other','Other','installed','none',1,1)")
+            .execute(&pool).await.unwrap();
+        pool.close().await;
+        drop(pool);
+        let instance_database = root.path().join("databases/instances.db");
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .after_connect(move |connection, _| {
+                let instance_database = instance_database.clone();
+                Box::pin(async move {
+                    sqlx::query("ATTACH DATABASE ? AS instances")
+                        .bind(instance_database.to_string_lossy().into_owned())
+                        .execute(connection)
+                        .await?;
+                    Ok(())
+                })
+            })
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(root.path().join("databases/system.db")),
+            )
+            .await
+            .unwrap();
+        (root, pool, profile)
+    }
+
+    async fn removal_record(
+        pool: &sqlx::SqlitePool,
+        key: &str,
+        owner: &str,
+        dismissed: bool,
+    ) -> RemovalRecord {
+        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+        write_imported(&mut transaction, "example", key, Some(&json!({"instance_id":owner,"dismissed":dismissed,"future":{"retain":true}}))).await.unwrap();
+        transaction.commit().await.unwrap();
+        removal_records(&mut *pool.acquire().await.unwrap(), owner)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|record| record.1 == key)
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn removal_preserves_exact_generations_and_routes_later_writes_outside_profile()
+     {
+        let (root, pool, profile) = removal_fixture().await;
+        let active = removal_record(&pool, "active", "first", false).await;
+        let dismissed = removal_record(&pool, "dismissed", "first", true).await;
+        let foreign = removal_record(&pool, "foreign", "other", false).await;
+        tokio::fs::write(&dismissed.4, b"broken original")
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO main.operation_opaque(kind) VALUES('example')",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert!(
+            Path::new(&active.4)
+                .starts_with(tokio::fs::canonicalize(&profile).await.unwrap())
+        );
+
+        preserve_instance_before_removal(&pool, "first", &profile)
+            .await
+            .unwrap();
+        let selected =
+            removal_records(&mut *pool.acquire().await.unwrap(), "first")
+                .await
+                .unwrap();
+        for before in [&active, &dismissed] {
+            let after =
+                selected.iter().find(|record| record.1 == before.1).unwrap();
+            assert_eq!(
+                (&after.0, &after.1, &after.2, after.3, &after.5),
+                (&before.0, &before.1, &before.2, before.3, &before.5)
+            );
+            assert!(
+                Path::new(&after.4).starts_with(
+                    tokio::fs::canonicalize(
+                        root.path().join("state/instances")
+                    )
+                    .await
+                    .unwrap()
+                )
+            );
+            assert_eq!(
+                crate::state::recovery::record::read(
+                    Path::new(&after.4),
+                    &after.5,
+                    &after.0,
+                    &after.1,
+                    after.2.as_deref(),
+                    after.3
+                )
+                .await
+                .unwrap()["future"]["retain"],
+                true
+            );
+        }
+        assert_eq!(
+            removal_records(&mut *pool.acquire().await.unwrap(), "other")
+                .await
+                .unwrap(),
+            vec![foreign]
+        );
+        assert_eq!(
+            tokio::fs::read(&dismissed.4).await.unwrap(),
+            b"broken original"
+        );
+        // A retry after a failed filesystem deletion does not repoint a record
+        // into the still-existing profile or rewrite an already selected copy.
+        preserve_instance_before_removal(&pool, "first", &profile)
+            .await
+            .unwrap();
+        assert_eq!(
+            removal_records(&mut *pool.acquire().await.unwrap(), "first")
+                .await
+                .unwrap(),
+            selected
+        );
+        sqlx::query("DELETE FROM main.operation_opaque WHERE kind='example'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let later = removal_record(&pool, "later", "first", false).await;
+        assert!(
+            !Path::new(&later.4)
+                .starts_with(tokio::fs::canonicalize(&profile).await.unwrap())
+        );
+        tokio::fs::remove_dir_all(&profile).await.unwrap();
+        for row in selected.into_iter().chain([later]) {
+            assert!(
+                crate::state::recovery::record::read(
+                    Path::new(&row.4),
+                    &row.5,
+                    &row.0,
+                    &row.1,
+                    row.2.as_deref(),
+                    row.3
+                )
+                .await
+                .is_ok()
+            );
+        }
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn removal_rejects_a_changed_generation_without_overwriting_its_new_decision()
+     {
+        let (_root, pool, profile) = removal_fixture().await;
+        removal_record(&pool, "active", "first", false).await;
+        let result = preserve_instance_before_removal_with_hook(&pool, "first", &profile, || async {
+            tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                let mut tx = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+                write_imported(&mut tx, "example", "active", Some(&json!({"instance_id":"first","future":"new generation"}))).await.unwrap();
+                tx.commit().await.unwrap();
+            }).await.expect("record copying must release the sole connection and core writer");
+        }).await;
+        assert!(result.is_err());
+        assert!(profile.is_dir());
+        let row = removal_records(&mut *pool.acquire().await.unwrap(), "first")
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert_eq!(row.3, 2);
+        assert_eq!(
+            crate::state::recovery::record::read(
+                Path::new(&row.4),
+                &row.5,
+                &row.0,
+                &row.1,
+                row.2.as_deref(),
+                row.3
+            )
+            .await
+            .unwrap()["future"],
+            "new generation"
+        );
+        preserve_instance_before_removal(&pool, "first", &profile)
+            .await
+            .unwrap();
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn removal_refuses_unrecoverable_or_future_envelopes_without_deleting_sources()
+     {
+        for future in [false, true] {
+            let (_root, pool, profile) = removal_fixture().await;
+            let row = removal_record(&pool, "active", "first", false).await;
+            if future {
+                let mut envelope: Value = serde_json::from_slice(
+                    &tokio::fs::read(&row.4).await.unwrap(),
+                )
+                .unwrap();
+                envelope["schema_version"] = json!(99);
+                let bytes = serde_json::to_vec(&envelope).unwrap();
+                tokio::fs::write(&row.4, &bytes).await.unwrap();
+                sqlx::query("UPDATE main.operation_publications SET sha256=? WHERE id='active'").bind(crate::state::recovery::record::digest(&bytes)).execute(&pool).await.unwrap();
+            } else {
+                tokio::fs::write(&row.4, b"broken primary").await.unwrap();
+                tokio::fs::write(
+                    format!("{}.previous", row.4),
+                    b"broken fallback",
+                )
+                .await
+                .unwrap();
+            }
+            assert!(
+                preserve_instance_before_removal(&pool, "first", &profile)
+                    .await
+                    .is_err()
+            );
+            assert!(profile.is_dir());
+            assert!(Path::new(&row.4).is_file());
+            let after =
+                removal_records(&mut *pool.acquire().await.unwrap(), "first")
+                    .await
+                    .unwrap()
+                    .pop()
+                    .unwrap();
+            assert_eq!(after.4, row.4);
+            assert_eq!(after.3, row.3);
+            pool.close().await;
+        }
+    }
+
     #[test]
     fn clearing_known_optional_recovery_data_preserves_only_extensions() {
         let previous = json!({"rollback":{"content":{"files":["old"]},"future":{"retain":true}}});

@@ -741,8 +741,13 @@ async fn connector_favorites_use_stable_ids_without_the_legacy_provider_constrai
     let pool = main_pool().await;
     let (_directory, cache) = cache().await;
     let store = crate::state::resources::ResourceStore::new(pool.clone());
-    let service =
-        ResourceService::with_store(cache.clone(), vec![], store).unwrap();
+    let provider = SearchProvider::new(SourceId::planet_minecraft(), &[]);
+    let service = ResourceService::with_store(
+        cache.clone(),
+        vec![provider.clone()],
+        store,
+    )
+    .unwrap();
     let project = SourceProjectRef {
         source: SourceId::planet_minecraft(),
         project_id: SourceProjectId::new("connector-project").unwrap(),
@@ -754,6 +759,7 @@ async fn connector_favorites_use_stable_ids_without_the_legacy_provider_constrai
     assert_eq!(service.favorites(&pool).await.unwrap()[0].project, project);
     service.favorite_remove(&pool, &project).await.unwrap();
     assert!(service.favorites(&pool).await.unwrap().is_empty());
+    assert!(provider.calls.lock().unwrap().is_empty());
     cache.close().await;
 }
 

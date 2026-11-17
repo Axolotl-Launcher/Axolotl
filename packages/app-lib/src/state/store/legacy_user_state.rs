@@ -177,18 +177,58 @@ pub(super) async fn ensure_cleanup_supported(root: &Path) -> crate::Result<()> {
 }
 
 /// Legacy SQL fixtures opt into a one-time handover under their stable pool root.
+/// Use the existing fixture connection rather than requiring a file-backed
+/// snapshot. The importer still owns the one-time authority/receipt decision.
 #[cfg(test)]
 pub(crate) async fn initialize_test_pool(pool: &sqlx::SqlitePool) {
     let persistence = super::persistence_for_pool(pool);
-    let snapshot = persistence.root().join("legacy-test-fixture.db");
-    let mut connection = pool.acquire().await.expect("fixture connection");
-    crate::state::db_backup::create_verified_sqlite_snapshot(
-        &mut connection,
-        &snapshot,
-    )
-    .await
-    .expect("fixture snapshot");
-    drop(connection);
-    initialize(persistence.root(), Some(snapshot.clone())).await;
-    let _ = tokio::fs::remove_file(snapshot).await;
+    let access = super::secrets::access();
+    for (name, protocol) in [
+        ("worlds", "axolotl-world-choices"),
+        ("joins", "axolotl-server-joins"),
+        ("shared_logs", "axolotl-shared-logs"),
+        ("resource_favorites", "axolotl-resource-favorites"),
+        ("instance_pins", "axolotl-instance-pins"),
+    ] {
+        let pool = pool.clone();
+        let target = Domain::new(&persistence, name, protocol);
+        let source_root = persistence.clone();
+        Import::new(&persistence, name, target.document)
+            .expect("fixture import")
+            .run(
+                move || async move {
+                    let mut connection = pool.acquire().await?;
+                    let mut data =
+                        Map::from_iter([("entries".into(), json!({}))]);
+                    load(
+                        &mut connection,
+                        &source_root,
+                        name,
+                        access,
+                        &mut data,
+                    )
+                    .await?;
+                    if !columns(&mut connection, "extension_records")
+                        .await?
+                        .is_empty()
+                    {
+                        let opaque: bool = sqlx::query_scalar(
+                            "SELECT EXISTS(SELECT 1 FROM extension_records)",
+                        )
+                        .fetch_one(&mut *connection)
+                        .await?;
+                        data.insert(
+                            "legacy_extensions_present".into(),
+                            json!(opaque),
+                        );
+                    }
+                    Ok(data)
+                },
+                |snapshot| {
+                    user_state::validate(snapshot.data().expect("fixture data"))
+                },
+            )
+            .await
+            .expect("fixture handover");
+    }
 }

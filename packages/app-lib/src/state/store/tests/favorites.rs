@@ -138,3 +138,23 @@ async fn a_resource_saved_as_two_content_types_keeps_both_rows() {
         ]
     );
 }
+
+#[tokio::test]
+async fn favorite_fixture_handover_does_not_reimport_changed_legacy_rows() {
+    let pool = support::pool().await;
+    support::add_resource(&pool, "resource").await;
+    link(&pool, "modrinth", "sodium", "resource").await;
+    link(&pool, "curseforge", "other", "resource").await;
+    save(&pool, "modrinth", "sodium", "mod", 100).await;
+    let imported = favorites::saved(&pool).await.unwrap();
+    assert_eq!(imported.len(), 1);
+    assert_eq!(imported[0].saved_at, 100);
+
+    sqlx::query("DELETE FROM resource_favorites")
+        .execute(&pool)
+        .await
+        .unwrap();
+    save(&pool, "curseforge", "other", "shader", 200).await;
+    crate::state::store::legacy_user_state::initialize_test_pool(&pool).await;
+    assert_eq!(favorites::saved(&pool).await.unwrap(), imported);
+}

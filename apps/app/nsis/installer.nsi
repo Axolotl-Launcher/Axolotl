@@ -114,6 +114,8 @@ Var DesktopShortcutCheckbox
 Var DesktopShortcutState
 Var FileAssociationCheckbox
 Var FileAssociationState
+Var SchematicAssociationCheckbox
+Var SchematicAssociationState
 Var InstallerBodyFont
 Var InstallerTitleFont
 Var InstallerSmallFont
@@ -710,7 +712,13 @@ Function PageOptions
   SendMessage $FileAssociationCheckbox ${WM_SETFONT} $InstallerBodyFont 1
   ${NSD_SetState} $FileAssociationCheckbox $FileAssociationState
 
-  ${NSD_CreateLabel} 0 113u 100% 14u ""
+  ${NSD_CreateCheckbox} 0 113u 100% 10u "$(axlAssociateSchematicTypes)"
+  Pop $SchematicAssociationCheckbox
+  !insertmacro AxlStyleControl $SchematicAssociationCheckbox ${AXL_TEXT} ${AXL_BACKGROUND}
+  SendMessage $SchematicAssociationCheckbox ${WM_SETFONT} $InstallerBodyFont 1
+  ${NSD_SetState} $SchematicAssociationCheckbox $SchematicAssociationState
+
+  ${NSD_CreateLabel} 0 124u 100% 14u ""
   Pop $OptionsError
   SetCtlColors $OptionsError ${AXL_ERROR} ${AXL_BACKGROUND}
   SendMessage $OptionsError ${WM_SETFONT} $InstallerSmallFont 1
@@ -736,6 +744,7 @@ Function PageLeaveOptions
 
   ${NSD_GetState} $DesktopShortcutCheckbox $DesktopShortcutState
   ${NSD_GetState} $FileAssociationCheckbox $FileAssociationState
+  ${NSD_GetState} $SchematicAssociationCheckbox $SchematicAssociationState
 
   ${If} $FreshInstall <> 1
     Return
@@ -934,7 +943,8 @@ LangString axlOptionsTitle ${LANG_ENGLISH} "Installation settings"
 LangString axlInstallDirectoryLabel ${LANG_ENGLISH} "Program installation location"
 LangString axlResourceDirectoryLabel ${LANG_ENGLISH} "Application directory"
 LangString axlResourceDirectoryDescription ${LANG_ENGLISH} "Stores game instances, Java runtimes, resources, and caches. This directory can grow significantly."
-LangString axlAssociateFileTypes ${LANG_ENGLISH} "Associate .mrpack and schematic files with Axolotl"
+LangString axlAssociateFileTypes ${LANG_ENGLISH} "Associate .mrpack modpacks with Axolotl"
+LangString axlAssociateSchematicTypes ${LANG_ENGLISH} "Associate .litematic, .schem and .schematic schematics with Axolotl"
 LangString axlBrowse ${LANG_ENGLISH} "Browse..."
 LangString axlSelectInstallDirectory ${LANG_ENGLISH} "Select the program installation location"
 LangString axlSelectResourceDirectory ${LANG_ENGLISH} "Select the application directory"
@@ -958,7 +968,8 @@ LangString axlOptionsTitle ${LANG_SIMPCHINESE} "安装设置"
 LangString axlInstallDirectoryLabel ${LANG_SIMPCHINESE} "程序安装位置"
 LangString axlResourceDirectoryLabel ${LANG_SIMPCHINESE} "应用目录"
 LangString axlResourceDirectoryDescription ${LANG_SIMPCHINESE} "用于保存游戏实例、Java、游戏资源和缓存，后续可能占用较多空间。"
-LangString axlAssociateFileTypes ${LANG_SIMPCHINESE} "将 .mrpack 与投影文件关联到 Axolotl"
+LangString axlAssociateFileTypes ${LANG_SIMPCHINESE} "将 .mrpack 整合包关联到 Axolotl"
+LangString axlAssociateSchematicTypes ${LANG_SIMPCHINESE} "将 .litematic、.schem、.schematic 投影文件关联到 Axolotl"
 LangString axlBrowse ${LANG_SIMPCHINESE} "浏览..."
 LangString axlSelectInstallDirectory ${LANG_SIMPCHINESE} "选择程序安装位置"
 LangString axlSelectResourceDirectory ${LANG_SIMPCHINESE} "选择应用目录"
@@ -1085,6 +1096,26 @@ Function .onInit
   ${GetOptions} $CMDLINE "/NO_FILE_ASSOCIATION" $0
   ${IfNot} ${Errors}
     StrCpy $FileAssociationState ${BST_UNCHECKED}
+  ${EndIf}
+
+  ; Schematic files are a separate, independently remembered choice: a user may
+  ; want the launcher to own modpacks without taking over their schematics.
+  StrCpy $SchematicAssociationState ${BST_CHECKED}
+  ${If} $FreshInstall = 0
+    ClearErrors
+    ReadRegStr $0 SHCTX "${UNINSTKEY}" "SchematicFileAssociation"
+    ${IfNot} ${Errors}
+    ${AndIf} $0 == "0"
+      StrCpy $SchematicAssociationState ${BST_UNCHECKED}
+    ${EndIf}
+  ${EndIf}
+  ${GetOptions} $CMDLINE "/SCHEMATIC_FILE_ASSOCIATION" $0
+  ${IfNot} ${Errors}
+    StrCpy $SchematicAssociationState ${BST_CHECKED}
+  ${EndIf}
+  ${GetOptions} $CMDLINE "/NO_SCHEMATIC_FILE_ASSOCIATION" $0
+  ${IfNot} ${Errors}
+    StrCpy $SchematicAssociationState ${BST_UNCHECKED}
   ${EndIf}
 
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
@@ -1287,24 +1318,37 @@ Section Install
   Push 64
   Call ReportInstallerProgress
 
-  ; Create file associations only when requested. A reinstall never re-claims an
-  ; extension that already has a handler: the registered command still points at
-  ; this executable, and claiming the extension again could override a handler
-  ; the user picked afterwards.
+  ; Create file associations only when requested, and keep the two groups
+  ; independent: a user may want the launcher to own modpacks without taking
+  ; over their schematics. Entries that declare a ProgID name form the schematic
+  ; group; the modpack entry keeps the extension-derived ProgID it has always
+  ; used, so an existing installation can still be uninstalled cleanly.
+  ; A reinstall never re-claims an extension that already has a handler: the
+  ; registered command still points at this executable, and claiming the
+  ; extension again could override a handler the user picked afterwards.
   ${If} $UpdateMode <> 1
-    ${If} $FileAssociationState = ${BST_CHECKED}
-      {{#each file_associations as |association| ~}}
+    {{#each file_associations as |association| ~}}
+      {{#unless association.name}}
         {{#each association.ext as |ext| ~}}
-           !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+          ${If} $FileAssociationState = ${BST_CHECKED}
+            !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+          ${Else}
+            !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+          ${EndIf}
         {{/each}}
-      {{/each}}
-    ${Else}
-      {{#each file_associations as |association| ~}}
+      {{/unless}}
+    {{/each}}
+    {{#each file_associations as |association| ~}}
+      {{#if association.name}}
         {{#each association.ext as |ext| ~}}
-          !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+          ${If} $SchematicAssociationState = ${BST_CHECKED}
+            !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+          ${Else}
+            !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+          ${EndIf}
         {{/each}}
-      {{/each}}
-    ${EndIf}
+      {{/if}}
+    {{/each}}
   ${EndIf}
 
   ; An in-place update still has to claim the types this build introduced:
@@ -1313,17 +1357,32 @@ Section Install
   ; Claiming an extension that already has a handler would override a choice
   ; the user made, so only unclaimed extensions are taken.
   ${If} $UpdateMode = 1
-    ${If} $FileAssociationState = ${BST_CHECKED}
-      {{#each file_associations as |association| ~}}
-        {{#each association.ext as |ext| ~}}
-          ClearErrors
-          ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
-          ${If} $R0 == ""
-            !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
-          ${EndIf}
-        {{/each}}
-      {{/each}}
-    ${EndIf}
+    {{#each file_associations as |association| ~}}
+      {{#unless association.name}}
+        ${If} $FileAssociationState = ${BST_CHECKED}
+          {{#each association.ext as |ext| ~}}
+            ClearErrors
+            ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
+            ${If} $R0 == ""
+              !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+            ${EndIf}
+          {{/each}}
+        ${EndIf}
+      {{/unless}}
+    {{/each}}
+    {{#each file_associations as |association| ~}}
+      {{#if association.name}}
+        ${If} $SchematicAssociationState = ${BST_CHECKED}
+          {{#each association.ext as |ext| ~}}
+            ClearErrors
+            ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
+            ${If} $R0 == ""
+              !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+            ${EndIf}
+          {{/each}}
+        ${EndIf}
+      {{/if}}
+    {{/each}}
   ${EndIf}
 
   ; Register deep links
@@ -1337,13 +1396,18 @@ Section Install
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
-  ; Remember whether this installation owns the file association so the
+  ; Remember whether this installation owns the file associations so the
   ; uninstaller can leave a handler the user chose later untouched.
   ${If} $UpdateMode <> 1
     ${If} $FileAssociationState = ${BST_CHECKED}
       WriteRegStr SHCTX "${UNINSTKEY}" "FileAssociation" "1"
     ${Else}
       WriteRegStr SHCTX "${UNINSTKEY}" "FileAssociation" "0"
+    ${EndIf}
+    ${If} $SchematicAssociationState = ${BST_CHECKED}
+      WriteRegStr SHCTX "${UNINSTKEY}" "SchematicFileAssociation" "1"
+    ${Else}
+      WriteRegStr SHCTX "${UNINSTKEY}" "SchematicFileAssociation" "0"
     ${EndIf}
   ${EndIf}
 
@@ -1604,11 +1668,23 @@ Section Uninstall
   ; this installation, and the update never re-creates what a cleanup removes.
   ${If} $UpdateMode <> 1
     ReadRegStr $R8 SHCTX "${UNINSTKEY}" "FileAssociation"
+    ReadRegStr $R9 SHCTX "${UNINSTKEY}" "SchematicFileAssociation"
     ${If} $R8 != "0"
       {{#each file_associations as |association| ~}}
-        {{#each association.ext as |ext| ~}}
-          !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
-        {{/each}}
+        {{#unless association.name}}
+          {{#each association.ext as |ext| ~}}
+            !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+          {{/each}}
+        {{/unless}}
+      {{/each}}
+    ${EndIf}
+    ${If} $R9 != "0"
+      {{#each file_associations as |association| ~}}
+        {{#if association.name}}
+          {{#each association.ext as |ext| ~}}
+            !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+          {{/each}}
+        {{/if}}
       {{/each}}
     ${EndIf}
   ${EndIf}

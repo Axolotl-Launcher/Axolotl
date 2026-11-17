@@ -80,6 +80,8 @@ struct InstallRequest {
     desktop_shortcut: bool,
     #[serde(default = "default_file_association")]
     file_association: bool,
+    #[serde(default = "default_file_association")]
+    schematic_file_association: bool,
     launch_after: bool,
 }
 
@@ -847,6 +849,14 @@ fn installer_arguments(
         }
         .to_string(),
     );
+    arguments.push(
+        if request.schematic_file_association {
+            "/SCHEMATIC_FILE_ASSOCIATION"
+        } else {
+            "/NO_SCHEMATIC_FILE_ASSOCIATION"
+        }
+        .to_string(),
+    );
     arguments
 }
 
@@ -1062,26 +1072,37 @@ mod tests {
 
         assert!(request.launch_after);
         assert!(request.file_association);
+        assert!(request.schematic_file_association);
     }
 
     #[test]
     fn installer_arguments_follow_the_file_association_choice() {
-        let request = |file_association| InstallRequest {
-            install_dir: r"C:\Axolotl".to_string(),
-            resource_dir: r"C:\AxolotlData".to_string(),
-            desktop_shortcut: true,
-            file_association,
-            launch_after: false,
-        };
+        let request =
+            |file_association, schematic_file_association| InstallRequest {
+                install_dir: r"C:\Axolotl".to_string(),
+                resource_dir: r"C:\AxolotlData".to_string(),
+                desktop_shortcut: true,
+                file_association,
+                schematic_file_association,
+                launch_after: false,
+            };
         let status = PathBuf::from(r"C:\Temp\install.status");
 
         assert!(
-            installer_arguments(&request(true), &status)
+            installer_arguments(&request(true, true), &status)
                 .contains(&"/FILE_ASSOCIATION".to_string())
         );
         assert!(
-            installer_arguments(&request(false), &status)
+            installer_arguments(&request(false, false), &status)
                 .contains(&"/NO_FILE_ASSOCIATION".to_string())
+        );
+        assert!(
+            installer_arguments(&request(true, true), &status)
+                .contains(&"/SCHEMATIC_FILE_ASSOCIATION".to_string())
+        );
+        assert!(
+            installer_arguments(&request(false, false), &status)
+                .contains(&"/NO_SCHEMATIC_FILE_ASSOCIATION".to_string())
         );
     }
 

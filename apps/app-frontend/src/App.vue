@@ -2487,6 +2487,13 @@ async function handleCommand(e: AppCommand | null) {
         await handlePrivilegedCommand(e)
         return
     }
+    // The workshop reads the schematic on this machine, so opening a file the
+    // operating system handed over must not depend on network status.
+    if (e.event === 'OpenSchematic') {
+        if (!e.path) return
+        await router.push({ path: '/lab/schematic-preview', query: { external: e.path } })
+        return
+    }
     if (offline.value && e.event !== 'LaunchInstance') {
         await router.push('/library')
         return

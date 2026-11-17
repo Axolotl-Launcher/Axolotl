@@ -1605,6 +1605,22 @@ watch(showBounds, (value) => scene?.setBoundsVisible(value))
 watch(showTranslucent, (value) => scene?.setTranslucentVisible(value))
 watch(seamlessGlass, rebuildMeshes)
 
+/** Absolute path handed over by the shell when a schematic is opened from the OS. */
+function externalFilePath() {
+    const path = route.query.external
+    return typeof path === 'string' && isSchematicFileName(path) ? path : ''
+}
+
+// A second launch hands a new file to an already-mounted workshop, which
+// onMounted cannot observe.
+watch(
+    () => route.query.external,
+    () => {
+        const path = externalFilePath()
+        if (path) void openSource({ kind: 'external', path })
+    },
+)
+
 onMounted(async () => {
     await loadInstances()
     if (disposed) return
@@ -1612,6 +1628,12 @@ onMounted(async () => {
     document.addEventListener('fullscreenchange', onFullscreenChange)
     await setupNativeDrop().catch(() => undefined)
     if (disposed) return
+
+    const externalPath = externalFilePath()
+    if (externalPath) {
+        await openSource({ kind: 'external', path: externalPath })
+        return
+    }
 
     if (
         isSchematicSource(route.query.source) &&

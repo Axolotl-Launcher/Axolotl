@@ -1287,9 +1287,10 @@ Section Install
   Push 64
   Call ReportInstallerProgress
 
-  ; Create file associations only when requested. In-place updates never touch
-  ; them: the registered command still points to this executable, and claiming
-  ; the extension again could override a handler the user picked afterwards.
+  ; Create file associations only when requested. A reinstall never re-claims an
+  ; extension that already has a handler: the registered command still points at
+  ; this executable, and claiming the extension again could override a handler
+  ; the user picked afterwards.
   ${If} $UpdateMode <> 1
     ${If} $FileAssociationState = ${BST_CHECKED}
       {{#each file_associations as |association| ~}}
@@ -1301,6 +1302,25 @@ Section Install
       {{#each file_associations as |association| ~}}
         {{#each association.ext as |ext| ~}}
           !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+        {{/each}}
+      {{/each}}
+    ${EndIf}
+  ${EndIf}
+
+  ; An in-place update still has to claim the types this build introduced:
+  ; without a ProgID the launcher does not even appear in the "Open with" list,
+  ; so an association added after the user installed would never reach them.
+  ; Claiming an extension that already has a handler would override a choice
+  ; the user made, so only unclaimed extensions are taken.
+  ${If} $UpdateMode = 1
+    ${If} $FileAssociationState = ${BST_CHECKED}
+      {{#each file_associations as |association| ~}}
+        {{#each association.ext as |ext| ~}}
+          ClearErrors
+          ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
+          ${If} $R0 == ""
+            !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+          ${EndIf}
         {{/each}}
       {{/each}}
     ${EndIf}

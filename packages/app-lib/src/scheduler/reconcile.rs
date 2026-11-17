@@ -1,8 +1,6 @@
-//! The one startup reconciliation entry. Work that a previous session could
-//! leave half done is repaired here before any background loop starts:
-//! telemetry's independent document state and scheduling tags whose owner is
-//! gone or finished. The
-//! shutdown loss list points here too.
+//! The startup reconciliation entry for telemetry's independent document state.
+//! Historical scheduling tags are import-only data; startup does not mutate
+//! their retired SQL tables. The shutdown loss list points here too.
 //!
 //! Running games are tracked in memory only (`ProcessManager`), so a process
 //! exit an L0 event could not report leaves nothing behind for a restart to
@@ -254,14 +252,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_startup_entry_clears_orphaned_tags() {
+    async fn the_startup_entry_preserves_retired_tags_and_reconciles_telemetry()
+    {
         use crate::scheduler::tag::Level;
         use crate::state::store::install_jobs::{
             InstallJobRecord, InstallJobs,
         };
         use crate::state::store::scheduler_tags::SchedulerTagRecord;
 
-        let (_temp, state) = fixture(false).await;
+        let (_temp, state) = fixture(true).await;
         for (id, status, finished) in
             [("running", "running", None), ("done", "succeeded", Some(2))]
         {
@@ -292,7 +291,9 @@ mod tests {
                 .unwrap();
         }
 
+        assert!(heartbeats(&state).await.is_empty());
         at_startup(&state).await;
+        assert_eq!(heartbeats(&state).await.len(), 1);
 
         let left: Vec<_> = SchedulerTags::get_all(&state.data)
             .await
@@ -300,7 +301,11 @@ mod tests {
             .into_iter()
             .map(|(id, record)| (id, record.owner))
             .collect();
-        assert_eq!(left, vec![(1, "running".to_string())]);
+        assert_eq!(
+            left,
+            vec![(1, "running".to_string()), (2, "done".to_string())],
+            "startup must not rewrite scheduling rows in the retired SQL source"
+        );
         state.pool.close().await;
     }
 }

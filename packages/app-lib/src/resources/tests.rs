@@ -412,14 +412,20 @@ async fn installed_compatibility_uses_cached_exact_bytes_without_network_or_name
     assert!(declarations[1].is_none());
     assert!(declarations[2].is_none());
     assert_eq!(provider.calls(), 0);
-    let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
-    for schema in [
-        "CREATE TABLE instance_content_entries(id TEXT, file_id TEXT, instance_id TEXT)",
-        "CREATE TABLE instance_files(id TEXT, sha1 TEXT, size INTEGER, local_mod_data TEXT, missing INTEGER)",
-        "CREATE TABLE resource_installed_artifacts(entry_id TEXT, artifact TEXT)",
-    ] {
-        sqlx::query(schema).execute(&pool).await.unwrap();
-    }
+    let core_root = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(core_root.path())
+        .await
+        .unwrap();
+    sqlx::raw_sql(
+        "INSERT INTO instances(id,path,name,install_stage,launcher_feature_version,created,modified)
+            VALUES('instance','profile','Compatibility','installed','none',0,0);
+         INSERT INTO instance_content_sets(id,instance_id,name,source_kind,status,game_version,loader,created,modified)
+            VALUES('set','instance','Main','local','available','1.21.1','neoforge',0,0);
+         UPDATE instances SET applied_content_set_id='set' WHERE id='instance';",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     let local = json!({"metadata_version": 2, "mod_id": "example", "minecraft_version": "[1.21,1.21.1)", "loader": "neoforge"}).to_string();
     let sha1 = artifact
         .integrity
@@ -430,27 +436,32 @@ async fn installed_compatibility_uses_cached_exact_bytes_without_network_or_name
         .value
         .clone();
     let mut items = Vec::new();
+    let mut parsed = Vec::new();
     for (id, hash, local) in [
         ("missing", sha1.clone(), None),
         ("incorrect", sha1, Some(local.clone())),
         ("modified", "f".repeat(40), Some(local)),
     ] {
-        sqlx::query(
-            "INSERT INTO instance_content_entries VALUES (?, ?, 'instance')",
-        )
+        sqlx::query("INSERT INTO instance_files(id,instance_id,relative_path,file_name,enabled,sha1,size,missing,added_at,modified_at)
+            VALUES(?,'instance',?,?,1,?,?,0,0,0)")
         .bind(id)
-        .bind(id)
+        .bind(format!("mods/{id}.jar"))
+        .bind(format!("{id}.jar"))
+        .bind(hash)
+        .bind(artifact.integrity.size.unwrap() as i64)
         .execute(&pool)
         .await
         .unwrap();
-        sqlx::query("INSERT INTO instance_files VALUES (?, ?, ?, ?, 0)")
+        sqlx::query("INSERT INTO instance_content_entries(id,instance_id,content_set_id,file_id,project_type,source_kind,ownership_kind,server_requirement,client_requirement,added_at,modified_at)
+            VALUES(?,'instance','set',?,'mod','local','user_added','optional','optional',0,0)")
             .bind(id)
-            .bind(hash)
-            .bind(artifact.integrity.size.unwrap() as i64)
-            .bind(local)
+            .bind(id)
             .execute(&pool)
             .await
             .unwrap();
+        if let Some(metadata) = local {
+            parsed.push((id, metadata));
+        }
         items.push(crate::state::InstanceContentSnapshotItem {
             resource_update: None,
             artifact_ref: None,
@@ -475,6 +486,24 @@ async fn installed_compatibility_uses_cached_exact_bytes_without_network_or_name
             dependency: None,
         });
     }
+    let handle = crate::state::store::Handle::new(pool.clone());
+    let guards =
+        crate::state::store::content_evidence::current(&handle, "instance")
+            .await
+            .unwrap();
+    for (id, metadata) in parsed {
+        crate::state::store::content_evidence::write(
+            &handle,
+            "parsed",
+            id,
+            &guards[id],
+            &crate::state::store::content_evidence::Parsed {
+                metadata: Some(metadata),
+                icon: None,
+            },
+        )
+        .await;
+    }
     super::installed::attach_compatibility(
         &pool,
         "instance",
@@ -497,6 +526,7 @@ async fn installed_compatibility_uses_cached_exact_bytes_without_network_or_name
         items[2].compatibility.as_ref().unwrap().game_version,
         CompatibilityState::Incompatible
     );
+    assert_eq!(provider.calls(), 0);
     pool.close().await;
     let mut attachment = release.clone();
     for artifact in &mut attachment.artifacts {

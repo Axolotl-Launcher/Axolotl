@@ -326,7 +326,7 @@ mod tests {
         edit_instance,
     };
     use crate::state::instances::{
-        adapters::sqlite::config_sync_rows, get_instance,
+        adapters::sqlite::manifest_rows, get_instance,
     };
     use crate::state::{
         InstanceInstallStage, LauncherFeatureVersion, ModLoader, ReleaseChannel,
@@ -620,7 +620,7 @@ mod tests {
             "Old Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:edit", &pool)
+        manifest_rows::force_dirty(&pool, "local:edit")
             .await
             .unwrap();
         sync_instance_with_dirs(&dirs, &pool, "local:edit")
@@ -667,7 +667,7 @@ mod tests {
             "Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:unchanged", &pool)
+        manifest_rows::force_dirty(&pool, "local:unchanged")
             .await
             .unwrap();
         sync_instance_with_dirs(&dirs, &pool, "local:unchanged")
@@ -678,15 +678,9 @@ mod tests {
         let before_bytes = std::fs::read(&path).unwrap();
         let before_modified =
             std::fs::metadata(&path).unwrap().modified().unwrap();
-        sqlx::query(
-            "UPDATE instance_config_sync_state
-             SET config_updated_at = generated_at + 100
-             WHERE instance_id = ?",
-        )
-        .bind("local:unchanged")
-        .execute(&pool)
-        .await
-        .unwrap();
+        manifest_rows::force_dirty(&pool, "local:unchanged")
+            .await
+            .unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
 
         sync_instance_with_dirs(&dirs, &pool, "local:unchanged")
@@ -724,7 +718,7 @@ mod tests {
             "Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:rebuild", &pool)
+        manifest_rows::force_dirty(&pool, "local:rebuild")
             .await
             .unwrap();
 
@@ -759,12 +753,8 @@ mod tests {
             "Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:latest", &pool)
-            .await
-            .unwrap();
-        sync_instance_with_dirs(&dirs, &pool, "local:latest")
-            .await
-            .unwrap();
+        sync_instance(&state, "local:latest").await.unwrap();
+        assert!(manifest_rows::pending(&pool).await.unwrap().is_empty());
         let path = config_path(&dirs, "Latest Instance");
         let before_modified =
             std::fs::metadata(&path).unwrap().modified().unwrap();
@@ -791,7 +781,7 @@ mod tests {
             "Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:corrupt", &pool)
+        manifest_rows::force_dirty(&pool, "local:corrupt")
             .await
             .unwrap();
         std::fs::write(
@@ -825,7 +815,7 @@ mod tests {
             "Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:delete", &pool)
+        manifest_rows::force_dirty(&pool, "local:delete")
             .await
             .unwrap();
         sync_instance_with_dirs(&dirs, &pool, "local:delete")

@@ -22,6 +22,8 @@ struct Intent {
     content_root: PathBuf,
     workspace: PathBuf,
     files: Vec<File>,
+    #[serde(default)]
+    absences: Vec<PathBuf>,
 }
 fn invalid(message: &str) -> crate::Error {
     crate::ErrorKind::InputError(message.into()).into()
@@ -393,6 +395,77 @@ pub(crate) async fn restore_snapshot(
             }
         }
     }
+    // Absence is a published snapshot fact, never inferred from an old bundle
+    // or from an optional domain that failed to be captured.
+    let mut absences = Vec::new();
+    if let Some(values) = metadata.get("absent_authorities") {
+        let values = values
+            .as_array()
+            .ok_or_else(|| invalid("Invalid snapshot absence manifest"))?;
+        let known = super::super::databases::known_absence_authorities();
+        let mut seen = std::collections::HashSet::new();
+        for value in values {
+            let name = value
+                .as_str()
+                .ok_or_else(|| invalid("Invalid absent authority"))?;
+            if !known.iter().any(|known| known == name)
+                || staged.join(name).exists()
+                || !seen.insert(name.to_owned())
+            {
+                return Err(invalid(
+                    "Snapshot absence conflicts with its authorities",
+                ));
+            }
+            absences.push(root.join(name));
+            absences.push(root.join(format!("{name}.previous")));
+        }
+        for (name, target, protocol) in
+            super::super::databases::IMPORT_AUTHORITIES
+        {
+            let marker = format!("state/persistence/imports/{name}.json");
+            if seen.contains(target) != seen.contains(&marker) {
+                return Err(invalid(
+                    "Snapshot absence must include the authority and its takeover receipt",
+                ));
+            }
+            if !seen.contains(target) {
+                continue;
+            }
+            // Restore a normal empty, writable domain and a valid takeover
+            // receipt. Deleting its receipt alone would import stale SQL again.
+            let data = match name {
+                "accounts" => {
+                    serde_json::json!({"accounts":{},"default_account_id":null})
+                }
+                "telemetry" => {
+                    serde_json::json!({"installation_id":null,"last_heartbeat_day":null,"outbox":{}})
+                }
+                "media" => {
+                    serde_json::Value::Object(crate::state::media::empty())
+                }
+                _ => serde_json::json!({"entries":{}}),
+            };
+            let authority = serde_json::json!({"protocol":protocol,"schema_version":1,"revision":1,"data":data});
+            let takeover = serde_json::json!({"protocol":"axolotl-import","schema_version":1,"revision":1,"data":{"name":name,"target":target,"complete":true,"restored_absent":true}});
+            for (relative, value) in
+                [(target, authority), (marker.as_str(), takeover)]
+            {
+                let source = staged.join(relative);
+                crate::state::persistence::document::write_json(
+                    &source,
+                    serde_json::to_vec(&value)?,
+                )
+                .await?;
+                let destination = root.join(relative);
+                absences.retain(|path| path != &destination);
+                files.push(File {
+                    source,
+                    target: destination,
+                    sha256: String::new(),
+                });
+            }
+        }
+    }
     for file in &mut files {
         file.sha256 = digest(&file.source).await?;
     }
@@ -404,6 +477,7 @@ pub(crate) async fn restore_snapshot(
         content_root,
         workspace: workspace.clone(),
         files,
+        absences,
     };
     crate::state::persistence::document::write_json(
         &receipt(&root),
@@ -446,6 +520,42 @@ pub(crate) async fn finish_restore(root: &Path) -> crate::Result<()> {
                 "Restore staged member failed integrity validation",
             ));
         }
+    }
+    for target in &intent.absences {
+        let allowed = super::super::databases::known_absence_authorities()
+            .iter()
+            .any(|name| {
+                *target == root.join(name)
+                    || *target == root.join(format!("{name}.previous"))
+            });
+        if !allowed || intent.files.iter().any(|file| &file.target == target) {
+            return Err(invalid(
+                "Restore absence is not an exclusive standalone authority",
+            ));
+        }
+        safe_destination(root, target).await?;
+    }
+    for (index, target) in intent.absences.iter().enumerate() {
+        if !tokio::fs::try_exists(target).await? {
+            continue;
+        }
+        let archived = intent
+            .workspace
+            .join("previous")
+            .join(format!("absent-{index}"));
+        if !tokio::fs::try_exists(&archived).await? {
+            regular_copy(target, &archived).await?;
+        } else if digest(target).await? != digest(&archived).await? {
+            regular_copy(
+                target,
+                &intent.workspace.join("previous").join(format!(
+                    "absent-{index}-attempt-{}",
+                    uuid::Uuid::new_v4()
+                )),
+            )
+            .await?;
+        }
+        tokio::fs::remove_file(target).await?;
     }
     for (index, file) in intent.files.iter().enumerate() {
         let boundary = if file.target.starts_with(root) {
@@ -522,6 +632,210 @@ pub(crate) async fn finish_restore(root: &Path) -> crate::Result<()> {
 mod tests {
     use super::*;
     #[tokio::test]
+    async fn restore_archives_explicit_absences_and_their_fallback_copies() {
+        let directory = tempfile::tempdir().unwrap();
+        let pool = crate::state::store::databases::open(directory.path())
+            .await
+            .unwrap();
+        let snapshot =
+            crate::state::store::databases::backup(&pool, directory.path())
+                .await
+                .unwrap();
+        pool.close().await;
+        drop(pool);
+        for name in ["favorite_groups.json", "favorite_groups.json.previous"] {
+            tokio::fs::write(
+                directory.path().join(name),
+                br#"{"groups":[{"id":"later"}]}"#,
+            )
+            .await
+            .unwrap();
+        }
+        tokio::fs::write(
+            directory.path().join("unknown-future.json"),
+            b"preserve",
+        )
+        .await
+        .unwrap();
+        let archived =
+            restore_snapshot(directory.path(), &snapshot, directory.path())
+                .await
+                .unwrap();
+        assert!(!directory.path().join("favorite_groups.json").exists());
+        assert!(
+            !directory
+                .path()
+                .join("favorite_groups.json.previous")
+                .exists()
+        );
+        assert_eq!(
+            tokio::fs::read(directory.path().join("unknown-future.json"))
+                .await
+                .unwrap(),
+            b"preserve"
+        );
+        let manifest: serde_json::Value = serde_json::from_slice(
+            &tokio::fs::read(snapshot.join("snapshot.json"))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(
+            manifest["absent_authorities"]
+                .as_array()
+                .unwrap()
+                .contains(&serde_json::json!("favorite_groups.json"))
+        );
+        let mut entries = tokio::fs::read_dir(archived.join("previous"))
+            .await
+            .unwrap();
+        let mut found = 0;
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            if entry.file_name().to_string_lossy().starts_with("absent-") {
+                found += 1;
+            }
+        }
+        assert_eq!(found, 2);
+    }
+
+    #[tokio::test]
+    async fn restore_absent_accounts_is_empty_writable_and_does_not_reimport_legacy()
+     {
+        use crate::state::persistence::{Persistence, import::Import};
+        let directory = tempfile::tempdir().unwrap();
+        let pool = crate::state::store::databases::open(directory.path())
+            .await
+            .unwrap();
+        for relative in
+            ["accounts.json", "state/persistence/imports/accounts.json"]
+        {
+            for name in [relative.to_owned(), format!("{relative}.previous")] {
+                let path = directory.path().join(name);
+                if path.is_file() {
+                    tokio::fs::remove_file(path).await.unwrap();
+                }
+            }
+        }
+        let snapshot =
+            crate::state::store::databases::backup(&pool, directory.path())
+                .await
+                .unwrap();
+        pool.close().await;
+        drop(pool);
+        tokio::fs::write(
+            directory.path().join("accounts.json"),
+            b"post-backup accounts",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(
+            directory.path().join("accounts.json.previous"),
+            b"post-backup fallback",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(
+            directory
+                .path()
+                .join("state/persistence/imports/accounts.json"),
+            b"post-backup receipt",
+        )
+        .await
+        .unwrap();
+        restore_snapshot(directory.path(), &snapshot, directory.path())
+            .await
+            .unwrap();
+        let persistence = Persistence::new(directory.path());
+        let target = persistence
+            .document("accounts.json", "axolotl-accounts", 1)
+            .unwrap();
+        let loaded =
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let called = loaded.clone();
+        Import::new(&persistence, "accounts", target)
+            .unwrap()
+            .run(
+                move || async move {
+                    called.store(true, std::sync::atomic::Ordering::SeqCst);
+                    Ok(serde_json::Map::new())
+                },
+                |_| Ok(()),
+            )
+            .await
+            .unwrap();
+        assert!(!loaded.load(std::sync::atomic::Ordering::SeqCst));
+        let accounts = crate::state::accounts::Accounts::new(&persistence);
+        assert!(accounts.get_all().await.unwrap().is_empty());
+        let user = crate::state::store::minecraft_users::MinecraftUserRecord {
+            uuid: uuid::Uuid::new_v4().to_string(),
+            active: true,
+            username: "New player".into(),
+            account_type:
+                crate::state::store::minecraft_users::AccountType::Offline,
+            access_token: String::new(),
+            refresh_token: String::new(),
+            expires: 0,
+            yggdrasil_api_root: String::new(),
+            yggdrasil_server_name: String::new(),
+            yggdrasil_login: String::new(),
+            yggdrasil_client_token: String::new(),
+        };
+        accounts.set("offline:new", &user).await.unwrap();
+        assert_eq!(accounts.get_all().await.unwrap().len(), 1);
+        assert!(
+            !directory.path().join("accounts.json.previous").is_file()
+                || !String::from_utf8_lossy(
+                    &tokio::fs::read(
+                        directory.path().join("accounts.json.previous")
+                    )
+                    .await
+                    .unwrap()
+                )
+                .contains("post-backup")
+        );
+    }
+
+    #[tokio::test]
+    async fn old_snapshot_without_absence_metadata_does_not_guess_deletions() {
+        let directory = tempfile::tempdir().unwrap();
+        let pool = crate::state::store::databases::open(directory.path())
+            .await
+            .unwrap();
+        let snapshot =
+            crate::state::store::databases::backup(&pool, directory.path())
+                .await
+                .unwrap();
+        pool.close().await;
+        drop(pool);
+        let path = snapshot.join("snapshot.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&tokio::fs::read(&path).await.unwrap())
+                .unwrap();
+        manifest
+            .as_object_mut()
+            .unwrap()
+            .remove("absent_authorities");
+        tokio::fs::write(path, serde_json::to_vec(&manifest).unwrap())
+            .await
+            .unwrap();
+        tokio::fs::write(
+            directory.path().join("favorite_groups.json"),
+            b"current",
+        )
+        .await
+        .unwrap();
+        restore_snapshot(directory.path(), &snapshot, directory.path())
+            .await
+            .unwrap();
+        assert_eq!(
+            tokio::fs::read(directory.path().join("favorite_groups.json"))
+                .await
+                .unwrap(),
+            b"current"
+        );
+    }
+
+    #[tokio::test]
     async fn ownership_refuses_restore_while_core_is_open() {
         let directory = tempfile::tempdir().unwrap();
         let pool = crate::state::store::databases::open(directory.path())
@@ -589,6 +903,7 @@ mod tests {
             root: root.clone(),
             content_root: root.clone(),
             workspace: workspace.clone(),
+            absences: Vec::new(),
             files: vec![File {
                 source: source.clone(),
                 target: target.clone(),

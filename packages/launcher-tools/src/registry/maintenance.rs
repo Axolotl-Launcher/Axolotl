@@ -41,7 +41,7 @@ pub(super) fn entries() -> Vec<Entry> {
         ),
         entry(
             "database_get_info",
-            "Read active database channel, size and backup availability without rows/credentials or database file content.",
+            "Read the active shared database set: layout, null channel for shared storage, member names/roles and total bytes including existing SQLite sidecars. Reports the next update channel separately; no rows, credentials or native paths.",
             Controlled,
             true,
             true,
@@ -59,7 +59,7 @@ pub(super) fn entries() -> Vec<Entry> {
         ),
         entry(
             "database_backup",
-            "Create consistent native update-style backup of current database using exact running app version as label. Backup contains private account data and stays in native backup directory; only filename/hash metadata returned. Full access. Returns operation_id.",
+            "Create a consistent native snapshot of the current shared storage set, or a version-labeled legacy database backup. Backup contains private data and stays in the native backup directory; only layout, filename, total bytes and timestamp metadata returned. Full access. Returns operation_id.",
             FullAccess,
             false,
             false,
@@ -68,7 +68,7 @@ pub(super) fn entries() -> Vec<Entry> {
         ),
         entry(
             "database_list_backups",
-            "List native channel backup filenames/size/timestamps, not database contents. No arbitrary external directory.",
+            "List complete shared snapshot bundles and legacy channel backup files with layout, names, recursive byte sizes and timestamps. Excludes staging/incomplete bundles; no native paths or database contents. No arbitrary external directory.",
             Controlled,
             true,
             true,

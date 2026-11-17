@@ -118,6 +118,8 @@ impl InstanceGroupsFile {
     }
 }
 
+static FILE_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 static STORE: OnceLock<RwLock<InstanceGroupsFile>> = OnceLock::new();
 
 fn file_path() -> Option<PathBuf> {
@@ -165,8 +167,28 @@ fn write_to_disk(file: &InstanceGroupsFile) -> crate::Result<()> {
         .directories
         .settings_dir
         .join(INSTANCE_GROUPS_FILE_NAME);
+    let _file_guard = FILE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     fs::write(path, serde_json::to_string_pretty(file)?)?;
     Ok(())
+}
+
+/// Freeze the on-disk authority under the same lock used by every writer.
+/// Preserve the original bytes, including fields from newer readers.
+pub(crate) fn snapshot(
+    root: &std::path::Path,
+) -> crate::Result<Option<Vec<u8>>> {
+    let _guard = FILE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let path = root.join(INSTANCE_GROUPS_FILE_NAME);
+    match crate::state::persistence::document::snapshot_json(&path)? {
+        Some(bytes) => Ok(Some(bytes)),
+        None => crate::state::persistence::document::snapshot_json(
+            &root.join(format!("{INSTANCE_GROUPS_FILE_NAME}.previous")),
+        ),
+    }
 }
 
 fn store() -> &'static RwLock<InstanceGroupsFile> {
@@ -444,6 +466,8 @@ pub(crate) async fn import_from_pool(
         return Ok(());
     }
     let file = import_sql_groups(pool).await?;
+    // Startup publishes atomically before runtime writers are available, so a
+    // snapshot sees either absence or a complete file without holding STORE.
     crate::state::persistence::document::write_json(
         &path,
         serde_json::to_vec_pretty(&file)?,
@@ -505,6 +529,41 @@ mod tests {
                 .collect(),
             memberships: HashMap::new(),
         }
+    }
+
+    #[test]
+    fn snapshot_waits_for_the_complete_standalone_write() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(INSTANCE_GROUPS_FILE_NAME);
+        let guard = FILE_ACCESS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        fs::write(&path, b"{").unwrap();
+        let (sent, received) = std::sync::mpsc::channel();
+        let (started, start) = std::sync::mpsc::channel();
+        let directory = root.path().to_owned();
+        let reader = std::thread::spawn(move || {
+            started.send(()).unwrap();
+            sent.send(snapshot(&directory).unwrap()).unwrap();
+        });
+        start.recv().unwrap();
+        assert!(
+            received
+                .recv_timeout(std::time::Duration::from_millis(50))
+                .is_err()
+        );
+        fs::write(&path, br#"{"schema_version":99,"future":"retained"}"#)
+            .unwrap();
+        drop(guard);
+        let bytes = received
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&bytes).unwrap()["future"],
+            "retained"
+        );
+        reader.join().unwrap();
     }
 
     #[test]

@@ -120,6 +120,8 @@ impl FavoriteGroupsFile {
     }
 }
 
+static FILE_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 static STORE: OnceLock<RwLock<FavoriteGroupsFile>> = OnceLock::new();
 
 fn file_path() -> Option<PathBuf> {
@@ -167,8 +169,28 @@ fn write_to_disk(file: &FavoriteGroupsFile) -> crate::Result<()> {
         .directories
         .settings_dir
         .join(FAVORITE_GROUPS_FILE_NAME);
+    let _file_guard = FILE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     fs::write(path, serde_json::to_string_pretty(file)?)?;
     Ok(())
+}
+
+/// Freeze the on-disk authority under the same lock used by every writer.
+/// Preserve the original bytes, including fields from newer readers.
+pub(crate) fn snapshot(
+    root: &std::path::Path,
+) -> crate::Result<Option<Vec<u8>>> {
+    let _guard = FILE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let path = root.join(FAVORITE_GROUPS_FILE_NAME);
+    match crate::state::persistence::document::snapshot_json(&path)? {
+        Some(bytes) => Ok(Some(bytes)),
+        None => crate::state::persistence::document::snapshot_json(
+            &root.join(format!("{FAVORITE_GROUPS_FILE_NAME}.previous")),
+        ),
+    }
 }
 
 fn store() -> &'static RwLock<FavoriteGroupsFile> {
@@ -328,6 +350,41 @@ mod tests {
 
     fn group_ids(groups: &[FavoriteGroupDefinition]) -> Vec<String> {
         groups.iter().map(|group| group.id.clone()).collect()
+    }
+
+    #[test]
+    fn snapshot_waits_for_the_complete_standalone_write() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(FAVORITE_GROUPS_FILE_NAME);
+        let guard = FILE_ACCESS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        fs::write(&path, b"{").unwrap();
+        let (sent, received) = std::sync::mpsc::channel();
+        let (started, start) = std::sync::mpsc::channel();
+        let directory = root.path().to_owned();
+        let reader = std::thread::spawn(move || {
+            started.send(()).unwrap();
+            sent.send(snapshot(&directory).unwrap()).unwrap();
+        });
+        start.recv().unwrap();
+        assert!(
+            received
+                .recv_timeout(std::time::Duration::from_millis(50))
+                .is_err()
+        );
+        fs::write(&path, br#"{"schema_version":99,"future":"retained"}"#)
+            .unwrap();
+        drop(guard);
+        let bytes = received
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&bytes).unwrap()["future"],
+            "retained"
+        );
+        reader.join().unwrap();
     }
 
     #[test]

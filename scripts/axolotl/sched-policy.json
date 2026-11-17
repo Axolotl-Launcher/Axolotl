@@ -19,9 +19,10 @@
     "api/theme_pack/store.rs install: INSTALL_LOCK (S7) serializes extraction and directory replacement and takes no other managed lock; ThemePackPageState.pages (S8) only guards the label map",
     "Theme pack storage accounting and writes share THEME_STORAGE_LOCK so quota and file caps are enforced under one order.",
     "Storage document services add seven S8 maps for screenshot observations/hints, recovery availability, derived/record pool lookup and share-token sessions; guards cover memory-only access and are released before database initialization, hashing, keyring or file I/O.",
-    "Database lock diagnostics add an S8 ACTIVE registry: guards only update or clone in-memory operation metadata, never await, log or acquire another managed resource; snapshot sorting and warning output run after the guard is released."
+    "Database lock diagnostics add an S8 ACTIVE registry: guards only update or clone in-memory operation metadata, never await, log or acquire another managed resource; snapshot sorting and warning output run after the guard is released.",
+    "Standalone instance/favorite group FILE_ACCESS locks serialize bounded JSON writes and snapshot reads. Runtime writers acquire STORE before FILE_ACCESS; snapshots acquire FILE_ACCESS alone and never initialize or acquire STORE. Startup import uses atomic document publication before runtime writers exist. No FILE_ACCESS guard crosses an await or acquires a core/database lock."
   ],
-  "rankFingerprint": "6d85972e714d0c199cb604719c574c135e7a4fd86a44da26453034563148c08c",
+  "rankFingerprint": "358975e0ddbe1a3504b4dcd98bf9f7230f1ea6413299d842b8f2bb970ae93069",
   "classes": {
     "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
     "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",

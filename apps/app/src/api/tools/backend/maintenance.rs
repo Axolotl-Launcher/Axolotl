@@ -137,18 +137,19 @@ pub(super) async fn execute(
         }
         Command::DatabaseGetInfo {} => {
             let app = app(backend)?;
-            let path = theseus::maintenance::current_database_path()
-                .await
-                .map_err(business_error)?;
-            let metadata = tokio::fs::metadata(&path).await.map_err(|_| {
-                ToolError::new(
-                    "database_unavailable",
-                    "Database metadata is unavailable",
-                )
-            })?;
-            Ok(
-                json!({"channel":path.parent().and_then(std::path::Path::file_name).map(|s|s.to_string_lossy().into_owned()),"configured_next_channel":crate::resolve_update_channel(&app).await.map_err(|_|ToolError::new("channel_unavailable","Database channel unavailable"))?,"bytes":metadata.len(),"beta_database_exists":theseus::beta_database_exists(&app.config().identifier).await.map_err(business_error)?}),
-            )
+            let mut info = serialize(
+                theseus::maintenance::database_info()
+                    .await
+                    .map_err(business_error)?,
+            )?;
+            info["configured_next_channel"] =
+                json!(crate::resolve_update_channel(&app).await.map_err(
+                    |_| ToolError::new(
+                        "channel_unavailable",
+                        "Update channel unavailable"
+                    )
+                )?);
+            Ok(info)
         }
         Command::DatabaseCheckIntegrity {} => serialize(
             theseus::maintenance::check_database_integrity()
@@ -161,72 +162,30 @@ pub(super) async fn execute(
             let path = theseus::maintenance::backup_open_database(&version)
                 .await
                 .map_err(business_error)?;
-            let metadata = tokio::fs::metadata(&path).await.map_err(|_| {
-                ToolError::new(
-                    "backup_unavailable",
-                    "Backup metadata unavailable",
-                )
-            })?;
-            Ok(
-                json!({"backup_name":path.file_name().map(|n|n.to_string_lossy().into_owned()),"bytes":metadata.len(),"channel":path.parent().and_then(std::path::Path::file_name).map(|n|n.to_string_lossy().into_owned())}),
-            )
+            let info = theseus::maintenance::database_backup_info(&path)
+                .await
+                .map_err(business_error)?
+                .ok_or_else(|| {
+                    ToolError::new(
+                        "backup_unavailable",
+                        "Created backup is not a complete native snapshot",
+                    )
+                })?;
+            serialize(info)
         }
         Command::DatabaseListBackups { offset, limit } => {
-            let base = theseus::prelude::app_db_backup_dir()
-                .map_err(business_error)?;
-            let mut output = Vec::new();
-            for channel in ["release", "beta", ""] {
-                let root = base.join(channel);
-                let mut entries = match tokio::fs::read_dir(root).await {
-                    Ok(e) => e,
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                        continue;
-                    }
-                    Err(_) => {
-                        return Err(ToolError::new(
-                            "backup_unavailable",
-                            "Backup directory unavailable",
-                        ));
-                    }
-                };
-                while let Some(entry) =
-                    entries.next_entry().await.map_err(|_| {
-                        ToolError::new(
-                            "backup_unavailable",
-                            "Backup listing failed",
-                        )
-                    })?
-                {
-                    let name = entry.file_name().to_string_lossy().into_owned();
-                    let metadata = entry.metadata().await.map_err(|_| {
-                        ToolError::new(
-                            "backup_unavailable",
-                            "Backup metadata unavailable",
-                        )
-                    })?;
-                    if entry
-                        .file_type()
-                        .await
-                        .map_err(|_| {
-                            ToolError::new(
-                                "backup_unavailable",
-                                "Backup type unavailable",
-                            )
-                        })?
-                        .is_file()
-                        && name.starts_with("app-db-")
-                        && name.ends_with(".db")
-                    {
-                        output.push(json!({"channel":channel,"backup_name":name,"bytes":metadata.len(),"modified_at":metadata.modified().ok()}));
-                    }
-                    if output.len() >= 1000 {
-                        break;
-                    }
-                }
-            }
-            output.sort_by(|a, b| {
-                b["backup_name"].as_str().cmp(&a["backup_name"].as_str())
-            });
+            let output = theseus::maintenance::list_database_backups()
+                .await
+                .map_err(business_error)?
+                .into_iter()
+                .map(serde_json::to_value)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| {
+                    ToolError::new(
+                        "backup_unavailable",
+                        "Backup metadata serialization failed",
+                    )
+                })?;
             page(output, offset.unwrap_or(0), limit.unwrap_or(50))
         }
         Command::DatabaseMaintainBackups {} => {

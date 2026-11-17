@@ -7,6 +7,66 @@ use serde_json::{Map, Value, json};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
+/// A small standalone authority captured while its owner holds its write lock.
+/// A damaged source is never advertised as a complete snapshot.
+pub(crate) fn snapshot_json(path: &Path) -> crate::Result<Option<Vec<u8>>> {
+    let metadata = match std::fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(None);
+        }
+        Err(error) => return Err(error.into()),
+    };
+    if !metadata.is_file() || metadata.len() > MAX_BYTES {
+        return Err(crate::ErrorKind::InputError(
+            "Snapshot requires a bounded regular JSON authority".into(),
+        )
+        .into());
+    }
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)?
+        .take(MAX_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_BYTES {
+        return Err(crate::ErrorKind::InputError(
+            "Snapshot authority grew beyond bounds".into(),
+        )
+        .into());
+    }
+    let value: Value = serde_json::from_slice(&bytes)?;
+    if !value.is_object() {
+        return Err(crate::ErrorKind::InputError(
+            "Snapshot authority is not a JSON object".into(),
+        )
+        .into());
+    }
+    Ok(Some(bytes))
+}
+
+/// Freeze a not-yet-created document and its takeover marker at one instant.
+/// Existing backups count as presence; damaged/unknown authorities are not empty.
+pub(crate) async fn absent_pair(
+    target: PathBuf,
+    marker: PathBuf,
+) -> crate::Result<bool> {
+    blocking(move || {
+        let _marker = Writer::acquire(&marker)?;
+        let _target = Writer::acquire(&target)?;
+        for path in [&target, &marker] {
+            for candidate in [path.to_owned(), sidecar(path, ".previous")] {
+                match std::fs::symlink_metadata(candidate) {
+                    Ok(_) => return Ok(false),
+                    Err(error)
+                        if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error.into()),
+                }
+            }
+        }
+        Ok(true)
+    })
+    .await
+}
+
 const MAX_BYTES: u64 = 16 << 20;
 
 #[derive(Clone)]

@@ -352,7 +352,16 @@ where
             tracing::warn!(%error,"Instance recovery copies excluded from this core snapshot");
             exclusions.push("instance-recovery-copies".into());
         }
-        Ok::<_, crate::Error>(exclusions)
+        let mut absent_settings = Vec::new();
+        for relative in known_settings_authorities() {
+            if staging.join(&relative).exists() { continue; }
+            let previous = settings_dir.join(format!("{relative}.previous"));
+            match crate::state::persistence::document::snapshot_json(&previous)? {
+                Some(bytes) => crate::state::persistence::document::write_blob(&staging.join(&relative), bytes).await?,
+                None => absent_settings.push(relative),
+            }
+        }
+        Ok::<_, crate::Error>((exclusions, absent_settings))
     }
     .await;
     transaction_diagnostics
@@ -365,8 +374,8 @@ where
     drop(_document_files);
     drop(_documents);
     drop(_settings);
-    let mut exclusions = match result {
-        Ok(exclusions) => exclusions,
+    let (mut exclusions, absent_settings) = match result {
+        Ok(result) => result,
         Err(error) => {
             tracing::warn!(path = %staging.display(), "Incomplete database snapshot retained for inspection");
             return Err(error);
@@ -385,8 +394,10 @@ where
             exclusions.push("operation-history".into());
         }
         super::recovery_documents::backup(&staging.join("system.db"),&staging).await?;
-        backup_independent_files(settings_dir,&staging).await?;
-        crate::state::persistence::document::write_json(&staging.join("snapshot.json"),serde_json::to_vec(&serde_json::json!({"protocol":"axolotl-storage-snapshot","version":1,"optional_exclusions":exclusions,"core":["system.db","instances.db","storage.db"]}))?).await?;
+        let mut absent_authorities = backup_independent_files(settings_dir,&staging).await?;
+        absent_authorities.extend(absent_settings);
+        capture_missing_authorities(settings_dir, &staging, &mut exclusions, &mut absent_authorities).await?;
+        crate::state::persistence::document::write_json(&staging.join("snapshot.json"),serde_json::to_vec(&serde_json::json!({"protocol":"axolotl-storage-snapshot","version":1,"absent_authorities":absent_authorities,"optional_exclusions":exclusions,"core":["system.db","instances.db","storage.db"]}))?).await?;
         tokio::fs::write(staging.join("complete"), b"axolotl database set\n")
             .await?;
         tokio::fs::rename(&staging, &destination).await?;
@@ -538,18 +549,139 @@ async fn copy_regular(source: &Path, target: &Path) -> crate::Result<()> {
 }
 /// Preserve file authorities that predate receipt-based import, as well as
 /// opaque originals. Refuse traversal through links in the private state tree.
+async fn capture_missing_authorities(
+    settings_dir: &Path,
+    staging: &Path,
+    exclusions: &mut Vec<String>,
+    absent_authorities: &mut Vec<String>,
+) -> crate::Result<()> {
+    for (name, relative, _) in IMPORT_AUTHORITIES {
+        if exclusions.iter().any(|excluded| excluded == name) {
+            continue;
+        }
+        let marker = format!("state/persistence/imports/{name}.json");
+        if staging.join(relative).exists() && staging.join(&marker).exists() {
+            continue;
+        }
+        if crate::state::persistence::document::absent_pair(
+            settings_dir.join(relative),
+            settings_dir.join(&marker),
+        )
+        .await?
+        {
+            absent_authorities.push(relative.into());
+            absent_authorities.push(marker);
+        } else {
+            // A domain may have been created after the receipt directory
+            // was enumerated. It must be captured or explicitly excluded.
+            match crate::state::persistence::import::snapshot(
+                &crate::state::persistence::Persistence::new(settings_dir),
+                name,
+            )
+            .await
+            {
+                Ok(files) => {
+                    for (relative, bytes) in files {
+                        crate::state::persistence::document::write_blob(
+                            &staging.join(relative),
+                            bytes,
+                        )
+                        .await?;
+                    }
+                }
+                Err(error) => {
+                    tracing::warn!(domain=name,%error,"Backup excludes an authority created during receipt capture");
+                    exclusions.push(name.into());
+                    preserve_raw_receipt(settings_dir, &staging, name).await?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(super) const IMPORT_AUTHORITIES: [(&str, &str, &str); 8] = [
+    ("accounts", "accounts.json", "axolotl-accounts"),
+    ("telemetry", "state/telemetry.json", "axolotl-telemetry"),
+    ("media", "state/media.json", "axolotl-media"),
+    ("worlds", "state/worlds.json", "axolotl-world-choices"),
+    ("joins", "state/joins.json", "axolotl-server-joins"),
+    (
+        "shared_logs",
+        "state/shared_logs.json",
+        "axolotl-shared-logs",
+    ),
+    (
+        "resource_favorites",
+        "state/resource_favorites.json",
+        "axolotl-resource-favorites",
+    ),
+    (
+        "instance_pins",
+        "state/instance_pins.json",
+        "axolotl-instance-pins",
+    ),
+];
+
+pub(super) fn known_settings_authorities() -> Vec<String> {
+    crate::state::documents::settings::DOMAINS
+        .iter()
+        .map(|(name, _, _)| *name)
+        .chain(["ai", "translation", "log_share", "java", "login_proof"])
+        .map(|name| format!("settings/{name}.json"))
+        .collect()
+}
+
+pub(super) fn known_absence_authorities() -> Vec<String> {
+    let mut paths = STANDALONE_AUTHORITIES
+        .iter()
+        .map(|name| (*name).to_owned())
+        .collect::<Vec<_>>();
+    paths.extend(known_settings_authorities());
+    for (name, target, _) in IMPORT_AUTHORITIES {
+        paths.push(target.into());
+        paths.push(format!("state/persistence/imports/{name}.json"));
+    }
+    paths
+}
+
+pub(super) const STANDALONE_AUTHORITIES: [&str; 3] = [
+    "instance_groups.json",
+    "favorite_groups.json",
+    "axolotl_config.json",
+];
+
 async fn backup_independent_files(
     root: &Path,
     staging: &Path,
-) -> crate::Result<()> {
-    for name in [
-        "instance_groups.json",
-        "favorite_groups.json",
-        "axolotl_config.json",
-    ] {
-        let source = root.join(name);
-        if tokio::fs::try_exists(&source).await? {
-            copy_regular(&source, &staging.join(name)).await?;
+) -> crate::Result<Vec<String>> {
+    let mut absent = Vec::new();
+    for name in STANDALONE_AUTHORITIES {
+        let bytes = match name {
+            "instance_groups.json" => {
+                crate::state::instance_groups::snapshot(root)?
+            }
+            "favorite_groups.json" => {
+                crate::state::favorite_groups::snapshot(root)?
+            }
+            _ => match crate::state::persistence::document::snapshot_json(
+                &root.join(name),
+            )? {
+                Some(bytes) => Some(bytes),
+                None => crate::state::persistence::document::snapshot_json(
+                    &root.join(format!("{name}.previous")),
+                )?,
+            },
+        };
+        match bytes {
+            Some(bytes) => {
+                crate::state::persistence::document::write_blob(
+                    &staging.join(name),
+                    bytes,
+                )
+                .await?
+            }
+            None => absent.push(name.to_owned()),
         }
     }
     let mut pending =
@@ -588,7 +720,7 @@ async fn backup_independent_files(
             }
         }
     }
-    Ok(())
+    Ok(absent)
 }
 
 /// Keep at most three complete snapshot sets, taking a new one at most daily.
@@ -1205,6 +1337,78 @@ pub(crate) async fn import(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn backup_captures_a_domain_created_after_receipt_enumeration() {
+        let root = tempfile::tempdir().unwrap();
+        let staged = tempfile::tempdir().unwrap();
+        let persistence =
+            crate::state::persistence::Persistence::new(root.path());
+        let target = persistence
+            .document("accounts.json", "axolotl-accounts", 1)
+            .unwrap();
+        crate::state::persistence::import::Import::new(
+            &persistence,
+            "accounts",
+            target,
+        )
+        .unwrap()
+        .run(
+            || async {
+                Ok(serde_json::Map::from_iter([
+                    ("accounts".into(), serde_json::json!({})),
+                    ("future".into(), serde_json::json!("preserved")),
+                ]))
+            },
+            |_| Ok(()),
+        )
+        .await
+        .unwrap();
+        let mut excluded = Vec::new();
+        let mut absent = Vec::new();
+        capture_missing_authorities(
+            root.path(),
+            staged.path(),
+            &mut excluded,
+            &mut absent,
+        )
+        .await
+        .unwrap();
+        assert!(excluded.is_empty());
+        assert!(!absent.iter().any(|name| name == "accounts.json"));
+        assert!(
+            staged
+                .path()
+                .join("state/persistence/imports/accounts.json")
+                .is_file()
+        );
+        let value: serde_json::Value = serde_json::from_slice(
+            &tokio::fs::read(staged.path().join("accounts.json"))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(value["data"]["future"], "preserved");
+    }
+
+    #[tokio::test]
+    async fn backup_never_completes_with_a_corrupt_standalone_authority() {
+        let root = tempfile::tempdir().unwrap();
+        let pool = open(root.path()).await.unwrap();
+        tokio::fs::write(root.path().join("favorite_groups.json"), b"{")
+            .await
+            .unwrap();
+        assert!(backup(&pool, root.path()).await.is_err());
+        let parent = crate::state::db_backup::app_db_backup_dir_for(
+            &root.path().join("databases/system.db"),
+        )
+        .unwrap();
+        let mut entries = tokio::fs::read_dir(parent).await.unwrap();
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            assert!(!entry.path().join("complete").exists());
+        }
+        pool.close().await;
+    }
 
     #[tokio::test]
     async fn backup_releases_core_before_copying_frozen_operation_generations()

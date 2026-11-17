@@ -116,6 +116,9 @@ Var FileAssociationCheckbox
 Var FileAssociationState
 Var SchematicAssociationCheckbox
 Var SchematicAssociationState
+; Holds the state of whichever association group the current loop iteration
+; belongs to, so one loop body can serve both groups.
+Var AssociationState
 Var InstallerBodyFont
 Var InstallerTitleFont
 Var InstallerSmallFont
@@ -156,6 +159,20 @@ Var UninstallFailure
   Pop $R0
 !macroend
 
+; Offer this launcher as an alternative without taking the extension over. Used
+; when the user opted into associations but another application already owns the
+; extension: the ProgID becomes selectable from "Open with", while the
+; extension's default value and its recorded backup stay untouched.
+!macro AxlRegisterFileTypeAlternative EXT FILECLASS DESCRIPTION ICON COMMANDTEXT COMMAND
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}" "" `${DESCRIPTION}`
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}\DefaultIcon" "" `${ICON}`
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}\shell" "" "open"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}\shell\open" "" `${COMMANDTEXT}`
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}\shell\open\command" "" `${COMMAND}`
+  WriteRegStr SHELL_CONTEXT "Software\Classes\.${EXT}\OpenWithProgids" "${FILECLASS}" ""
+  !insertmacro UPDATEFILEASSOC
+!macroend
+
 ; Remove the association only when the extension still resolves to our ProgID
 ; and that ProgID still points at this installation. If the user rebound it to
 ; another application, its handler stays untouched; only our leftover entries
@@ -184,13 +201,15 @@ Var UninstallFailure
       ${EndIf}
       ClearErrors
       DeleteRegValue SHELL_CONTEXT "Software\Classes\.${EXT}" "${FILECLASS}_backup"
-      ClearErrors
-      DeleteRegValue SHELL_CONTEXT "Software\Classes\.${EXT}\OpenWithProgids" "${FILECLASS}"
     ${EndIf}
   ${Else}
     ClearErrors
     DeleteRegValue SHELL_CONTEXT "Software\Classes\.${EXT}" "${FILECLASS}_backup"
   ${EndIf}
+  ; Drop our "Open with" entry whether or not we owned the default handler: an
+  ; update may have registered the ProgID as an alternative only.
+  ClearErrors
+  DeleteRegValue SHELL_CONTEXT "Software\Classes\.${EXT}\OpenWithProgids" "${FILECLASS}"
   ; The ProgID name is generic, so only delete it while it belongs to us.
   ${If} $R2 == "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
     ClearErrors
@@ -1328,60 +1347,45 @@ Section Install
   ; extension again could override a handler the user picked afterwards.
   ${If} $UpdateMode <> 1
     {{#each file_associations as |association| ~}}
-      {{#unless association.name}}
-        {{#each association.ext as |ext| ~}}
-          ${If} $FileAssociationState = ${BST_CHECKED}
-            !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
-          ${Else}
-            !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
-          ${EndIf}
-        {{/each}}
-      {{/unless}}
-    {{/each}}
-    {{#each file_associations as |association| ~}}
       {{#if association.name}}
-        {{#each association.ext as |ext| ~}}
-          ${If} $SchematicAssociationState = ${BST_CHECKED}
-            !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
-          ${Else}
-            !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
-          ${EndIf}
-        {{/each}}
+      StrCpy $AssociationState $SchematicAssociationState
+      {{else}}
+      StrCpy $AssociationState $FileAssociationState
       {{/if}}
+      {{#each association.ext as |ext| ~}}
+        ${If} $AssociationState = ${BST_CHECKED}
+          !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+        ${Else}
+          !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+        ${EndIf}
+      {{/each}}
     {{/each}}
   ${EndIf}
 
-  ; An in-place update still has to claim the types this build introduced:
-  ; without a ProgID the launcher does not even appear in the "Open with" list,
-  ; so an association added after the user installed would never reach them.
-  ; Claiming an extension that already has a handler would override a choice
-  ; the user made, so only unclaimed extensions are taken.
+  ; An in-place update still has to make the launcher usable for the types this
+  ; build introduced: without a ProgID it does not even appear in the "Open with"
+  ; list, so an association added after the user installed would never reach
+  ; them. An extension that another application already owns keeps that
+  ; application as its default handler; the launcher is only offered as an
+  ; alternative.
   ${If} $UpdateMode = 1
     {{#each file_associations as |association| ~}}
-      {{#unless association.name}}
-        ${If} $FileAssociationState = ${BST_CHECKED}
-          {{#each association.ext as |ext| ~}}
-            ClearErrors
-            ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
-            ${If} $R0 == ""
-              !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
-            ${EndIf}
-          {{/each}}
-        ${EndIf}
-      {{/unless}}
-    {{/each}}
-    {{#each file_associations as |association| ~}}
       {{#if association.name}}
-        ${If} $SchematicAssociationState = ${BST_CHECKED}
-          {{#each association.ext as |ext| ~}}
-            ClearErrors
-            ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
-            ${If} $R0 == ""
-              !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
-            ${EndIf}
-          {{/each}}
-        ${EndIf}
+      StrCpy $AssociationState $SchematicAssociationState
+      {{else}}
+      StrCpy $AssociationState $FileAssociationState
       {{/if}}
+      ${If} $AssociationState = ${BST_CHECKED}
+        {{#each association.ext as |ext| ~}}
+          ClearErrors
+          ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
+          ${If} $R0 == ""
+            !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+          ${Else}
+            !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+          ${EndIf}
+        {{/each}}
+      ${EndIf}
     {{/each}}
   ${EndIf}
 
@@ -1669,24 +1673,18 @@ Section Uninstall
   ${If} $UpdateMode <> 1
     ReadRegStr $R8 SHCTX "${UNINSTKEY}" "FileAssociation"
     ReadRegStr $R9 SHCTX "${UNINSTKEY}" "SchematicFileAssociation"
-    ${If} $R8 != "0"
-      {{#each file_associations as |association| ~}}
-        {{#unless association.name}}
-          {{#each association.ext as |ext| ~}}
-            !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
-          {{/each}}
-        {{/unless}}
-      {{/each}}
-    ${EndIf}
-    ${If} $R9 != "0"
-      {{#each file_associations as |association| ~}}
-        {{#if association.name}}
-          {{#each association.ext as |ext| ~}}
-            !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
-          {{/each}}
-        {{/if}}
-      {{/each}}
-    ${EndIf}
+    {{#each file_associations as |association| ~}}
+      {{#if association.name}}
+      StrCpy $AssociationState $R9
+      {{else}}
+      StrCpy $AssociationState $R8
+      {{/if}}
+      ${If} $AssociationState != "0"
+        {{#each association.ext as |ext| ~}}
+          !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+        {{/each}}
+      ${EndIf}
+    {{/each}}
   ${EndIf}
 
   ; Delete deep links

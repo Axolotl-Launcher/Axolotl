@@ -1,5 +1,5 @@
 // 由 S4 集成
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@/helpers/invoke'
 
 import { createDatapackBlob, type PackFile } from './datapack.ts'
 

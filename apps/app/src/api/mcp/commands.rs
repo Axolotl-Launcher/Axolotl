@@ -3,12 +3,14 @@ use super::{
     service::{EVENT, McpService, McpState, initialize, next_generation},
 };
 use tauri::{Emitter, Manager};
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcp_get_state(app: tauri::AppHandle) -> Result<McpState, String> {
     initialize(&app).await;
     Ok(app.state::<McpService>().0.lock().await.state())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcp_configure(
     app: tauri::AppHandle,
@@ -40,6 +42,7 @@ pub async fn mcp_configure(
     Ok(state)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcp_respond(
     app: tauri::AppHandle,
@@ -60,6 +63,7 @@ pub async fn mcp_respond(
     Ok(controller.state())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcp_disconnect(
     app: tauri::AppHandle,

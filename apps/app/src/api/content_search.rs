@@ -15,6 +15,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn resolve_chinese_content_search(
     query: String,
@@ -22,11 +23,13 @@ pub fn resolve_chinese_content_search(
     theseus::content_search::resolve_chinese_content_search(&query)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn expand_content_search_query(query: String) -> ContentSearchExpansion {
     theseus::content_search::expand_content_search_query(&query)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn lookup_chinese_content_names(
     modrinth_slugs: Vec<String>,
@@ -38,6 +41,7 @@ pub fn lookup_chinese_content_names(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn lookup_content_wiki_ids(
     modrinth_slugs: Vec<String>,
@@ -49,6 +53,7 @@ pub fn lookup_content_wiki_ids(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn lookup_content_identities(
     modrinth_slugs: Vec<String>,

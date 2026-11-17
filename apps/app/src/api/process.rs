@@ -13,11 +13,13 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn process_get_all() -> Result<Vec<ProcessMetadata>> {
     Ok(process::get_all().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn process_get_by_instance_id(
     instance_id: &str,
@@ -25,11 +27,13 @@ pub async fn process_get_by_instance_id(
     Ok(process::get_by_instance_id(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn process_kill(uuid: Uuid) -> Result<()> {
     Ok(process::kill(uuid).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn process_wait_for(uuid: Uuid) -> Result<()> {
     Ok(process::wait_for(uuid).await?)

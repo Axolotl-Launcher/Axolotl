@@ -1,5 +1,7 @@
 import { computed, ref } from 'vue'
 
+import { recordEvent } from '@/helpers/observability'
+
 export const APP_UPDATE_POPUP_DELAY_MS = 24 * 60 * 60 * 1000
 
 const UPDATE_PROMPT_STORAGE_KEY = 'modrinth-app-update-prompt-state'
@@ -184,11 +186,13 @@ export async function checkForAppUpdate(): Promise<AppUpdateCheckResult> {
 export async function downloadAvailableAppUpdate(): Promise<void> {
     recordAppUpdateUserAction(undefined, 'available')
     await actions.download?.()
+    recordEvent('app_update', { source: 'download' })
 }
 
 export async function installAvailableAppUpdate(): Promise<void> {
     recordAppUpdateUserAction(undefined, 'downloaded')
     await actions.install?.()
+    recordEvent('app_update', { source: 'install' })
 }
 
 export async function openAppUpdateChangelog(

@@ -13,26 +13,31 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn get_account() -> Result<AccountSummary> {
     Ok(third_party_accounts::get_account()?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn begin_authorization() -> Result<AuthorizationStart> {
     Ok(third_party_accounts::begin_authorization()?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn cancel_authorization(flow_id: String) -> Result<()> {
     Ok(third_party_accounts::cancel_authorization(&flow_id)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn disconnect() -> Result<()> {
     Ok(third_party_accounts::disconnect()?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn check_connection() -> Result<AccountSummary> {
     Ok(third_party_accounts::check_connection().await?)

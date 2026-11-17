@@ -30,6 +30,7 @@ hyper-util = { workspace = true }
 image = { workspace = true }
 keyring = { workspace = true }
 launcher-mcp = { workspace = true }
+launcher-observability = { workspace = true }
 launcher-tools = { workspace = true }
 libc = { workspace = true }
 minisign-verify = { workspace = true }
@@ -77,6 +78,7 @@ features = [
 
 [dev-dependencies]
 png = { workspace = true }
+syn = { version = "2", features = ["full"] }
 
 [build-dependencies]
 cc = { workspace = true }

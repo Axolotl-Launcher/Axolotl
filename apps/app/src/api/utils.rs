@@ -44,6 +44,7 @@ pub enum OS {
 }
 
 /// Gets OS
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn get_os() -> OS {
     #[cfg(target_os = "windows")]
@@ -55,6 +56,7 @@ pub fn get_os() -> OS {
     os
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn is_network_metered() -> Result<bool> {
     Ok(theseus::prelude::is_network_metered().await?)
@@ -63,6 +65,7 @@ pub async fn is_network_metered() -> Result<bool> {
 // Lists active progress bars
 // Create a new HashMap with the same keys
 // Values provided should not be used directly, as they are not guaranteed to be up-to-date
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn progress_bars_list()
 -> Result<DashMap<uuid::Uuid, theseus::LoadingBar>> {
@@ -71,6 +74,7 @@ pub async fn progress_bars_list()
 }
 
 // disables mouseover and fixes a random crash error only fixed by recent versions of macos
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn should_disable_mouseover() -> bool {
     if cfg!(target_os = "macos") {
@@ -90,6 +94,7 @@ pub async fn should_disable_mouseover() -> bool {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn highlight_in_folder<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -104,6 +109,7 @@ pub async fn highlight_in_folder<R: Runtime>(
     .ok();
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn open_path<R: Runtime>(app: tauri::AppHandle<R>, path: PathBuf) {
     tauri::async_runtime::spawn_blocking(move || {
@@ -117,6 +123,7 @@ pub async fn open_path<R: Runtime>(app: tauri::AppHandle<R>, path: PathBuf) {
     .ok();
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn show_launcher_logs_folder<R: Runtime>(app: tauri::AppHandle<R>) {
     if let Some(d) = DirectoryInfo::global_handle_if_ready() {
@@ -127,6 +134,7 @@ pub async fn show_launcher_logs_folder<R: Runtime>(app: tauri::AppHandle<R>) {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn export_error_logs(
     output_path: PathBuf,
@@ -274,6 +282,7 @@ impl LauncherLogArchive {
 /// Export launcher logs (filtered by time range and level) plus optional
 /// system information, the most recent instance log, and a crash analysis
 /// summary and fresh network connection tests into a ZIP archive.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn export_launcher_logs(
     output_path: PathBuf,
@@ -850,6 +859,7 @@ pub(crate) fn zip_error(
     .into()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn show_app_db_backups_folder<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -864,6 +874,7 @@ pub async fn show_app_db_backups_folder<R: Runtime>(
 // For example, if a user clicks on an .mrpack to open the app.
 // This should be called once and only when the app is done booting up and ready to receive a command
 // Returns a Command struct- see events.js
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 #[cfg(target_os = "macos")]
 pub async fn get_opening_command(
@@ -887,6 +898,7 @@ pub async fn get_opening_command(
     };
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 #[cfg(not(target_os = "macos"))]
 pub async fn get_opening_command() -> Result<Option<CommandPayload>> {
@@ -903,6 +915,7 @@ pub async fn get_opening_command() -> Result<Option<CommandPayload>> {
     Ok(None)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_minecraft_news(
     limit: Option<usize>,

@@ -4,9 +4,9 @@
  *  and deserialized into a usable JS object.
  */
 import { queryOptions } from '@tanstack/vue-query'
-import { invoke } from '@tauri-apps/api/core'
 
 import type { HomeDashboardConfig } from '@/components/home/home-dashboard'
+import { invoke } from '@/helpers/invoke'
 import type { Hooks, MemorySettings } from '@/helpers/types'
 import type { AccentColorSetting, ColorTheme, FeatureFlag, HomeLayout } from '@/store/theme.ts'
 import { DEFAULT_FEATURE_FLAGS } from '@/store/theme.ts'

@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@/helpers/invoke'
 
 import type { SeedMapEdition } from './backend'
 import type { SeedMapDimension } from './biomes'

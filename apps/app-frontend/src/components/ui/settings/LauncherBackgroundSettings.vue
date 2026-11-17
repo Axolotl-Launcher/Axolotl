@@ -287,7 +287,7 @@ import {
     Slider,
     useVIntl,
 } from '@modrinth/ui'
-import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import { appDataDir, join } from '@tauri-apps/api/path'
 import type { DragDropEvent } from '@tauri-apps/api/webview'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
@@ -312,6 +312,7 @@ import {
     MAX_CUSTOM_BACKGROUND_BYTES,
     MAX_PRESERVED_BACKGROUND_BYTES,
 } from '@/helpers/custom-background'
+import { invoke } from '@/helpers/invoke'
 import type { AppSettings } from '@/helpers/settings.ts'
 
 type BackgroundSettings = Pick<

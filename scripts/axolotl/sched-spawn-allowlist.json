@@ -2965,6 +2965,35 @@
         "install: let _ = std::fs::remove_dir_all(&staging_for_task);",
         "list: let entries = std::fs::read_dir(&themes_dir).map_err(io)?;"
       ]
+    },
+    {
+      "file": "apps/app/src/api/observability.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed observability flush: the blocking OTLP force-flush is bounded by a 2 s caller budget and runs on a dedicated blocking worker; it holds only provider handles and never blocks the async runtime",
+      "sites": [
+        "observability_flush: tauri::async_runtime::spawn_blocking(|| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/observability/runtime.rs",
+      "form": "thread::Builder",
+      "count": 2,
+      "reason": "reviewed OTLP flush/shutdown: dedicated short-lived threads isolate exporter I/O from the async runtime and are bounded by the caller exit budget; they hold only cloned provider handles",
+      "sites": [
+        "flush: std::thread::Builder::new()",
+        "shutdown: std::thread::Builder::new()"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/observability/runtime.rs",
+      "form": "thread::Builder spawn",
+      "count": 2,
+      "reason": "reviewed OTLP flush/shutdown: both helper threads are detached and only perform SDK force_flush/shutdown with cloned providers, so a slow collector cannot block the process past the caller budget",
+      "sites": [
+        "flush: .spawn(move || {",
+        "shutdown: .spawn(move || {"
+      ]
     }
   ]
 }

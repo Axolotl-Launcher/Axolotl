@@ -84,14 +84,5 @@ pub(super) fn entries() -> Vec<Entry> {
             json!({}),
             &[],
         ),
-        entry(
-            "database_copy_channel",
-            "Copy database into inactive channel through native consistent-copy flow. Full access; rejects active destination and same channels. Replaces inactive database; back up first if needed. Returns operation_id.",
-            FullAccess,
-            false,
-            false,
-            json!({"source_channel": {"type": "string", "enum": ["release", "beta"]}, "target_channel": {"type": "string", "enum": ["release", "beta"]}}),
-            &["source_channel", "target_channel"],
-        ),
     ]
 }

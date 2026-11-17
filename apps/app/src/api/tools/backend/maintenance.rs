@@ -198,36 +198,6 @@ pub(super) async fn execute(
                 .map_err(business_error)?;
             Ok(json!({"maintenance_finished":true}))
         }
-        Command::DatabaseCopyChannel {
-            source_channel,
-            target_channel,
-        } => {
-            idle().await?;
-            let app = app(backend)?;
-            let active = theseus::maintenance::current_database_path()
-                .await
-                .map_err(business_error)?;
-            if active
-                .parent()
-                .and_then(std::path::Path::file_name)
-                .is_some_and(|s| s == std::ffi::OsStr::new(&target_channel))
-            {
-                return Err(ToolError::new(
-                    "active_database_target",
-                    "The actually opened database cannot be overwritten, even after selecting another update channel",
-                ));
-            }
-            theseus::copy_database_between_channels(
-                &app.config().identifier,
-                &source_channel,
-                &target_channel,
-            )
-            .await
-            .map_err(business_error)?;
-            Ok(
-                json!({"copied":true,"source_channel":source_channel,"target_channel":target_channel}),
-            )
-        }
         _ => Err(ToolError::new(
             "unsupported_command",
             "Not a storage/database operation",

@@ -109,17 +109,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn wire_catalog_preserves_the_pre_refactor_contract() {
+    fn wire_catalog_preserves_the_reviewed_contract() {
         let tools = definitions();
-        assert_eq!(tools.len(), 269);
+        assert_eq!(tools.len(), 268);
         let bytes = serde_json::to_vec(&tools).unwrap();
-        // FNV-1a of the complete pre-refactor catalog: names, order, descriptions,
+        // FNV-1a of the reviewed catalog: names, order, descriptions,
         // argument schemas and annotations. Update only for intentional API changes.
         let fingerprint =
             bytes.iter().fold(0xcbf29ce484222325u64, |hash, byte| {
                 (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
             });
-        assert_eq!(fingerprint, 0x3fe057d32cf1772d);
+        assert_eq!(fingerprint, 0xb610a9c1e659bc22);
     }
 
     #[test]

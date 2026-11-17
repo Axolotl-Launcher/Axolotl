@@ -7730,15 +7730,6 @@
   "app.settings.updates.channel.beta-description": {
     "message": "包含最新功能的新更新，但穩定性較低，更新頻率更快。"
   },
-  "app.settings.updates.channel.copy-database": {
-    "message": "複製資料庫"
-  },
-  "app.settings.updates.channel.copy-database-description": {
-    "message": "為避免出現問題，Beta 版將使用獨立的資料儲存，以免影響正式版的正常運作。這看起來是你第一次使用 Beta 版，是否要將穩定版的資料複製到 Beta 版？此操作無法自動還原。"
-  },
-  "app.settings.updates.channel.copy-database-title": {
-    "message": "將 Release 資料複製到 Beta？"
-  },
   "app.settings.updates.channel.description": {
     "message": "選擇 Axolotl 接收的啟動器版本。"
   },
@@ -7766,9 +7757,6 @@
   "app.settings.updates.channel.restart-title": {
     "message": "需要重新啟動"
   },
-  "app.settings.updates.channel.start-empty": {
-    "message": "從空白資料庫開始"
-  },
   "app.settings.updates.channel.title": {
     "message": "更新管道"
   },
@@ -7783,54 +7771,6 @@
   },
   "app.settings.updates.current-version": {
     "message": "目前版本 {version}"
-  },
-  "app.settings.updates.database-isolation.active": {
-    "message": "正在使用"
-  },
-  "app.settings.updates.database-isolation.beta": {
-    "message": "Beta 資料庫"
-  },
-  "app.settings.updates.database-isolation.current-database": {
-    "message": "目前正在使用的資料庫"
-  },
-  "app.settings.updates.database-isolation.description": {
-    "message": "Release 和 Beta 使用彼此獨立的資料庫，因此測試 Beta 不會變更 Release 資料。"
-  },
-  "app.settings.updates.database-isolation.release": {
-    "message": "Release 資料庫"
-  },
-  "app.settings.updates.database-isolation.title": {
-    "message": "資料庫隔離"
-  },
-  "app.settings.updates.database-operation.active-target": {
-    "message": "無法覆寫目前正在使用的資料庫。請先重新啟動 Axolotl 並切換更新管道。"
-  },
-  "app.settings.updates.database-operation.beta-to-release": {
-    "message": "從 Beta 複製到 Release"
-  },
-  "app.settings.updates.database-operation.cancel": {
-    "message": "取消"
-  },
-  "app.settings.updates.database-operation.confirm": {
-    "message": "覆寫資料庫"
-  },
-  "app.settings.updates.database-operation.confirm-description": {
-    "message": "這會用 {source} 資料庫的內容完整取代未使用的 {target} 資料庫。此操作無法復原。"
-  },
-  "app.settings.updates.database-operation.confirm-title": {
-    "message": "覆寫資料庫？"
-  },
-  "app.settings.updates.database-operation.failed": {
-    "message": "無法複製資料庫。請確認 Axolotl 未在使用目標資料庫。"
-  },
-  "app.settings.updates.database-operation.label": {
-    "message": "資料庫操作"
-  },
-  "app.settings.updates.database-operation.release-to-beta": {
-    "message": "從 Release 複製到 Beta"
-  },
-  "app.settings.updates.database-operation.success": {
-    "message": "已成功將 {source} 複製到 {target}。"
   },
   "app.settings.updates.disabled": {
     "message": "此組建已停用更新功能。"

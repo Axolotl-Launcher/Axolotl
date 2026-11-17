@@ -37,7 +37,8 @@ async fn database_pool_retains_exclusive_file_ownership_until_dropped() {
 }
 
 #[tokio::test]
-async fn channel_copy_does_not_replay_the_previous_database_wal() {
+async fn verified_snapshot_replacement_does_not_replay_the_previous_database_wal()
+ {
     use sqlx::ConnectOptions;
     let directory = tempfile::tempdir().unwrap();
     let source = directory.path().join("source.db");
@@ -73,7 +74,21 @@ async fn channel_copy_does_not_replay_the_previous_database_wal() {
         .unwrap();
     connection.close().await.unwrap();
 
-    copy_channel_database(&source, &target, true).await.unwrap();
+    let _owner = files::Ownership::acquire(&target).await.unwrap();
+    files::recover(&target).await.unwrap();
+    let staged = directory.path().join("verified-snapshot.db");
+    let mut connection = super::super::db_backup::open_read_only_db(&source)
+        .await
+        .unwrap();
+    super::super::db_backup::create_verified_sqlite_snapshot(
+        &mut connection,
+        &staged,
+    )
+    .await
+    .unwrap();
+    connection.close().await.unwrap();
+    files::replace(&target, &staged).await.unwrap();
+    drop(_owner);
     let pool = open_app_db_pool(&target).await.unwrap();
     let tables: Vec<String> = sqlx::query_scalar(
         "SELECT name FROM sqlite_master WHERE type = 'table'",
@@ -96,17 +111,6 @@ async fn channel_copy_does_not_replay_the_previous_database_wal() {
         }
     }
     assert!(preserved_wal);
-}
-
-#[tokio::test]
-async fn channel_copy_refuses_an_owned_target_without_mutating_it() {
-    let directory = tempfile::tempdir().unwrap();
-    let source = directory.path().join("source.db");
-    let target = directory.path().join("target.db");
-    tokio::fs::write(&target, b"original").await.unwrap();
-    let _owner = files::Ownership::acquire(&target).await.unwrap();
-    assert!(copy_channel_database(&source, &target, true).await.is_err());
-    assert_eq!(tokio::fs::read(target).await.unwrap(), b"original");
 }
 
 #[tokio::test]

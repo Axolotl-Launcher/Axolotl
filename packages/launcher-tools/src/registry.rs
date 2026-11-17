@@ -98,7 +98,6 @@ fn execution_policy(name: &str) -> ExecutionPolicy {
                 | "database_check_integrity"
                 | "database_backup"
                 | "database_maintain_backups"
-                | "database_copy_channel"
                 | "launcher_set_update_channel"
                 | "launcher_set_update_preferences"
                 | "launcher_check_update"

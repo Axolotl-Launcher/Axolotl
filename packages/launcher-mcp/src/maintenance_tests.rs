@@ -49,6 +49,15 @@ fn args(entry: &catalog::Entry) -> Value {
 fn maintenance_schemas_keep_signed_coordinates_bounded_and_sensitive_actions_full_access()
  {
     let entries = catalog::entries();
+    assert!(
+        !entries
+            .iter()
+            .any(|entry| entry.tool.name == "database_copy_channel")
+    );
+    assert!(serde_json::from_value::<Command>(json!({
+        "name": "database_copy_channel",
+        "arguments": { "source_channel": "release", "target_channel": "beta" }
+    })).is_err());
     let mut count = 0;
     for e in entries.iter().filter(|e| is_new(&e.tool.name)) {
         count += 1;
@@ -60,7 +69,7 @@ fn maintenance_schemas_keep_signed_coordinates_bounded_and_sensitive_actions_ful
         )
         .unwrap();
     }
-    assert_eq!(count, 53);
+    assert_eq!(count, 52);
     let biome = entries
         .iter()
         .find(|e| e.tool.name == "seed_get_biome")
@@ -84,7 +93,6 @@ fn maintenance_schemas_keep_signed_coordinates_bounded_and_sensitive_actions_ful
         .is_err()
     );
     for name in [
-        "database_copy_channel",
         "database_backup",
         "storage_clear_cache",
         "settings_patch",
@@ -176,6 +184,6 @@ async fn maintenance_tools_dispatch_and_async_capabilities_agree_without_real_mu
             );
         }
     }
-    assert_eq!(backend.calls.lock().unwrap().len(), 53);
+    assert_eq!(backend.calls.lock().unwrap().len(), 52);
     server.stop().await;
 }

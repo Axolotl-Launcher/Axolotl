@@ -248,7 +248,7 @@ pub(crate) async fn sync_direct_link_instances(
                     crate::state::instance_groups::set_instance_groups(
                         &instance.id,
                         &groups,
-                    );
+                    )?;
                     let _ = emit_instance(
                         &instance.id,
                         InstancePayloadType::Edited,

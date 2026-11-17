@@ -240,7 +240,7 @@ pub(crate) async fn edit_instance(
         crate::state::instance_groups::set_instance_groups(
             &instance.id,
             groups,
-        );
+        )?;
     }
 
     config_sync::mark_dirty(&instance.id);
@@ -275,7 +275,7 @@ pub(crate) async fn restore_instance_metadata(
     crate::state::instance_groups::set_instance_groups(
         &instance.id,
         &metadata.groups,
-    );
+    )?;
     Ok(())
 }
 

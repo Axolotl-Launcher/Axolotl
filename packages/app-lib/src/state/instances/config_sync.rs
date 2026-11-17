@@ -104,6 +104,7 @@ pub(crate) async fn sync_instance(
     state: &State,
     instance_id: &str,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     // Keep the metadata read and file write in the same critical section as
     // deletion, so a sync cannot recreate a file while the profile is removed.
     let _instance_lock = state.lock_instance_content(instance_id).await;

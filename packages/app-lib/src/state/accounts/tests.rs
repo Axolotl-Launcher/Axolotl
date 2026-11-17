@@ -178,19 +178,24 @@ async fn supported_updates_preserve_future_fields_and_unknown_account_types() {
 }
 
 #[tokio::test]
-async fn unavailable_keyring_keeps_metadata_visible_but_refuses_unredacted_exports()
- {
-    let _host = testing::with_store();
+async fn unavailable_keyring_propagates_without_changing_account_metadata() {
+    let host = testing::with_store();
     let accounts = Accounts::temporary();
-    accounts
-        .set("test", &record(AccountType::Microsoft))
-        .await
-        .unwrap();
-    let _unavailable = testing::without_store();
-    let list = accounts.get_all().await.unwrap();
-    assert_eq!(list[0].1.username, "Player");
-    assert_eq!(list[0].2, CredentialPersistence::RequiresLogin);
+    let expected = record(AccountType::Microsoft);
+    accounts.set("test", &expected).await.unwrap();
+    let before = tokio::fs::read(accounts.document.path()).await.unwrap();
+    host.store().unwrap().refuse_reads(true);
+    assert!(accounts.get_all().await.is_err());
     assert!(accounts.tokens_for_redaction().await.is_err());
+    assert_eq!(
+        tokio::fs::read(accounts.document.path()).await.unwrap(),
+        before
+    );
+    host.store().unwrap().refuse_reads(false);
+    let list = accounts.get_all().await.unwrap();
+    assert_eq!(list[0].1.access_token, expected.access_token);
+    assert_eq!(list[0].1.refresh_token, expected.refresh_token);
+    assert_eq!(list[0].2, CredentialPersistence::Keyring);
 }
 
 #[tokio::test]

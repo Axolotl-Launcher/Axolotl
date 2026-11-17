@@ -175,7 +175,7 @@ pub(crate) async fn create_direct_link_instance(
     )
     .await?;
     unit.commit().await?;
-    crate::state::instance_groups::set_instance_groups(&instance_id, &groups);
+    crate::state::instance_groups::set_instance_groups(&instance_id, &groups)?;
 
     let content_root = super::sync_content_files::instance_content_root(
         &state.directories,

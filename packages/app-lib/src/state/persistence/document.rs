@@ -125,7 +125,12 @@ impl Document {
     pub(crate) async fn read(&self) -> crate::Result<ReadResult> {
         let document = self.clone();
         blocking(move || {
-            let _lock = Writer::acquire(&document.path)?;
+            if !crate::state::store::recovery_mode::path_is_read_only(
+                &document.path,
+            ) {
+                let _lock = Writer::acquire(&document.path)?;
+                return document.read_locked();
+            }
             document.read_locked()
         })
         .await
@@ -140,6 +145,11 @@ impl Document {
     {
         let document = self.clone();
         blocking(move || {
+            if crate::state::store::recovery_mode::path_is_read_only(
+                &document.path,
+            ) {
+                return inspect(document.read_locked()?);
+            }
             let _lock = Writer::acquire(&document.path)?;
             inspect(document.read_locked()?)
         })
@@ -172,6 +182,9 @@ impl Document {
     {
         let document = self.clone();
         blocking(move || {
+            crate::state::store::recovery_mode::ensure_path_writable(
+                &document.path,
+            )?;
             let _lock = Writer::acquire(&document.path)?;
             let read = document.read_locked()?;
             if !read.availability.writable() {
@@ -289,10 +302,14 @@ impl Document {
         }) {
             // A newer backup is opaque too. Publish its bytes unchanged and
             // retain its read-only status instead of lowering its schema.
-            if let Ok(Some(bytes)) = &published {
-                preserve_corrupt(&self.path, bytes)?;
+            if !crate::state::store::recovery_mode::path_is_read_only(
+                &self.path,
+            ) {
+                if let Ok(Some(bytes)) = &published {
+                    preserve_corrupt(&self.path, bytes)?;
+                }
+                replace_bytes(&self.path, &bytes)?;
             }
-            replace_bytes(&self.path, &bytes)?;
             if snapshot.availability == Availability::Ready {
                 snapshot.availability = Availability::Recovered;
             }
@@ -313,7 +330,11 @@ impl Document {
                 snapshot: None,
             }),
             Ok(Some(bytes)) => {
-                preserve_corrupt(&self.path, &bytes)?;
+                if !crate::state::store::recovery_mode::path_is_read_only(
+                    &self.path,
+                ) {
+                    preserve_corrupt(&self.path, &bytes)?;
+                }
                 Ok(ReadResult {
                     availability: Availability::Unavailable(
                         "No readable document or previous good copy".into(),
@@ -377,6 +398,7 @@ pub(super) struct Writer {
 
 impl Writer {
     pub(super) fn acquire(path: &Path) -> crate::Result<Self> {
+        crate::state::store::recovery_mode::ensure_path_writable(path)?;
         let parent = path.parent().ok_or_else(|| {
             crate::ErrorKind::InputError(
                 "Document has no parent directory".into(),
@@ -447,6 +469,7 @@ fn preserve_corrupt(path: &Path, bytes: &[u8]) -> crate::Result<()> {
 }
 
 fn replace_bytes(path: &Path, bytes: &[u8]) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_path_writable(path)?;
     let parent = path.parent().ok_or_else(|| {
         crate::ErrorKind::InputError("Document has no parent directory".into())
     })?;

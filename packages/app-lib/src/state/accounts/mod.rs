@@ -72,7 +72,7 @@ impl Accounts {
                     tracing::warn!(account = id, "Skipping unsupported account metadata");
                     continue;
                 }
-                let (tokens, status) = service.tokens(id, &metadata, credentials);
+                let (tokens, status) = service.tokens(id, &metadata, credentials)?;
                 if let Some(record) = metadata.record(selected == Some(id.as_str()), tokens) {
                     accounts.push((id.clone(), record, status));
                 } else { tracing::warn!(account = id, "Skipping an unsupported account identity"); }
@@ -86,19 +86,18 @@ impl Accounts {
         id: &str,
         metadata: &Metadata,
         credentials: secrets::Access,
-    ) -> (Tokens, CredentialPersistence) {
+    ) -> crate::Result<(Tokens, CredentialPersistence)> {
         if metadata.account_type == "offline" {
-            return (Tokens::default(), CredentialPersistence::NotRequired);
+            return Ok((Tokens::default(), CredentialPersistence::NotRequired));
         }
         if let Some(tokens) = self.session.get(id) {
-            return (tokens, CredentialPersistence::SessionOnly);
+            return Ok((tokens, CredentialPersistence::SessionOnly));
         }
         let mut values = [String::new(), String::new(), String::new()];
         for (index, field) in TOKEN_FIELDS.iter().enumerate() {
             if metadata.credential_fields.iter().any(|name| name == field) {
-                match credentials.read(&token_key(id, field)) {
-                    Ok(Some(value)) => values[index] = value,
-                    Ok(None) | Err(_) => {}
+                if let Some(value) = credentials.read(&token_key(id, field))? {
+                    values[index] = value;
                 }
             }
         }
@@ -110,14 +109,14 @@ impl Accounts {
             CredentialPersistence::Keyring
         };
         let [access, refresh, client] = values;
-        (
+        Ok((
             Tokens {
                 access,
                 refresh,
                 client,
             },
             status,
-        )
+        ))
     }
 
     pub(crate) async fn set(
@@ -358,7 +357,7 @@ impl Accounts {
     }
 }
 
-fn token_key(id: &str, field: &str) -> String {
+pub(crate) fn token_key(id: &str, field: &str) -> String {
     secrets::key(&["minecraft-user", id, field])
 }
 

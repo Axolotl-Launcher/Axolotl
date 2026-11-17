@@ -158,30 +158,7 @@ pub async fn database_backup_info(
             metadata.len(),
         )
     } else if metadata.is_dir() && uuid::Uuid::parse_str(&name).is_ok() {
-        if !path.join("complete").is_file()
-            || !path.join("snapshot.json").is_file()
-        {
-            return Ok(None);
-        }
-        let Some(bytes) = crate::state::persistence::document::snapshot_json(
-            &path.join("snapshot.json"),
-        )?
-        else {
-            return Ok(None);
-        };
-        let manifest: serde_json::Value = serde_json::from_slice(&bytes)?;
-        if manifest["protocol"] != "axolotl-storage-snapshot"
-            || manifest["version"] != 1
-            || manifest["core"]
-                != serde_json::json!([
-                    "system.db",
-                    "instances.db",
-                    "storage.db"
-                ])
-            || ["system.db", "instances.db", "storage.db"]
-                .iter()
-                .any(|name| !path.join(name).is_file())
-        {
+        if !crate::state::store::maintenance::complete_bundle(path).await? {
             return Ok(None);
         }
         ("shared", None, snapshot_bytes(path).await?)
@@ -359,6 +336,13 @@ mod tests {
                 .as_deref(),
             Some("beta")
         );
+        tokio::fs::remove_file(bundle.join("instances.db"))
+            .await
+            .unwrap();
+        assert!(database_backup_info(&bundle).await.unwrap().is_none());
+        tokio::fs::write(bundle.join("instances.db"), b"core")
+            .await
+            .unwrap();
         tokio::fs::remove_file(bundle.join("complete"))
             .await
             .unwrap();

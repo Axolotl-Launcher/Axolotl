@@ -741,6 +741,14 @@ pub(crate) async fn maintain_backups(
         {
             continue;
         }
+        match super::maintenance::complete_bundle(&entry.path()).await {
+            Ok(true) => {}
+            Ok(false) => continue,
+            Err(error) => {
+                tracing::warn!(%error, "Snapshot retention ignores an unreadable bundle");
+                continue;
+            }
+        }
         let marker = entry.path().join("complete");
         if let Ok(metadata) = tokio::fs::metadata(marker).await {
             snapshots.push((metadata.modified()?, entry.path()));
@@ -782,20 +790,28 @@ pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
         .await?;
         super::maintenance::finish_restore(settings_dir).await?;
     }
-    super::legacy_documents::initialize(settings_dir).await;
     let retired = crate::state::persistence::import::retired_database_domains(
         settings_dir,
     )
     .await?;
     let pool = open_with_retired(settings_dir, retired).await?;
+    let has_legacy_app = ["app.db", "release/app.db", "beta/app.db"]
+        .iter()
+        .any(|path| settings_dir.join(path).is_file());
+    let core_import_complete: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM main.database_imports WHERE source='app.db' AND completed=1)",
+    ).fetch_one(&pool).await?;
+    if has_legacy_app && !core_import_complete {
+        // Empty new core tables are not import sources. The first takeover
+        // provides a migrated snapshot before any independent receipt exists.
+        return Ok(pool);
+    }
+    super::legacy_documents::initialize(settings_dir).await;
     if let Err(error) = super::records_db::initialize(settings_dir, None).await
     {
         tracing::warn!(%error,"Optional daily history unavailable; core startup continues");
     }
-    if !["app.db", "release/app.db", "beta/app.db"]
-        .iter()
-        .any(|path| settings_dir.join(path).is_file())
-        || settings_dir.join("settings/bootstrap.json").is_file()
+    if !has_legacy_app || settings_dir.join("settings/bootstrap.json").is_file()
     {
         super::sync_documents::initialize(settings_dir, None).await;
     }
@@ -1337,6 +1353,167 @@ pub(crate) async fn import(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn first_core_open_leaves_independent_receipts_for_the_migrated_snapshot()
+     {
+        let root = tempfile::tempdir().unwrap();
+        tokio::fs::create_dir_all(root.path().join("release"))
+            .await
+            .unwrap();
+        let original = b"preserved legacy source awaiting its snapshot";
+        tokio::fs::write(root.path().join("release/app.db"), original)
+            .await
+            .unwrap();
+        let _unavailable = super::super::secrets::testing::without_store();
+        let pool = open(root.path()).await.unwrap();
+        assert!(!root.path().join("accounts.json").exists());
+        assert!(!root.path().join("state/persistence/imports").exists());
+        assert_eq!(
+            tokio::fs::read(root.path().join("release/app.db"))
+                .await
+                .unwrap(),
+            original
+        );
+        let complete: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.database_imports WHERE source='app.db' AND completed=1)")
+            .fetch_one(&pool).await.unwrap();
+        assert!(!complete);
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn failed_core_open_preserves_independent_sources_without_credential_writes()
+     {
+        let root = tempfile::tempdir().unwrap();
+        tokio::fs::create_dir_all(root.path().join("databases"))
+            .await
+            .unwrap();
+        tokio::fs::create_dir_all(
+            root.path().join("state/persistence/imports"),
+        )
+        .await
+        .unwrap();
+        let retry = root.path().join("databases/legacy-document-import.db");
+        let legacy = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::new()
+                    .filename(&retry)
+                    .create_if_missing(true),
+            )
+            .await
+            .unwrap();
+        sqlx::query("CREATE TABLE minecraft_users(account_id TEXT,uuid TEXT,username TEXT,account_type TEXT,active INTEGER,expires INTEGER,secrets_externalized INTEGER,access_token TEXT,refresh_token TEXT)")
+            .execute(&legacy).await.unwrap();
+        sqlx::query("INSERT INTO minecraft_users VALUES('microsoft:test','00000000-0000-4000-8000-000000000001','Player','microsoft',1,0,0,'preserved-access','preserved-refresh')")
+            .execute(&legacy).await.unwrap();
+        legacy.close().await;
+        tokio::fs::write(
+            root.path().join("databases/system.db"),
+            b"corrupt core",
+        )
+        .await
+        .unwrap();
+        // Ownership is an existing core protocol, independent of document
+        // publication. Precreate its empty file to compare the whole tree.
+        tokio::fs::write(
+            root.path().join("databases/system.db.ownership.lock"),
+            b"",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(
+            root.path().join("state/telemetry.json"),
+            b"corrupt document",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(root.path().join("state/telemetry.json.previous"), br#"{"protocol":"axolotl-telemetry","schema_version":1,"revision":1,"data":{"installation_id":"preserved","outbox":{}}}"#).await.unwrap();
+        tokio::fs::write(
+            root.path().join("state/persistence/imports/telemetry.json"),
+            b"corrupt receipt",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(root.path().join("state/persistence/imports/telemetry.json.previous"), br#"{"protocol":"axolotl-import","schema_version":1,"revision":1,"data":{"name":"telemetry","target":"state/telemetry.json","complete":true}}"#).await.unwrap();
+        fn tree(root: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
+            fn visit(
+                base: &Path,
+                path: &Path,
+                result: &mut std::collections::BTreeMap<PathBuf, Vec<u8>>,
+            ) {
+                for entry in std::fs::read_dir(path).unwrap() {
+                    let entry = entry.unwrap();
+                    if entry.file_type().unwrap().is_dir() {
+                        result.insert(
+                            entry.path().strip_prefix(base).unwrap().to_owned(),
+                            Vec::new(),
+                        );
+                        visit(base, &entry.path(), result);
+                    } else {
+                        result.insert(
+                            entry.path().strip_prefix(base).unwrap().to_owned(),
+                            std::fs::read(entry.path()).unwrap(),
+                        );
+                    }
+                }
+            }
+            let mut result = std::collections::BTreeMap::new();
+            visit(root, root, &mut result);
+            result
+        }
+        let before = tree(root.path());
+        let host = super::super::secrets::testing::with_store();
+        assert!(open(root.path()).await.is_err());
+        assert_eq!(tree(root.path()), before);
+        assert!(host.store().unwrap().keys().is_empty());
+    }
+
+    #[tokio::test]
+    async fn retention_ignores_incomplete_marked_bundles_and_creates_a_usable_replacement()
+     {
+        let root = tempfile::tempdir().unwrap();
+        let pool = open(root.path()).await.unwrap();
+        let mut originals = Vec::new();
+        for index in 0..3 {
+            let bundle = backup(&pool, root.path()).await.unwrap();
+            std::fs::File::options()
+                .write(true)
+                .open(bundle.join("complete"))
+                .unwrap()
+                .set_modified(
+                    std::time::SystemTime::now()
+                        - Duration::from_secs(3 * 86400 - index),
+                )
+                .unwrap();
+            originals.push(bundle);
+        }
+        let parent = originals[0].parent().unwrap();
+        let invalid = parent.join(uuid::Uuid::new_v4().to_string());
+        tokio::fs::create_dir(&invalid).await.unwrap();
+        tokio::fs::write(invalid.join("complete"), b"marked but incomplete")
+            .await
+            .unwrap();
+        maintain_backups(&pool, root.path()).await.unwrap();
+        assert!(
+            invalid.join("complete").exists(),
+            "unusable evidence is never pruned as a valid snapshot"
+        );
+        assert!(!originals[0].exists());
+        assert!(originals[1].exists() && originals[2].exists());
+        let mut entries = tokio::fs::read_dir(parent).await.unwrap();
+        let mut valid = 0;
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            if super::super::maintenance::complete_bundle(&entry.path())
+                .await
+                .unwrap_or(false)
+            {
+                valid += 1;
+            }
+        }
+        assert_eq!(valid, 3);
+        pool.close().await;
+    }
 
     #[tokio::test]
     async fn backup_captures_a_domain_created_after_receipt_enumeration() {

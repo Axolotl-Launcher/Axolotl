@@ -18,7 +18,7 @@ pub const FAVORITE_GROUPS_FILE_NAME: &str = "favorite_groups.json";
 /// Current `favorite_groups.json` schema version.
 pub const FAVORITE_GROUPS_SCHEMA_VERSION: u32 = 1;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FavoriteGroupDefinition {
     pub id: String,
     pub name: String,
@@ -26,7 +26,7 @@ pub struct FavoriteGroupDefinition {
 
 /// On-disk shape. The order of `groups` *is* the display order, so no
 /// `display_order` field is needed.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FavoriteGroupsFile {
     #[serde(default)]
     pub schema_version: u32,
@@ -160,6 +160,7 @@ fn read_from_disk() -> Option<FavoriteGroupsFile> {
 }
 
 fn write_to_disk(file: &FavoriteGroupsFile) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_state_writable()?;
     let state = State::get_if_initialized().ok_or_else(|| {
         crate::ErrorKind::InputError(
             "Favorite group store is not initialized".to_string(),
@@ -204,14 +205,20 @@ fn with_read<T>(f: impl FnOnce(&FavoriteGroupsFile) -> T) -> T {
 
 /// Mutates the store and persists the whole file. `f` returns the favorite
 /// keys whose membership changed, so callers can emit the change event.
-fn with_write<T>(f: impl FnOnce(&mut FavoriteGroupsFile) -> T) -> T {
+fn with_write<T>(
+    f: impl FnOnce(&mut FavoriteGroupsFile) -> T,
+) -> crate::Result<T> {
+    crate::state::store::recovery_mode::ensure_state_writable()?;
     let mut guard = store().write().unwrap_or_else(|e| e.into_inner());
-    let result = f(&mut guard);
-    guard.normalize();
-    if let Err(error) = write_to_disk(&guard) {
-        warn!("Failed to save {FAVORITE_GROUPS_FILE_NAME}: {error}");
+    let mut file = guard.clone();
+    let result = f(&mut file);
+    file.normalize();
+    if file == *guard {
+        return Ok(result);
     }
-    result
+    write_to_disk(&file)?;
+    *guard = file;
+    Ok(result)
 }
 
 // ── Reads ───────────────────────────────────────────────────────────────────
@@ -263,7 +270,7 @@ fn favorites_in_group(
 // ── Writes ──────────────────────────────────────────────────────────────────
 
 /// Adds a group at the top of the list, matching instance groups.
-pub fn create(id: &str, name: &str) {
+pub fn create(id: &str, name: &str) -> crate::Result<()> {
     with_write(|file| {
         file.groups.insert(
             0,
@@ -272,12 +279,12 @@ pub fn create(id: &str, name: &str) {
                 name: name.to_string(),
             },
         );
-    });
+    })
 }
 
 /// Renames a group, returning the affected favorite keys, or `None` when the
 /// group does not exist.
-pub fn rename(id: &str, name: &str) -> Option<Vec<String>> {
+pub fn rename(id: &str, name: &str) -> crate::Result<Option<Vec<String>>> {
     with_write(|file| {
         let group = file.groups.iter_mut().find(|group| group.id == id)?;
         group.name = name.to_string();
@@ -287,7 +294,7 @@ pub fn rename(id: &str, name: &str) -> Option<Vec<String>> {
 
 /// Deletes a group and strips it from every favorite, returning the affected
 /// favorite keys, or `None` when the group does not exist.
-pub fn delete(id: &str) -> Option<Vec<String>> {
+pub fn delete(id: &str) -> crate::Result<Option<Vec<String>>> {
     with_write(|file| {
         let index = file.groups.iter().position(|group| group.id == id)?;
         let affected = favorites_in_group(file, id);
@@ -298,7 +305,7 @@ pub fn delete(id: &str) -> Option<Vec<String>> {
 }
 
 /// Replaces the group list of each given favorite wholesale.
-pub fn set_memberships(updates: &[(String, Vec<String>)]) {
+pub fn set_memberships(updates: &[(String, Vec<String>)]) -> crate::Result<()> {
     with_write(|file| {
         for (favorite_key, group_ids) in updates {
             if group_ids.is_empty() {
@@ -308,7 +315,7 @@ pub fn set_memberships(updates: &[(String, Vec<String>)]) {
                     .insert(favorite_key.clone(), group_ids.clone());
             }
         }
-    });
+    })
 }
 
 /// Applies relationship changes under the store's write lock, preserving all
@@ -316,23 +323,44 @@ pub fn set_memberships(updates: &[(String, Vec<String>)]) {
 pub fn update_memberships(
     updates: &[(String, Vec<String>, Vec<String>)],
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_state_writable()?;
     let mut guard = store().write().unwrap_or_else(|e| e.into_inner());
     let mut file = guard.clone();
     file.apply_membership_updates(updates)?;
     file.normalize();
+    if file == *guard {
+        return Ok(());
+    }
     write_to_disk(&file)?;
     *guard = file;
     Ok(())
 }
 
 /// Drops a favorite's membership entry, e.g. after the favorite is removed.
-pub fn forget(favorite_key: &str) {
-    with_write(|file| file.forget(favorite_key));
+pub fn forget(favorite_key: &str) -> crate::Result<()> {
+    with_write(|file| file.forget(favorite_key))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unchanged_membership_needs_no_publication_but_real_changes_need_a_store()
+    {
+        assert!(State::get_if_initialized().is_none());
+        let before = with_read(Clone::clone);
+        forget("modrinth:ungrouped-favorite").unwrap();
+        update_memberships(&[(
+            "modrinth:ungrouped-favorite".into(),
+            vec![],
+            vec![],
+        )])
+        .unwrap();
+        assert_eq!(with_read(Clone::clone), before);
+        assert!(create("new-group", "Needs persistence").is_err());
+        assert_eq!(with_read(Clone::clone), before);
+    }
 
     fn file_with_groups(ids: &[&str]) -> FavoriteGroupsFile {
         FavoriteGroupsFile {

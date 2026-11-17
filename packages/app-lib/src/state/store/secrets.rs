@@ -577,6 +577,7 @@ pub(crate) mod testing {
     pub(crate) struct Memory {
         values: Mutex<HashMap<String, String>>,
         refuses_deletes: AtomicBool,
+        refuses_reads: AtomicBool,
     }
 
     impl Memory {
@@ -601,6 +602,10 @@ pub(crate) mod testing {
             self.refuses_deletes.store(true, Ordering::Relaxed);
         }
 
+        pub(crate) fn refuse_reads(&self, refuse: bool) {
+            self.refuses_reads.store(refuse, Ordering::Relaxed);
+        }
+
         fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, String>> {
             self.values
                 .lock()
@@ -615,6 +620,12 @@ pub(crate) mod testing {
         }
 
         fn get(&self, key: &str) -> Result<Option<String>, Refused> {
+            if self.refuses_reads.load(Ordering::Relaxed) {
+                return Err(Refused {
+                    reason: "credential store is locked".into(),
+                    permanent: false,
+                });
+            }
             Ok(self.value(key))
         }
 

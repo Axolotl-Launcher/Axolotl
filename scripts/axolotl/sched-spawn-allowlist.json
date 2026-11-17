@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "file": "packages/app-lib/src/state/store/recovery_mode.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "reviewed recovery write guard: canonicalizes the authority path or its nearest existing ancestor to reject symlink aliases and Windows verbatim-path bypasses. Probes are bounded by path depth, read metadata only, execute after releasing the recovery registry mutex, and acquire no scheduler managed resource; normal sessions with no recovery roots skip these probes (D17)",
+      "sites": [
+        "normalized: if let Ok(mut resolved) = std::fs::canonicalize(ancestor) {",
+        "normalized: if let Ok(path) = std::fs::canonicalize(path) {"
+      ]
+    },
+    {
       "file": "packages/app-lib/src/state/persistence/document.rs",
       "form": "spawn_blocking",
       "count": 1,

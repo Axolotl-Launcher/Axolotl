@@ -120,3 +120,37 @@ pub(crate) async fn content_versions(
 ) -> crate::Result<Vec<(String, String, Option<String>)>> {
     Ok(sqlx::query_as("SELECT game_version,loader,loader_version FROM instance_content_sets WHERE instance_id=?").bind(instance).fetch_all(pool).await?)
 }
+
+/// Structural contract shared by listing and retention. The completion marker
+/// alone cannot attest that the required snapshot members still exist.
+pub(crate) async fn complete_bundle(
+    path: &std::path::Path,
+) -> crate::Result<bool> {
+    for name in [
+        "complete",
+        "snapshot.json",
+        "system.db",
+        "instances.db",
+        "storage.db",
+    ] {
+        match tokio::fs::symlink_metadata(path.join(name)).await {
+            Ok(metadata) if metadata.is_file() => {}
+            Ok(_) => return Ok(false),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(false);
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+    let Some(bytes) = crate::state::persistence::document::snapshot_json(
+        &path.join("snapshot.json"),
+    )?
+    else {
+        return Ok(false);
+    };
+    let manifest: serde_json::Value = serde_json::from_slice(&bytes)?;
+    Ok(manifest["protocol"] == "axolotl-storage-snapshot"
+        && manifest["version"] == 1
+        && manifest["core"]
+            == serde_json::json!(["system.db", "instances.db", "storage.db"]))
+}

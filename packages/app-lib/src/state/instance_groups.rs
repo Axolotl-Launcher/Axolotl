@@ -27,7 +27,7 @@ pub const INSTANCE_GROUPS_SCHEMA_VERSION: u32 = 1;
 pub const FAVORITES_GROUP_ID: &str = "group:favorites";
 const FAVORITES_GROUP_NAME: &str = "Pinned";
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GroupDefinition {
     pub id: String,
     pub name: String,
@@ -36,7 +36,7 @@ pub struct GroupDefinition {
 /// On-disk shape. The order of `groups` *is* the display order, so no
 /// `display_order` field is needed: the public API only ever communicates
 /// ordering through the order of `list()` and `set_order()`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InstanceGroupsFile {
     #[serde(default)]
     pub schema_version: u32,
@@ -158,6 +158,7 @@ fn read_from_disk() -> Option<InstanceGroupsFile> {
 }
 
 fn write_to_disk(file: &InstanceGroupsFile) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_state_writable()?;
     let state = State::get_if_initialized().ok_or_else(|| {
         crate::ErrorKind::InputError(
             "Instance group store is not initialized".to_string(),
@@ -202,14 +203,20 @@ fn with_read<T>(f: impl FnOnce(&InstanceGroupsFile) -> T) -> T {
 
 /// Mutates the store and persists the whole file. `f` returns the instance ids
 /// whose membership changed, so callers can emit the change event.
-fn with_write<T>(f: impl FnOnce(&mut InstanceGroupsFile) -> T) -> T {
+fn with_write<T>(
+    f: impl FnOnce(&mut InstanceGroupsFile) -> T,
+) -> crate::Result<T> {
+    crate::state::store::recovery_mode::ensure_state_writable()?;
     let mut guard = store().write().unwrap_or_else(|e| e.into_inner());
-    let result = f(&mut guard);
-    guard.normalize();
-    if let Err(error) = write_to_disk(&guard) {
-        warn!("Failed to save {INSTANCE_GROUPS_FILE_NAME}: {error}");
+    let mut file = guard.clone();
+    let result = f(&mut file);
+    file.normalize();
+    if file == *guard {
+        return Ok(result);
     }
-    result
+    write_to_disk(&file)?;
+    *guard = file;
+    Ok(result)
 }
 
 // ── Reads ───────────────────────────────────────────────────────────────────
@@ -248,7 +255,7 @@ fn instances_in_group(
 
 /// Adds a group at the top of the list, matching the previous SQL behavior
 /// where new groups got the lowest `display_order`. Favorites stays first.
-pub fn create(id: &str, name: &str) {
+pub fn create(id: &str, name: &str) -> crate::Result<()> {
     with_write(|file| {
         let definition = GroupDefinition {
             id: id.to_string(),
@@ -256,12 +263,12 @@ pub fn create(id: &str, name: &str) {
         };
         // `normalize` moves favorites back to index 0 afterwards.
         file.groups.insert(0, definition);
-    });
+    })
 }
 
 /// Renames a group, returning the affected instance ids, or `None` when the
 /// group does not exist.
-pub fn rename(id: &str, name: &str) -> Option<Vec<String>> {
+pub fn rename(id: &str, name: &str) -> crate::Result<Option<Vec<String>>> {
     with_write(|file| {
         let group = file.groups.iter_mut().find(|group| group.id == id)?;
         group.name = name.to_string();
@@ -271,7 +278,7 @@ pub fn rename(id: &str, name: &str) -> Option<Vec<String>> {
 
 /// Deletes a group and strips it from every instance, returning the affected
 /// instance ids, or `None` when the group does not exist.
-pub fn delete(id: &str) -> Option<Vec<String>> {
+pub fn delete(id: &str) -> crate::Result<Option<Vec<String>>> {
     with_write(|file| {
         let index = file.groups.iter().position(|group| group.id == id)?;
         let affected = instances_in_group(file, id);
@@ -284,8 +291,8 @@ pub fn delete(id: &str) -> Option<Vec<String>> {
 /// Reorders groups to match `group_ids`. Groups missing from the argument keep
 /// their relative order at the end, so a stale frontend list can never drop a
 /// group. Favorites is pinned first regardless.
-pub fn set_order(group_ids: &[String]) {
-    with_write(|file| reorder_groups(&mut file.groups, group_ids));
+pub fn set_order(group_ids: &[String]) -> crate::Result<()> {
+    with_write(|file| reorder_groups(&mut file.groups, group_ids))
 }
 
 /// Reorders `groups` to match `group_ids`. Groups the argument omits keep their
@@ -309,7 +316,7 @@ fn reorder_groups(groups: &mut Vec<GroupDefinition>, group_ids: &[String]) {
 }
 
 /// Replaces the group list of each given instance wholesale.
-pub fn set_memberships(updates: &[(String, Vec<String>)]) {
+pub fn set_memberships(updates: &[(String, Vec<String>)]) -> crate::Result<()> {
     with_write(|file| {
         for (instance_id, group_ids) in updates {
             if group_ids.is_empty() {
@@ -319,12 +326,15 @@ pub fn set_memberships(updates: &[(String, Vec<String>)]) {
                     .insert(instance_id.clone(), group_ids.clone());
             }
         }
-    });
+    })
 }
 
 /// Replaces the group list of a single instance.
-pub fn set_instance_groups(instance_id: &str, group_ids: &[String]) {
-    set_memberships(&[(instance_id.to_string(), group_ids.to_vec())]);
+pub fn set_instance_groups(
+    instance_id: &str,
+    group_ids: &[String],
+) -> crate::Result<()> {
+    set_memberships(&[(instance_id.to_string(), group_ids.to_vec())])
 }
 
 /// Applies relationship changes under the store's write lock, preserving all
@@ -332,6 +342,7 @@ pub fn set_instance_groups(instance_id: &str, group_ids: &[String]) {
 pub fn update_memberships(
     updates: &[(String, Vec<String>, Vec<String>)],
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_state_writable()?;
     let mut guard = store().write().unwrap_or_else(|e| e.into_inner());
     let mut file = guard.clone();
     for (_, added, removed) in updates {
@@ -348,6 +359,9 @@ pub fn update_memberships(
         file.update_membership(instance_id, added, removed);
     }
     file.normalize();
+    if file == *guard {
+        return Ok(());
+    }
     write_to_disk(&file)?;
     *guard = file;
     Ok(())
@@ -355,7 +369,7 @@ pub fn update_memberships(
 
 /// Looks a group up by name, creating it if absent, and returns its id.
 /// Used by the legacy launcher import, which only knows group names.
-pub fn find_or_create_by_name(name: &str) -> String {
+pub fn find_or_create_by_name(name: &str) -> crate::Result<String> {
     with_write(|file| {
         if let Some(group) = file.groups.iter().find(|group| group.name == name)
         {
@@ -371,30 +385,33 @@ pub fn find_or_create_by_name(name: &str) -> String {
 }
 
 /// Adds one group to an instance, keeping its existing groups.
-pub fn add_instance_to_group(instance_id: &str, group_id: &str) {
+pub fn add_instance_to_group(
+    instance_id: &str,
+    group_id: &str,
+) -> crate::Result<()> {
     with_write(|file| {
         file.update_membership(instance_id, &[group_id.to_string()], &[]);
-    });
+    })
 }
 
 /// Drops an instance's membership entry, e.g. after the instance is deleted.
-pub fn forget_instance(instance_id: &str) {
+pub fn forget_instance(instance_id: &str) -> crate::Result<()> {
     with_write(|file| {
         file.memberships.remove(instance_id);
-    });
+    })
 }
 
 /// Re-keys an instance's membership, e.g. when a `local:` id changes because the
 /// instance directory moved.
-pub fn rename_instance(old_id: &str, new_id: &str) {
+pub fn rename_instance(old_id: &str, new_id: &str) -> crate::Result<()> {
     if old_id == new_id {
-        return;
+        return Ok(());
     }
     with_write(|file| {
         if let Some(group_ids) = file.memberships.remove(old_id) {
             file.memberships.insert(new_id.to_string(), group_ids);
         }
-    });
+    })
 }
 
 // ── One-time import ─────────────────────────────────────────────────────────
@@ -516,6 +533,19 @@ pub async fn ensure_imported(state: &State) -> crate::Result<()> {
 mod tests {
     use super::*;
     use sqlx::sqlite::SqlitePoolOptions;
+
+    #[test]
+    fn unchanged_membership_needs_no_publication_but_real_changes_need_a_store()
+    {
+        assert!(State::get_if_initialized().is_none());
+        let before = with_read(Clone::clone);
+        forget_instance("ungrouped-instance").unwrap();
+        update_memberships(&[("ungrouped-instance".into(), vec![], vec![])])
+            .unwrap();
+        assert_eq!(with_read(Clone::clone), before);
+        assert!(create("new-group", "Needs persistence").is_err());
+        assert_eq!(with_read(Clone::clone), before);
+    }
 
     fn file_with_groups(ids: &[&str]) -> InstanceGroupsFile {
         InstanceGroupsFile {

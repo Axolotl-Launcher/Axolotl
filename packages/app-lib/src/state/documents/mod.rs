@@ -316,6 +316,7 @@ impl<'a> Documents<'a> {
         T: Serialize,
     {
         let path = self.path(name);
+        crate::state::store::recovery_mode::ensure_path_writable(&path)?;
         // `WRITES` serializes the writers of this process, and the file is read
         // again anyway: another writer here may have replaced it since the one
         // this write began with, and the file is the answer that counts.

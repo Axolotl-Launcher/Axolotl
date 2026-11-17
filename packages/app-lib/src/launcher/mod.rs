@@ -1086,7 +1086,7 @@ async fn promote_external_instance_link(
         crate::state::instance_groups::set_instance_groups(
             &instance.id,
             &[group],
-        );
+        )?;
     }
     emit_instance(&instance.id, InstancePayloadType::Edited).await?;
     Ok(())

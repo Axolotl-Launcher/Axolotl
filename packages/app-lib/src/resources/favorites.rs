@@ -117,7 +117,7 @@ pub(crate) async fn remove_project(
     )
     .await?;
     let group_key = favorite_group_key(project);
-    crate::state::favorite_groups::forget(&group_key);
+    crate::state::favorite_groups::forget(&group_key)?;
     emit_favorite_groups_changed(std::slice::from_ref(&group_key)).await?;
     Ok(())
 }
@@ -341,7 +341,7 @@ impl ResourceService {
         let group_keys =
             projects.iter().map(favorite_group_key).collect::<Vec<_>>();
         for group_key in &group_keys {
-            crate::state::favorite_groups::forget(group_key);
+            crate::state::favorite_groups::forget(group_key)?;
         }
         emit_favorite_groups_changed(&group_keys).await?;
         Ok(())

@@ -187,7 +187,7 @@ async fn complete_startup_import(
             settings_dir,
             &snapshot,
         )
-        .await;
+        .await?;
         super::store::databases::import(pool, &snapshot, settings_dir).await?;
         super::store::sync_documents::initialize(
             settings_dir,

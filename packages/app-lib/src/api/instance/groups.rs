@@ -88,7 +88,7 @@ pub async fn list_groups() -> crate::Result<Vec<InstanceGroup>> {
 pub async fn create_group(name: String) -> crate::Result<InstanceGroup> {
     let name = validate_group_name(&name)?;
     let id = Uuid::new_v4().to_string();
-    instance_groups::create(&id, name);
+    instance_groups::create(&id, name)?;
     // Creating a group changes the library even when it has no members yet;
     // without this event the frontend keeps its stale list until the next
     // membership change and empty groups never appear.
@@ -101,7 +101,7 @@ pub async fn create_group(name: String) -> crate::Result<InstanceGroup> {
 }
 
 pub async fn set_group_order(group_ids: Vec<String>) -> crate::Result<()> {
-    instance_groups::set_order(&group_ids);
+    instance_groups::set_order(&group_ids)?;
     Ok(())
 }
 
@@ -137,7 +137,7 @@ pub async fn set_group_memberships(
                 (update.instance_id.clone(), update.group_ids.clone())
             })
             .collect::<Vec<_>>(),
-    );
+    )?;
 
     let instance_ids = updates
         .into_iter()
@@ -187,7 +187,7 @@ pub async fn rename_group(
 
     let new_name = validate_group_name(&new_name)?;
 
-    let Some(instance_ids) = instance_groups::rename(&id, new_name) else {
+    let Some(instance_ids) = instance_groups::rename(&id, new_name)? else {
         return Err(crate::ErrorKind::InputError(format!(
             "Unknown instance group {id}"
         ))
@@ -210,7 +210,7 @@ pub async fn delete_group(id: String) -> crate::Result<()> {
         .into());
     }
 
-    let Some(instance_ids) = instance_groups::delete(&id) else {
+    let Some(instance_ids) = instance_groups::delete(&id)? else {
         return Err(crate::ErrorKind::InputError(format!(
             "Unknown instance group {id}"
         ))

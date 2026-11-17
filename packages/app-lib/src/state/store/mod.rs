@@ -336,6 +336,7 @@ impl Atom {
         &mut self,
     ) -> crate::Result<&mut crate::state::sync_state::journal::Transaction>
     {
+        recovery_mode::ensure_path_writable(self.handle.persistence().root())?;
         if self.sync_transaction.is_none() {
             self.diagnostics.phase("sync_acquire");
             self.configuration().await?;

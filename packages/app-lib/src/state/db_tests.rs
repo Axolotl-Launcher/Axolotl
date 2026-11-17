@@ -4482,3 +4482,50 @@ async fn startup_waits_for_hundreds_of_legacy_jobs_past_daily_recovery_budget()
     assert_eq!(counts, 423);
     reopened.close().await;
 }
+
+#[tokio::test]
+async fn failed_legacy_token_handover_does_not_complete_core_import() {
+    let root = tempfile::tempdir().unwrap();
+    let legacy_path = root.path().join("release/app.db");
+    tokio::fs::create_dir_all(legacy_path.parent().unwrap())
+        .await
+        .unwrap();
+    let legacy = connect_app_db(&legacy_path).await.unwrap();
+    sqlx::query("INSERT INTO minecraft_users(account_id,uuid,active,username,access_token,refresh_token,expires,account_type,secrets_externalized) VALUES('microsoft:test','00000000-0000-4000-8000-000000000001',1,'Player','legacy-access','legacy-refresh',0,'microsoft',0)")
+        .execute(&legacy).await.unwrap();
+    legacy.close().await;
+    drop(legacy);
+    let original = tokio::fs::read(&legacy_path).await.unwrap();
+    let unavailable = crate::state::store::secrets::testing::without_store();
+    assert!(connect_at(root.path()).await.is_err());
+    assert!(
+        !root
+            .path()
+            .join("state/persistence/imports/accounts.json")
+            .exists()
+    );
+    let check = crate::state::db_backup::open_read_only_db(
+        &root.path().join("databases/system.db"),
+    )
+    .await
+    .unwrap();
+    let mut check = check;
+    let completed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM database_imports WHERE source='app.db' AND completed=1)").fetch_one(&mut check).await.unwrap();
+    assert!(!completed);
+    check.close().await.unwrap();
+    assert_eq!(tokio::fs::read(&legacy_path).await.unwrap(), original);
+    drop(unavailable);
+    let _host = crate::state::store::secrets::testing::with_store();
+    let pool = connect_at(root.path()).await.unwrap();
+    let accounts = crate::state::accounts::Accounts::new(
+        &crate::state::persistence::Persistence::new(root.path()),
+    );
+    assert_eq!(
+        accounts.get_all().await.unwrap()[0].1.refresh_token,
+        "legacy-refresh"
+    );
+    let completed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM database_imports WHERE source='app.db' AND completed=1)").fetch_one(&pool).await.unwrap();
+    assert!(completed);
+    assert_eq!(tokio::fs::read(&legacy_path).await.unwrap(), original);
+    pool.close().await;
+}

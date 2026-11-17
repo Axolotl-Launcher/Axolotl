@@ -1,5 +1,5 @@
-//! Read-only handover coordination for independent authorities. Account token
-//! columns are never selected; shared-log credentials have their own adapter.
+//! Read-only handover coordination for independent authorities. Legacy account
+//! credentials move directly to the system store, never into document payloads.
 
 use crate::state::accounts::document::Metadata;
 use crate::state::persistence::{Persistence, import::Import};
@@ -79,7 +79,10 @@ pub(crate) async fn initialize(root: &Path) {
     }
 }
 
-pub(crate) async fn initialize_from_snapshot(root: &Path, snapshot: &Path) {
+pub(crate) async fn initialize_from_snapshot(
+    root: &Path,
+    snapshot: &Path,
+) -> crate::Result<()> {
     // Optional imports must be retryable after the temporary migrated image is
     // dropped, even when the core has already switched to its new layout.
     let retry = root.join("databases/legacy-document-import.db");
@@ -98,7 +101,7 @@ pub(crate) async fn initialize_from_snapshot(root: &Path, snapshot: &Path) {
         }
         .await;
         if let Err(error) = result {
-            tracing::warn!(%error,"Optional legacy retry snapshot could not be retained; original source remains preserved");
+            return Err(error);
         }
     }
 
@@ -109,7 +112,8 @@ pub(crate) async fn initialize_from_snapshot(root: &Path, snapshot: &Path) {
     {
         tracing::warn!(%error, "Independent playtime import unavailable; core startup continues");
     }
-    for domain in ["accounts", "telemetry"] {
+    initialize_domain(root, "accounts", Some(snapshot.to_path_buf())).await?;
+    for domain in ["telemetry"] {
         if let Err(error) =
             initialize_domain(root, domain, Some(snapshot.to_path_buf())).await
         {
@@ -122,6 +126,7 @@ pub(crate) async fn initialize_from_snapshot(root: &Path, snapshot: &Path) {
     {
         tracing::warn!(%error, "Media snapshot import unavailable; preserving the source");
     }
+    Ok(())
 }
 
 async fn initialize_domain(
@@ -141,6 +146,7 @@ async fn initialize_domain(
         "axolotl-telemetry"
     };
     let document = persistence.document(target, protocol, 1)?;
+    let credentials = super::secrets::access();
     let root = root.to_path_buf();
     let result = Import::new(&persistence, domain, document)?
         .run(
@@ -172,7 +178,7 @@ async fn initialize_domain(
                     });
                 };
                 let mut data = if domain == "accounts" {
-                    accounts(&mut connection).await?
+                    accounts(&mut connection, credentials).await?
                 } else {
                     telemetry(&mut connection).await?
                 };
@@ -359,6 +365,7 @@ async fn core_import_complete(root: &Path) -> crate::Result<bool> {
 
 async fn accounts(
     connection: &mut SqliteConnection,
+    credentials: super::secrets::Access,
 ) -> crate::Result<Map<String, Value>> {
     let columns = columns(connection, "minecraft_users").await?;
     if columns.is_empty() {
@@ -378,6 +385,9 @@ async fn accounts(
         "yggdrasil_server_name",
         "yggdrasil_login",
         "secrets_externalized",
+        "access_token",
+        "refresh_token",
+        "yggdrasil_client_token",
     ];
     let select = fields
         .iter()
@@ -420,6 +430,28 @@ async fn accounts(
                 .collect();
         if mark & !7 != 0 {
             credential_fields.push(format!("unsupported-legacy-flags:{mark}"));
+        }
+        if matches!(kind.as_str(), "microsoft" | "yggdrasil") && mark & !7 == 0
+        {
+            for (index, field) in
+                ["access_token", "refresh_token", "yggdrasil_client_token"]
+                    .into_iter()
+                    .enumerate()
+            {
+                if mark & (1 << index) != 0 {
+                    continue;
+                }
+                let token: String = row.try_get(field)?;
+                if token.is_empty() {
+                    continue;
+                }
+                let key = crate::state::accounts::token_key(&id, field);
+                credentials.write(&key, Some(&token))?;
+                if credentials.read(&key)?.as_deref() != Some(token.as_str()) {
+                    return Err(crate::ErrorKind::FSError("Legacy account credential could not be verified in the system store".into()).into());
+                }
+                credential_fields.push(field.to_owned());
+            }
         }
         let metadata = Metadata {
             uuid,
@@ -502,14 +534,57 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn account_import_copies_metadata_and_key_names_but_never_plaintext_tokens()
+    async fn unknown_account_types_preserve_sources_without_touching_credentials()
      {
+        let root = tempfile::tempdir().unwrap();
+        let (file, pool) = legacy(root.path()).await;
+        sqlx::query("INSERT INTO minecraft_users VALUES('future:test','00000000-0000-4000-8000-000000000001','Future Player','future-provider',1,0,0,'future-access-secret','future-refresh-secret')")
+            .execute(&pool).await.unwrap();
+        pool.close().await;
+        let original = tokio::fs::read(&file).await.unwrap();
+        let _unavailable =
+            crate::state::store::secrets::testing::without_store();
+        initialize_from_snapshot(root.path(), &file).await.unwrap();
+        let document =
+            tokio::fs::read_to_string(root.path().join("accounts.json"))
+                .await
+                .unwrap();
+        assert!(document.contains("future-provider"));
+        assert!(!document.contains("future-access-secret"));
+        assert!(!document.contains("future-refresh-secret"));
+        let accounts = crate::state::accounts::Accounts::new(
+            &Persistence::new(root.path()),
+        );
+        assert!(accounts.get_all().await.unwrap().is_empty());
+        assert_eq!(tokio::fs::read(&file).await.unwrap(), original);
+        let mut retained = crate::state::db_backup::open_read_only_db(
+            &root.path().join("databases/legacy-document-import.db"),
+        )
+        .await
+        .unwrap();
+        let tokens: (String, String) = sqlx::query_as(
+            "SELECT access_token, refresh_token FROM minecraft_users WHERE account_id='future:test'",
+        ).fetch_one(&mut retained).await.unwrap();
+        assert_eq!(
+            tokens,
+            (
+                "future-access-secret".into(),
+                "future-refresh-secret".into()
+            )
+        );
+        retained.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn account_import_externalizes_plaintext_without_copying_tokens_to_documents()
+     {
+        let _host = crate::state::store::secrets::testing::with_store();
         let root = tempfile::tempdir().unwrap();
         let (file, pool) = legacy(root.path()).await;
         sqlx::query("INSERT INTO minecraft_users VALUES('microsoft:test','00000000-0000-4000-8000-000000000001','Player','microsoft',1,0,0,'legacy-secret-access','legacy-secret-refresh')")
             .execute(&pool).await.unwrap();
         pool.close().await;
-        initialize_from_snapshot(root.path(), &file).await;
+        initialize_from_snapshot(root.path(), &file).await.unwrap();
         let bytes =
             tokio::fs::read_to_string(root.path().join("accounts.json"))
                 .await
@@ -523,7 +598,7 @@ mod tests {
         );
         assert_eq!(
             raw["data"]["accounts"]["microsoft:test"]["credential_fields"],
-            json!([])
+            json!(["access_token", "refresh_token"])
         );
         assert!(
             root.path()
@@ -535,7 +610,54 @@ mod tests {
         );
         assert_eq!(
             reopened.get_all().await.unwrap()[0].2,
-            crate::state::minecraft_auth::CredentialPersistence::RequiresLogin
+            crate::state::minecraft_auth::CredentialPersistence::Keyring
+        );
+        assert_eq!(
+            reopened.get_all().await.unwrap()[0].1.refresh_token,
+            "legacy-secret-refresh"
+        );
+    }
+
+    #[tokio::test]
+    async fn unavailable_store_keeps_account_handover_retryable_and_source_untouched()
+     {
+        let root = tempfile::tempdir().unwrap();
+        let (file, pool) = legacy(root.path()).await;
+        sqlx::query("INSERT INTO minecraft_users VALUES('microsoft:test','00000000-0000-4000-8000-000000000001','Player','microsoft',1,0,0,'legacy-access','legacy-refresh')").execute(&pool).await.unwrap();
+        pool.close().await;
+        let before = tokio::fs::read(&file).await.unwrap();
+        let unavailable =
+            crate::state::store::secrets::testing::without_store();
+        assert!(initialize_from_snapshot(root.path(), &file).await.is_err());
+        assert!(!root.path().join("accounts.json").exists());
+        assert!(
+            !root
+                .path()
+                .join("state/persistence/imports/accounts.json")
+                .exists()
+        );
+        assert!(
+            root.path()
+                .join("databases/legacy-document-import.db")
+                .exists()
+        );
+        assert_eq!(tokio::fs::read(&file).await.unwrap(), before);
+        drop(unavailable);
+        let _host = crate::state::store::secrets::testing::with_store();
+        initialize_from_snapshot(root.path(), &file).await.unwrap();
+        let reopened = crate::state::accounts::Accounts::new(
+            &Persistence::new(root.path()),
+        );
+        assert_eq!(
+            reopened.get_all().await.unwrap()[0].1.refresh_token,
+            "legacy-refresh"
+        );
+        assert_eq!(tokio::fs::read(&file).await.unwrap(), before);
+        assert!(
+            !tokio::fs::read_to_string(root.path().join("accounts.json"))
+                .await
+                .unwrap()
+                .contains("legacy-refresh")
         );
     }
 
@@ -560,7 +682,7 @@ mod tests {
             "refresh_token",
         ]);
         host.store().unwrap().put(&key, "keyring-refresh");
-        initialize_from_snapshot(root.path(), &file).await;
+        initialize_from_snapshot(root.path(), &file).await.unwrap();
         let accounts = crate::state::accounts::Accounts::new(
             &Persistence::new(root.path()),
         );
@@ -584,7 +706,7 @@ mod tests {
         sqlx::query("CREATE TABLE minecraft_users(uuid TEXT,username TEXT,active INTEGER,expires INTEGER)").execute(&pool).await.unwrap();
         sqlx::query("INSERT INTO minecraft_users VALUES('00000000-0000-4000-8000-000000000001','Player',1,0)").execute(&pool).await.unwrap();
         pool.close().await;
-        initialize_from_snapshot(root.path(), &file).await;
+        initialize_from_snapshot(root.path(), &file).await.unwrap();
         let raw: Value = serde_json::from_slice(
             &tokio::fs::read(root.path().join("accounts.json"))
                 .await

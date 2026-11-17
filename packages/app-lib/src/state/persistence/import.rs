@@ -160,20 +160,62 @@ fn marker_path(name: &str) -> String {
 pub(crate) async fn retired_database_domains(
     root: &Path,
 ) -> crate::Result<Vec<String>> {
-    let persistence = Persistence::new(root);
     let mut retired = Vec::new();
     for name in ["accounts", "telemetry", "media", "sync"] {
-        let marker = persistence.document(marker_path(name), PROTOCOL, 1)?;
-        match marker.read().await {
-            Ok(result) if result.availability == Availability::Missing => {}
-            Ok(_) => retired.push(name.to_owned()),
-            Err(error) => {
-                tracing::warn!(domain = name, %error, "Handover receipt unavailable; leaving its legacy database retired");
-                retired.push(name.to_owned());
+        let marker = root.join(marker_path(name));
+        // Core opening may still fail and enter read-only recovery. Presence
+        // alone retires the old domain; do not repair or lock its receipt here.
+        for candidate in
+            [marker.clone(), document::sidecar(&marker, ".previous")]
+        {
+            match tokio::fs::symlink_metadata(candidate).await {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                result => {
+                    if let Err(error) = result {
+                        tracing::warn!(domain = name, %error, "Handover receipt unavailable; leaving its legacy database retired");
+                    }
+                    retired.push(name.to_owned());
+                    break;
+                }
             }
         }
     }
     Ok(retired)
+}
+
+#[cfg(test)]
+mod receipt_tests {
+    #[tokio::test]
+    async fn retirement_probe_preserves_corrupt_and_previous_only_receipts() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join("state/persistence/imports");
+        tokio::fs::create_dir_all(&directory).await.unwrap();
+        tokio::fs::write(
+            directory.join("accounts.json.previous"),
+            b"unknown receipt",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(directory.join("media.json"), b"corrupt receipt")
+            .await
+            .unwrap();
+        assert_eq!(
+            super::retired_database_domains(root.path()).await.unwrap(),
+            vec!["accounts", "media"]
+        );
+        assert!(!directory.join("accounts.json").exists());
+        assert_eq!(
+            tokio::fs::read(directory.join("accounts.json.previous"))
+                .await
+                .unwrap(),
+            b"unknown receipt"
+        );
+        assert_eq!(
+            tokio::fs::read(directory.join("media.json")).await.unwrap(),
+            b"corrupt receipt"
+        );
+        assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 2);
+    }
 }
 
 /// Freeze a receipt and its authority under the same lock order as import.

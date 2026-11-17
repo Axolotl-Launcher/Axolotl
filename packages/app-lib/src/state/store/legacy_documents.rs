@@ -446,9 +446,20 @@ async fn accounts(
                     continue;
                 }
                 let key = crate::state::accounts::token_key(&id, field);
-                credentials.write(&key, Some(&token))?;
-                if credentials.read(&key)?.as_deref() != Some(token.as_str()) {
-                    return Err(crate::ErrorKind::FSError("Legacy account credential could not be verified in the system store".into()).into());
+                let transferred = credentials
+                    .write(&key, Some(&token))
+                    .and_then(|()| credentials.read(&key))
+                    .is_ok_and(|stored| {
+                        stored.as_deref() == Some(token.as_str())
+                    });
+                if !transferred {
+                    // Publication may keep the identity, but a partially
+                    // transferred account must never look authenticated.
+                    credential_fields.clear();
+                    tracing::warn!(
+                        "Legacy account credentials could not be transferred; the account requires sign-in again and its source remains preserved"
+                    );
+                    break;
                 }
                 credential_fields.push(field.to_owned());
             }
@@ -619,20 +630,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unavailable_store_keeps_account_handover_retryable_and_source_untouched()
-     {
+    async fn unavailable_store_keeps_account_identity_and_source_for_sign_in() {
         let root = tempfile::tempdir().unwrap();
         let (file, pool) = legacy(root.path()).await;
         sqlx::query("INSERT INTO minecraft_users VALUES('microsoft:test','00000000-0000-4000-8000-000000000001','Player','microsoft',1,0,0,'legacy-access','legacy-refresh')").execute(&pool).await.unwrap();
         pool.close().await;
         let before = tokio::fs::read(&file).await.unwrap();
-        let unavailable =
+        let _unavailable =
             crate::state::store::secrets::testing::without_store();
-        assert!(initialize_from_snapshot(root.path(), &file).await.is_err());
-        assert!(!root.path().join("accounts.json").exists());
+        initialize_from_snapshot(root.path(), &file).await.unwrap();
         assert!(
-            !root
-                .path()
+            root.path()
                 .join("state/persistence/imports/accounts.json")
                 .exists()
         );
@@ -642,23 +650,114 @@ mod tests {
                 .exists()
         );
         assert_eq!(tokio::fs::read(&file).await.unwrap(), before);
-        drop(unavailable);
-        let _host = crate::state::store::secrets::testing::with_store();
-        initialize_from_snapshot(root.path(), &file).await.unwrap();
         let reopened = crate::state::accounts::Accounts::new(
             &Persistence::new(root.path()),
         );
+        let accounts = reopened.get_all().await.unwrap();
+        assert_eq!(accounts[0].0, "microsoft:test");
+        assert!(accounts[0].1.active);
+        assert_eq!(accounts[0].1.username, "Player");
+        assert!(accounts[0].1.access_token.is_empty());
+        assert!(accounts[0].1.refresh_token.is_empty());
         assert_eq!(
-            reopened.get_all().await.unwrap()[0].1.refresh_token,
-            "legacy-refresh"
+            accounts[0].2,
+            crate::state::minecraft_auth::CredentialPersistence::RequiresLogin
         );
         assert_eq!(tokio::fs::read(&file).await.unwrap(), before);
-        assert!(
-            !tokio::fs::read_to_string(root.path().join("accounts.json"))
+        let document =
+            tokio::fs::read_to_string(root.path().join("accounts.json"))
                 .await
-                .unwrap()
-                .contains("legacy-refresh")
+                .unwrap();
+        assert!(
+            !document.contains("legacy-refresh")
+                && !document.contains("legacy-access")
         );
+        let mut retained = crate::state::db_backup::open_read_only_db(
+            &root.path().join("databases/legacy-document-import.db"),
+        )
+        .await
+        .unwrap();
+        let refresh: String =
+            sqlx::query_scalar("SELECT refresh_token FROM minecraft_users")
+                .fetch_one(&mut retained)
+                .await
+                .unwrap();
+        assert_eq!(refresh, "legacy-refresh");
+        retained.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn oversized_legacy_refresh_drops_partial_credentials_but_keeps_other_accounts()
+     {
+        let host = crate::state::store::secrets::testing::with_store();
+        let root = tempfile::tempdir().unwrap();
+        let (file, pool) = legacy(root.path()).await;
+        let oversized = "x".repeat(20_000);
+        sqlx::query("INSERT INTO minecraft_users VALUES('microsoft:large','00000000-0000-4000-8000-000000000001','Large','microsoft',1,4102444800,0,'small-access',?)")
+            .bind(&oversized).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO minecraft_users VALUES('offline:local','00000000-0000-4000-8000-000000000002','Offline','offline',0,0,0,'0',''),('microsoft:other','00000000-0000-4000-8000-000000000003','Other','microsoft',0,0,0,'other-access','other-refresh')")
+            .execute(&pool).await.unwrap();
+        pool.close().await;
+        let before = tokio::fs::read(&file).await.unwrap();
+        initialize_from_snapshot(root.path(), &file).await.unwrap();
+        let accounts = crate::state::accounts::Accounts::new(
+            &Persistence::new(root.path()),
+        );
+        let records = accounts.get_all().await.unwrap();
+        assert_eq!(records.len(), 3);
+        let large = records
+            .iter()
+            .find(|row| row.0 == "microsoft:large")
+            .unwrap();
+        assert_eq!(
+            large.2,
+            crate::state::minecraft_auth::CredentialPersistence::RequiresLogin
+        );
+        assert!(
+            large.1.active
+                && large.1.access_token.is_empty()
+                && large.1.refresh_token.is_empty()
+        );
+        assert_eq!(
+            host.store()
+                .unwrap()
+                .value(&crate::state::accounts::token_key(
+                    "microsoft:large",
+                    "access_token"
+                ))
+                .as_deref(),
+            Some("small-access")
+        );
+        assert_eq!(
+            records
+                .iter()
+                .find(|row| row.0 == "offline:local")
+                .unwrap()
+                .2,
+            crate::state::minecraft_auth::CredentialPersistence::NotRequired
+        );
+        assert_eq!(
+            records
+                .iter()
+                .find(|row| row.0 == "microsoft:other")
+                .unwrap()
+                .2,
+            crate::state::minecraft_auth::CredentialPersistence::Keyring
+        );
+        let document =
+            tokio::fs::read_to_string(root.path().join("accounts.json"))
+                .await
+                .unwrap();
+        assert!(
+            !document.contains("small-access")
+                && !document.contains(&oversized)
+        );
+        let raw: Value = serde_json::from_str(&document).unwrap();
+        assert_eq!(
+            raw["data"]["accounts"]["microsoft:large"]["credential_fields"],
+            json!([])
+        );
+        assert_eq!(tokio::fs::read(&file).await.unwrap(), before);
     }
 
     #[tokio::test]

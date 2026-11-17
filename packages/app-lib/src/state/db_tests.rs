@@ -4484,7 +4484,8 @@ async fn startup_waits_for_hundreds_of_legacy_jobs_past_daily_recovery_budget()
 }
 
 #[tokio::test]
-async fn failed_legacy_token_handover_does_not_complete_core_import() {
+async fn unavailable_legacy_keyring_completes_import_with_an_account_requiring_login()
+ {
     let root = tempfile::tempdir().unwrap();
     let legacy_path = root.path().join("release/app.db");
     tokio::fs::create_dir_all(legacy_path.parent().unwrap())
@@ -4496,36 +4497,45 @@ async fn failed_legacy_token_handover_does_not_complete_core_import() {
     legacy.close().await;
     drop(legacy);
     let original = tokio::fs::read(&legacy_path).await.unwrap();
-    let unavailable = crate::state::store::secrets::testing::without_store();
-    assert!(connect_at(root.path()).await.is_err());
+    let _unavailable = crate::state::store::secrets::testing::without_store();
+    let pool = connect_at(root.path()).await.unwrap();
     assert!(
-        !root
-            .path()
+        root.path()
             .join("state/persistence/imports/accounts.json")
             .exists()
     );
-    let check = crate::state::db_backup::open_read_only_db(
-        &root.path().join("databases/system.db"),
-    )
-    .await
-    .unwrap();
-    let mut check = check;
-    let completed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM database_imports WHERE source='app.db' AND completed=1)").fetch_one(&mut check).await.unwrap();
-    assert!(!completed);
-    check.close().await.unwrap();
-    assert_eq!(tokio::fs::read(&legacy_path).await.unwrap(), original);
-    drop(unavailable);
-    let _host = crate::state::store::secrets::testing::with_store();
-    let pool = connect_at(root.path()).await.unwrap();
     let accounts = crate::state::accounts::Accounts::new(
         &crate::state::persistence::Persistence::new(root.path()),
     );
+    let accounts = accounts.get_all().await.unwrap();
+    assert_eq!(accounts[0].0, "microsoft:test");
+    assert!(accounts[0].1.active);
+    assert_eq!(accounts[0].1.username, "Player");
+    assert!(
+        accounts[0].1.access_token.is_empty()
+            && accounts[0].1.refresh_token.is_empty()
+    );
     assert_eq!(
-        accounts.get_all().await.unwrap()[0].1.refresh_token,
-        "legacy-refresh"
+        accounts[0].2,
+        crate::state::minecraft_auth::CredentialPersistence::RequiresLogin
     );
     let completed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM database_imports WHERE source='app.db' AND completed=1)").fetch_one(&pool).await.unwrap();
     assert!(completed);
     assert_eq!(tokio::fs::read(&legacy_path).await.unwrap(), original);
+    let document = tokio::fs::read_to_string(root.path().join("accounts.json"))
+        .await
+        .unwrap();
+    assert!(
+        !document.contains("legacy-access")
+            && !document.contains("legacy-refresh")
+    );
+    let mut snapshot = crate::state::db_backup::open_read_only_db(
+        &root.path().join("databases/legacy-document-import.db"),
+    )
+    .await
+    .unwrap();
+    let refresh: String = sqlx::query_scalar("SELECT refresh_token FROM minecraft_users WHERE account_id='microsoft:test'").fetch_one(&mut snapshot).await.unwrap();
+    assert_eq!(refresh, "legacy-refresh");
+    snapshot.close().await.unwrap();
     pool.close().await;
 }

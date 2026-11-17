@@ -301,6 +301,10 @@ pub enum CommandPayload {
         // run or install .mrpack
         path: PathBuf,
     },
+    OpenSchematic {
+        // open a local schematic in the schematic workshop
+        path: PathBuf,
+    },
     OpenRoute {
         path: String,
         query: Option<String>,

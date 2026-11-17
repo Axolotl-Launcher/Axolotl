@@ -636,10 +636,21 @@ pub async fn parse_command(
     } else {
         let path = PathBuf::from(command_string);
         let path = io::canonicalize(path)?;
-        if let Some(ext) = path.extension()
-            && (ext == "mrpack" || ext == "zip")
-        {
-            return Ok(CommandPayload::RunMRPack { path });
+        // Extensions arrive from the shell, so the case is whatever the file
+        // was saved with; compare the lowercased form instead.
+        let extension = path
+            .extension()
+            .map(|extension| extension.to_string_lossy().to_ascii_lowercase());
+        match extension.as_deref() {
+            Some("mrpack" | "zip") => {
+                return Ok(CommandPayload::RunMRPack { path });
+            }
+            // The schematic workshop parses these formats itself; every other
+            // extension stays an error so an unrelated file is never opened.
+            Some("litematic" | "schem" | "schematic") => {
+                return Ok(CommandPayload::OpenSchematic { path });
+            }
+            _ => {}
         }
         emit_warning(&format!(
             "Invalid command, unrecognized filetype: {}",
@@ -746,5 +757,28 @@ mod tests {
             parse_command("axolotl://install?version=abc123").await.unwrap(),
             CommandPayload::InstallVersion { id } if id == "abc123"
         ));
+    }
+
+    #[tokio::test]
+    async fn parses_schematic_file_arguments_as_workshop_opens() {
+        let directory = tempfile::tempdir().unwrap();
+        for name in [
+            "house.litematic",
+            "house.schem",
+            "house.SCHEM",
+            "house.schematic",
+        ] {
+            let path = directory.path().join(name);
+            std::fs::write(&path, b"").unwrap();
+            let command = parse_command(&path.to_string_lossy()).await.unwrap();
+            assert!(
+                matches!(
+                    &command,
+                    CommandPayload::OpenSchematic { path: opened }
+                        if opened.file_name() == Some(std::ffi::OsStr::new(name))
+                ),
+                "{name} did not open the schematic workshop"
+            );
+        }
     }
 }

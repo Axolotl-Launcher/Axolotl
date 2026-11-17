@@ -18644,9 +18644,6 @@
   "app.splash.migration.core": {
     "message": "Migrating launcher records..."
   },
-  "app.splash.migration.count": {
-    "message": "{completed, number} / {total, number}"
-  },
   "app.splash.migration.finishing": {
     "message": "Finishing migration..."
   },

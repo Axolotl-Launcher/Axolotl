@@ -70,10 +70,6 @@ const messages = defineMessages({
         id: 'app.splash.migration.finishing',
         defaultMessage: 'Finishing migration...',
     },
-    migrationCount: {
-        id: 'app.splash.migration.count',
-        defaultMessage: '{completed, number} / {total, number}',
-    },
 })
 
 const migrating = computed(() => props.startupProgress?.event.type === 'database_migration')
@@ -108,10 +104,7 @@ const migrationDetail = computed(() => {
 const migrationCount = computed(() => {
     const event = props.startupProgress?.event
     if (!migrating.value || !event?.total || event.completed == null) return null
-    return formatMessage(messages.migrationCount, {
-        completed: event.completed,
-        total: event.total,
-    })
+    return `${event.completed} / ${event.total}`
 })
 
 function onAfterLeave() {

@@ -18644,9 +18644,6 @@
   "app.splash.migration.core": {
     "message": "正在迁移启动器记录……"
   },
-  "app.splash.migration.count": {
-    "message": "{completed, number} / {total, number}"
-  },
   "app.splash.migration.finishing": {
     "message": "正在完成迁移……"
   },

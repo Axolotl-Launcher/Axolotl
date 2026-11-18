@@ -4,10 +4,12 @@
 //! configuration, owns the SDK providers and installs the bridge sink. Every
 //! public helper is cheap and safe to call when export is disabled.
 
+pub mod capture;
 mod command_metrics;
 mod config;
 mod runtime;
 mod sink;
+pub mod spans;
 
 pub use launcher_observability::{
     Attribute, AttributeValue, Telemetry, attrs, events,
@@ -26,10 +28,27 @@ pub fn telemetry() -> &'static Telemetry {
     Telemetry::global()
 }
 
-/// Whether OTLP export started successfully. Callers use this to skip building
-/// expensive attributes when telemetry is off.
+/// Whether telemetry is being recorded at all: either OTLP export started or a
+/// local sink such as [`capture`] is installed. Callers use this to skip
+/// building expensive attributes when nothing consumes them.
 pub fn is_enabled() -> bool {
-    GUARD.get().is_some_and(Option::is_some)
+    GUARD.get().is_some_and(Option::is_some) || capture::active().is_some()
+}
+
+/// Start local capture without OTLP export.
+///
+/// This is the switch the diagnostics MCP uses: the launcher keeps recent
+/// events, metric aggregates and domain span durations in memory so a client on
+/// this computer can query them. Nothing leaves the process.
+pub fn start_capture() -> std::sync::Arc<capture::Capture> {
+    spans::start();
+    capture::start(capture::DEFAULT_EVENT_CAPACITY)
+}
+
+/// Stop local capture and drop everything it retained.
+pub fn stop_capture() {
+    spans::stop();
+    capture::stop();
 }
 
 /// The random identifier shared by every record of this process, when export
@@ -59,13 +78,14 @@ pub fn record_error(domain: &'static str, kind: &'static str) {
     );
 }
 
-/// Flush every provider. Returns `false` when export is disabled, a flush
-/// failed, or the timeout elapsed first. Never panics.
+/// Flush every provider. Returns `false` when a flush failed or the timeout
+/// elapsed first. With only local capture installed there is nothing to push,
+/// so this reports success. Never panics.
 pub fn flush(timeout: Duration) -> bool {
-    let Some(guard) = GUARD.get().and_then(Option::as_ref) else {
-        return false;
-    };
-    let guard_ok = guard.flush(timeout);
+    let guard_ok = GUARD
+        .get()
+        .and_then(Option::as_ref)
+        .is_none_or(|guard| guard.flush(timeout));
     let sinks_ok = telemetry().flush().is_ok();
     guard_ok && sinks_ok
 }
@@ -131,7 +151,34 @@ mod tests {
     }
 
     #[test]
-    fn flush_is_false_when_not_started() {
-        assert!(!flush(Duration::from_millis(1)));
+    fn flush_succeeds_when_only_capture_is_installed() {
+        // Local capture keeps data in memory; there is nothing to push, so a
+        // flush must not report failure just because OTLP is off.
+        let capture = capture::start(4);
+        assert!(capture.is_recording());
+        assert!(flush(Duration::from_millis(1)));
+        capture::stop();
+    }
+
+    #[test]
+    fn flush_without_any_consumer_succeeds() {
+        capture::stop();
+        assert!(flush(Duration::from_millis(1)));
+    }
+
+    #[test]
+    fn capture_alone_reports_telemetry_as_enabled() {
+        capture::stop();
+        capture::reset_for_test();
+        let started = super::capture::start(4);
+        assert!(is_enabled());
+        assert_eq!(
+            capture::active().map(std::sync::Arc::strong_count),
+            Some(3)
+        );
+        assert!(started.is_recording());
+        super::capture::stop();
+        assert!(!started.is_recording());
+        assert!(!is_enabled());
     }
 }

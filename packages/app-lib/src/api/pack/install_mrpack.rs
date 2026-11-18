@@ -883,24 +883,20 @@ where
 {
     let _permit = semaphore.0.acquire().await?;
 
-    if let Some(parent) = path.parent() {
-        io::create_dir_all(parent).await?;
-    }
-
     let parent = path.parent().ok_or_else(|| {
         io::IOError::from(std::io::Error::other(
             "could not get parent directory for temporary file",
         ))
     })?;
-    let temp_path = tempfile::NamedTempFile::new_in(parent)
+    io::create_dir_all(parent).await?;
+    let (file, temp_path) = tempfile::Builder::new()
+        .make_in(parent, |path| std::fs::File::create_new(path))
         .map_err(|e| io::IOError::with_path(e, parent))?
-        .into_temp_path();
+        .into_parts();
 
     // Only replace the profile file after the ZIP entry has passed its CRC check.
     let expected_crc32 = reader.entry().crc32();
-    let mut file = tokio::fs::File::create(&temp_path)
-        .await
-        .map_err(|e| io::IOError::with_path(e, &temp_path))?;
+    let mut file = tokio::fs::File::from_std(file);
     let mut hasher = sha1_smol::Sha1::new();
     let mut size = 0;
     let mut buffer = vec![0; 262144];
@@ -943,10 +939,9 @@ where
         return Err(async_zip::error::ZipError::CRC32CheckError.into());
     }
 
-    temp_path.persist(path).map_err(|e| {
-        let tempfile::PathPersistError { error, .. } = e;
-        io::IOError::with_path(error, path)
-    })?;
+    tokio::fs::rename(&temp_path, path)
+        .await
+        .map_err(|error| io::IOError::with_path(error, path))?;
 
     Ok((size, hasher.digest().to_string()))
 }
@@ -2946,6 +2941,12 @@ mod tests {
     -> crate::Result<()> {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("overrides.mrpack");
+        let long_name = format!(
+            "overrides/config/{}/{}/{}.toml",
+            "a".repeat(90),
+            "b".repeat(90),
+            "c".repeat(90),
+        );
         let entries = [
             ("overrides/config/first.toml", b"first = true".as_slice()),
             ("overrides/config/second.toml", b"second = true".as_slice()),
@@ -2953,6 +2954,7 @@ mod tests {
                 "client-overrides/options.txt",
                 b"fancyGraphics:true".as_slice(),
             ),
+            (long_name.as_str(), b"long_path = true".as_slice()),
         ];
         let mut archive = tokio::fs::File::create(&path).await.unwrap();
         let mut writer = ZipFileWriter::with_tokio(&mut archive);
@@ -3050,6 +3052,17 @@ mod tests {
         .await??;
 
         for spec in specs {
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::MetadataExt;
+                assert_eq!(
+                    tokio::fs::metadata(&spec.target_path)
+                        .await?
+                        .file_attributes()
+                        & 0x100,
+                    0,
+                );
+            }
             let expected = entries
                 .iter()
                 .find(|(name, _)| *name == spec.entry_name)

@@ -1381,10 +1381,11 @@
     {
       "file": "packages/app-lib/src/api/pack/install_mrpack.rs",
       "form": "std::fs",
-      "count": 1,
-      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "count": 2,
+      "reason": "Synchronous cleanup and a single same-directory create-new for MRPack staging, bounded by the extraction I/O semaphore outside L0. Standard creation avoids publishing Windows temporary file attributes after rename.",
       "sites": [
-        "drop: let _ = std::fs::remove_file(&self.download_path);"
+        "drop: let _ = std::fs::remove_file(&self.download_path);",
+        "extract_zip_entry: .make_in(parent, |path| std::fs::File::create_new(path))"
       ]
     },
     {

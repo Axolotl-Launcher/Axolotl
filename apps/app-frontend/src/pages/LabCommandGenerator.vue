@@ -186,6 +186,11 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.execute.build-first',
         defaultMessage: 'Please build the subcommand chain first',
     },
+    executeRunRequired: {
+        id: 'app.lab.command-generator.execute.run-required',
+        defaultMessage:
+            'Fill in the command to run: an execute chain has to end with run <command>',
+    },
     seedMultiplayerNote: {
         id: 'app.lab.command-generator.perm.seed.multiplayer-note',
         defaultMessage: 'In multiplayer, /seed requires permission level 2.',
@@ -452,6 +457,12 @@ function generate() {
         const output = executeChainOutput.value.trim()
         if (!output) {
             errors.value = [formatMessage(messages.executeBuildFirst)]
+            result.value = ''
+            return
+        }
+        // `/execute` 没有 `run <命令>` 结尾就不成立，只有修饰子命令时不能生成
+        if (executeChainRef.value?.missingRunTarget) {
+            errors.value = [formatMessage(messages.executeRunRequired)]
             result.value = ''
             return
         }

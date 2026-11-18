@@ -75,6 +75,10 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.execute.final-hint',
         defaultMessage: 'Type the actual command without the leading slash.',
     },
+    runRequired: {
+        id: 'app.lab.command-generator.arg.required',
+        defaultMessage: 'Required',
+    },
     executePickerTitle: {
         id: 'app.lab.command-generator.execute.picker-title',
         defaultMessage: 'Available subcommands',
@@ -307,6 +311,12 @@ function onVariantChange(step: ChainStep, optionId: string) {
     step.values = switchVariant(sub, step.values, optionId)
 }
 
+/**
+ * `/execute` 必须以 `run <命令>` 结尾，所以没写命令时整条链是不完整的，
+ * 只堆修饰子命令生成出来的东西不是合法命令。
+ */
+const missingRunTarget = computed(() => finalCommand.value.trim() === '')
+
 const output = computed(() => {
     const parts = chain.value.map(renderStep).filter(Boolean)
     const final = finalCommand.value.trim()
@@ -431,7 +441,7 @@ function setState(state: ExecuteChainState) {
     finalCommand.value = state.finalCommand
 }
 
-defineExpose({ getState, setState })
+defineExpose({ getState, setState, missingRunTarget })
 </script>
 
 <template>
@@ -622,11 +632,16 @@ defineExpose({ getState, setState })
             </Draggable>
         </section>
         <section class="flex min-w-0 flex-col gap-2">
-            <label
-                for="execute-final-command"
-                class="text-sm font-semibold text-[var(--color-text-primary)]"
-                >{{ formatMessage(messages.executeFinalTitle) }}</label
-            >
+            <div class="flex flex-wrap items-center gap-2">
+                <label
+                    for="execute-final-command"
+                    class="text-sm font-semibold text-[var(--color-text-primary)]"
+                    >{{ formatMessage(messages.executeFinalTitle) }}</label
+                >
+                <span class="text-xs text-[var(--color-text-tertiary)]">{{
+                    formatMessage(messages.runRequired)
+                }}</span>
+            </div>
             <input
                 id="execute-final-command"
                 ref="finalInputRef"

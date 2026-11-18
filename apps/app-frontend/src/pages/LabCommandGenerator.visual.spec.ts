@@ -266,6 +266,30 @@ it('disables browser form history for execute commands while preserving manual i
     expect(wrapper.get('.result-code').text()).toBe('/execute run say manual command')
 })
 
+it('refuses to generate an execute chain that never says what to run', async () => {
+    saveUserPreset(
+        'Chain without run',
+        'execute',
+        '1.16',
+        {},
+        {
+            executeState: {
+                chain: [{ subcommandId: 'as', values: { target: '@a' } }],
+                finalCommand: '',
+            },
+        },
+    )
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.get('.global-presets-button').trigger('click')
+    await wrapper.get('.global-preset-item').trigger('click')
+    await flushPromises()
+    await wrapper.get('.action-bar button').trigger('click')
+    expect(wrapper.find('.result-code').exists()).toBe(false)
+    expect(wrapper.get('[role="alert"]').text()).toContain('end with run')
+})
+
 it.each(['give', 'execute'])(
     'opens a %s preset from another version and generates the restored command',
     async (commandId) => {

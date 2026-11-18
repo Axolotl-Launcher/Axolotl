@@ -7817,6 +7817,9 @@
   "app.lab.command-generator.execute.rotated.label": {
     "message": "rotated"
   },
+  "app.lab.command-generator.execute.run-required": {
+    "message": "还没填要执行的命令：`execute` 必须以 `run <命令>` 结尾"
+  },
   "app.lab.command-generator.execute.store-block.desc": {
     "message": "把数值存入方块的 NBT 数据"
   },

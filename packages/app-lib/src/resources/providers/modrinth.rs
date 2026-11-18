@@ -78,7 +78,7 @@ impl ModrinthProvider {
                         if documents
                             .insert(
                                 hash.to_ascii_lowercase(),
-                                release.document()?,
+                                release.document(),
                             )
                             .is_some()
                         {
@@ -91,9 +91,15 @@ impl ModrinthProvider {
                 });
                 for (index, hash, _) in group {
                     results[index] = match &documents {
-                        Ok(documents) => Ok(ProviderValue::UpdateCandidates(
-                            documents.get(&hash).cloned().into_iter().collect(),
-                        )),
+                        Ok(documents) => match documents.get(&hash) {
+                            Some(Ok(document)) => {
+                                Ok(ProviderValue::UpdateCandidates(vec![
+                                    document.clone(),
+                                ]))
+                            }
+                            Some(Err(error)) => Err(error.clone()),
+                            None => Ok(ProviderValue::UpdateCandidates(vec![])),
+                        },
                         Err(error) => Err(error.clone()),
                     };
                 }
@@ -283,7 +289,7 @@ impl ModrinthProvider {
                         "unexpected release in batch".into(),
                     ));
                 }
-                if values.insert(id, release.document()?).is_some() {
+                if values.insert(id, release.document()).is_some() {
                     return Err(ResourceError::InvalidResponse(
                         "duplicate release in batch".into(),
                     ));
@@ -292,11 +298,11 @@ impl ModrinthProvider {
             return Ok(ids
                 .into_iter()
                 .map(|id| {
-                    Ok(values
+                    values
                         .get(id)
                         .cloned()
-                        .map(ProviderValue::Release)
-                        .unwrap_or(ProviderValue::NotFound))
+                        .map(|release| release.map(ProviderValue::Release))
+                        .unwrap_or(Ok(ProviderValue::NotFound))
                 })
                 .collect());
         }
@@ -368,10 +374,17 @@ impl ModrinthProvider {
                 let mut documents = HashMap::new();
                 for (hash, release) in response {
                     documents
-                        .insert(hash.to_ascii_lowercase(), release.document()?);
+                        .insert(hash.to_ascii_lowercase(), release.document());
                 }
                 for (index, hash) in inputs {
                     if let Some(document) = documents.get(&hash) {
+                        let document = match document {
+                            Ok(document) => document,
+                            Err(error) => {
+                                result[index] = Err(error.clone());
+                                continue;
+                            }
+                        };
                         let matching: Vec<_> = document
                             .release
                             .artifacts
@@ -816,9 +829,7 @@ impl ResourceProvider for ModrinthProvider {
     }
     fn validate_query(&self, query: &ProviderQuery) -> ResourceResult<()> {
         let valid_id = |id: &str| -> ResourceResult<()> {
-            if id.len() == 8
-                && id.bytes().all(|byte| byte.is_ascii_alphanumeric())
-            {
+            if stable_modrinth_id(id) {
                 Ok(())
             } else {
                 Err(ResourceError::InvalidRequest(
@@ -903,6 +914,10 @@ impl ResourceProvider for ModrinthProvider {
             Err(error) => vec![Err(error); queries.len()],
         }
     }
+}
+
+pub(crate) fn stable_modrinth_id(id: &str) -> bool {
+    id.len() == 8 && id.bytes().all(|byte| byte.is_ascii_alphanumeric())
 }
 
 fn protocol_document(raw: Value) -> ResourceResult<ProjectDocument> {
@@ -1098,6 +1113,13 @@ struct RemoteDependency {
 
 impl RemoteRelease {
     pub(crate) fn document(self) -> ResourceResult<ReleaseDocument> {
+        if !stable_modrinth_id(&self.project_id)
+            || !stable_modrinth_id(&self.id)
+        {
+            return Err(ResourceError::InvalidResponse(
+                "release returned a noncanonical Modrinth identity".into(),
+            ));
+        }
         let protocol = Some(protocol_projection(serde_json::to_value(&self)?));
         let reference = release_ref(
             source_project(SourceId::modrinth(), self.project_id)?,

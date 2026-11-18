@@ -172,6 +172,41 @@ it('reconciles only the matching entry warning as checks fail and recover', () =
     expect(applyContentRefreshEvent(recovered, stale).snapshot).toBe(recovered.snapshot)
 })
 
+it('keeps the failed installed path and a healthy update in the same snapshot', () => {
+    const initial = state()
+    initial.snapshot.items.push({
+        ...initial.snapshot.items[0],
+        entryId: 'healthy',
+        fileId: 'healthy-file',
+        expectedRelativePath: 'mods/b.jar',
+        content: {
+            ...initial.snapshot.items[0].content!,
+            id: 'healthy-hash',
+            file_path: 'mods/b.jar',
+        },
+    })
+    const failure = event(1)
+    const message = 'mods/a.jar: cannot verify the recorded Modrinth identity'
+    if (failure.patch.kind === 'entry') {
+        failure.patch.update = { candidate: null, failed: true, unresolved: false, error: message }
+    }
+    const success = event(2)
+    if (success.patch.kind === 'entry') {
+        success.patch.entryId = 'healthy'
+        success.patch.fileId = 'healthy-file'
+        success.patch.sha1 = 'healthy-hash'
+    }
+    const refreshed = applyContentRefreshEvent(applyContentRefreshEvent(initial, failure), success)
+    expect(refreshed.snapshot.warnings).toEqual([
+        { entryId: 'entry', code: 'resource_update_unavailable', message, provider: null },
+    ])
+    expect(modsContentRetryMode(refreshed.snapshot.warnings, 1)).toBe('retry_failed')
+    expect(refreshed.snapshot.items.map((item) => item.capabilities.canUpdate)).toEqual([
+        false,
+        true,
+    ])
+})
+
 it('recovers a cached warning after reopening with a failure-free task', async () => {
     const initial = state()
     initial.task = { ...event(1).task, running: false, failed: 0 }

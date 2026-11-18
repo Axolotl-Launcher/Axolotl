@@ -45,6 +45,7 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
         pack_resource,
         preferred_source,
         checks,
+        ..
     } = records;
     let instance_id = instance.id.clone();
     let location_key =

@@ -16,6 +16,7 @@ pub use curseforge::CurseForgeProvider;
 pub(crate) use curseforge::derived_download_url;
 pub use mcarchive::McArchiveProvider;
 pub use modrinth::ModrinthProvider;
+pub(crate) use modrinth::stable_modrinth_id;
 pub use planet_minecraft::PlanetMinecraftProvider;
 pub use transport::{ProtocolRequest, ProtocolTransport};
 

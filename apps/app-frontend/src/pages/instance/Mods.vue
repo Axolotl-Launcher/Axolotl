@@ -177,6 +177,14 @@
                         )
                     }}
                 </p>
+                <ul v-if="updateCheckWarnings.length" class="mb-0 mt-2 break-words pl-5">
+                    <li
+                        v-for="warning in updateCheckWarnings"
+                        :key="warning.entryId ?? warning.message"
+                    >
+                        {{ warning.message }}
+                    </li>
+                </ul>
             </div>
         </CollapsibleAdmonition>
         <CollapsibleAdmonition
@@ -750,6 +758,12 @@ const onlineWarnings = computed(() =>
             'resource_update_unavailable',
         ].includes(warning.code),
     ),
+)
+const updateCheckWarnings = computed(() =>
+    onlineWarnings.value.filter((warning) => warning.code === 'resource_update_unavailable'),
+)
+const failedUpdateEntries = computed(
+    () => new Set(updateCheckWarnings.value.map((warning) => warning.entryId)),
 )
 const localWarnings = computed(() =>
     contentWarnings.value.filter((warning) => warning.code === 'resource_history_unavailable'),
@@ -2251,15 +2265,10 @@ async function bulkUpdateAllProjects() {
     try {
         // An entry whose latest check failed still shows its last found update;
         // Update all leaves it out until a check succeeds.
-        const failed = new Set(
-            (contentSnapshot.value?.warnings ?? [])
-                .filter((warning) => warning.code === 'resource_update_unavailable')
-                .map((warning) => warning.entryId),
-        )
         const ids = [...projects.value, ...linkedModpackContentItems.value]
             .filter((item) => item.instanceOwnershipKind === 'user_added' && !!item.resourceUpdate)
             .map((item) => item.instanceEntryId)
-            .filter((id): id is string => !!id && !failed.has(id))
+            .filter((id): id is string => !!id && !failedUpdateEntries.value.has(id))
         return ids.length ? await reviewResourceChanges(ids) : false
     } catch (err) {
         handleError(err as Error)
@@ -2270,7 +2279,9 @@ async function bulkUpdateAllProjects() {
 }
 
 async function bulkUpdateProjects(items: ContentItem[]) {
-    const ids = items.map((item) => item.instanceEntryId).filter((id): id is string => !!id)
+    const ids = items
+        .map((item) => item.instanceEntryId)
+        .filter((id): id is string => !!id && !failedUpdateEntries.value.has(id))
     if (!ids.length || items.some(hasGlobalContentChange)) return false
     try {
         return await reviewResourceChanges(ids)

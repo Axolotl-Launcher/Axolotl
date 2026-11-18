@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '@modrinth/assets'
+import { ChevronDownIcon, ChevronUpIcon, GripVerticalIcon, XIcon } from '@modrinth/assets'
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
 import { computed, ref, watch } from 'vue'
+import Draggable from 'vuedraggable'
 
 import { commandCatalogMessage } from '@/lab/command-generator/catalog-messages'
+import { moveChainItem } from '@/lab/command-generator/chain-order'
 import type {
     ExecuteChainCategory,
     ExecuteChainSubcommand,
 } from '@/lab/command-generator/commands/types.ts'
+import { subcommandIcon } from '@/lab/command-generator/subcommand-icons'
 
 import CommandGeneratorArgument from './CommandGeneratorArgument.vue'
 
@@ -248,10 +251,7 @@ function removeStep(index: number) {
 }
 
 function moveStep(index: number, delta: number) {
-    const target = index + delta
-    if (target < 0 || target >= chain.value.length) return
-    const [item] = chain.value.splice(index, 1)
-    chain.value.splice(target, 0, item)
+    chain.value = moveChainItem(chain.value, index, index + delta)
 }
 
 function getSubcommand(id: string): ExecuteChainSubcommand | undefined {
@@ -336,76 +336,102 @@ defineExpose({ getState, setState })
             >
                 {{ formatMessage(messages.executeChainEmpty) }}
             </p>
-            <ol v-else class="m-0 flex min-w-0 list-none flex-col gap-3 p-0">
-                <li
-                    v-for="(step, index) in chain"
-                    :key="step.id"
-                    class="min-w-0 rounded-lg border border-solid border-surface-4 bg-surface-3 p-3"
-                >
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-sm tabular-nums text-[var(--color-text-tertiary)]"
-                            >{{ index + 1 }}.</span
-                        >
-                        <button
-                            class="min-w-0 flex-1 bg-transparent p-0 text-left text-sm font-semibold text-[var(--color-text-primary)]"
-                            :aria-expanded="step.expanded"
-                            @click="step.expanded = !step.expanded"
-                        >
-                            {{
-                                getSubcommand(step.subcommandId)
-                                    ? formatDynamic(
-                                          getSubcommand(step.subcommandId)!.labelKey,
-                                          step.subcommandId,
-                                      )
-                                    : step.subcommandId
-                            }}
-                        </button>
-                        <div class="flex items-center gap-1" data-tooltip-group="execute-actions">
-                            <Button
-                                v-tooltip="formatMessage(messages.moveUp)"
-                                type="quiet"
-                                size="sm"
-                                icon-only
-                                :label="formatMessage(messages.moveUp)"
-                                :disabled="index === 0"
-                                @click="moveStep(index, -1)"
-                                ><ChevronUpIcon
-                            /></Button>
-                            <Button
-                                v-tooltip="formatMessage(messages.moveDown)"
-                                type="quiet"
-                                size="sm"
-                                icon-only
-                                :label="formatMessage(messages.moveDown)"
-                                :disabled="index === chain.length - 1"
-                                @click="moveStep(index, 1)"
-                                ><ChevronDownIcon
-                            /></Button>
-                            <Button
-                                v-tooltip="formatMessage(messages.removeStep)"
-                                type="quiet"
-                                size="sm"
-                                icon-only
-                                :label="formatMessage(messages.removeStep)"
-                                @click="removeStep(index)"
-                                ><XIcon
-                            /></Button>
-                        </div>
-                    </div>
-                    <code
-                        class="mt-2 block break-all text-xs leading-5 text-[var(--color-text-tertiary)]"
-                        >{{ renderStep(step) }}</code
+            <Draggable
+                v-else
+                :list="chain"
+                item-key="id"
+                tag="ol"
+                class="m-0 flex min-w-0 list-none flex-col gap-3 p-0"
+                handle=".execute-chain-drag-handle"
+                ghost-class="opacity-30"
+                :animation="150"
+                :force-fallback="true"
+                :fallback-on-body="false"
+            >
+                <template #item="{ element: step, index }">
+                    <li
+                        class="min-w-0 rounded-lg border border-solid border-surface-4 bg-surface-3 p-3"
                     >
-                    <div v-if="step.expanded" class="mt-4 grid min-w-0 gap-4 md:grid-cols-2">
-                        <CommandGeneratorArgument
-                            v-for="arg in getSubcommand(step.subcommandId)?.arguments ?? []"
-                            :key="arg.name"
-                            v-model="step.values[arg.name]"
-                            :arg="arg"
-                        />
-                    </div>
-                </li>
-            </ol>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span
+                                class="execute-chain-drag-handle flex shrink-0 cursor-grab items-center text-[var(--color-text-tertiary)] active:cursor-grabbing"
+                                aria-hidden="true"
+                                ><GripVerticalIcon class="h-4 w-4"
+                            /></span>
+                            <span class="text-sm tabular-nums text-[var(--color-text-tertiary)]"
+                                >{{ index + 1 }}.</span
+                            >
+                            <button
+                                class="flex min-w-0 flex-1 items-center gap-2 bg-transparent p-0 text-left text-sm font-semibold text-[var(--color-text-primary)]"
+                                :aria-expanded="step.expanded"
+                                @click="step.expanded = !step.expanded"
+                            >
+                                <component
+                                    :is="subcommandIcon(step.subcommandId)"
+                                    aria-hidden="true"
+                                    class="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]"
+                                />
+                                <span>
+                                    {{
+                                        getSubcommand(step.subcommandId)
+                                            ? formatDynamic(
+                                                  getSubcommand(step.subcommandId)!.labelKey,
+                                                  step.subcommandId,
+                                              )
+                                            : step.subcommandId
+                                    }}
+                                </span>
+                            </button>
+                            <div
+                                class="flex items-center gap-1"
+                                data-tooltip-group="execute-actions"
+                            >
+                                <Button
+                                    v-tooltip="formatMessage(messages.moveUp)"
+                                    type="quiet"
+                                    size="sm"
+                                    icon-only
+                                    :label="formatMessage(messages.moveUp)"
+                                    :disabled="index === 0"
+                                    @click="moveStep(index, -1)"
+                                    ><ChevronUpIcon
+                                /></Button>
+                                <Button
+                                    v-tooltip="formatMessage(messages.moveDown)"
+                                    type="quiet"
+                                    size="sm"
+                                    icon-only
+                                    :label="formatMessage(messages.moveDown)"
+                                    :disabled="index === chain.length - 1"
+                                    @click="moveStep(index, 1)"
+                                    ><ChevronDownIcon
+                                /></Button>
+                                <Button
+                                    v-tooltip="formatMessage(messages.removeStep)"
+                                    type="quiet"
+                                    size="sm"
+                                    icon-only
+                                    :label="formatMessage(messages.removeStep)"
+                                    @click="removeStep(index)"
+                                    ><XIcon
+                                /></Button>
+                            </div>
+                        </div>
+                        <code
+                            class="mt-2 block break-all text-xs leading-5 text-[var(--color-text-tertiary)]"
+                            >{{ renderStep(step) }}</code
+                        >
+                        <div v-if="step.expanded" class="mt-4 grid min-w-0 gap-4 md:grid-cols-2">
+                            <CommandGeneratorArgument
+                                v-for="arg in getSubcommand(step.subcommandId)?.arguments ?? []"
+                                :key="arg.name"
+                                v-model="step.values[arg.name]"
+                                :arg="arg"
+                            />
+                        </div>
+                    </li>
+                </template>
+            </Draggable>
         </section>
         <section class="flex min-w-0 flex-col gap-2">
             <label
@@ -453,9 +479,11 @@ defineExpose({ getState, setState })
                             type="outlined"
                             size="sm"
                             @click="addSubcommand(sub)"
-                            ><PlusIcon class="h-4 w-4" />{{
-                                formatDynamic(sub.labelKey, sub.id)
-                            }}</Button
+                            ><component
+                                :is="subcommandIcon(sub.id)"
+                                aria-hidden="true"
+                                class="h-4 w-4"
+                            />{{ formatDynamic(sub.labelKey, sub.id) }}</Button
                         >
                     </div>
                 </div>

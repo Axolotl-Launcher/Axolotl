@@ -1,0 +1,100 @@
+import {
+    ArrowUpDownIcon,
+    BoxesIcon,
+    BracesIcon,
+    ChartAreaIcon,
+    ChartColumnBigIcon,
+    CircleUserIcon,
+    CodeIcon,
+    CompassIcon,
+    CubeIcon,
+    DatabaseIcon,
+    EyeIcon,
+    FilterIcon,
+    GaugeIcon,
+    GlobeIcon,
+    GridIcon,
+    LayersIcon,
+    MapIcon,
+    MousePointer2Icon,
+    OrganizationIcon,
+    PackageIcon,
+    PinIcon,
+    RotateClockwiseIcon,
+    RotateCounterClockwiseIcon,
+    ScanEyeIcon,
+    SunriseIcon,
+    TimerIcon,
+    UnknownIcon,
+    UserPlusIcon,
+    UserRoundIcon,
+    UsersIcon,
+    WorldIcon,
+} from '@modrinth/assets'
+import type { Component } from 'vue'
+
+/**
+ * 图标表示子命令作用于什么，动词与 if/unless 的正负由标签文字承担，
+ * 因此 `if block` 与 `unless block` 共用同一个字形。
+ */
+const SUBCOMMAND_ICONS: Record<string, Component> = {
+    // 修饰子命令
+    as: CircleUserIcon,
+    at: PinIcon,
+    on: OrganizationIcon,
+    positioned: MapIcon,
+    'positioned-as': ScanEyeIcon,
+    'positioned-over': SunriseIcon,
+    rotated: RotateClockwiseIcon,
+    'rotated-as': RotateCounterClockwiseIcon,
+    facing: CompassIcon,
+    'facing-entity': MousePointer2Icon,
+    in: GlobeIcon,
+    anchored: ArrowUpDownIcon,
+    align: GridIcon,
+    summon: UserPlusIcon,
+
+    // 条件子命令
+    'if-entity': UsersIcon,
+    'unless-entity': UsersIcon,
+    'if-block': CubeIcon,
+    'unless-block': CubeIcon,
+    'if-blocks': BoxesIcon,
+    'unless-blocks': BoxesIcon,
+    'if-score': ChartColumnBigIcon,
+    'unless-score': ChartColumnBigIcon,
+    'if-score-matches': GaugeIcon,
+    'unless-score-matches': GaugeIcon,
+    'if-biome': LayersIcon,
+    'unless-biome': LayersIcon,
+    'if-data': BracesIcon,
+    'unless-data': BracesIcon,
+    'if-items': PackageIcon,
+    'if-slots': PackageIcon,
+    'unless-slots': PackageIcon,
+    'if-dimension': WorldIcon,
+    'unless-dimension': WorldIcon,
+    'if-loaded': EyeIcon,
+    'unless-loaded': EyeIcon,
+    'if-function': CodeIcon,
+    'unless-function': CodeIcon,
+    'if-predicate': FilterIcon,
+    'unless-predicate': FilterIcon,
+    'if-stopwatch': TimerIcon,
+    'unless-stopwatch': TimerIcon,
+
+    // 存储子命令
+    'store-result-score': ChartColumnBigIcon,
+    'store-success-score': ChartColumnBigIcon,
+    'store-result-bossbar': ChartAreaIcon,
+    'store-result-block': CubeIcon,
+    'store-success-block': CubeIcon,
+    'store-result-entity': UserRoundIcon,
+    'store-success-entity': UserRoundIcon,
+    'store-result-storage': DatabaseIcon,
+    'store-success-storage': DatabaseIcon,
+}
+
+export function subcommandIcon(id: string): Component {
+    return SUBCOMMAND_ICONS[id] ?? UnknownIcon
+}

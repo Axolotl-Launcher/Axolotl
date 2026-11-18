@@ -12,9 +12,10 @@ import {
     provideConsoleManager,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, onUnmounted, ref, shallowRef, triggerRef, watch, watchEffect } from 'vue'
+import { computed, ref, shallowRef, triggerRef, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
 import { useCrashAnalysis } from '@/composables/useCrashAnalysis'
 import { useInstanceConsole } from '@/composables/useInstanceConsole'
 import { log_listener, process_listener } from '@/helpers/events.js'
@@ -90,6 +91,7 @@ const {
     clearLive,
 } = useInstanceConsole(instanceId.value)
 
+const { subscribe, isDisposed } = useScopedEventListeners()
 await hydrate()
 
 function buildLogList(rawLogs) {
@@ -259,11 +261,11 @@ watch(selectedLogKey, async (key) => {
 
 selectedLogIndex.value = 0
 
-if (!props.playing) {
+if (!isDisposed() && !props.playing) {
     void analyseForCrash()
 }
 
-const unlistenLog = await log_listener((payload) => {
+await subscribe(log_listener, (payload) => {
     if (payload.instance_id !== instanceId.value) return
 
     if (payload.type === 'log4j') {
@@ -273,7 +275,7 @@ const unlistenLog = await log_listener((payload) => {
     }
 })
 
-const unlistenProcesses = await process_listener(async (e) => {
+await subscribe(process_listener, async (e) => {
     if (e.instance_id !== instanceId.value) return
     if (e.event === 'launched') {
         liveConsole.clear()
@@ -284,12 +286,7 @@ const unlistenProcesses = await process_listener(async (e) => {
     if (e.event === 'finished') {
         invalidate()
         await loadHistoricalLogs()
-        void analyseForCrash()
+        if (!isDisposed()) void analyseForCrash()
     }
-})
-
-onUnmounted(() => {
-    unlistenLog()
-    unlistenProcesses()
 })
 </script>

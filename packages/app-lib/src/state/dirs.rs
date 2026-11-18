@@ -84,7 +84,7 @@ impl DirectoryInfo {
     }
 
     /// Get all paths needed for Theseus to operate properly
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn init(
         config_dir: Option<String>,
         app_identifier: &str,
@@ -350,7 +350,7 @@ impl DirectoryInfo {
         std::env::var_os(name).map(PathBuf::from)
     }
 
-    #[tracing::instrument(skip(settings, handle, pool, io_semaphore))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn move_launcher_directory(
         settings: &mut Settings,
         handle: &Handle,

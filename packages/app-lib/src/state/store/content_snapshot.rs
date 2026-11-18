@@ -12,7 +12,7 @@ use crate::state::instances::{
 };
 use crate::state::{ContentProvider, ContentProviderRef};
 use sqlx::Row;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub(crate) struct SnapshotRecords {
     pub pack_presentation: Option<super::content_refresh_pack::PackRecord>,
@@ -34,6 +34,7 @@ pub(crate) struct SnapshotRecords {
     pub dependencies:
         HashMap<String, crate::state::instances::ContentDependencyInfo>,
     pub references: HashMap<String, Vec<ContentProviderRef>>,
+    pub unreadable_modrinth_refs: HashSet<String>,
     pub origins: HashMap<String, ContentProvider>,
     pub artifacts:
         HashMap<String, crate::resources::installed::InstalledArtifactRecord>,
@@ -151,6 +152,7 @@ pub(crate) async fn get(
     let rows = sqlx::query("SELECT ref.content_entry_id, ref.provider, ref.provider_project_id, ref.provider_release_id, ref.provider_file_id, ref.is_origin FROM instance_content_provider_refs ref JOIN instance_content_entries entry ON entry.id = ref.content_entry_id WHERE entry.content_set_id = ? ORDER BY ref.content_entry_id, ref.is_origin DESC, ref.provider, ref.provider_project_id")
         .bind(&content_set.id).fetch_all(&mut *tx).await?;
     let mut references = HashMap::<String, Vec<ContentProviderRef>>::new();
+    let mut unreadable_modrinth_refs = HashSet::new();
     let mut origins = HashMap::new();
     let mut entry_projects = Vec::<EntryProject>::new();
     for row in rows {
@@ -158,6 +160,7 @@ pub(crate) async fn get(
         let provider: String = row.try_get("provider")?;
         let project_id: String = row.try_get("provider_project_id")?;
         let origin: bool = row.try_get("is_origin")?;
+        let is_modrinth = provider == "modrinth";
         let reference = ContentProviderRef::from_database(
             &provider,
             &project_id,
@@ -175,7 +178,10 @@ pub(crate) async fn get(
                 references.entry(entry).or_default().push(reference);
             }
             Err(error) => {
-                tracing::warn!(%entry, %error, "Skipping invalid content provider reference")
+                tracing::warn!(%entry, %error, "Skipping invalid content provider reference");
+                if is_modrinth {
+                    unreadable_modrinth_refs.insert(entry);
+                }
             }
         }
     }
@@ -317,6 +323,7 @@ pub(crate) async fn get(
         pending,
         dependencies,
         references,
+        unreadable_modrinth_refs,
         origins,
         artifacts,
         entry_resources,

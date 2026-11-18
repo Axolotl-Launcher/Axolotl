@@ -1,7 +1,7 @@
 [package]
 name = "theseus_gui"
 # The actual version is set by the theseus-build workflow on tagging
-version = "1.11.0"
+version = "1.11.1"
 edition.workspace = true
 description = "Axolotl Launcher is a cross-platform Minecraft launcher"
 homepage = "https://www.ghs.red"
@@ -30,6 +30,7 @@ hyper-util = { workspace = true }
 image = { workspace = true }
 keyring = { workspace = true }
 launcher-mcp = { workspace = true }
+launcher-observability = { workspace = true }
 launcher-tools = { workspace = true }
 libc = { workspace = true }
 minisign-verify = { workspace = true }
@@ -77,6 +78,7 @@ features = [
 
 [dev-dependencies]
 png = { workspace = true }
+syn = { version = "2", features = ["full"] }
 
 [build-dependencies]
 cc = { workspace = true }

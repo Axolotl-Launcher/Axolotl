@@ -444,6 +444,7 @@ import {
     fetchCachedServerStatus,
     getFreshCachedServerStatus,
 } from '@/composables/instances/use-server-status-query'
+import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
 import { useInstanceConsole } from '@/composables/useInstanceConsole'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
@@ -491,6 +492,10 @@ const props = defineProps<{
 const { formatMessage } = useVIntl()
 
 const messages = defineMessages({
+    instanceNotFound: {
+        id: 'app.instance.not-found',
+        defaultMessage: 'This instance is no longer available.',
+    },
     neverPlayed: { id: 'app.instance.never-played', defaultMessage: 'Never played' },
     upgradedTo: {
         id: 'app.instance.post-upgrade-status',
@@ -646,7 +651,13 @@ async function fetchInstance() {
         }
     })
     if (!isCurrent() || !instanceReads.isCurrent(read, props.id)) return
-    if (!nextInstance) return
+    if (nextInstance === null) {
+        instance.value = undefined
+        addNotification({ type: 'warning', title: formatMessage(messages.instanceNotFound) })
+        await router.replace({ name: 'Overview' })
+        return
+    }
+    if (nextInstance === undefined) return
     const linkChanged =
         instance.value?.id !== nextInstance?.id ||
         instance.value?.link?.type !== nextInstance?.link?.type ||
@@ -758,6 +769,14 @@ async function updatePlayState() {
     playing.value = Array.isArray(runningProcesses) && runningProcesses.length > 0
 }
 
+const { subscribe, isDisposed, addCleanup } = useScopedEventListeners()
+addCleanup(() => {
+    instanceReads.invalidate()
+    processReads.invalidate()
+    instancePageClosed = true
+    instanceGeneration++
+    clearInterval(launchElapsedTimer)
+})
 await fetchInstance()
 watch(
     () => props.id,
@@ -1018,22 +1037,24 @@ const handleOptionsClick = async (args: { option: string; item: unknown }) => {
     }
 }
 
-const unlistenInstances = await instance_listener(
-    async (event: { instance_id: string; event: string }) => {
-        if (event.instance_id !== props.id) return
-        if (event.event === 'removed' || route.path === '/') {
-            if (route.path !== '/') {
-                await router.push({ path: '/' })
-            }
-            return
+await subscribe(instance_listener, async (event: { instance_id: string; event: string }) => {
+    if (event.instance_id !== props.id) return
+    if (event.event === 'removed' || route.path === '/') {
+        if (route.path !== '/') {
+            await router.push({ path: '/' })
         }
-        const requestedId = props.id
-        await fetchInstance()
-        void queryClient.invalidateQueries({ queryKey: postUpgradeNoticeQueryKey(requestedId) })
-    },
-)
+        return
+    }
+    const requestedId = props.id
+    await fetchInstance()
+    if (!isDisposed()) {
+        void queryClient.invalidateQueries({
+            queryKey: postUpgradeNoticeQueryKey(requestedId),
+        })
+    }
+})
 
-const unlistenProcesses = await process_listener((e: { event: string; instance_id: string }) => {
+await subscribe(process_listener, (e: { event: string; instance_id: string }) => {
     if (e.event === 'launched' && e.instance_id === props.id) {
         processReads.invalidate()
         playing.value = true
@@ -1069,13 +1090,6 @@ const timePlayedHumanized = computed(() => {
 })
 
 onUnmounted(() => {
-    instanceReads.invalidate()
-    processReads.invalidate()
-    instancePageClosed = true
-    instanceGeneration++
-    clearInterval(launchElapsedTimer)
-    unlistenProcesses()
-    unlistenInstances()
     const instanceId = displayedInstanceRoute.value.params.id
     if (typeof instanceId === 'string' && instanceId) {
         const { destroy } = useInstanceConsole(instanceId)

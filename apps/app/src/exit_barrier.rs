@@ -37,14 +37,13 @@ use std::time::{Duration, Instant};
 
 use theseus::scheduler::tag::Level;
 
-/// Wait for bounded exit work from a synchronous event callback. Constructing
-/// the timer inside the async block keeps it in Tauri's Tokio runtime context.
+/// Construct and run bounded exit work inside Tauri's Tokio runtime context.
 pub fn block_on_with_timeout<F: std::future::Future>(
     duration: Duration,
-    work: F,
+    work: impl FnOnce() -> F,
 ) -> Result<F::Output, tokio::time::error::Elapsed> {
     tauri::async_runtime::block_on(async {
-        tokio::time::timeout(duration, work).await
+        tokio::time::timeout(duration, work()).await
     })
 }
 
@@ -398,13 +397,16 @@ mod tests {
     #[test]
     fn exit_timeout_works_without_an_entered_runtime() {
         assert!(tokio::runtime::Handle::try_current().is_err());
-        let result = block_on_with_timeout(Duration::from_secs(1), async {
-            tokio::time::sleep(Duration::from_millis(1)).await;
-            Ok::<_, &str>(42)
+        let result = block_on_with_timeout(Duration::from_secs(1), || {
+            let sleep = tokio::time::sleep(Duration::from_millis(1));
+            async move {
+                sleep.await;
+                Ok::<_, &str>(42)
+            }
         });
         assert_eq!(result.unwrap(), Ok(42));
         assert_eq!(
-            block_on_with_timeout(Duration::from_secs(1), async {
+            block_on_with_timeout(Duration::from_secs(1), || async {
                 Err::<(), _>("flush failed")
             })
             .unwrap(),
@@ -413,7 +415,7 @@ mod tests {
         assert!(
             block_on_with_timeout(
                 Duration::from_millis(1),
-                std::future::pending::<()>()
+                std::future::pending::<()>
             )
             .is_err()
         );

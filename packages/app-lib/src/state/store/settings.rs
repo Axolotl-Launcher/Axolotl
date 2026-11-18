@@ -268,6 +268,27 @@ impl Settings {
         unit.commit().await
     }
 
+    /// Repairs a dangling selection on the disposable legacy import snapshot.
+    pub(crate) async fn repair_dangling_home_instance(
+        pool: &SqlitePool,
+    ) -> crate::Result<bool> {
+        let result = sqlx::query(
+            "
+            UPDATE settings
+            SET minimal_home_instance_id = NULL
+            WHERE id = 0
+                AND minimal_home_instance_id IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM instances
+                    WHERE instances.id = settings.minimal_home_instance_id
+                )
+            ",
+        )
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected() != 0)
+    }
+
     /// Changes the settings row inside the caller's unit, so the row the
     /// change is applied to cannot be replaced between the read and the write.
     pub(crate) async fn update_in(

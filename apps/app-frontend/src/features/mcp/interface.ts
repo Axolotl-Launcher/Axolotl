@@ -1,6 +1,7 @@
-import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import type { Router } from 'vue-router'
+
+import { invoke } from '@/helpers/invoke'
 
 import { createMcpUiController, type UiAction } from './interface-dom'
 

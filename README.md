@@ -1,5 +1,6 @@
 <div align="center">
-  <img src="./apps/app/icons/128x128.png" width="128" height="128" alt="Axolotl Launcher Logo" />
+  <!-- <img src="./apps/app/icons/128x128.png" width="128" height="128" alt="Axolotl Launcher Logo" /> -->
+  <img src="./.github/assets/axolotl_cover.png" height="512" alt="Axolotl Launcher" />
   <h1>Axolotl Launcher</h1>
   <p><strong>次世代 Minecraft 桌面客户端，全能、美观、全平台覆盖。</strong></p>
 
@@ -222,11 +223,11 @@ nix profile add 'git+https://github.com/Axolotl-Launcher/Axolotl'
 
 可选属性
 
-| 键          | 类型    | 默认值  | 说明                             |
-|:----------- |:-------:|:-------:|:-------------------------------- |
+| 键          |  类型   | 默认值  | 说明                             |
+| :---------- | :-----: | :-----: | :------------------------------- |
 | `enable`    | `bool`  | `false` | 设置为`true`以启用美西螈启动器   |
-| `launchEnv` | `attrs` | `{ }`   | 运行美西螈启动器时额外的环境变量 |
-| `settings`  | `attrs` | `{ }`   | 提供美西螈启动器设置的默认值     |
+| `launchEnv` | `attrs` |  `{ }`  | 运行美西螈启动器时额外的环境变量 |
+| `settings`  | `attrs` |  `{ }`  | 提供美西螈启动器设置的默认值     |
 
 </details>
 
@@ -235,7 +236,7 @@ nix profile add 'git+https://github.com/Axolotl-Launcher/Axolotl'
 感谢所有为 Axolotl Launcher 做出贡献的开发者与社区伙伴！
 
 <a href="https://github.com/Axolotl-Launcher/Axolotl/graphs/contributors">
-  <img src="https://contributors.hikarilink.org/image?repo=Axolotl-Launcher/Axolotl" alt="Contributors" />
+  <img src="https://axlmc.org/contributors.svg" alt="Contributors" />
 </a>
 
 ---

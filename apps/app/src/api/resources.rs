@@ -177,6 +177,7 @@ pub async fn initialize_content_refresh_events(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_start_content_refresh(
     instance_id: String,
@@ -185,6 +186,7 @@ pub async fn resource_start_content_refresh(
     Ok(theseus::resources::refresh::start(instance_id, mode).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_get_content_refresh_state(
     instance_id: String,
@@ -192,6 +194,7 @@ pub async fn resource_get_content_refresh_state(
     Ok(theseus::resources::refresh::get_state(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_export_scan(
     instance_id: String,
@@ -211,6 +214,7 @@ pub async fn resource_export_scan(
     Ok(scan)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_export_refresh(
     instance_id: String,
@@ -239,6 +243,7 @@ pub async fn resource_export_refresh(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_export_refresh_retry(
     session_id: SessionId,
@@ -272,12 +277,14 @@ pub async fn resource_export_refresh_retry(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_export_close(session_id: SessionId) -> Result<()> {
     service().await?.close_export(&session_id);
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_list_installed(
     instance_id: String,
@@ -287,6 +294,7 @@ pub async fn resource_list_installed(
     Ok(theseus::resources::installed::list(instance_id, &cancel).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_export_plan(
     session_id: SessionId,
@@ -306,6 +314,7 @@ pub async fn resource_export_plan(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_export_execute(
     plan_id: PlanId,
@@ -321,6 +330,7 @@ pub async fn resource_export_execute(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_export_queue(
     session_id: SessionId,
@@ -345,6 +355,7 @@ pub async fn resource_export_queue(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_export_cancel(
     request_id_or_job_id: String,
@@ -367,6 +378,7 @@ pub async fn resource_export_cancel(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_check_updates<R: tauri::Runtime>(
     webview: tauri::Webview<R>,
@@ -394,6 +406,7 @@ pub async fn resource_check_updates<R: tauri::Runtime>(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_prepare_entry_operation<R: tauri::Runtime>(
     webview: tauri::Webview<R>,
@@ -423,6 +436,7 @@ pub async fn resource_prepare_entry_operation<R: tauri::Runtime>(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_prepare_operation<R: tauri::Runtime>(
     webview: tauri::Webview<R>,
@@ -508,16 +522,19 @@ pub async fn resource_prepare_operation<R: tauri::Runtime>(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_analysis_open(instance_id: String) -> Result<SessionId> {
     Ok(theseus::resources::plans::analysis::open(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_analysis_close(session_id: SessionId) -> Result<()> {
     Ok(theseus::resources::plans::analysis::close(&session_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_analysis_update<R: tauri::Runtime>(
     webview: tauri::Webview<R>,
@@ -548,6 +565,7 @@ pub async fn resource_analysis_update<R: tauri::Runtime>(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_revise_plan<R: tauri::Runtime>(
     webview: tauri::Webview<R>,
@@ -569,6 +587,7 @@ pub async fn resource_revise_plan<R: tauri::Runtime>(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_queue_plan(
     plan_id: PlanId,
@@ -583,6 +602,7 @@ pub async fn resource_queue_plan(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_list_history(
     instance_id: String,
@@ -591,6 +611,7 @@ pub async fn resource_list_history(
     Ok(theseus::resources::history::list(instance_id, entry_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_rollback(
     instance_id: String,
@@ -607,6 +628,7 @@ pub async fn resource_rollback(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_scan_backups(
     instance_id: String,
@@ -614,6 +636,7 @@ pub async fn resource_scan_backups(
     Ok(theseus::resources::history_cleanup::scan(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_prepare_history_cleanup(
     instance_id: String,
@@ -625,6 +648,7 @@ pub async fn resource_prepare_history_cleanup(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_execute_history_cleanup(
     cleanup_plan_id: PlanId,
@@ -636,11 +660,13 @@ pub async fn resource_execute_history_cleanup(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_favorites() -> Result<Vec<ResourceFavorite>> {
     Ok(theseus::resources::favorites::list().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_favorite_add(
     project: SourceProjectRef,
@@ -651,17 +677,20 @@ pub async fn resource_favorite_add(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_favorite_remove(project: SourceProjectRef) -> Result<()> {
     theseus::resources::favorites::remove(&project).await?;
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_favorite_groups() -> Result<FavoriteGroupsSnapshot> {
     Ok(theseus::resources::favorite_groups::list())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_favorite_group_create(
     name: String,
@@ -669,6 +698,7 @@ pub async fn resource_favorite_group_create(
     Ok(theseus::resources::favorite_groups::create(name).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_favorite_group_rename(
     id: String,
@@ -677,12 +707,14 @@ pub async fn resource_favorite_group_rename(
     Ok(theseus::resources::favorite_groups::rename(id, new_name).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_favorite_group_delete(id: String) -> Result<()> {
     theseus::resources::favorite_groups::delete(id).await?;
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_favorite_group_update_memberships(
     updates: Vec<FavoriteGroupMembershipChange>,
@@ -691,6 +723,7 @@ pub async fn resource_favorite_group_update_memberships(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_locate(
     source: SourceId,
@@ -710,6 +743,7 @@ pub async fn resource_locate(
         .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_project_document(
     project: SourceProjectRef,
@@ -723,6 +757,7 @@ pub async fn resource_project_document(
         .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_release_documents(
     source: SourceId,
@@ -768,6 +803,7 @@ pub async fn resource_release_documents(
         .collect()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_project_documents(
     source: SourceId,
@@ -808,6 +844,7 @@ pub async fn resource_project_documents(
         .collect()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_project_protocol(
     locators: Vec<String>,
@@ -851,11 +888,13 @@ pub async fn resource_project_protocol(
         .collect()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_sources() -> Result<Vec<ResourceSource>> {
     Ok(service().await?.sources())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_search(
     query: ResourceSearchQuery,
@@ -869,6 +908,7 @@ pub async fn resource_search(
         .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_get(
     reference: ResourceRef,
@@ -883,6 +923,7 @@ pub async fn resource_get(
         .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_get_description(
     reference: ResourceRef,
@@ -897,6 +938,7 @@ pub async fn resource_get_description(
         .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_list_releases(
     reference: ResourceRef,
@@ -912,6 +954,7 @@ pub async fn resource_list_releases(
         .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_get_release(
     reference: SourceReleaseRef,
@@ -925,6 +968,7 @@ pub async fn resource_get_release(
         .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_get_changelog(
     release_ref: SourceReleaseRef,
@@ -960,6 +1004,7 @@ pub async fn resource_get_changelog(
     })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_list_changelogs(
     resource_ref: ResourceRef,
@@ -1013,6 +1058,7 @@ pub async fn resource_list_changelogs(
     })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn resource_cancel(request_id: RequestId) {
     if let Some(token) = REQUESTS.get(&request_id) {
@@ -1031,11 +1077,13 @@ pub fn resource_cancel(request_id: RequestId) {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_preferred_source() -> Result<SourceId> {
     Ok(service().await?.preferred_source().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_set_preferred_source(source: SourceId) -> Result<()> {
     let service = service().await?;
@@ -1058,11 +1106,13 @@ pub async fn resource_set_preferred_source(source: SourceId) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_cache_info() -> Result<ResourceCacheInfo> {
     Ok(service().await?.cache().info().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn resource_cache_clear() -> Result<()> {
     service().await?.cache().clear().await?;

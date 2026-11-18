@@ -47,7 +47,7 @@ import {
 } from '@modrinth/ui'
 import { useQueryClient } from '@tanstack/vue-query'
 import { getVersion } from '@tauri-apps/api/app'
-import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { Effect, getCurrentWindow } from '@tauri-apps/api/window'
 import { openUrl } from '@tauri-apps/plugin-opener'
@@ -145,8 +145,10 @@ import {
 } from '@/helpers/install'
 import { type DirectLinkSyncReport, get as getInstance, run } from '@/helpers/instance'
 import { type BackupOperation, cancelBackup, listBackupOperations } from '@/helpers/instance-backup'
+import { invoke } from '@/helpers/invoke'
 import { installNativeEditMenuBoundary } from '@/helpers/native-edit-menu'
 import { getNavShortcutEnabled } from '@/helpers/nav-shortcut-state'
+import { recordEvent } from '@/helpers/observability'
 import { runWhenIdle } from '@/helpers/page-transition'
 import { get_by_instance_id, kill as killProcess } from '@/helpers/process.js'
 import { getExternalLinkUrl, mergeUrlQuery, parseModrinthLink } from '@/helpers/project-links.ts'
@@ -2804,6 +2806,7 @@ async function performUpdateCheck() {
         console.log('No update available')
         return 'up-to-date'
     }
+    recordEvent('app_update', { source: 'check', 'update.channel': channel })
 
     const publishedAt = Date.parse(update.publishedAt ?? '')
     if (
@@ -2908,6 +2911,7 @@ async function downloadUpdate(versionToDownload: typeof availableUpdate.value) {
                 unlistenUpdateDownload?.()
                 unlistenUpdateDownload = null
                 console.log('Finished downloading!')
+                recordEvent('app_update', { source: 'enqueue' })
                 markAppUpdateActionable(versionToDownload.version, 'downloaded')
                 scheduleDelayedUpdatePopup()
             })

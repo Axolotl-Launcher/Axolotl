@@ -9,7 +9,10 @@ use crate::launcher::{QuickPlayVersion, parse_rules};
 use crate::state::Credentials;
 use crate::{
     state::{MemorySettings, WindowSize},
-    util::{io::IOError, platform::classpath_separator},
+    util::{
+        io::IOError, mojang::add_fallen_discovery_java_arg,
+        platform::classpath_separator,
+    },
 };
 use daedalus::minecraft::LoggingConfiguration;
 use daedalus::{
@@ -302,6 +305,7 @@ pub fn get_jvm_arguments(
         }
     }
 
+    add_fallen_discovery_java_arg(&mut parsed_arguments);
     Ok(parsed_arguments)
 }
 
@@ -694,6 +698,62 @@ mod tests {
     use crate::launcher::direct_link::LinkedLauncherDialect;
     use crate::launcher::quick_play_version::QuickPlaySingleplayerVersion;
     use serde_json::json;
+
+    #[test]
+    fn legacy_fallen_args_get_discovery_without_replacing_custom_hosts() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path();
+        let legacy = [
+            "-Dminecraft.api.auth.host=https://auth.msp.fallenbreath.me",
+            "-Dminecraft.api.account.host=https://account.msp.fallenbreath.me",
+            "-Dminecraft.api.session.host=https://session.msp.fallenbreath.me",
+            "-Dminecraft.api.services.host=https://services.msp.fallenbreath.me",
+            "-Dminecraft.api.profiles.host=https://profiles.msp.fallenbreath.me",
+        ];
+        let discovery = "-Dminecraft.api.discovery.host=https://discovery.msp.fallenbreath.me/minecraft/client";
+        let custom_discovery =
+            "-Dminecraft.api.discovery.host=https://example.test/client";
+        let custom_session =
+            "-Dminecraft.api.session.host=https://example.test";
+        let launch = |custom_args: &[&str]| {
+            get_jvm_arguments(
+                Some(&[]),
+                path,
+                path,
+                path,
+                "",
+                path,
+                "26.3",
+                MemorySettings {
+                    maximum: 2048,
+                    automatic: false,
+                    optimize_before_launch: false,
+                },
+                custom_args.iter().map(ToString::to_string).collect(),
+                "x86_64",
+                &QuickPlayType::None,
+                QuickPlayVersion::find_version(0, &[]),
+                None,
+                "127.0.0.1:12345".parse().unwrap(),
+            )
+            .unwrap()
+            .into_iter()
+            .filter(|arg| arg.starts_with("-Dminecraft.api."))
+            .collect::<Vec<_>>()
+        };
+
+        assert_eq!(launch(&legacy), [legacy.as_slice(), &[discovery]].concat());
+        assert_eq!(launch(&[]), Vec::<String>::new());
+        for custom in [
+            discovery,
+            custom_discovery,
+            custom_session,
+            "-Dminecraft.api.session.host",
+        ] {
+            let overridden = [legacy.as_slice(), &[custom]].concat();
+            assert_eq!(launch(&overridden), overridden);
+        }
+    }
 
     #[test]
     fn universal_os_arguments_still_require_the_declared_architecture() {

@@ -225,7 +225,7 @@ pub(crate) enum MrpackInstallOutcome {
     WaitingForUser(InstallPauseReason),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct OverrideExtractionSpec {
     index: usize,
     entry_name: String,
@@ -241,20 +241,39 @@ struct ExtractedOverride {
     hash: String,
 }
 
-fn override_extraction_groups(
+fn resolve_override_targets(
     specs: Vec<OverrideExtractionSpec>,
-) -> Vec<Vec<OverrideExtractionSpec>> {
-    let mut groups: Vec<Vec<OverrideExtractionSpec>> = Vec::new();
-    let mut positions = HashMap::<PathBuf, usize>::new();
+    client_prefix: &str,
+    fold_case: bool,
+) -> crate::Result<Vec<OverrideExtractionSpec>> {
+    let mut targets: Vec<OverrideExtractionSpec> = Vec::new();
+    let mut positions = HashMap::new();
     for spec in specs {
-        if let Some(&index) = positions.get(&spec.target_path) {
-            groups[index].push(spec);
+        let key = if fold_case {
+            spec.relative_path.to_uppercase()
         } else {
-            positions.insert(spec.target_path.clone(), groups.len());
-            groups.push(vec![spec]);
+            spec.relative_path.clone()
+        };
+        if let Some(&index) = positions.get(&key) {
+            let previous: &OverrideExtractionSpec = &targets[index];
+            if previous.relative_path != spec.relative_path {
+                return Err(crate::ErrorKind::InputError(format!(
+                    "Conflicting MRPack override paths: {} and {}",
+                    previous.entry_name, spec.entry_name,
+                ))
+                .into());
+            }
+            if !previous.entry_name.starts_with(client_prefix)
+                || spec.entry_name.starts_with(client_prefix)
+            {
+                targets[index] = spec;
+            }
+        } else {
+            positions.insert(key, targets.len());
+            targets.push(spec);
         }
     }
-    groups
+    Ok(targets)
 }
 
 fn mrpack_override_staging_path(target_path: &Path) -> PathBuf {
@@ -883,24 +902,20 @@ where
 {
     let _permit = semaphore.0.acquire().await?;
 
-    if let Some(parent) = path.parent() {
-        io::create_dir_all(parent).await?;
-    }
-
     let parent = path.parent().ok_or_else(|| {
         io::IOError::from(std::io::Error::other(
             "could not get parent directory for temporary file",
         ))
     })?;
-    let temp_path = tempfile::NamedTempFile::new_in(parent)
+    io::create_dir_all(parent).await?;
+    let (file, temp_path) = tempfile::Builder::new()
+        .make_in(parent, |path| std::fs::File::create_new(path))
         .map_err(|e| io::IOError::with_path(e, parent))?
-        .into_temp_path();
+        .into_parts();
 
     // Only replace the profile file after the ZIP entry has passed its CRC check.
     let expected_crc32 = reader.entry().crc32();
-    let mut file = tokio::fs::File::create(&temp_path)
-        .await
-        .map_err(|e| io::IOError::with_path(e, &temp_path))?;
+    let mut file = tokio::fs::File::from_std(file);
     let mut hasher = sha1_smol::Sha1::new();
     let mut size = 0;
     let mut buffer = vec![0; 262144];
@@ -943,10 +958,9 @@ where
         return Err(async_zip::error::ZipError::CRC32CheckError.into());
     }
 
-    temp_path.persist(path).map_err(|e| {
-        let tempfile::PathPersistError { error, .. } = e;
-        io::IOError::with_path(error, path)
-    })?;
+    tokio::fs::rename(&temp_path, path)
+        .await
+        .map_err(|error| io::IOError::with_path(error, path))?;
 
     Ok((size, hasher.digest().to_string()))
 }
@@ -1027,6 +1041,37 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         )
         .into());
     }
+    let override_specs = resolve_override_targets(
+        zip_reader
+            .file()
+            .entries()
+            .iter()
+            .enumerate()
+            .filter_map(|(index, file)| {
+                let filename = file.filename().as_str().unwrap_or_default();
+                ((filename.starts_with(&overrides_prefix)
+                    || filename.starts_with(&client_overrides_prefix))
+                    && !filename.ends_with('/'))
+                .then(|| {
+                    let relative_path =
+                        override_relative_path(filename, &archive_base)?;
+                    Ok(OverrideExtractionSpec {
+                        index,
+                        entry_name: filename.to_string(),
+                        crc32: file.crc32(),
+                        uncompressed_size: file.uncompressed_size(),
+                        target_path: io::safe_relative_join(
+                            &instance_full_path,
+                            &relative_path,
+                        )?,
+                        relative_path,
+                    })
+                })
+            })
+            .collect::<crate::Result<Vec<_>>>()?,
+        &client_overrides_prefix,
+        cfg!(any(target_os = "windows", target_os = "macos")),
+    )?;
 
     reporter
         .update(InstallPhaseId::ResolvingPack, None, modpack_details.clone())
@@ -1898,33 +1943,6 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         return Ok(MrpackInstallOutcome::WaitingForUser(reason));
     }
 
-    let override_specs = zip_reader
-        .file()
-        .entries()
-        .iter()
-        .enumerate()
-        .filter_map(|(index, file)| {
-            let filename = file.filename().as_str().unwrap_or_default();
-            ((filename.starts_with(&overrides_prefix)
-                || filename.starts_with(&client_overrides_prefix))
-                && !filename.ends_with('/'))
-            .then(|| {
-                let relative_path =
-                    override_relative_path(filename, &archive_base)?;
-                Ok(OverrideExtractionSpec {
-                    index,
-                    entry_name: filename.to_string(),
-                    crc32: file.crc32(),
-                    uncompressed_size: file.uncompressed_size(),
-                    target_path: io::safe_relative_join(
-                        &instance_full_path,
-                        &relative_path,
-                    )?,
-                    relative_path,
-                })
-            })
-        })
-        .collect::<crate::Result<Vec<_>>>()?;
     let override_total_bytes = override_specs
         .iter()
         .map(|spec| zip_reader.file().entries()[spec.index].uncompressed_size())
@@ -1962,15 +1980,12 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
     for parent in override_parents.drain() {
         io::create_dir_all(&parent).await?;
     }
-    let mut seen_override_targets = HashSet::new();
     let override_targets = override_specs
         .iter()
-        .filter(|&spec| seen_override_targets.insert(spec.target_path.clone()))
         .map(|spec| spec.target_path.clone())
         .collect::<Vec<_>>();
-    let override_groups = Arc::new(Mutex::new(VecDeque::from(
-        override_extraction_groups(override_specs),
-    )));
+    let pending_overrides =
+        Arc::new(Mutex::new(VecDeque::from(override_specs)));
     let extraction_result =
         futures::stream::iter(0..OVERRIDE_EXTRACTION_CONCURRENCY)
             .map(|_| {
@@ -1984,68 +1999,59 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                     Arc::clone(&extracted_override_bytes);
                 let override_progress_throttle =
                     Arc::clone(&override_progress_throttle);
-                let override_groups = Arc::clone(&override_groups);
+                let pending_overrides = Arc::clone(&pending_overrides);
                 async move {
                     let mut extracted = Vec::new();
                     let mut reader = MrpackZipReader::new(&file).await?;
                     loop {
-                        let Some(group) =
-                            override_groups.lock().await.pop_front()
+                        let Some(spec) =
+                            pending_overrides.lock().await.pop_front()
                         else {
                             break;
                         };
-                        for spec in group {
-                            let override_context = InstallErrorContext::new(
-                                "extract modpack override",
-                            )
-                            .maybe_project_id(project_id.clone())
-                            .maybe_version_id(version_id.clone())
-                            .source_path(source_path.clone())
-                            .entry_path(spec.entry_name.clone())
-                            .target_path(spec.target_path.display().to_string())
-                            .build();
-                            reporter
-                                .set_transient_context(override_context.clone())
-                                .await?;
-                            let mut report_progress =
-                                |bytes_read: u64| -> Pin<
-                                    Box<
-                                        dyn Future<Output = crate::Result<()>>
-                                            + Send,
-                                    >,
-                                > {
-                                    extracted_override_bytes.fetch_add(
-                                        bytes_read,
-                                        Ordering::Relaxed,
-                                    );
-                                    let extracted_override_bytes =
-                                        Arc::clone(&extracted_override_bytes);
-                                    let override_progress_throttle =
-                                        Arc::clone(&override_progress_throttle);
-                                    let reporter = reporter.clone();
-                                    let details = modpack_details.clone();
-                                    Box::pin(async move {
-                                        // Keep admission and emission in the
-                                        // same order across extraction workers.
-                                        let mut throttle =
-                                            override_progress_throttle
-                                                .lock()
-                                                .await;
-                                        let current = extracted_override_bytes
-                                            .load(Ordering::Relaxed)
-                                            .min(override_total_bytes);
-                                        if !throttle.should_report(
-                                            current,
-                                            override_total_bytes,
-                                            override_progress_delta,
-                                            override_progress_started_at
-                                                .elapsed()
-                                                .as_millis()
-                                                as u64,
-                                        ) {
-                                            return Ok(());
-                                        }
-                                        reporter
+                        let override_context = InstallErrorContext::new(
+                            "extract modpack override",
+                        )
+                        .maybe_project_id(project_id.clone())
+                        .maybe_version_id(version_id.clone())
+                        .source_path(source_path.clone())
+                        .entry_path(spec.entry_name.clone())
+                        .target_path(spec.target_path.display().to_string())
+                        .build();
+                        reporter
+                            .set_transient_context(override_context.clone())
+                            .await?;
+                        let mut report_progress = |bytes_read: u64| -> Pin<
+                            Box<dyn Future<Output = crate::Result<()>> + Send>,
+                        > {
+                            extracted_override_bytes
+                                .fetch_add(bytes_read, Ordering::Relaxed);
+                            let extracted_override_bytes =
+                                Arc::clone(&extracted_override_bytes);
+                            let override_progress_throttle =
+                                Arc::clone(&override_progress_throttle);
+                            let reporter = reporter.clone();
+                            let details = modpack_details.clone();
+                            Box::pin(async move {
+                                // Keep admission and emission in the
+                                // same order across extraction workers.
+                                let mut throttle =
+                                    override_progress_throttle.lock().await;
+                                let current = extracted_override_bytes
+                                    .load(Ordering::Relaxed)
+                                    .min(override_total_bytes);
+                                if !throttle.should_report(
+                                    current,
+                                    override_total_bytes,
+                                    override_progress_delta,
+                                    override_progress_started_at
+                                        .elapsed()
+                                        .as_millis()
+                                        as u64,
+                                ) {
+                                    return Ok(());
+                                }
+                                reporter
                                     .update(
                                         InstallPhaseId::ExtractingOverrides,
                                         Some(InstallProgress {
@@ -2056,35 +2062,28 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                                         details,
                                     )
                                     .await
-                                    })
-                                };
-                            let progress = (override_total_bytes > 0)
-                                .then_some(
-                                    &mut report_progress
-                                        as &mut ExtractProgressFn<'_>,
-                                );
-                            let staging_path =
-                                mrpack_override_staging_path(&spec.target_path);
-                            let extract_result = reader
-                                .extract_override_entry(
-                                    &spec,
-                                    &staging_path,
-                                    &state.io_semaphore,
-                                    progress,
-                                )
-                                .await;
-                            let (size, hash) = reporter
-                                .preserve_failure_context(
-                                    override_context,
-                                    extract_result,
-                                )
-                                .await?;
-                            extracted.push(ExtractedOverride {
-                                spec,
-                                size,
-                                hash,
-                            });
-                        }
+                            })
+                        };
+                        let progress = (override_total_bytes > 0).then_some(
+                            &mut report_progress as &mut ExtractProgressFn<'_>,
+                        );
+                        let staging_path =
+                            mrpack_override_staging_path(&spec.target_path);
+                        let extract_result = reader
+                            .extract_override_entry(
+                                &spec,
+                                &staging_path,
+                                &state.io_semaphore,
+                                progress,
+                            )
+                            .await;
+                        let (size, hash) = reporter
+                            .preserve_failure_context(
+                                override_context,
+                                extract_result,
+                            )
+                            .await?;
+                        extracted.push(ExtractedOverride { spec, size, hash });
                     }
                     Ok::<_, crate::Error>(extracted)
                 }
@@ -2457,23 +2456,45 @@ mod tests {
     }
 
     #[test]
-    fn override_batches_bound_concurrency_and_order_duplicate_targets() {
-        let groups = override_extraction_groups(vec![
-            override_spec(0, "config/a.toml"),
-            override_spec(1, "config/b.toml"),
-            override_spec(2, "config/c.toml"),
-            override_spec(3, "config/d.toml"),
-            override_spec(4, "config/a.toml"),
-        ]);
+    fn override_targets_reject_case_aliases_only_when_folding_case() {
+        let specs = || {
+            vec![
+                override_spec(0, "config/Foo.toml"),
+                override_spec(1, "Config/foo.toml"),
+            ]
+        };
+        let error =
+            resolve_override_targets(specs(), "client-overrides/", true)
+                .unwrap_err()
+                .to_string();
+        assert!(error.contains("overrides/config/Foo.toml"));
+        assert!(error.contains("overrides/Config/foo.toml"));
+        assert_eq!(
+            resolve_override_targets(specs(), "client-overrides/", false)
+                .unwrap()
+                .len(),
+            2
+        );
+    }
 
-        assert!(groups.iter().all(|group| {
-            group
-                .windows(2)
-                .all(|pair| pair[0].target_path == pair[1].target_path)
-        }));
-        assert_eq!(groups.len(), 4);
-        assert_eq!(groups[0][0].index, 0);
-        assert_eq!(groups[0][1].index, 4);
+    #[test]
+    fn override_targets_select_client_override_before_extraction() {
+        let mut client = override_spec(0, "config/a.toml");
+        client.entry_name = "client-overrides/config/a.toml".into();
+        let targets = resolve_override_targets(
+            vec![
+                client,
+                override_spec(1, "config/a.toml"),
+                override_spec(2, "config/b.toml"),
+                override_spec(3, "config/b.toml"),
+            ],
+            "client-overrides/",
+            true,
+        )
+        .unwrap();
+        assert_eq!(targets.len(), 2);
+        assert_eq!(targets[0].index, 0);
+        assert_eq!(targets[1].index, 3);
     }
 
     #[test]
@@ -2949,6 +2970,12 @@ mod tests {
     -> crate::Result<()> {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("overrides.mrpack");
+        let long_name = format!(
+            "overrides/config/{}/{}/{}.toml",
+            "a".repeat(90),
+            "b".repeat(90),
+            "c".repeat(90),
+        );
         let entries = [
             ("overrides/config/first.toml", b"first = true".as_slice()),
             ("overrides/config/second.toml", b"second = true".as_slice()),
@@ -2956,6 +2983,7 @@ mod tests {
                 "client-overrides/options.txt",
                 b"fancyGraphics:true".as_slice(),
             ),
+            (long_name.as_str(), b"long_path = true".as_slice()),
         ];
         let mut archive = tokio::fs::File::create(&path).await.unwrap();
         let mut writer = ZipFileWriter::with_tokio(&mut archive);
@@ -3053,6 +3081,17 @@ mod tests {
         .await??;
 
         for spec in specs {
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::MetadataExt;
+                assert_eq!(
+                    tokio::fs::metadata(&spec.target_path)
+                        .await?
+                        .file_attributes()
+                        & 0x100,
+                    0,
+                );
+            }
             let expected = entries
                 .iter()
                 .find(|(name, _)| *name == spec.entry_name)

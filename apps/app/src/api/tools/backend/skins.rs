@@ -35,7 +35,7 @@ mod tests {
         let cape = Cape {
             id: uuid::Uuid::nil(),
             name: "Cape".into(),
-            texture,
+            texture: Some(texture),
             is_equipped: false,
         };
         for value in [skin_summary(skin), cape_summary(cape)] {

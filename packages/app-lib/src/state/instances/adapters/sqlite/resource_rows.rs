@@ -72,9 +72,7 @@ pub(crate) fn entry_identities(
 
 fn validate_stable_id(source: &SourceId, id: &str) -> ResourceResult<()> {
     let valid = match source.as_str() {
-        "modrinth" => {
-            id.len() == 8 && id.bytes().all(|byte| byte.is_ascii_alphanumeric())
-        }
+        "modrinth" => crate::resources::providers::stable_modrinth_id(id),
         "curseforge" => id
             .parse::<u32>()
             .ok()

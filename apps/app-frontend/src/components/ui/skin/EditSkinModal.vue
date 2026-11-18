@@ -278,7 +278,9 @@ const variant = ref<SkinModel>('CLASSIC')
 const selectedCape = ref<Cape | undefined>(undefined)
 const props = defineProps<{ capes?: Cape[] }>()
 
-const selectedCapeTexture = computed(() => selectedCape.value?.texture)
+const selectedCapeTexture = computed(
+    () => props.capes?.find((cape) => cape.id === selectedCape.value?.id)?.texture ?? undefined,
+)
 const canEditTextureAndModel = computed(() => currentSkin.value?.source !== 'default')
 const canExportTexture = computed(() => {
     const texture = uploadedTextureUrl.value?.original ?? currentSkin.value?.texture

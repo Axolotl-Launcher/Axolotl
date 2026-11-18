@@ -1426,10 +1426,11 @@
     {
       "file": "packages/app-lib/src/api/pack/install_mrpack.rs",
       "form": "std::fs",
-      "count": 1,
-      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "count": 2,
+      "reason": "Synchronous cleanup and a single same-directory create-new for MRPack staging, bounded by the extraction I/O semaphore outside L0. Standard creation avoids publishing Windows temporary file attributes after rename.",
       "sites": [
-        "drop: let _ = std::fs::remove_file(&self.download_path);"
+        "drop: let _ = std::fs::remove_file(&self.download_path);",
+        "extract_zip_entry: .make_in(parent, |path| std::fs::File::create_new(path))"
       ]
     },
     {
@@ -1826,13 +1827,12 @@
     {
       "file": "packages/app-lib/src/launcher/local_version.rs",
       "form": "std::fs",
-      "count": 4,
+      "count": 3,
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "discover_version_json: let mut json_files = std::fs::read_dir(&version_dir)",
         "is_minecraft_version_document: std::fs::read_to_string(path)",
-        "read_document_path: let content = std::fs::read_to_string(path).map_err(|error| {",
-        "resolve_pcl_json: &std::fs::read_to_string(&path).map_err(|error| {"
+        "read_document_path: let content = std::fs::read_to_string(path).map_err(|error| {"
       ]
     },
     {
@@ -3014,6 +3014,35 @@
         "backup: let file = std::fs::File::open(path)?;",
         "durable_copy: std::fs::File::open(parent)?.sync_all()?;",
         "durable_copy: std::fs::create_dir_all(parent)?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/observability.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed observability flush: the blocking OTLP force-flush is bounded by a 2 s caller budget and runs on a dedicated blocking worker; it holds only provider handles and never blocks the async runtime",
+      "sites": [
+        "observability_flush: tauri::async_runtime::spawn_blocking(|| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/observability/runtime.rs",
+      "form": "thread::Builder",
+      "count": 2,
+      "reason": "reviewed OTLP flush/shutdown: dedicated short-lived threads isolate exporter I/O from the async runtime and are bounded by the caller exit budget; they hold only cloned provider handles",
+      "sites": [
+        "flush: std::thread::Builder::new()",
+        "shutdown: std::thread::Builder::new()"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/observability/runtime.rs",
+      "form": "thread::Builder spawn",
+      "count": 2,
+      "reason": "reviewed OTLP flush/shutdown: both helper threads are detached and only perform SDK force_flush/shutdown with cloned providers, so a slow collector cannot block the process past the caller budget",
+      "sites": [
+        "flush: .spawn(move || {",
+        "shutdown: .spawn(move || {"
       ]
     }
   ]

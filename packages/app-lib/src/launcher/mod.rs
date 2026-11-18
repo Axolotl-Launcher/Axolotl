@@ -69,6 +69,7 @@ pub(crate) mod external_version;
 pub(crate) mod instance_runtime;
 mod local_artifact;
 mod natives;
+mod version_json;
 
 pub mod download;
 pub mod jvm_args;
@@ -201,7 +202,7 @@ async fn switcheroo_gpu_environment() -> crate::Result<Vec<(String, String)>> {
 
 /// Mojang/HMCL ordered rule semantics: an empty list allows, a non-empty list
 /// starts disallowed, and each matching rule replaces the previous decision.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn parse_rules(
     rules: &[d::minecraft::Rule],
     java_version: &str,
@@ -220,7 +221,7 @@ pub fn parse_rules(
 
 /// Returns this rule's action only when every declared OS and feature
 /// restriction matches. OS and features on the same rule are conjunctive.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn parse_rule(
     rule: &d::minecraft::Rule,
     java_version: &str,
@@ -2068,7 +2069,7 @@ fn link_project_and_version(
     }
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub async fn launch_minecraft(
     java_args: &[String],
@@ -2472,7 +2473,8 @@ pub async fn launch_minecraft(
     // that will run Minecraft. The frontend supplies an ordered candidate
     // chain; we keep the preferred strategy only if this JVM understands it,
     // pruning unsupported tuning flags and falling back down the chain as
-    // needed. A `None` keeps the args passed in untouched.
+    // needed. Without an intent, keep the user's arguments but do not pass
+    // the launcher's automatic-preset marker to Java.
     let mut resolved_java_args = java_args.to_vec();
     // Custom JVM arguments from the linked launcher enter the same GC
     // compatibility pipeline below: unsupported tuning flags are pruned
@@ -2548,6 +2550,7 @@ pub async fn launch_minecraft(
         }
         extra_game_args.extend(pcl.extra_game_args());
     }
+    jvm_args::remove_unresolved_auto_gc_marker(&mut resolved_java_args);
 
     let settings = crate::state::Settings::get(&state.data).await?;
     let minecraft_java = java_environment::minecraft_java_executable(

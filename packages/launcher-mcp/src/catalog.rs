@@ -119,7 +119,7 @@ mod tests {
             bytes.iter().fold(0xcbf29ce484222325u64, |hash, byte| {
                 (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
             });
-        assert_eq!(fingerprint, 0xb610a9c1e659bc22);
+        assert_eq!(fingerprint, 0x62f2985efb99d671);
     }
 
     #[test]

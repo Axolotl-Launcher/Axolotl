@@ -26,11 +26,13 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn seed_map_profiles() -> Vec<seed_map::VersionProfile> {
     seed_map::version_profiles()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn seed_map_render_tile(
     request: seed_map::TileRequest,
@@ -43,6 +45,7 @@ pub async fn seed_map_render_tile(
     Ok(tauri::ipc::Response::new(pixels))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn seed_map_find_features(
     query: seed_map::FeatureQuery,
@@ -54,6 +57,7 @@ pub async fn seed_map_find_features(
     .map_err(std::io::Error::other)??)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn seed_map_spawn(
     seed: String,
@@ -67,6 +71,7 @@ pub async fn seed_map_spawn(
     .map_err(std::io::Error::other)??)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn seed_map_biome_at(
     seed: String,
@@ -146,6 +151,7 @@ fn cancel_ore_scan(id: u64) {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn seed_map_scan_ores(
     request: seed_map::ores::OreScanRequest,
@@ -169,6 +175,7 @@ pub async fn seed_map_scan_ores(
 
 /// Stops an area ore scan at its next native check. A cancel that arrives
 /// before the scan starts is kept briefly, so the scan stops as it begins.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn seed_map_cancel_ore_scan(request_id: u64) {
     cancel_ore_scan(request_id);
@@ -198,6 +205,7 @@ mod tests {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn seed_map_read_level_dat(
     path: String,
@@ -209,6 +217,7 @@ pub async fn seed_map_read_level_dat(
     .map_err(std::io::Error::other)??)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn seed_map_structure_details(
     query: seed_map::details::StructureQuery,
@@ -220,6 +229,7 @@ pub async fn seed_map_structure_details(
     .map_err(std::io::Error::other)??)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn seed_map_container_loot(
     query: seed_map::details::StructureQuery,
@@ -232,6 +242,7 @@ pub async fn seed_map_container_loot(
     .map_err(std::io::Error::other)??)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn seed_map_underground_tile(
     request: seed_map::details::UndergroundRequest,
@@ -244,6 +255,7 @@ pub async fn seed_map_underground_tile(
     Ok(tauri::ipc::Response::new(pixels))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn seed_map_underground_volume(
     request: seed_map::underground::VolumeRequest,
@@ -257,6 +269,7 @@ pub async fn seed_map_underground_volume(
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn seed_map_cancel_underground(id: u64) {
     seed_map::underground::cancel(id);

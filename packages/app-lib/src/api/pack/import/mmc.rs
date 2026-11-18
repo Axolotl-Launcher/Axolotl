@@ -141,7 +141,7 @@ pub struct MMCLauncher {
 }
 
 // Checks if if its a folder, and the folder contains instance.cfg and mmc-pack.json, and they both parse
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn is_valid_mmc(instance_folder: PathBuf) -> bool {
     let instance_cfg = instance_folder.join("instance.cfg");
     let mmc_pack = instance_folder.join("mmc-pack.json");
@@ -155,7 +155,7 @@ pub async fn is_valid_mmc(instance_folder: PathBuf) -> bool {
         && serde_json::from_str::<MMCPack>(&mmc_pack).is_ok()
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_instances_subpath(config: PathBuf) -> Option<String> {
     let launcher = io::read_any_encoding_to_string(&config).await.ok()?.0;
     let launcher: MMCLauncherEnum = serde_ini::from_str(&launcher).ok()?;
@@ -175,7 +175,6 @@ async fn load_instance_cfg(file_path: &Path) -> crate::Result<MMCInstance> {
     }
 }
 
-// #[tracing::instrument]
 pub(crate) async fn import_mmc_instance_dir(
     mmc_instance_path: PathBuf,
     icons_dir: Option<PathBuf>,

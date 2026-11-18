@@ -2,10 +2,11 @@
 import { SpinnerIcon } from '@modrinth/assets'
 import { injectNotificationManager } from '@modrinth/ui'
 import dayjs from 'dayjs'
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import NavButton from '@/components/ui/NavButton.vue'
+import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
 import { instance_listener } from '@/helpers/events.js'
 import { list } from '@/helpers/instance'
 import { useTheming } from '@/store/state'
@@ -48,16 +49,13 @@ const getInstances = async () => {
     })
 }
 
+const { subscribe } = useScopedEventListeners()
 await getInstances()
 
-const unlistenInstance = await instance_listener(async (event) => {
+await subscribe(instance_listener, async (event) => {
     if (event.event !== 'synced') {
         await getInstances()
     }
-})
-
-onUnmounted(() => {
-    unlistenInstance()
 })
 </script>
 

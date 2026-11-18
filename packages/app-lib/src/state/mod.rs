@@ -1452,7 +1452,7 @@ impl State {
         LAUNCHER_STATE.get().map(Arc::clone)
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all, level = "info")]
     async fn initialize_state(
         app_identifier: String,
     ) -> crate::Result<Arc<Self>> {

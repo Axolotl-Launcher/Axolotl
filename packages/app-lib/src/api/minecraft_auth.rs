@@ -29,7 +29,7 @@ use crate::util::mojang::{mojang_service_url, should_use_mojang_mirror};
 /// idle check runs.
 const REACHABILITY_TIMEOUT: Duration = Duration::from_secs(12);
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn check_reachable() -> crate::Result<()> {
     let statuses =
         probe_mojang_services(should_use_mojang_mirror(), true).await;
@@ -105,7 +105,7 @@ pub async fn check_mojang_services() -> Vec<MojangServiceStatus> {
     check_mojang_services_for(false).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn check_mojang_services_for(
     use_mirror: bool,
 ) -> Vec<MojangServiceStatus> {
@@ -148,24 +148,24 @@ async fn probe_mojang_services(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn begin_login() -> crate::Result<MinecraftLoginFlow> {
     State::get().await?;
     crate::state::login_begin().await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn begin_browser_login() -> crate::Result<MinecraftLoginFlow> {
     State::get().await?;
     crate::state::browser_login_begin().await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn begin_device_login() -> crate::Result<MinecraftDeviceLoginFlow> {
     crate::state::device_login_begin().await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn poll_device_login(
     device_code: &str,
 ) -> crate::Result<MinecraftDeviceLoginPoll> {
@@ -173,7 +173,7 @@ pub async fn poll_device_login(
     crate::state::device_login_poll(device_code, &state.data).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn finish_login(
     code: &str,
     state: &str,
@@ -184,7 +184,7 @@ pub async fn finish_login(
     crate::state::login_finish(code, state, flow, &app_state.data).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn add_offline_user(
     username: &str,
     uuid: Option<Uuid>,
@@ -214,7 +214,7 @@ pub async fn add_offline_user(
     Ok(credentials)
 }
 
-#[tracing::instrument(skip(password))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn begin_yggdrasil_login(
     api_root: &str,
     login: &str,
@@ -225,7 +225,7 @@ pub async fn begin_yggdrasil_login(
         .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn finish_yggdrasil_login(
     flow_id: uuid::Uuid,
     profile_id: uuid::Uuid,
@@ -238,7 +238,7 @@ pub fn normalize_yggdrasil_api_root(api_root: &str) -> crate::Result<String> {
     crate::state::normalize_api_root(api_root)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_default_user(
     offline_mode: bool,
 ) -> crate::Result<Option<String>> {
@@ -251,7 +251,7 @@ pub async fn get_default_user(
     Ok(user.map(|user| user.account_id()))
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn set_default_user(account_id: &str) -> crate::Result<()> {
     let state = State::get().await?;
     let users = Credentials::get_all_without_refresh(&state.data).await?;
@@ -277,7 +277,7 @@ pub async fn set_default_user(account_id: &str) -> crate::Result<()> {
 }
 
 /// Remove a user account from the database
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn remove_user(account_id: &str) -> crate::Result<()> {
     let state = State::get().await?;
 
@@ -352,7 +352,7 @@ impl MinecraftUser {
 
 /// Get a copy of the list of all user credentials with profile data ready for
 /// serialization.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn users(offline_mode: bool) -> crate::Result<Vec<MinecraftUser>> {
     users_with_cache(offline_mode, false).await
 }

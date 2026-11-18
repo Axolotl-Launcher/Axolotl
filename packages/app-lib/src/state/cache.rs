@@ -1119,7 +1119,7 @@ macro_rules! impl_cache_methods {
         impl CachedEntry {
             $(
                 paste::paste! {
-                    #[tracing::instrument(skip(pool, fetch_semaphore))]
+                    #[tracing::instrument(skip_all, level = "info")]
                     pub async fn [<get_ $variant:snake>](
                         id: &str,
                         cache_behaviour: Option<CacheBehaviour>,
@@ -1130,7 +1130,7 @@ macro_rules! impl_cache_methods {
                         Ok(Self::[<get_ $variant:snake _many>](&[id], cache_behaviour, pool, fetch_semaphore).await?.into_iter().next())
                     }
 
-                    #[tracing::instrument(skip(pool, fetch_semaphore))]
+                    #[tracing::instrument(skip_all, level = "info")]
                     pub async fn [<get_ $variant:snake _many>](
                         ids: &[&str],
                         cache_behaviour: Option<CacheBehaviour>,
@@ -1158,7 +1158,7 @@ macro_rules! impl_cache_method_singular {
         impl CachedEntry {
             $(
                 paste::paste! {
-                    #[tracing::instrument(skip(pool, fetch_semaphore))]
+                    #[tracing::instrument(skip_all, level = "info")]
                     pub async fn [<get_ $variant:snake>] (
                         cache_behaviour: Option<CacheBehaviour>,
                         pool: &SqlitePool,
@@ -2037,7 +2037,7 @@ impl CachedEntry {
         );
     }
 
-    #[tracing::instrument(skip(pool, fetch_semaphore))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn get(
         type_: CacheValueType,
         key: &str,
@@ -2057,7 +2057,7 @@ impl CachedEntry {
         .next())
     }
 
-    #[tracing::instrument(skip(pool, fetch_semaphore))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn get_many(
         type_: CacheValueType,
         keys: &[&str],
@@ -3170,7 +3170,7 @@ impl CachedEntry {
     }
 
     /// Get versions for a project (without changelogs for fast loading)
-    #[tracing::instrument(skip(pool, fetch_semaphore))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn get_project_versions(
         project_id: &ModrinthProjectId,
         cache_behaviour: Option<CacheBehaviour>,

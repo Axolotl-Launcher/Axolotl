@@ -475,6 +475,7 @@ pub fn install(window: &WebviewWindow) -> tauri::Result<()> {
     })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn update_traffic_lights_anchor(
     window: WebviewWindow,

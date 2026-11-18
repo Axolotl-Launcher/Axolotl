@@ -282,7 +282,7 @@ pub(in crate::api::instance) async fn reconcile_servers(
     }
 }
 
-#[tracing::instrument(name = "server_records", skip_all, fields(instance_id = %metadata.instance.id))]
+#[tracing::instrument(name = "server_records", skip_all, level = "info", fields(instance_id = %metadata.instance.id))]
 pub(crate) async fn list_server_records(
     metadata: &InstanceMetadata,
     state: &State,

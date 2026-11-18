@@ -594,6 +594,23 @@ impl ResourceService {
                 match response {
                     Ok(outcome) => match outcome.value {
                         ProviderValue::Matches(candidates) => {
+                            if source == SourceId::modrinth()
+                                && candidates.iter().any(|candidate| {
+                                    let release = &candidate.reference.release;
+                                    self.rejects_modrinth_identity(
+                                        release.project.project_id.as_str(),
+                                        Some(release.release_id.as_str()),
+                                    )
+                                })
+                            {
+                                output.failures.push((
+                                    source.clone(),
+                                    ResourceError::InvalidResponse(
+                                        "hash lookup returned a noncanonical Modrinth identity".into(),
+                                    ),
+                                ));
+                                continue;
+                            }
                             let candidates: Vec<_> = candidates
                                 .into_iter()
                                 .filter(|candidate| {

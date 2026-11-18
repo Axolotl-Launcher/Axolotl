@@ -5,6 +5,10 @@ use std::borrow::Cow;
 
 use url::Url;
 
+const FALLEN_AUTH_SERVICES: [&str; 5] =
+    ["auth", "account", "session", "services", "profiles"];
+const DISCOVERY_PROPERTY: &str = "-Dminecraft.api.discovery.host";
+
 pub fn fallen_proxy_url(original: &str) -> Option<String> {
     let mut url = Url::parse(original).ok()?;
     let host = url.host_str()?.to_ascii_lowercase();
@@ -41,7 +45,7 @@ pub(crate) fn auth_proxy_java_args(
     args: &[String],
     use_mirror: bool,
 ) -> Vec<String> {
-    let proxy_args = ["auth", "account", "session", "services", "profiles"]
+    let proxy_args = FALLEN_AUTH_SERVICES
         .map(|service| format!("-Dminecraft.api.{service}.host=https://{service}.msp.fallenbreath.me"));
     let mut result = if use_mirror {
         proxy_args.to_vec()
@@ -50,6 +54,29 @@ pub(crate) fn auth_proxy_java_args(
     };
     result.extend(args.iter().filter(|arg| !proxy_args.contains(arg)).cloned());
     result
+}
+
+pub(crate) fn add_fallen_discovery_java_arg(args: &mut Vec<String>) {
+    if args.iter().any(|arg| {
+        arg.strip_prefix(DISCOVERY_PROPERTY)
+            .is_some_and(|suffix| suffix.is_empty() || suffix.starts_with('='))
+    }) {
+        return;
+    }
+
+    let uses_fallen = FALLEN_AUTH_SERVICES.into_iter().all(|service| {
+        let property = format!("-Dminecraft.api.{service}.host");
+        let host = format!("https://{service}.msp.fallenbreath.me");
+        args.iter().rev().find_map(|arg| {
+            let (key, value) = arg.split_once('=').unwrap_or((arg, ""));
+            (key == property).then_some(value)
+        }) == Some(host.as_str())
+    });
+    if uses_fallen {
+        args.push(format!(
+            "{DISCOVERY_PROPERTY}=https://discovery.msp.fallenbreath.me/minecraft/client"
+        ));
+    }
 }
 
 #[cfg(test)]

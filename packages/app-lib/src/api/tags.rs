@@ -6,7 +6,7 @@ pub use crate::{
 };
 
 /// Get category tags
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_category_tags() -> crate::Result<Vec<Category>> {
     let state = State::get().await?;
     let categories = CachedEntry::get_categories(
@@ -21,7 +21,7 @@ pub async fn get_category_tags() -> crate::Result<Vec<Category>> {
 }
 
 /// Get report type tags
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_report_type_tags() -> crate::Result<Vec<String>> {
     let state = State::get().await?;
     let report_types = CachedEntry::get_report_types(
@@ -38,7 +38,7 @@ pub async fn get_report_type_tags() -> crate::Result<Vec<String>> {
 }
 
 /// Get loader tags
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_loader_tags() -> crate::Result<Vec<Loader>> {
     let state = State::get().await?;
     let loaders = CachedEntry::get_loaders(
@@ -53,7 +53,7 @@ pub async fn get_loader_tags() -> crate::Result<Vec<Loader>> {
 }
 
 /// Get game version tags
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_game_version_tags() -> crate::Result<Vec<GameVersion>> {
     match get_game_version_tags_with_cache(Some(CacheBehaviour::MustRevalidate))
         .await
@@ -96,7 +96,7 @@ async fn get_game_version_tags_with_cache(
 }
 
 /// Get donation platform tags
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_donation_platform_tags() -> crate::Result<Vec<DonationPlatform>>
 {
     let state = State::get().await?;

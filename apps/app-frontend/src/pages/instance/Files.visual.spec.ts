@@ -5,7 +5,11 @@ import { defineComponent, h, Suspense } from 'vue'
 
 import Files from './Files.vue'
 
+type InstanceEventCallback = (event: { event: string; instance_id: string }) => void
+
 const filesystem = vi.hoisted(() => ({
+    getFullPath: vi.fn(),
+    listen: vi.fn<(callback: InstanceEventCallback) => Promise<() => void>>(),
     readDir: vi.fn(),
     stat: vi.fn(),
     context: undefined as FileManagerContext | undefined,
@@ -29,8 +33,8 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
     rename: vi.fn(),
     writeTextFile: vi.fn(),
 }))
-vi.mock('@/helpers/instance', () => ({ get_full_path: async () => '/instance' }))
-vi.mock('@/helpers/events', () => ({ instance_listener: async () => filesystem.unlisten }))
+vi.mock('@/helpers/instance', () => ({ get_full_path: filesystem.getFullPath }))
+vi.mock('@/helpers/events', () => ({ instance_listener: filesystem.listen }))
 vi.mock('@/helpers/utils', () => ({ highlightInFolder: vi.fn() }))
 vi.mock('@modrinth/ui', () => {
     const passThrough = (name: string) =>
@@ -64,6 +68,8 @@ afterEach(() => {
 
 beforeEach(() => {
     vi.clearAllMocks()
+    filesystem.getFullPath.mockReset().mockResolvedValue('/instance')
+    filesystem.listen.mockReset().mockResolvedValue(filesystem.unlisten)
     filesystem.context = undefined
     filesystem.frames = []
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -74,7 +80,7 @@ beforeEach(() => {
     filesystem.stat.mockResolvedValue({ size: 0 })
 })
 
-async function mountFiles() {
+function mountPendingFiles() {
     const wrapper = mount(
         defineComponent({
             setup: () => () =>
@@ -96,9 +102,53 @@ async function mountFiles() {
         }),
     )
     wrappers.push(wrapper)
+    return wrapper
+}
+
+async function mountFiles() {
+    const wrapper = mountPendingFiles()
     await flushPromises()
     return wrapper
 }
+
+it('does not start listening when the instance path resolves after unmount', async () => {
+    let resolvePath!: (path: string) => void
+    filesystem.getFullPath.mockReturnValueOnce(
+        new Promise<string>((resolve) => {
+            resolvePath = resolve
+        }),
+    )
+    const wrapper = mountPendingFiles()
+    expect(filesystem.getFullPath).toHaveBeenCalledOnce()
+    wrapper.unmount()
+    wrappers.splice(wrappers.indexOf(wrapper), 1)
+
+    resolvePath('/instance')
+    await flushPromises()
+    expect(filesystem.listen).not.toHaveBeenCalled()
+    expect(filesystem.readDir).not.toHaveBeenCalled()
+})
+
+it('ignores a sync event and releases the late listener after unmount during setup', async () => {
+    let resolveListener!: (unlisten: () => void) => void
+    filesystem.listen.mockReturnValueOnce(
+        new Promise<() => void>((resolve) => {
+            resolveListener = resolve
+        }),
+    )
+    const wrapper = await mountFiles()
+    expect(filesystem.listen).toHaveBeenCalledOnce()
+    expect(wrapper.find('[data-component="FilePageLayout"]').exists()).toBe(false)
+    wrapper.unmount()
+    wrappers.splice(wrappers.indexOf(wrapper), 1)
+
+    const [[receive]] = filesystem.listen.mock.calls
+    receive({ event: 'synced', instance_id: 'instance' })
+    resolveListener(filesystem.unlisten)
+    await flushPromises()
+    expect(filesystem.readDir).not.toHaveBeenCalled()
+    expect(filesystem.unlisten).toHaveBeenCalledOnce()
+})
 
 it('mounts the file page while directory metadata is still loading', async () => {
     let complete: (value: unknown) => void = () => {}

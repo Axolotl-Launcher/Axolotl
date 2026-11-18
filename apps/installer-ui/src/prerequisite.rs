@@ -42,16 +42,24 @@ const DOWNLOAD_ICON: &[u8] =
 const CANCEL_ICON: &[u8] =
     include_bytes!("../../app/nsis/assets/webview2-cancel.ico");
 
-pub fn requested_language() -> Option<bool> {
-    native_language(&std::env::args_os().skip(1).collect::<Vec<_>>())
+#[derive(Debug, PartialEq, Eq)]
+pub struct Request {
+    chinese: bool,
+    outdated: bool,
 }
 
-fn native_language(args: &[OsString]) -> Option<bool> {
+pub fn requested_dialog() -> Option<Request> {
+    parse_request(&std::env::args_os().skip(1).collect::<Vec<_>>())
+}
+
+fn parse_request(args: &[OsString]) -> Option<Request> {
     args.iter()
         .any(|value| value == "--webview2-required")
-        .then(|| {
-            args.windows(2)
-                .any(|pair| pair[0] == "--language" && pair[1] == "2052")
+        .then(|| Request {
+            chinese: args
+                .windows(2)
+                .any(|pair| pair[0] == "--language" && pair[1] == "2052"),
+            outdated: args.iter().any(|value| value == "--outdated"),
         })
 }
 
@@ -63,20 +71,36 @@ struct Copy {
     cancel: &'static str,
 }
 
-fn copy(chinese: bool) -> Copy {
-    if chinese {
+fn copy(request: Request) -> Copy {
+    if request.chinese {
         Copy {
             face: "Microsoft YaHei UI",
-            title: "需要安装 WebView2 Runtime",
-            message: "未检测到 Microsoft Edge WebView2 Runtime。Axolotl Launcher 及其安装界面需要此组件。\r\n\r\n请前往微软官网下载并安装 Evergreen WebView2 Runtime，然后重新运行本安装程序。",
+            title: if request.outdated {
+                "需要更新 WebView2 Runtime"
+            } else {
+                "需要安装 WebView2 Runtime"
+            },
+            message: if request.outdated {
+                "此电脑上的 Microsoft Edge WebView2 Runtime 版本过旧。\r\n\r\n请前往微软官网下载并安装最新版 Evergreen WebView2 Runtime，然后重新运行本安装程序。"
+            } else {
+                "未检测到 Microsoft Edge WebView2 Runtime。Axolotl Launcher 及其安装界面需要此组件。\r\n\r\n请前往微软官网下载并安装 Evergreen WebView2 Runtime，然后重新运行本安装程序。"
+            },
             download: "前往下载",
             cancel: "取消",
         }
     } else {
         Copy {
             face: "Segoe UI",
-            title: "WebView2 Runtime is required",
-            message: "Microsoft Edge WebView2 Runtime was not found. Axolotl Launcher and its installer require this component.\r\n\r\nDownload and install the Evergreen WebView2 Runtime from Microsoft, then run this installer again.",
+            title: if request.outdated {
+                "Update WebView2 Runtime"
+            } else {
+                "WebView2 Runtime is required"
+            },
+            message: if request.outdated {
+                "The installed Microsoft Edge WebView2 Runtime is too old.\r\n\r\nDownload and install the latest Evergreen WebView2 Runtime from Microsoft, then run this installer again."
+            } else {
+                "Microsoft Edge WebView2 Runtime was not found. Axolotl Launcher and its installer require this component.\r\n\r\nDownload and install the Evergreen WebView2 Runtime from Microsoft, then run this installer again."
+            },
             download: "Go to download",
             cancel: "Cancel",
         }
@@ -174,9 +198,9 @@ struct DialogState {
 }
 
 impl DialogState {
-    fn new(chinese: bool) -> Self {
+    fn new(request: Request) -> Self {
         Self {
-            copy: copy(chinese),
+            copy: copy(request),
             appearance: RefCell::new(None),
             #[cfg(test)]
             action: None,
@@ -186,8 +210,8 @@ impl DialogState {
     }
 }
 
-pub fn show(chinese: bool) -> i32 {
-    let result = run_dialog(&mut DialogState::new(chinese));
+pub fn show(request: Request) -> i32 {
+    let result = run_dialog(&DialogState::new(request));
     if result == DOWNLOAD_BUTTON as isize {
         10
     } else {
@@ -630,22 +654,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn native_mode_is_explicit_and_selects_the_requested_language() {
+    fn native_mode_distinguishes_missing_and_outdated_runtimes() {
         let args = |values: &[&str]| {
             values.iter().map(OsString::from).collect::<Vec<_>>()
         };
-        assert_eq!(native_language(&args(&["--installer", "setup.exe"])), None);
+        assert_eq!(parse_request(&args(&["--installer", "setup.exe"])), None);
         assert_eq!(
-            native_language(&args(&["--webview2-required"])),
-            Some(false)
+            parse_request(&args(&["--webview2-required", "--missing"])),
+            Some(Request {
+                chinese: false,
+                outdated: false,
+            })
         );
         assert_eq!(
-            native_language(&args(&[
+            parse_request(&args(&[
                 "--webview2-required",
+                "--outdated",
                 "--language",
-                "2052"
+                "2052",
             ])),
-            Some(true)
+            Some(Request {
+                chinese: true,
+                outdated: true,
+            })
         );
     }
 
@@ -665,13 +696,15 @@ mod tests {
 
     #[test]
     fn native_dialog_has_real_button_icons_plain_labels_and_returns_actions() {
-        for (chinese, action) in
-            [(true, CANCEL_BUTTON), (false, DOWNLOAD_BUTTON)]
-        {
-            let mut state = DialogState::new(chinese);
-            state.action = Some(action);
-            assert_eq!(run_dialog(&mut state), action as isize);
-            assert!(state.verified.get());
+        for outdated in [false, true] {
+            for (chinese, action) in
+                [(true, CANCEL_BUTTON), (false, DOWNLOAD_BUTTON)]
+            {
+                let mut state = DialogState::new(Request { chinese, outdated });
+                state.action = Some(action);
+                assert_eq!(run_dialog(&state), action as isize);
+                assert!(state.verified.get());
+            }
         }
     }
 }

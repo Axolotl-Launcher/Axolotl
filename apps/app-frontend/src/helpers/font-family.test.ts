@@ -85,6 +85,42 @@ it('merges duplicate families and keeps the monospace flag', () => {
     expect(isDivider(options[2])).toBe(true)
 })
 
+it('labels the selected font in the system language without changing its stored or CSS family', () => {
+    const fonts: SystemFontFamily[] = [
+        { family: 'HarmonyOS Sans SC', localized: '鸿蒙字体', monospaced: false },
+    ]
+    const selected = canonicalFontFamily(fonts, 'harmonyos sans sc')
+    const options = buildFontFamilyOptions(fonts, { defaultLabel: 'Default', selected })
+
+    expect(options[1]).toEqual({
+        value: selected,
+        label: '鸿蒙字体',
+        searchTerms: ['HarmonyOS Sans SC'],
+    })
+    const stored = optionValueToFontSetting(selected)
+    expect(stored).toBe('HarmonyOS Sans SC')
+    expect(resolveFontFamily(stored, FALLBACK)).toBe('"HarmonyOS Sans SC", Inter, sans-serif')
+})
+
+it('retains a localized label from a duplicate font and still searches the monospace label', () => {
+    const options = buildFontFamilyOptions(
+        [
+            { family: 'Example Mono', localized: ' ', monospaced: false },
+            { family: 'example mono', localized: ' 示例等宽 ', monospaced: true },
+            { family: 'Inter', localized: ' ', monospaced: false },
+        ],
+        { defaultLabel: 'Default', groupMonospaced: true, monospaceLabel: 'Monospace' },
+    )
+
+    expect(options[1]).toEqual({
+        value: 'Example Mono',
+        label: '示例等宽',
+        subLabel: 'Monospace',
+        searchTerms: ['Example Mono', 'Monospace'],
+    })
+    expect(options[3]).toEqual({ value: 'Inter', label: 'Inter' })
+})
+
 it('groups monospaced families ahead of the rest with a divider', () => {
     const options = buildFontFamilyOptions(
         [

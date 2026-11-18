@@ -4,7 +4,8 @@ use crate::state::store::resource_history::ResourceHistory;
 use crate::state::store::resource_history_cleanup_plans::ResourceHistoryCleanupPlans;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
+    io::ErrorKind,
     path::{Path, PathBuf},
 };
 
@@ -29,9 +30,17 @@ mod path_tests {
             cfg!(windows)
         );
     }
-}
-fn db(error: sqlx::Error) -> ResourceError {
-    ResourceError::Database(error.to_string())
+
+    #[tokio::test]
+    async fn backup_probe_does_not_treat_other_io_errors_as_missing() {
+        let temp = tempfile::tempdir().unwrap();
+        let parent = temp.path().join("not-a-directory");
+        std::fs::write(&parent, b"file").unwrap();
+        let nested = parent.join("nested/backup.old");
+        assert!(super::backup_exists(&nested).await.is_err());
+        std::fs::remove_file(parent).unwrap();
+        assert!(!super::backup_exists(&nested).await.unwrap());
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -49,10 +58,22 @@ pub(super) struct CleanupDraft {
     pub(super) committed: bool,
 }
 
+impl CleanupDraft {
+    fn staged_files(
+        &self,
+    ) -> impl Iterator<Item = (&ResourceBackupFile, &str)> {
+        self.plan
+            .files
+            .iter()
+            .filter(|file| file.exists)
+            .zip(self.moves.iter().map(String::as_str))
+    }
+}
+
 async fn recover(draft: &CleanupDraft, root: &Path) -> ResourceResult<()> {
-    for (file, temporary) in draft.plan.files.iter().zip(&draft.moves) {
+    for (file, temporary) in draft.staged_files() {
         let temporary = super::execution::checked_path(root, temporary)?;
-        if !temporary.exists() {
+        if !backup_exists(&temporary).await? {
             continue;
         }
         if !super::execution::matches_file(&temporary, &file.integrity).await? {
@@ -65,7 +86,7 @@ async fn recover(draft: &CleanupDraft, root: &Path) -> ResourceResult<()> {
         } else {
             let original =
                 super::execution::checked_path(root, &file.relative_path)?;
-            if original.exists() {
+            if backup_exists(&original).await? {
                 return Err(invalid(
                     "backup path occupied during cleanup recovery",
                 ));
@@ -210,6 +231,39 @@ async fn file_integrity(path: &Path) -> ResourceResult<ArtifactIntegrity> {
     })
 }
 
+async fn backup_exists(path: &Path) -> ResourceResult<bool> {
+    match tokio::fs::symlink_metadata(path).await {
+        Ok(metadata)
+            if metadata.is_file()
+                && !super::export::scan::linked(&metadata) =>
+        {
+            Ok(true)
+        }
+        Ok(_) => Err(invalid("backup path is not a regular file")),
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            for parent in path.ancestors().skip(1) {
+                match tokio::fs::symlink_metadata(parent).await {
+                    Ok(metadata)
+                        if metadata.is_dir()
+                            && !super::export::scan::linked(&metadata) =>
+                    {
+                        return Ok(false);
+                    }
+                    Ok(_) => {
+                        return Err(invalid(
+                            "backup parent is not a regular directory",
+                        ));
+                    }
+                    Err(error) if error.kind() == ErrorKind::NotFound => {}
+                    Err(error) => return Err(invalid(error.to_string())),
+                }
+            }
+            Err(invalid(error.to_string()))
+        }
+        Err(error) => Err(invalid(error.to_string())),
+    }
+}
+
 pub async fn scan(
     instance_id: String,
 ) -> ResourceResult<Vec<ResourceBackupFile>> {
@@ -235,8 +289,12 @@ pub(crate) async fn scan_with_state(
         if !plans::safe_relative_path(&relative) {
             continue;
         }
+        if history.backup_retired {
+            continue;
+        }
+        known.insert(path_identity(&relative));
         let path = super::execution::checked_path(&root, &relative)?;
-        let exists = path.is_file();
+        let exists = backup_exists(&path).await?;
         let integrity = if exists {
             file_integrity(&path).await?
         } else {
@@ -245,7 +303,6 @@ pub(crate) async fn scan_with_state(
                 hashes: vec![],
             }
         };
-        known.insert(relative.clone());
         result.push(ResourceBackupFile {
             original_file_name: history
                 .previous
@@ -263,7 +320,7 @@ pub(crate) async fn scan_with_state(
             history_id: Some(history.id),
             relative_path: relative,
             integrity,
-            rollback_available: history.backup_available,
+            rollback_available: exists && history.backup_available,
             recognized: true,
             exists,
         });
@@ -299,7 +356,7 @@ pub(crate) async fn scan_with_state(
                 }
             } else if kind.is_file()
                 && relative.ends_with(".old")
-                && !known.contains(&relative)
+                && !known.contains(&path_identity(&relative))
             {
                 let path = super::execution::checked_path(&root, &relative)?;
                 let id = HistoryId::new(format!(
@@ -347,11 +404,9 @@ pub(crate) async fn prepare_with_state(
         .into_iter()
         .filter(|file| selected.contains(&file.id))
         .collect();
-    if files.len() != ids.len()
-        || files.iter().any(|file| !file.recognized || !file.exists)
-    {
+    if files.len() != ids.len() || files.iter().any(|file| !file.recognized) {
         return Err(invalid(
-            "selected backups are missing or have no verified backup provenance",
+            "selected backups are no longer eligible for cleanup",
         ));
     }
     let entries = super::history::list_with_state(instance_id, None, state)
@@ -360,7 +415,9 @@ pub(crate) async fn prepare_with_state(
         .filter(|entry| selected.contains(&entry.id))
         .collect();
     let mut paths = HashSet::new();
-    files.retain(|file| paths.insert(path_identity(&file.relative_path)));
+    files.retain(|file| {
+        !file.exists || paths.insert(path_identity(&file.relative_path))
+    });
     let plan = ResourceHistoryCleanupPlan {
         id: PlanId::new(uuid::Uuid::new_v4().to_string())?,
         revision: 1,
@@ -400,19 +457,25 @@ async fn validate(
     }
     let root = root(&plan.instance_id, state).await?;
     let selected: HashSet<_> =
-        plan.entries.iter().map(|entry| &entry.id).collect();
-    let rows =
+        plan.entries.iter().map(|entry| entry.id.as_str()).collect();
+    let active_paths: HashMap<_, _> =
         ResourceHistory::backups_for_instance(&state.data, &plan.instance_id)
-            .await?;
-    let mut retained_paths = HashSet::new();
-    for (id, path) in rows {
-        let id = HistoryId::new(id)?;
-        if !selected.contains(&id)
-            && let Some(path) = path
-        {
-            retained_paths.insert(path_identity(&path));
-        }
+            .await?
+            .into_iter()
+            .filter_map(|(id, path)| path.map(|path| (id, path)))
+            .collect();
+    if plan.entries.iter().any(|entry| {
+        !active_paths.get(entry.id.as_str()).is_some_and(|path| {
+            entry.backup_relative_path.as_ref() == Some(path)
+        })
+    }) {
+        return Err(invalid("backup reference changed since cleanup review"));
     }
+    let retained_paths: HashSet<_> = active_paths
+        .iter()
+        .filter(|(id, _)| !selected.contains(id.as_str()))
+        .map(|(_, path)| path_identity(path))
+        .collect();
     let current_paths = crate::state::instances::adapters::sqlite::content_store_files::get_current_paths(&plan.instance_id, &state.pool)
         .await
         .map_err(|error| ResourceError::Database(error.to_string()))?;
@@ -422,11 +485,24 @@ async fn validate(
         .collect();
     for file in &plan.files {
         let path = super::execution::checked_path(&root, &file.relative_path)?;
+        let verified = match &file.history_id {
+            Some(id) => {
+                selected.contains(id.as_str())
+                    && active_paths.get(id.as_str())
+                        == Some(&file.relative_path)
+            }
+            None => file.exists && recognizable(&file.relative_path),
+        };
         if !file.recognized
-            || (file.history_id.is_none() && !recognizable(&file.relative_path))
-            || !super::execution::matches_file(&path, &file.integrity).await?
+            || !verified
+            || backup_exists(&path).await? != file.exists
         {
-            return Err(invalid("backup changed since cleanup review"));
+            return Err(invalid("backup file changed since cleanup review"));
+        }
+        if file.exists
+            && !super::execution::matches_file(&path, &file.integrity).await?
+        {
+            return Err(invalid("backup file changed since cleanup review"));
         }
         let path_key = path_identity(&file.relative_path);
         if current_paths.contains(&path_key) {
@@ -434,7 +510,7 @@ async fn validate(
                 "backup is still referenced as current instance content",
             ));
         }
-        if retained_paths.contains(&path_key) {
+        if file.exists && retained_paths.contains(&path_key) {
             return Err(invalid(
                 "backup is still required by another history entry",
             ));
@@ -484,6 +560,9 @@ pub(crate) async fn execute_with_state(
     }
     validate(&plan, state).await?;
     for (index, file) in plan.files.iter().enumerate() {
+        if !file.exists {
+            continue;
+        }
         let parent = file
             .relative_path
             .rsplit_once('/')
@@ -493,22 +572,28 @@ pub(crate) async fn execute_with_state(
             "{parent}.resource-cleanup-{}-{index}.old",
             plan.id.as_str()
         );
-        if super::execution::checked_path(&root, &temporary)?.exists() {
+        let staging_path = super::execution::checked_path(&root, &temporary)?;
+        if backup_exists(&staging_path).await? {
             return Err(invalid("cleanup staging path occupied"));
         }
         draft.moves.push(temporary);
     }
-    ResourceHistoryCleanupPlans::save_progress(
-        &state.data,
-        id.as_str(),
-        &serde_json::to_string(&draft)?,
-    )
-    .await?;
+    if !draft.moves.is_empty() {
+        ResourceHistoryCleanupPlans::save_progress(
+            &state.data,
+            id.as_str(),
+            &serde_json::to_string(&draft)?,
+        )
+        .await?;
+    }
     let commit = async {
-        for (file, temporary) in plan.files.iter().zip(&draft.moves) {
+        for (file, temporary) in draft.staged_files() {
             let path =
                 super::execution::checked_path(&root, &file.relative_path)?;
-            if !super::execution::matches_file(&path, &file.integrity).await? {
+            if !backup_exists(&path).await?
+                || !super::execution::matches_file(&path, &file.integrity)
+                    .await?
+            {
                 return Err(invalid("backup changed while cleaning"));
             }
             tokio::fs::rename(
@@ -524,13 +609,16 @@ pub(crate) async fn execute_with_state(
                 "BEGIN IMMEDIATE",
             )
             .await
-            .map_err(db)?;
+            .map_err(crate::Error::from)?;
         for entry in &plan.entries {
             let history_id = &entry.id;
             ResourceHistory::retire_backup_in(
                 &mut tx,
                 history_id.as_str(),
                 &plan.instance_id,
+                entry.backup_relative_path.as_deref().ok_or_else(|| {
+                    invalid("backup reference changed since cleanup review")
+                })?,
             )
             .await?;
             crate::state::store::store_retained_refs::release(
@@ -546,34 +634,51 @@ pub(crate) async fn execute_with_state(
             &serde_json::to_string(&draft)?,
         )
         .await?;
+        for file in plan.files.iter().filter(|file| !file.exists) {
+            let path =
+                super::execution::checked_path(&root, &file.relative_path)?;
+            if backup_exists(&path).await? {
+                return Err(invalid(
+                    "backup file changed since cleanup review",
+                ));
+            }
+        }
         tx_diagnostics
             .observe("commit_wait", tx.commit())
             .await
-            .map_err(db)?;
+            .map_err(crate::Error::from)?;
         tx_diagnostics.complete("committed");
         Ok::<_, ResourceError>(())
     }
     .await;
     if let Err(error) = commit {
-        draft.committed = false;
-        recover(&draft, &root).await?;
-        draft.moves.clear();
-        ResourceHistoryCleanupPlans::consume(
-            &state.data,
-            id.as_str(),
-            &serde_json::to_string(&draft)?,
-        )
-        .await?;
+        if !draft.moves.is_empty() {
+            draft.committed = false;
+            recover(&draft, &root).await?;
+            draft.moves.clear();
+            ResourceHistoryCleanupPlans::consume(
+                &state.data,
+                id.as_str(),
+                &serde_json::to_string(&draft)?,
+            )
+            .await?;
+        }
         return Err(error);
     }
     let mut result = ResourceHistoryCleanupResult {
         removed: vec![],
         failures: vec![],
     };
-    for (file, temporary) in plan.files.iter().zip(&draft.moves) {
-        let path = super::execution::checked_path(&root, temporary)?;
+    for file in plan.files.iter().filter(|file| !file.exists) {
+        result.removed.push(file.id.clone());
+    }
+    for (file, temporary) in draft.staged_files() {
         let outcome = async {
-            if !super::execution::matches_file(&path, &file.integrity).await? {
+            let path = super::execution::checked_path(&root, temporary)?;
+            if !backup_exists(&path).await?
+                || !super::execution::matches_file(&path, &file.integrity)
+                    .await?
+            {
                 return Err(invalid("backup changed while cleaning"));
             }
             tokio::fs::remove_file(&path)
@@ -583,23 +688,13 @@ pub(crate) async fn execute_with_state(
         }
         .await;
         match outcome {
-            Ok(()) => {
-                result.removed.push(file.id.clone());
-                for entry in &plan.entries {
-                    if entry.backup_relative_path.as_ref().is_some_and(|path| {
-                        path.eq_ignore_ascii_case(&file.relative_path)
-                    }) && entry.id != file.id
-                    {
-                        result.removed.push(entry.id.clone());
-                    }
-                }
-            }
+            Ok(()) => record_removed(&plan, file, &mut result.removed),
             Err(error) => {
                 result.failures.push((file.id.clone(), error.to_string()))
             }
         }
     }
-    if result.failures.is_empty() {
+    if result.failures.is_empty() && !draft.moves.is_empty() {
         draft.moves.clear();
         ResourceHistoryCleanupPlans::save_payload(
             &state.data,
@@ -609,4 +704,18 @@ pub(crate) async fn execute_with_state(
         .await?;
     }
     Ok(result)
+}
+
+fn record_removed(
+    plan: &ResourceHistoryCleanupPlan,
+    file: &ResourceBackupFile,
+    removed: &mut Vec<HistoryId>,
+) {
+    removed.push(file.id.clone());
+    let key = path_identity(&file.relative_path);
+    removed.extend(plan.entries.iter().filter_map(|entry| {
+        let path = entry.backup_relative_path.as_deref()?;
+        (entry.id != file.id && path_identity(path) == key)
+            .then(|| entry.id.clone())
+    }));
 }

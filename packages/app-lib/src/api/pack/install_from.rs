@@ -436,7 +436,7 @@ pub async fn get_instance_from_pack(
     }
 }
 
-#[tracing::instrument(skip(reporter))]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn generate_pack_from_version_id_with_reporter(
     project_id: String,
@@ -739,7 +739,7 @@ fn modpack_cache_path(
     crate::util::io::safe_relative_join(&path, &filename)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn generate_pack_from_file(
     path: PathBuf,
     instance_id: String,

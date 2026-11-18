@@ -23,11 +23,13 @@ const props = withDefaults(
         displayModeTooltip?: string
         page: number
         pageCount: number
+        pageCountKnown?: boolean
+        cursorPaged?: boolean
         loading?: boolean
         disabled?: boolean
         variant?: 'app' | 'web'
     }>(),
-    { loading: false, disabled: false, variant: 'app' },
+    { loading: false, disabled: false, variant: 'app', pageCountKnown: true, cursorPaged: false },
 )
 const emit = defineEmits<{
     'update:sort': [sort: string]
@@ -125,6 +127,8 @@ const selectedDisplayMode = computed(() =>
     <Pagination
         :page="page"
         :count="pageCount"
+        :count-known="pageCountKnown"
+        :cursor-paged="cursorPaged"
         :loading="loading"
         :class="variant === 'web' ? 'mx-auto sm:ml-auto sm:mr-0' : 'ml-auto'"
         @switch-page="emit('switch-page', $event)"

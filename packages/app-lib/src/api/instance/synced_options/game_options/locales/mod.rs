@@ -218,7 +218,7 @@ async fn cached_archive(
     Ok(index)
 }
 
-#[tracing::instrument(skip_all, err)]
+#[tracing::instrument(skip_all, level = "info", err)]
 async fn index_installed_sources(state: &State) -> crate::Result<()> {
     let mut instances = crate::state::list_instances(&state.pool).await?;
     tracing::info!(
@@ -403,7 +403,7 @@ fn minecraft_locale(locale: &str) -> String {
 }
 
 /// Loads translations for the settings shown in the modal.
-#[tracing::instrument(skip_all, fields(instance_id, locale, requested = option_ids.len(), refresh_sources), err)]
+#[tracing::instrument(skip_all, level = "info", fields(instance_id, locale, requested = option_ids.len(), refresh_sources), err)]
 pub async fn get_game_setting_locale_labels(
     instance_id: Option<&str>,
     locale: &str,

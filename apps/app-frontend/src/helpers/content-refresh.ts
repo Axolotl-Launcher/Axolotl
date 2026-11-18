@@ -1,6 +1,7 @@
 import type { ContentItem } from '@modrinth/ui'
-import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+
+import { invoke } from '@/helpers/invoke'
 
 import type { InstanceContentSnapshot } from './instance'
 import type { ResourceArtifact, SourceReleaseRef } from './resources'

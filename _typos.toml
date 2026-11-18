@@ -60,3 +60,7 @@ from_numer_denom_ms = "from_numer_denom_ms"
 # Herzegovina or the ISO 639-1 code for Bashkir.
 bs_ba = "bs_ba"
 ba_ru = "ba_ru"
+
+[type.rust]
+# ISO 3166-1 region code in Serbian font locale matching.
+extend-ignore-re = ['\("sr", Some\("ba"\)\)']

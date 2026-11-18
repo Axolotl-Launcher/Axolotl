@@ -69,6 +69,54 @@ fn update_query(
 }
 
 #[tokio::test]
+async fn noncanonical_modrinth_hash_result_does_not_poison_other_files() {
+    let good_hash = "574992b5760f3bf2f9aa0b70984f19fb1952b748";
+    let bad_hash = "a".repeat(40);
+    let transport = FixtureTransport::new({
+        let bad_hash = bad_hash.clone();
+        move |_, request| {
+            assert_eq!(request.path, "/version_files");
+            let good: Value = serde_json::from_str(fixtures::MR_IRIS).unwrap();
+            let mut bad = good.clone();
+            bad["project_id"] = json!("legacy-slug");
+            bad["files"][0]["hashes"]["sha1"] = json!(bad_hash);
+            Ok(json!({ (bad_hash.as_str()): bad, (good_hash): good }))
+        }
+    });
+    let (_temp, cache) = cache().await;
+    let service = ResourceService::new(
+        cache.clone(),
+        vec![Arc::new(ModrinthProvider::new(transport.clone()))],
+    )
+    .unwrap();
+    let files =
+        [bad_hash, good_hash.into()].map(|value| LocalArtifactIdentity {
+            integrity: ArtifactIntegrity {
+                size: Some(2684113),
+                hashes: vec![ContentHash {
+                    algorithm: HashAlgorithm::Sha1,
+                    value,
+                }],
+            },
+            fingerprint: None,
+        });
+    let results = service
+        .identify_many(
+            &[SourceId::modrinth()],
+            &files,
+            CachePolicy::UseFresh,
+            &CancellationToken::new(),
+        )
+        .await;
+    assert!(results[0].matches.is_empty());
+    assert_eq!(results[0].failures.len(), 1);
+    assert_eq!(results[1].matches.len(), 1);
+    assert!(results[1].failures.is_empty());
+    assert_eq!(transport.requests.lock().unwrap().len(), 1);
+    cache.close().await;
+}
+
+#[tokio::test]
 async fn refresh_round_reuses_release_documents_seeded_by_update_batches() {
     let transport = FixtureTransport::new(|_, request| {
         assert_eq!(request.path, "/version_files/update");

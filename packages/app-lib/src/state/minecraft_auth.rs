@@ -110,12 +110,12 @@ pub enum MinecraftDeviceLoginPoll {
     Complete { credentials: Credentials },
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn login_begin() -> crate::Result<MinecraftLoginFlow> {
     login_begin_with_redirect(AUTH_REPLY_URL).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn login_begin_with_redirect(
     redirect_uri: &str,
 ) -> crate::Result<MinecraftLoginFlow> {
@@ -144,12 +144,12 @@ pub async fn login_begin_with_redirect(
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn browser_login_begin() -> crate::Result<MinecraftLoginFlow> {
     login_begin_with_redirect(BROWSER_AUTH_REPLY_URL).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn device_login_begin() -> crate::Result<MinecraftDeviceLoginFlow> {
     let mut query = HashMap::new();
     query.insert("client_id", MICROSOFT_CLIENT_ID);
@@ -186,7 +186,7 @@ pub async fn device_login_begin() -> crate::Result<MinecraftDeviceLoginFlow> {
     })
 }
 
-#[tracing::instrument(skip(handle))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn device_login_poll(
     device_code: &str,
     handle: &Handle,
@@ -246,7 +246,7 @@ pub async fn device_login_poll(
     Ok(MinecraftDeviceLoginPoll::Complete { credentials })
 }
 
-#[tracing::instrument(skip(handle))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn login_finish(
     code: &str,
     state: &str,
@@ -680,7 +680,7 @@ impl Credentials {
     }
 
     /// Returns online profile data when the cached copy is still recent enough.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn online_profile(&self) -> Option<Arc<MinecraftProfile>> {
         self.online_profile_with_cache_intent(
             OnlineProfileCacheIntent::NormalRead,
@@ -692,7 +692,7 @@ impl Credentials {
     ///
     /// Reuses a profile read from the last few seconds so opening the skins page
     /// does not send several identical Mojang requests.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn online_profile_fresh(&self) -> Option<Arc<MinecraftProfile>> {
         self.online_profile_with_cache_intent(
             OnlineProfileCacheIntent::LiveStateRead,
@@ -701,7 +701,7 @@ impl Credentials {
     }
 
     /// Fetches the online profile from Mojang after a skin or cape change.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn refresh_online_profile(
         &self,
     ) -> Option<Arc<MinecraftProfile>> {
@@ -885,7 +885,7 @@ impl Credentials {
 
     /// Like [`get_active`](Self::get_active), but enforces credentials to be
     /// successfully refreshed unless the network is unreachable or times out.
-    #[tracing::instrument(skip(handle))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn get_default_credential(
         handle: &Handle,
     ) -> crate::Result<Option<Credentials>> {
@@ -1252,7 +1252,7 @@ struct MicrosoftOAuthError {
     error: String,
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 async fn oauth_token(
     code: &str,
     verifier: &str,
@@ -1303,7 +1303,7 @@ async fn oauth_token(
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 async fn oauth_refresh(
     refresh_token: &str,
 ) -> Result<RequestWithDate<OAuthToken>, MinecraftAuthenticationError> {
@@ -1356,7 +1356,7 @@ struct XboxLiveToken {
     token: String,
 }
 
-#[tracing::instrument(skip(access_token))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn xbox_live_authorize(
     access_token: &str,
 ) -> Result<RequestWithDate<XboxLiveToken>, MinecraftAuthenticationError> {
@@ -1376,7 +1376,7 @@ async fn xbox_live_authorize(
     .await
 }
 
-#[tracing::instrument(skip(xbl_token))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn xsts_authorize_xbl(
     xbl_token: &str,
 ) -> Result<RequestWithDate<DeviceToken>, MinecraftAuthenticationError> {
@@ -1435,7 +1435,7 @@ struct MinecraftToken {
     // pub expires_in: u64,
 }
 
-#[tracing::instrument(skip(token))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn minecraft_token(
     token: DeviceToken,
 ) -> Result<MinecraftToken, MinecraftAuthenticationError> {
@@ -1675,7 +1675,7 @@ impl Deref for MaybeOnlineMinecraftProfile<'_> {
     }
 }
 
-#[tracing::instrument(skip(token))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn minecraft_profile(
     token: &str,
 ) -> Result<MinecraftProfile, MinecraftAuthenticationError> {
@@ -1738,7 +1738,7 @@ struct MinecraftEntitlement {
     name: String,
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 async fn minecraft_entitlements(
     token: &str,
 ) -> Result<MinecraftEntitlements, MinecraftAuthenticationError> {
@@ -1865,7 +1865,7 @@ mod transport_tests {
 }
 
 // auth utils
-#[tracing::instrument(skip(reqwest_request))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn auth_retry<F>(
     reqwest_request: impl Fn() -> F,
 ) -> Result<reqwest::Response, reqwest::Error>
@@ -1960,7 +1960,7 @@ mod token_tracing_tests {
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 fn get_date_header(headers: &HeaderMap) -> DateTime<Utc> {
     headers
         .get(reqwest::header::DATE)
@@ -1969,7 +1969,7 @@ fn get_date_header(headers: &HeaderMap) -> DateTime<Utc> {
         .map_or(Utc::now(), |x| x.with_timezone(&Utc))
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 fn generate_oauth_challenge() -> String {
     let mut rng = rand::thread_rng();
 

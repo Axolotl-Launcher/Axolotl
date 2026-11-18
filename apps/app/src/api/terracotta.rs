@@ -21,6 +21,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_get_state()
 -> Result<theseus::terracotta::TerracottaState> {
@@ -37,6 +38,7 @@ pub struct TerracottaMetaResponse {
     pub target_os: String,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_get_meta() -> Result<TerracottaMetaResponse> {
     let meta = theseus::terracotta::get_meta()
@@ -52,6 +54,7 @@ pub async fn terracotta_get_meta() -> Result<TerracottaMetaResponse> {
     })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_start(
     binary_path: Option<String>,
@@ -69,6 +72,7 @@ pub async fn terracotta_start(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_stop() -> Result<()> {
     theseus::multiplayer::stop_terracotta_compat()
@@ -80,6 +84,7 @@ pub async fn terracotta_stop() -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_host(
     room_code: Option<String>,
@@ -99,6 +104,7 @@ pub async fn terracotta_host(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_join(
     room_code: String,
@@ -117,6 +123,7 @@ pub async fn terracotta_join(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_reset() -> Result<()> {
     theseus::multiplayer::reset_terracotta_compat()
@@ -128,11 +135,13 @@ pub async fn terracotta_reset() -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_get_platform_key() -> Result<String> {
     Ok(theseus::terracotta::terracotta_platform_key().to_string())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_check_for_update()
 -> Result<theseus::terracotta::TerracottaUpdate> {
@@ -141,6 +150,7 @@ pub async fn terracotta_check_for_update()
         .map_err(theseus::Error::from)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_download(version: Option<String>) -> Result<()> {
     theseus::terracotta::download_terracotta(version)
@@ -152,6 +162,7 @@ pub async fn terracotta_download(version: Option<String>) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_update() -> Result<theseus::terracotta::TerracottaUpdate>
 {
@@ -163,12 +174,14 @@ pub async fn terracotta_update() -> Result<theseus::terracotta::TerracottaUpdate
         })?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_get_player_name() -> Result<String> {
     let name = theseus::terracotta::get_player_name().await;
     Ok(name)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn terracotta_get_diagnostic_report() -> Result<String> {
     Ok(theseus::terracotta::get_diagnostic_report()

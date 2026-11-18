@@ -3263,6 +3263,9 @@
   "app.instance.never-played": {
     "message": "從未遊玩"
   },
+  "app.instance.not-found": {
+    "message": "此實例已不存在。"
+  },
   "app.instance.offline-installed-only": {
     "message": "離線模式只能啟動已經完整下載的實例。"
   },

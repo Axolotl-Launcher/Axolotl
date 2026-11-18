@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@/helpers/invoke'
 
 import type { SchematicMeshData } from '../schematic-preview/mesh-worker'
 import type { SeedMapEdition } from './backend'

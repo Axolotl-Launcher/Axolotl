@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@/helpers/invoke'
 
 export const MAX_INSTANCE_GROUP_NAME_LENGTH = 256
 

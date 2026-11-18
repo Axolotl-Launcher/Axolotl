@@ -8,7 +8,7 @@ use crate::state::{
 use crate::util::{fetch::write_cached_icon, io};
 use std::path::Path;
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn create(
     name: String,
@@ -64,7 +64,7 @@ pub(crate) async fn create(
 /// Creates a "directly associated" instance that launches an externally
 /// managed (HMCL/PCL) local version in place: nothing is copied, symlinked,
 /// or reinstalled, and the game directory points at the linked `.minecraft`.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn create_with_direct_link(
     input: CreateDirectLinkInstance,
 ) -> crate::Result<InstanceMetadata> {
@@ -183,7 +183,7 @@ pub async fn edit_icon(
     Ok(())
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn remove(instance_id: &str) -> crate::Result<()> {
     let state = State::get().await?;
     let instance =

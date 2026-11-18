@@ -97,6 +97,7 @@ pub struct ThemePackLimitsInfo {
     pub max_entries: usize,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_list<R: Runtime>(
     app: AppHandle<R>,
@@ -105,6 +106,7 @@ pub async fn theme_pack_list<R: Runtime>(
     Ok(theseus::theme_pack::store::list(&storage).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_get<R: Runtime>(
     app: AppHandle<R>,
@@ -114,6 +116,7 @@ pub async fn theme_pack_get<R: Runtime>(
     Ok(theseus::theme_pack::store::get(&storage, &pack_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_install<R: Runtime>(
     app: AppHandle<R>,
@@ -130,6 +133,7 @@ pub async fn theme_pack_install<R: Runtime>(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_remove<R: Runtime>(
     app: AppHandle<R>,
@@ -143,6 +147,7 @@ pub async fn theme_pack_remove<R: Runtime>(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_limits() -> Result<ThemePackLimitsInfo> {
     let limits = ThemePackLimits::from_env();
@@ -153,6 +158,7 @@ pub async fn theme_pack_limits() -> Result<ThemePackLimitsInfo> {
     })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_fetch<R: Runtime>(
     app: AppHandle<R>,
@@ -166,6 +172,7 @@ pub async fn theme_pack_fetch<R: Runtime>(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_data_dir<R: Runtime>(
     app: AppHandle<R>,
@@ -187,6 +194,7 @@ pub struct ThemePackPageInfo {
     pub url: String,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_resolve_page<R: Runtime>(
     app: AppHandle<R>,
@@ -312,6 +320,7 @@ fn is_allowed_page_location(
 /// Opens a pack page in a child webview. Pack pages never share the main
 /// webview: their capability only allows `theme_pack_page_request`, so the
 /// page cannot reach filesystem, install, or process commands.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_open_page<R: Runtime>(
     webview: Webview<R>,
@@ -376,6 +385,7 @@ pub async fn theme_pack_open_page<R: Runtime>(
     Ok(label)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_page_bounds<R: Runtime>(
     app: AppHandle<R>,
@@ -395,6 +405,7 @@ pub async fn theme_pack_page_bounds<R: Runtime>(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_close_page<R: Runtime>(
     app: AppHandle<R>,
@@ -427,6 +438,7 @@ fn request_string(params: &serde_json::Value, key: &str) -> Result<String> {
         })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_page_request<R: Runtime>(
     webview: Webview<R>,
@@ -556,6 +568,7 @@ pub struct ThemePackSnapshot {
     pub pack_id: Option<String>,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_export_snapshot<R: Runtime>(
     app: AppHandle<R>,
@@ -959,6 +972,7 @@ async fn storage_usage(directory: &Path) -> Result<(u64, usize)> {
     Ok((total, files))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_storage_list<R: Runtime>(
     app: AppHandle<R>,
@@ -992,6 +1006,7 @@ pub async fn theme_pack_storage_list<R: Runtime>(
     Ok(keys)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_storage_read<R: Runtime>(
     app: AppHandle<R>,
@@ -1014,6 +1029,7 @@ pub async fn theme_pack_storage_read<R: Runtime>(
     Ok(Some(tokio::fs::read_to_string(&path).await?))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_storage_write<R: Runtime>(
     app: AppHandle<R>,
@@ -1070,6 +1086,7 @@ pub async fn theme_pack_storage_write<R: Runtime>(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_storage_delete<R: Runtime>(
     app: AppHandle<R>,
@@ -1103,6 +1120,7 @@ pub struct ThemePackInstanceSummary {
     pub time_played: u64,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_instance_list<R: Runtime>(
     app: AppHandle<R>,
@@ -1148,6 +1166,7 @@ pub struct ThemePackModSummary {
     pub project_id: Option<String>,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_instance_mods<R: Runtime>(
     app: AppHandle<R>,
@@ -1192,6 +1211,7 @@ pub struct ThemePackLogSummary {
     pub truncated: bool,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn theme_pack_instance_logs<R: Runtime>(
     app: AppHandle<R>,

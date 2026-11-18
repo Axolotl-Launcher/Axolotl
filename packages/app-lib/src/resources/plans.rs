@@ -626,7 +626,11 @@ pub(crate) async fn installed(
             .first()
             .and_then(|link| link.resource_id.as_deref())
             .and_then(|id| ResourceId::new(id).ok());
-        if let Some(artifact) = &exact {
+        if let Some(artifact) = &exact
+            && !super::installed::legacy_modrinth_project(
+                &artifact.reference.release.project,
+            )
+        {
             let project = &artifact.reference.release.project;
             resource_id =
                 crate::state::resources::ResourceStore::new(pool.clone())
@@ -636,20 +640,21 @@ pub(crate) async fn installed(
                     .or(resource_id);
         }
         if resource_id.is_none() {
-            let refs = crate::state::instances::adapters::sqlite::content_entries::get_content_provider_refs(&entry_id, pool).await?;
+            let refs = match crate::state::instances::adapters::sqlite::content_entries::get_content_provider_refs(&entry_id, pool).await.map_err(ResourceError::from) {
+                Ok(refs) => refs,
+                Err(ResourceError::InvalidRequest(_)) => vec![],
+                Err(error) => return Err(error),
+            };
             let origin = crate::state::instances::adapters::sqlite::content_entries::get_content_origin_provider(&entry_id, pool).await?;
             if let Some(reference) = refs
                 .iter()
                 .find(|reference| Some(reference.provider()) == origin)
                 .or_else(|| refs.first())
             {
-                let project = SourceProjectRef {
-                    source: SourceId::new(reference.provider().as_str())?,
-                    project_id: SourceProjectId::new(
-                        reference.database_project_id(),
-                    )?,
-                };
-                if crate::state::instances::adapters::sqlite::resource_rows::validate_project(&project).is_ok() {
+                if let Some(project) = crate::state::instances::adapters::sqlite::resource_rows::project_key(
+                    reference.provider().as_str(),
+                    &reference.database_project_id(),
+                ) {
                     resource_id = match crate::state::resources::ResourceStore::new(pool.clone()).ensure_project(&project, &[resource_type]).await {
                         Ok(identity) => Some(identity),
                         Err(ResourceError::Database(error)) => {

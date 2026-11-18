@@ -19,7 +19,7 @@ pub struct ContentToggleResult {
     pub enabled: bool,
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn queue_curseforge_world(
     request: crate::api::curseforge::CurseForgeWorldInstallRequest,
     display_title: String,
@@ -42,7 +42,7 @@ pub struct InstallContentBatchRequest {
     pub display_icon: Option<String>,
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn queue_content_batch(
     request: InstallContentBatchRequest,
 ) -> crate::Result<crate::install::InstallJobSnapshot> {
@@ -66,7 +66,7 @@ pub async fn queue_content_batch(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn add_project_from_path(
     instance_id: &str,
     path: &Path,
@@ -101,7 +101,7 @@ pub async fn add_project_from_path(
     result
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn import_world_save(
     instance_id: &str,
     source_path: &Path,
@@ -159,7 +159,7 @@ pub async fn install_datapack_bytes_to_world(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn toggle_disable_project(
     instance_id: &str,
     project: &str,
@@ -181,7 +181,7 @@ pub async fn toggle_disable_project(
     Ok(res)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn rollback_project(
     instance_id: &str,
     project_path: &str,
@@ -201,7 +201,7 @@ pub async fn rollback_project(
     Ok(res)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn remove_project(
     instance_id: &str,
     project: &str,
@@ -221,7 +221,7 @@ pub async fn remove_project(
     Ok(())
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn toggle_content_entry(
     instance_id: &str,
     content_id: &str,
@@ -241,7 +241,7 @@ pub async fn toggle_content_entry(
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn toggle_content_entries(
     instance_id: &str,
     content_ids: Vec<String>,
@@ -271,7 +271,7 @@ pub async fn toggle_content_entries(
     Ok(results)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn remove_content_entry(
     instance_id: &str,
     content_id: &str,
@@ -285,7 +285,7 @@ pub async fn remove_content_entry(
     remove_project(instance_id, &path).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub(crate) async fn switch_content_entry_version(
     instance_id: &str,
     content_id: &str,
@@ -346,7 +346,7 @@ pub(crate) async fn switch_content_entry_version(
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn restore_pack_member_default(
     instance_id: &str,
     member_id: &str,
@@ -637,7 +637,7 @@ fn curseforge_loader_type(loader: crate::state::ModLoader) -> Option<u32> {
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn update_managed_modrinth_version(
     instance_id: &str,
     version_id: &str,
@@ -695,7 +695,7 @@ pub async fn update_managed_modrinth_version(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn repair_managed_modrinth(
     instance_id: &str,
 ) -> crate::Result<crate::install::InstallJobSnapshot> {

@@ -37,6 +37,78 @@ async fn database_pool_retains_exclusive_file_ownership_until_dropped() {
 }
 
 #[tokio::test]
+async fn startup_repairs_legacy_home_selection_without_modifying_its_source() {
+    use crate::state::{Settings, store::Handle};
+    use sqlx::ConnectOptions;
+
+    for (legacy_selection, expected_selection) in
+        [("absent-home", None), ("beta-home", Some("beta-home"))]
+    {
+        let directory = tempfile::tempdir().unwrap();
+        let database = directory.path().join("beta/app.db");
+        let pool = connect_app_db(&database).await.unwrap();
+        sqlx::query(
+            "INSERT INTO instances
+                (id, path, install_stage, launcher_feature_version, name, created, modified)
+             VALUES ('beta-home', 'beta-home', 'installed', 'none', 'Beta', 1, 1)",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        pool.close().await;
+        drop(pool);
+
+        let mut connection = SqliteConnectOptions::new()
+            .filename(&database)
+            .foreign_keys(false)
+            .connect()
+            .await
+            .unwrap();
+        sqlx::query(
+            "UPDATE settings SET minimal_home_instance_id = ?,
+                home_layout = 'minimal' WHERE id = 0",
+        )
+        .bind(legacy_selection)
+        .execute(&mut connection)
+        .await
+        .unwrap();
+        let foreign_key_errors =
+            sqlx::query("PRAGMA foreign_key_check(settings)")
+                .fetch_all(&mut connection)
+                .await
+                .unwrap();
+        assert_eq!(
+            foreign_key_errors.len(),
+            usize::from(expected_selection.is_none())
+        );
+        connection.close().await.unwrap();
+        let original = tokio::fs::read(&database).await.unwrap();
+
+        let core = connect_at(directory.path()).await.unwrap();
+        let appearance: serde_json::Value = serde_json::from_slice(
+            &tokio::fs::read(
+                directory.path().join("data/settings/appearance.json"),
+            )
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            appearance["data"]["minimal_home_instance_id"].as_str(),
+            expected_selection
+        );
+        let settings = Settings::get(&Handle::new(core.clone())).await.unwrap();
+        assert_eq!(settings.home_layout.as_str(), "minimal");
+        assert_eq!(
+            settings.minimal_home_instance_id.as_deref(),
+            expected_selection
+        );
+        assert_eq!(tokio::fs::read(&database).await.unwrap(), original);
+        core.close().await;
+    }
+}
+
+#[tokio::test]
 async fn verified_snapshot_replacement_does_not_replay_the_previous_database_wal()
  {
     use sqlx::ConnectOptions;

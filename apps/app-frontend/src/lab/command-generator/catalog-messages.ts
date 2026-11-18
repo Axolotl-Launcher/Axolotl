@@ -768,6 +768,15 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.execute.at.desc',
         defaultMessage: "Use the target's position and rotation",
     },
+    'app.lab.command-generator.execute.on.label': {
+        id: 'app.lab.command-generator.execute.on.label',
+        defaultMessage: 'on · Select executor by relation',
+    },
+    'app.lab.command-generator.execute.on.desc': {
+        id: 'app.lab.command-generator.execute.on.desc',
+        defaultMessage:
+            'Pick the executor from a relationship such as attacker, passenger or target',
+    },
     'app.lab.command-generator.execute.positioned.label': {
         id: 'app.lab.command-generator.execute.positioned.label',
         defaultMessage: 'positioned · Change position',
@@ -783,6 +792,14 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.execute.positioned-as.desc': {
         id: 'app.lab.command-generator.execute.positioned-as.desc',
         defaultMessage: "Use the target's position as the execution position",
+    },
+    'app.lab.command-generator.execute.positioned-over.label': {
+        id: 'app.lab.command-generator.execute.positioned-over.label',
+        defaultMessage: 'positioned over · Position on a heightmap',
+    },
+    'app.lab.command-generator.execute.positioned-over.desc': {
+        id: 'app.lab.command-generator.execute.positioned-over.desc',
+        defaultMessage: 'Move the execution position onto a heightmap below the coordinates',
     },
     'app.lab.command-generator.execute.rotated.label': {
         id: 'app.lab.command-generator.execute.rotated.label',
@@ -839,6 +856,14 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.execute.align.desc': {
         id: 'app.lab.command-generator.execute.align.desc',
         defaultMessage: 'Align the execution coordinates to the block grid',
+    },
+    'app.lab.command-generator.execute.summon.label': {
+        id: 'app.lab.command-generator.execute.summon.label',
+        defaultMessage: 'summon · Summon an executor',
+    },
+    'app.lab.command-generator.execute.summon.desc': {
+        id: 'app.lab.command-generator.execute.summon.desc',
+        defaultMessage: 'Summon an entity at the execution position and make it the executor',
     },
     'app.lab.command-generator.execute.if-entity.label': {
         id: 'app.lab.command-generator.execute.if-entity.label',
@@ -904,6 +929,38 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.execute.if-data.desc',
         defaultMessage: 'Continue if the given NBT path exists',
     },
+    'app.lab.command-generator.execute.unless-biome.label': {
+        id: 'app.lab.command-generator.execute.unless-biome.label',
+        defaultMessage: 'unless biome · Check biome (inverse)',
+    },
+    'app.lab.command-generator.execute.unless-biome.desc': {
+        id: 'app.lab.command-generator.execute.unless-biome.desc',
+        defaultMessage: 'Continue if the position is NOT in the given biome',
+    },
+    'app.lab.command-generator.execute.unless-blocks.label': {
+        id: 'app.lab.command-generator.execute.unless-blocks.label',
+        defaultMessage: 'unless blocks · Check region (inverse)',
+    },
+    'app.lab.command-generator.execute.unless-blocks.desc': {
+        id: 'app.lab.command-generator.execute.unless-blocks.desc',
+        defaultMessage: 'Continue if the regions do NOT match',
+    },
+    'app.lab.command-generator.execute.unless-data.label': {
+        id: 'app.lab.command-generator.execute.unless-data.label',
+        defaultMessage: 'unless data · Check NBT data (inverse)',
+    },
+    'app.lab.command-generator.execute.unless-data.desc': {
+        id: 'app.lab.command-generator.execute.unless-data.desc',
+        defaultMessage: 'Continue if the NBT path does not exist',
+    },
+    'app.lab.command-generator.execute.unless-score-matches.label': {
+        id: 'app.lab.command-generator.execute.unless-score-matches.label',
+        defaultMessage: 'unless score matches · Check score range (inverse)',
+    },
+    'app.lab.command-generator.execute.unless-score-matches.desc': {
+        id: 'app.lab.command-generator.execute.unless-score-matches.desc',
+        defaultMessage: 'Continue if the score is outside the range',
+    },
     'app.lab.command-generator.execute.if-items.label': {
         id: 'app.lab.command-generator.execute.if-items.label',
         defaultMessage: 'if items · Check items (1.21+)',
@@ -919,6 +976,78 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.execute.if-function.desc': {
         id: 'app.lab.command-generator.execute.if-function.desc',
         defaultMessage: 'Continue if the function returns success',
+    },
+    'app.lab.command-generator.execute.unless-function.label': {
+        id: 'app.lab.command-generator.execute.unless-function.label',
+        defaultMessage: 'unless function · Check function result (inverse)',
+    },
+    'app.lab.command-generator.execute.unless-function.desc': {
+        id: 'app.lab.command-generator.execute.unless-function.desc',
+        defaultMessage: 'Continue if the function does not return success',
+    },
+    'app.lab.command-generator.execute.if-dimension.label': {
+        id: 'app.lab.command-generator.execute.if-dimension.label',
+        defaultMessage: 'if dimension · Check dimension',
+    },
+    'app.lab.command-generator.execute.if-dimension.desc': {
+        id: 'app.lab.command-generator.execute.if-dimension.desc',
+        defaultMessage: 'Continue if the execution dimension matches',
+    },
+    'app.lab.command-generator.execute.unless-dimension.label': {
+        id: 'app.lab.command-generator.execute.unless-dimension.label',
+        defaultMessage: 'unless dimension · Check dimension (inverse)',
+    },
+    'app.lab.command-generator.execute.unless-dimension.desc': {
+        id: 'app.lab.command-generator.execute.unless-dimension.desc',
+        defaultMessage: 'Continue if the execution dimension differs',
+    },
+    'app.lab.command-generator.execute.if-loaded.label': {
+        id: 'app.lab.command-generator.execute.if-loaded.label',
+        defaultMessage: 'if loaded · Check chunk loaded',
+    },
+    'app.lab.command-generator.execute.if-loaded.desc': {
+        id: 'app.lab.command-generator.execute.if-loaded.desc',
+        defaultMessage: 'Continue if the chunk at the position is loaded',
+    },
+    'app.lab.command-generator.execute.unless-loaded.label': {
+        id: 'app.lab.command-generator.execute.unless-loaded.label',
+        defaultMessage: 'unless loaded · Check chunk loaded (inverse)',
+    },
+    'app.lab.command-generator.execute.unless-loaded.desc': {
+        id: 'app.lab.command-generator.execute.unless-loaded.desc',
+        defaultMessage: 'Continue if the chunk at the position is not loaded',
+    },
+    'app.lab.command-generator.execute.if-predicate.label': {
+        id: 'app.lab.command-generator.execute.if-predicate.label',
+        defaultMessage: 'if predicate · Check predicate',
+    },
+    'app.lab.command-generator.execute.if-predicate.desc': {
+        id: 'app.lab.command-generator.execute.if-predicate.desc',
+        defaultMessage: 'Continue if the predicate passes',
+    },
+    'app.lab.command-generator.execute.unless-predicate.label': {
+        id: 'app.lab.command-generator.execute.unless-predicate.label',
+        defaultMessage: 'unless predicate · Check predicate (inverse)',
+    },
+    'app.lab.command-generator.execute.unless-predicate.desc': {
+        id: 'app.lab.command-generator.execute.unless-predicate.desc',
+        defaultMessage: 'Continue if the predicate fails',
+    },
+    'app.lab.command-generator.execute.if-stopwatch.label': {
+        id: 'app.lab.command-generator.execute.if-stopwatch.label',
+        defaultMessage: 'if stopwatch · Check stopwatch',
+    },
+    'app.lab.command-generator.execute.if-stopwatch.desc': {
+        id: 'app.lab.command-generator.execute.if-stopwatch.desc',
+        defaultMessage: 'Continue if the stopwatch value is inside the range',
+    },
+    'app.lab.command-generator.execute.unless-stopwatch.label': {
+        id: 'app.lab.command-generator.execute.unless-stopwatch.label',
+        defaultMessage: 'unless stopwatch · Check stopwatch (inverse)',
+    },
+    'app.lab.command-generator.execute.unless-stopwatch.desc': {
+        id: 'app.lab.command-generator.execute.unless-stopwatch.desc',
+        defaultMessage: 'Continue if the stopwatch value is outside the range',
     },
     'app.lab.command-generator.execute.unless-block.label': {
         id: 'app.lab.command-generator.execute.unless-block.label',
@@ -959,6 +1088,54 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.execute.store-result-bossbar.desc': {
         id: 'app.lab.command-generator.execute.store-result-bossbar.desc',
         defaultMessage: "Store the result into a boss bar's value or max",
+    },
+    'app.lab.command-generator.execute.store-result-block.label': {
+        id: 'app.lab.command-generator.execute.store-result-block.label',
+        defaultMessage: 'store result block · Store into block NBT',
+    },
+    'app.lab.command-generator.execute.store-result-block.desc': {
+        id: 'app.lab.command-generator.execute.store-result-block.desc',
+        defaultMessage: "Store the result into a block's NBT data",
+    },
+    'app.lab.command-generator.execute.store-success-block.label': {
+        id: 'app.lab.command-generator.execute.store-success-block.label',
+        defaultMessage: 'store success block · Store success into block NBT',
+    },
+    'app.lab.command-generator.execute.store-success-block.desc': {
+        id: 'app.lab.command-generator.execute.store-success-block.desc',
+        defaultMessage: "Store 1 or 0 into a block's NBT data",
+    },
+    'app.lab.command-generator.execute.store-result-entity.label': {
+        id: 'app.lab.command-generator.execute.store-result-entity.label',
+        defaultMessage: 'store result entity · Store into entity NBT',
+    },
+    'app.lab.command-generator.execute.store-result-entity.desc': {
+        id: 'app.lab.command-generator.execute.store-result-entity.desc',
+        defaultMessage: "Store the result into an entity's NBT data",
+    },
+    'app.lab.command-generator.execute.store-success-entity.label': {
+        id: 'app.lab.command-generator.execute.store-success-entity.label',
+        defaultMessage: 'store success entity · Store success into entity NBT',
+    },
+    'app.lab.command-generator.execute.store-success-entity.desc': {
+        id: 'app.lab.command-generator.execute.store-success-entity.desc',
+        defaultMessage: "Store 1 or 0 into an entity's NBT data",
+    },
+    'app.lab.command-generator.execute.store-result-storage.label': {
+        id: 'app.lab.command-generator.execute.store-result-storage.label',
+        defaultMessage: 'store result storage · Store into storage',
+    },
+    'app.lab.command-generator.execute.store-result-storage.desc': {
+        id: 'app.lab.command-generator.execute.store-result-storage.desc',
+        defaultMessage: 'Store the result into a command storage',
+    },
+    'app.lab.command-generator.execute.store-success-storage.label': {
+        id: 'app.lab.command-generator.execute.store-success-storage.label',
+        defaultMessage: 'store success storage · Store success into storage',
+    },
+    'app.lab.command-generator.execute.store-success-storage.desc': {
+        id: 'app.lab.command-generator.execute.store-success-storage.desc',
+        defaultMessage: 'Store 1 or 0 into a command storage',
     },
     'app.lab.command-generator.preset.common.self': {
         id: 'app.lab.command-generator.preset.common.self',
@@ -3388,6 +3565,15 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.arg.execute.at.target.desc',
         defaultMessage: 'Position reference entity',
     },
+    'app.lab.command-generator.arg.execute.on.relation.display': {
+        id: 'app.lab.command-generator.arg.execute.on.relation.display',
+        defaultMessage: 'Relation',
+    },
+    'app.lab.command-generator.arg.execute.on.relation.desc': {
+        id: 'app.lab.command-generator.arg.execute.on.relation.desc',
+        defaultMessage:
+            'attacker / controller / leasher / origin / owner / passengers / target / vehicle',
+    },
     'app.lab.command-generator.arg.execute.positioned.pos.display': {
         id: 'app.lab.command-generator.arg.execute.positioned.pos.display',
         defaultMessage: 'Position',
@@ -3403,6 +3589,14 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.arg.execute.positioned-as.target.desc': {
         id: 'app.lab.command-generator.arg.execute.positioned-as.target.desc',
         defaultMessage: 'Position reference entity',
+    },
+    'app.lab.command-generator.arg.execute.positioned-over.heightmap.display': {
+        id: 'app.lab.command-generator.arg.execute.positioned-over.heightmap.display',
+        defaultMessage: 'Heightmap',
+    },
+    'app.lab.command-generator.arg.execute.positioned-over.heightmap.desc': {
+        id: 'app.lab.command-generator.arg.execute.positioned-over.heightmap.desc',
+        defaultMessage: 'world_surface / ocean_floor / motion_blocking / motion_blocking_no_leaves',
     },
     'app.lab.command-generator.arg.execute.rotated.yaw.display': {
         id: 'app.lab.command-generator.arg.execute.rotated.yaw.display',
@@ -3475,6 +3669,54 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.arg.execute.align.axes.desc': {
         id: 'app.lab.command-generator.arg.execute.align.axes.desc',
         defaultMessage: 'Axes to align',
+    },
+    'app.lab.command-generator.arg.execute.summon.entity.display': {
+        id: 'app.lab.command-generator.arg.execute.summon.entity.display',
+        defaultMessage: 'Entity',
+    },
+    'app.lab.command-generator.arg.execute.summon.entity.desc': {
+        id: 'app.lab.command-generator.arg.execute.summon.entity.desc',
+        defaultMessage: 'Entity ID',
+    },
+    'app.lab.command-generator.arg.execute.dimension.dimension.display': {
+        id: 'app.lab.command-generator.arg.execute.dimension.dimension.display',
+        defaultMessage: 'Dimension',
+    },
+    'app.lab.command-generator.arg.execute.dimension.dimension.desc': {
+        id: 'app.lab.command-generator.arg.execute.dimension.dimension.desc',
+        defaultMessage: 'Dimension to check',
+    },
+    'app.lab.command-generator.arg.execute.loaded.pos.display': {
+        id: 'app.lab.command-generator.arg.execute.loaded.pos.display',
+        defaultMessage: 'Position',
+    },
+    'app.lab.command-generator.arg.execute.loaded.pos.desc': {
+        id: 'app.lab.command-generator.arg.execute.loaded.pos.desc',
+        defaultMessage: 'Position whose chunk is checked',
+    },
+    'app.lab.command-generator.arg.execute.predicate.predicate.display': {
+        id: 'app.lab.command-generator.arg.execute.predicate.predicate.display',
+        defaultMessage: 'Predicate',
+    },
+    'app.lab.command-generator.arg.execute.predicate.predicate.desc': {
+        id: 'app.lab.command-generator.arg.execute.predicate.predicate.desc',
+        defaultMessage: 'Predicate ID',
+    },
+    'app.lab.command-generator.arg.execute.stopwatch.id.display': {
+        id: 'app.lab.command-generator.arg.execute.stopwatch.id.display',
+        defaultMessage: 'Stopwatch ID',
+    },
+    'app.lab.command-generator.arg.execute.stopwatch.id.desc': {
+        id: 'app.lab.command-generator.arg.execute.stopwatch.id.desc',
+        defaultMessage: 'Stopwatch identifier',
+    },
+    'app.lab.command-generator.arg.execute.stopwatch.range.display': {
+        id: 'app.lab.command-generator.arg.execute.stopwatch.range.display',
+        defaultMessage: 'Range',
+    },
+    'app.lab.command-generator.arg.execute.stopwatch.range.desc': {
+        id: 'app.lab.command-generator.arg.execute.stopwatch.range.desc',
+        defaultMessage: 'Value range such as 1..10',
     },
     'app.lab.command-generator.arg.execute.if-entity.target.display': {
         id: 'app.lab.command-generator.arg.execute.if-entity.target.display',
@@ -3787,6 +4029,102 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.arg.execute.store-result-bossbar.valueOrMax.desc': {
         id: 'app.lab.command-generator.arg.execute.store-result-bossbar.valueOrMax.desc',
         defaultMessage: 'value or max',
+    },
+    'app.lab.command-generator.arg.execute.store-block.pos.display': {
+        id: 'app.lab.command-generator.arg.execute.store-block.pos.display',
+        defaultMessage: 'Position',
+    },
+    'app.lab.command-generator.arg.execute.store-block.pos.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-block.pos.desc',
+        defaultMessage: 'Block whose NBT receives the value',
+    },
+    'app.lab.command-generator.arg.execute.store-block.path.display': {
+        id: 'app.lab.command-generator.arg.execute.store-block.path.display',
+        defaultMessage: 'NBT path',
+    },
+    'app.lab.command-generator.arg.execute.store-block.path.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-block.path.desc',
+        defaultMessage: 'Path inside the stored NBT',
+    },
+    'app.lab.command-generator.arg.execute.store-block.type.display': {
+        id: 'app.lab.command-generator.arg.execute.store-block.type.display',
+        defaultMessage: 'Type',
+    },
+    'app.lab.command-generator.arg.execute.store-block.type.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-block.type.desc',
+        defaultMessage: 'byte / short / int / long / float / double',
+    },
+    'app.lab.command-generator.arg.execute.store-block.scale.display': {
+        id: 'app.lab.command-generator.arg.execute.store-block.scale.display',
+        defaultMessage: 'Scale',
+    },
+    'app.lab.command-generator.arg.execute.store-block.scale.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-block.scale.desc',
+        defaultMessage: 'Multiplier applied to the value',
+    },
+    'app.lab.command-generator.arg.execute.store-entity.target.display': {
+        id: 'app.lab.command-generator.arg.execute.store-entity.target.display',
+        defaultMessage: 'Target',
+    },
+    'app.lab.command-generator.arg.execute.store-entity.target.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-entity.target.desc',
+        defaultMessage: 'Entity that receives the value',
+    },
+    'app.lab.command-generator.arg.execute.store-entity.path.display': {
+        id: 'app.lab.command-generator.arg.execute.store-entity.path.display',
+        defaultMessage: 'NBT path',
+    },
+    'app.lab.command-generator.arg.execute.store-entity.path.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-entity.path.desc',
+        defaultMessage: 'Path inside the stored NBT',
+    },
+    'app.lab.command-generator.arg.execute.store-entity.type.display': {
+        id: 'app.lab.command-generator.arg.execute.store-entity.type.display',
+        defaultMessage: 'Type',
+    },
+    'app.lab.command-generator.arg.execute.store-entity.type.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-entity.type.desc',
+        defaultMessage: 'byte / short / int / long / float / double',
+    },
+    'app.lab.command-generator.arg.execute.store-entity.scale.display': {
+        id: 'app.lab.command-generator.arg.execute.store-entity.scale.display',
+        defaultMessage: 'Scale',
+    },
+    'app.lab.command-generator.arg.execute.store-entity.scale.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-entity.scale.desc',
+        defaultMessage: 'Multiplier applied to the value',
+    },
+    'app.lab.command-generator.arg.execute.store-storage.storage.display': {
+        id: 'app.lab.command-generator.arg.execute.store-storage.storage.display',
+        defaultMessage: 'Storage',
+    },
+    'app.lab.command-generator.arg.execute.store-storage.storage.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-storage.storage.desc',
+        defaultMessage: 'Command storage ID',
+    },
+    'app.lab.command-generator.arg.execute.store-storage.path.display': {
+        id: 'app.lab.command-generator.arg.execute.store-storage.path.display',
+        defaultMessage: 'NBT path',
+    },
+    'app.lab.command-generator.arg.execute.store-storage.path.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-storage.path.desc',
+        defaultMessage: 'Path inside the stored NBT',
+    },
+    'app.lab.command-generator.arg.execute.store-storage.type.display': {
+        id: 'app.lab.command-generator.arg.execute.store-storage.type.display',
+        defaultMessage: 'Type',
+    },
+    'app.lab.command-generator.arg.execute.store-storage.type.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-storage.type.desc',
+        defaultMessage: 'byte / short / int / long / float / double',
+    },
+    'app.lab.command-generator.arg.execute.store-storage.scale.display': {
+        id: 'app.lab.command-generator.arg.execute.store-storage.scale.display',
+        defaultMessage: 'Scale',
+    },
+    'app.lab.command-generator.arg.execute.store-storage.scale.desc': {
+        id: 'app.lab.command-generator.arg.execute.store-storage.scale.desc',
+        defaultMessage: 'Multiplier applied to the value',
     },
     'app.lab.command-generator.perm.0.desc': {
         id: 'app.lab.command-generator.perm.0.desc',

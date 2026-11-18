@@ -824,6 +824,33 @@
               ]
             },
             {
+              "id": "on",
+              "labelKey": "app.lab.command-generator.execute.on.label",
+              "descriptionKey": "app.lab.command-generator.execute.on.desc",
+              "template": "on {relation}",
+              "arguments": [
+                {
+                  "name": "relation",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.on.relation.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.on.relation.desc",
+                  "enumValues": [
+                    "attacker",
+                    "controller",
+                    "leasher",
+                    "origin",
+                    "owner",
+                    "passengers",
+                    "target",
+                    "vehicle"
+                  ],
+                  "defaultValue": "attacker"
+                }
+              ],
+              "sinceVersion": "1.19"
+            },
+            {
               "id": "positioned",
               "labelKey": "app.lab.command-generator.execute.positioned.label",
               "descriptionKey": "app.lab.command-generator.execute.positioned.desc",
@@ -864,6 +891,29 @@
                   "placeholder": "@s"
                 }
               ]
+            },
+            {
+              "id": "positioned-over",
+              "labelKey": "app.lab.command-generator.execute.positioned-over.label",
+              "descriptionKey": "app.lab.command-generator.execute.positioned-over.desc",
+              "template": "positioned over {heightmap}",
+              "arguments": [
+                {
+                  "name": "heightmap",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.positioned-over.heightmap.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.positioned-over.heightmap.desc",
+                  "enumValues": [
+                    "world_surface",
+                    "ocean_floor",
+                    "motion_blocking",
+                    "motion_blocking_no_leaves"
+                  ],
+                  "defaultValue": "world_surface"
+                }
+              ],
+              "sinceVersion": "1.19"
             },
             {
               "id": "rotated",
@@ -1045,6 +1095,23 @@
                   "defaultValue": "xyz"
                 }
               ]
+            },
+            {
+              "id": "summon",
+              "labelKey": "app.lab.command-generator.execute.summon.label",
+              "descriptionKey": "app.lab.command-generator.execute.summon.desc",
+              "template": "summon {entity}",
+              "arguments": [
+                {
+                  "name": "entity",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.summon.entity.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.summon.entity.desc",
+                  "placeholder": "minecraft:axolotl"
+                }
+              ],
+              "sinceVersion": "1.19"
             }
           ]
         },
@@ -1306,6 +1373,359 @@
               ]
             },
             {
+              "id": "unless-biome",
+              "labelKey": "app.lab.command-generator.execute.unless-biome.label",
+              "descriptionKey": "app.lab.command-generator.execute.unless-biome.desc",
+              "template": "unless biome {pos} {biome}",
+              "arguments": [
+                {
+                  "name": "pos",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-biome.pos.display",
+                  "type": "coordinates",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-biome.pos.desc",
+                  "placeholder": "~ ~ ~"
+                },
+                {
+                  "name": "biome",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-biome.biome.display",
+                  "type": "biome",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-biome.biome.desc",
+                  "placeholder": "minecraft:plains"
+                }
+              ],
+              "sinceVersion": "1.19"
+            },
+            {
+              "id": "unless-blocks",
+              "labelKey": "app.lab.command-generator.execute.unless-blocks.label",
+              "descriptionKey": "app.lab.command-generator.execute.unless-blocks.desc",
+              "template": "unless blocks {begin} {end} {destination} {mode}",
+              "arguments": [
+                {
+                  "name": "begin",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-blocks.begin.display",
+                  "type": "coordinates",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-blocks.begin.desc",
+                  "placeholder": "~ ~ ~"
+                },
+                {
+                  "name": "end",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-blocks.end.display",
+                  "type": "coordinates",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-blocks.end.desc",
+                  "placeholder": "~ ~ ~"
+                },
+                {
+                  "name": "destination",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-blocks.destination.display",
+                  "type": "coordinates",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-blocks.destination.desc",
+                  "placeholder": "~ ~ ~"
+                },
+                {
+                  "name": "mode",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-blocks.mode.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-blocks.mode.desc",
+                  "enumValues": ["all", "masked"],
+                  "defaultValue": "all"
+                }
+              ]
+            },
+            {
+              "id": "unless-data",
+              "labelKey": "app.lab.command-generator.execute.unless-data.label",
+              "descriptionKey": "app.lab.command-generator.execute.unless-data.desc",
+              "template": "unless data {targetType} {target} {path}",
+              "arguments": [
+                {
+                  "name": "targetType",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-data.targetType.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-data.targetType.desc",
+                  "enumValues": ["block", "entity", "storage"],
+                  "defaultValue": "entity"
+                },
+                {
+                  "name": "target",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-data.target.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-data.target.desc",
+                  "placeholder": "@s"
+                },
+                {
+                  "name": "path",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-data.path.display",
+                  "type": "nbt",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-data.path.desc",
+                  "placeholder": "Health",
+                  "supportsNbtEditor": true,
+                  "nbtKind": "generic"
+                }
+              ]
+            },
+            {
+              "id": "unless-score-matches",
+              "labelKey": "app.lab.command-generator.execute.unless-score-matches.label",
+              "descriptionKey": "app.lab.command-generator.execute.unless-score-matches.desc",
+              "template": "unless score {target} {objective} matches {range}",
+              "arguments": [
+                {
+                  "name": "target",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-score-matches.target.display",
+                  "type": "entity-selector",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-score-matches.target.desc"
+                },
+                {
+                  "name": "objective",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-score-matches.objective.display",
+                  "type": "objective",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-score-matches.objective.desc"
+                },
+                {
+                  "name": "range",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-score-matches.range.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-score-matches.range.desc",
+                  "placeholder": "1..10"
+                }
+              ]
+            },
+            {
+              "id": "if-dimension",
+              "labelKey": "app.lab.command-generator.execute.if-dimension.label",
+              "descriptionKey": "app.lab.command-generator.execute.if-dimension.desc",
+              "template": "if dimension {dimension}",
+              "arguments": [
+                {
+                  "name": "dimension",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.dimension.dimension.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.dimension.dimension.desc",
+                  "enumValues": [
+                    "minecraft:overworld",
+                    "minecraft:the_nether",
+                    "minecraft:the_end"
+                  ],
+                  "defaultValue": "minecraft:overworld",
+                  "presets": [
+                    {
+                      "labelKey": "app.lab.command-generator.preset.dimension.overworld",
+                      "value": "minecraft:overworld"
+                    },
+                    {
+                      "labelKey": "app.lab.command-generator.preset.dimension.nether",
+                      "value": "minecraft:the_nether"
+                    },
+                    {
+                      "labelKey": "app.lab.command-generator.preset.dimension.end",
+                      "value": "minecraft:the_end"
+                    }
+                  ]
+                }
+              ],
+              "sinceVersion": "1.19"
+            },
+            {
+              "id": "unless-dimension",
+              "labelKey": "app.lab.command-generator.execute.unless-dimension.label",
+              "descriptionKey": "app.lab.command-generator.execute.unless-dimension.desc",
+              "template": "unless dimension {dimension}",
+              "arguments": [
+                {
+                  "name": "dimension",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.dimension.dimension.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.dimension.dimension.desc",
+                  "enumValues": [
+                    "minecraft:overworld",
+                    "minecraft:the_nether",
+                    "minecraft:the_end"
+                  ],
+                  "defaultValue": "minecraft:overworld",
+                  "presets": [
+                    {
+                      "labelKey": "app.lab.command-generator.preset.dimension.overworld",
+                      "value": "minecraft:overworld"
+                    },
+                    {
+                      "labelKey": "app.lab.command-generator.preset.dimension.nether",
+                      "value": "minecraft:the_nether"
+                    },
+                    {
+                      "labelKey": "app.lab.command-generator.preset.dimension.end",
+                      "value": "minecraft:the_end"
+                    }
+                  ]
+                }
+              ],
+              "sinceVersion": "1.19"
+            },
+            {
+              "id": "if-loaded",
+              "labelKey": "app.lab.command-generator.execute.if-loaded.label",
+              "descriptionKey": "app.lab.command-generator.execute.if-loaded.desc",
+              "template": "if loaded {pos}",
+              "arguments": [
+                {
+                  "name": "pos",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.loaded.pos.display",
+                  "type": "coordinates",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.loaded.pos.desc",
+                  "placeholder": "~ ~ ~"
+                }
+              ],
+              "sinceVersion": "1.19"
+            },
+            {
+              "id": "unless-loaded",
+              "labelKey": "app.lab.command-generator.execute.unless-loaded.label",
+              "descriptionKey": "app.lab.command-generator.execute.unless-loaded.desc",
+              "template": "unless loaded {pos}",
+              "arguments": [
+                {
+                  "name": "pos",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.loaded.pos.display",
+                  "type": "coordinates",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.loaded.pos.desc",
+                  "placeholder": "~ ~ ~"
+                }
+              ],
+              "sinceVersion": "1.19"
+            },
+            {
+              "id": "if-function",
+              "labelKey": "app.lab.command-generator.execute.if-function.label",
+              "descriptionKey": "app.lab.command-generator.execute.if-function.desc",
+              "template": "if function {name}",
+              "arguments": [
+                {
+                  "name": "name",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-function.name.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-function.name.desc",
+                  "placeholder": "minecraft:my_function"
+                }
+              ],
+              "sinceVersion": "1.20"
+            },
+            {
+              "id": "unless-function",
+              "labelKey": "app.lab.command-generator.execute.unless-function.label",
+              "descriptionKey": "app.lab.command-generator.execute.unless-function.desc",
+              "template": "unless function {name}",
+              "arguments": [
+                {
+                  "name": "name",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.if-function.name.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.if-function.name.desc",
+                  "placeholder": "minecraft:my_function"
+                }
+              ],
+              "sinceVersion": "1.20"
+            },
+            {
+              "id": "if-predicate",
+              "labelKey": "app.lab.command-generator.execute.if-predicate.label",
+              "descriptionKey": "app.lab.command-generator.execute.if-predicate.desc",
+              "template": "if predicate {predicate}",
+              "arguments": [
+                {
+                  "name": "predicate",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.predicate.predicate.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.predicate.predicate.desc",
+                  "placeholder": "minecraft:my_predicate"
+                }
+              ]
+            },
+            {
+              "id": "unless-predicate",
+              "labelKey": "app.lab.command-generator.execute.unless-predicate.label",
+              "descriptionKey": "app.lab.command-generator.execute.unless-predicate.desc",
+              "template": "unless predicate {predicate}",
+              "arguments": [
+                {
+                  "name": "predicate",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.predicate.predicate.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.predicate.predicate.desc",
+                  "placeholder": "minecraft:my_predicate"
+                }
+              ]
+            },
+            {
+              "id": "if-stopwatch",
+              "labelKey": "app.lab.command-generator.execute.if-stopwatch.label",
+              "descriptionKey": "app.lab.command-generator.execute.if-stopwatch.desc",
+              "template": "if stopwatch {id} {range}",
+              "arguments": [
+                {
+                  "name": "id",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.stopwatch.id.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.stopwatch.id.desc",
+                  "placeholder": "minecraft:timer"
+                },
+                {
+                  "name": "range",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.stopwatch.range.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.stopwatch.range.desc",
+                  "placeholder": "1..10"
+                }
+              ],
+              "sinceVersion": "1.21"
+            },
+            {
+              "id": "unless-stopwatch",
+              "labelKey": "app.lab.command-generator.execute.unless-stopwatch.label",
+              "descriptionKey": "app.lab.command-generator.execute.unless-stopwatch.desc",
+              "template": "unless stopwatch {id} {range}",
+              "arguments": [
+                {
+                  "name": "id",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.stopwatch.id.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.stopwatch.id.desc",
+                  "placeholder": "minecraft:timer"
+                },
+                {
+                  "name": "range",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.stopwatch.range.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.stopwatch.range.desc",
+                  "placeholder": "1..10"
+                }
+              ],
+              "sinceVersion": "1.21"
+            },
+            {
               "id": "unless-block",
               "labelKey": "app.lab.command-generator.execute.unless-block.label",
               "descriptionKey": "app.lab.command-generator.execute.unless-block.desc",
@@ -1452,6 +1872,250 @@
                   "descriptionKey": "app.lab.command-generator.arg.execute.store-result-bossbar.valueOrMax.desc",
                   "enumValues": ["value", "max"],
                   "defaultValue": "value"
+                }
+              ]
+            },
+            {
+              "id": "store-result-block",
+              "labelKey": "app.lab.command-generator.execute.store-result-block.label",
+              "descriptionKey": "app.lab.command-generator.execute.store-result-block.desc",
+              "template": "store result block {pos} {path} {type} {scale}",
+              "arguments": [
+                {
+                  "name": "pos",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.pos.display",
+                  "type": "coordinates",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.pos.desc",
+                  "placeholder": "~ ~ ~"
+                },
+                {
+                  "name": "path",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.path.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.path.desc",
+                  "placeholder": "Health"
+                },
+                {
+                  "name": "type",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.type.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.type.desc",
+                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
+                  "defaultValue": "int"
+                },
+                {
+                  "name": "scale",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.scale.display",
+                  "type": "number",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.scale.desc",
+                  "defaultValue": 1
+                }
+              ]
+            },
+            {
+              "id": "store-success-block",
+              "labelKey": "app.lab.command-generator.execute.store-success-block.label",
+              "descriptionKey": "app.lab.command-generator.execute.store-success-block.desc",
+              "template": "store success block {pos} {path} {type} {scale}",
+              "arguments": [
+                {
+                  "name": "pos",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.pos.display",
+                  "type": "coordinates",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.pos.desc",
+                  "placeholder": "~ ~ ~"
+                },
+                {
+                  "name": "path",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.path.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.path.desc",
+                  "placeholder": "Health"
+                },
+                {
+                  "name": "type",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.type.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.type.desc",
+                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
+                  "defaultValue": "int"
+                },
+                {
+                  "name": "scale",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.scale.display",
+                  "type": "number",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.scale.desc",
+                  "defaultValue": 1
+                }
+              ]
+            },
+            {
+              "id": "store-result-entity",
+              "labelKey": "app.lab.command-generator.execute.store-result-entity.label",
+              "descriptionKey": "app.lab.command-generator.execute.store-result-entity.desc",
+              "template": "store result entity {target} {path} {type} {scale}",
+              "arguments": [
+                {
+                  "name": "target",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.target.display",
+                  "type": "entity-selector",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.target.desc"
+                },
+                {
+                  "name": "path",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.path.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.path.desc",
+                  "placeholder": "Health"
+                },
+                {
+                  "name": "type",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.type.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.type.desc",
+                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
+                  "defaultValue": "int"
+                },
+                {
+                  "name": "scale",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.scale.display",
+                  "type": "number",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.scale.desc",
+                  "defaultValue": 1
+                }
+              ]
+            },
+            {
+              "id": "store-success-entity",
+              "labelKey": "app.lab.command-generator.execute.store-success-entity.label",
+              "descriptionKey": "app.lab.command-generator.execute.store-success-entity.desc",
+              "template": "store success entity {target} {path} {type} {scale}",
+              "arguments": [
+                {
+                  "name": "target",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.target.display",
+                  "type": "entity-selector",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.target.desc"
+                },
+                {
+                  "name": "path",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.path.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.path.desc",
+                  "placeholder": "Health"
+                },
+                {
+                  "name": "type",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.type.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.type.desc",
+                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
+                  "defaultValue": "int"
+                },
+                {
+                  "name": "scale",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.scale.display",
+                  "type": "number",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.scale.desc",
+                  "defaultValue": 1
+                }
+              ]
+            },
+            {
+              "id": "store-result-storage",
+              "labelKey": "app.lab.command-generator.execute.store-result-storage.label",
+              "descriptionKey": "app.lab.command-generator.execute.store-result-storage.desc",
+              "template": "store result storage {storage} {path} {type} {scale}",
+              "arguments": [
+                {
+                  "name": "storage",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.storage.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.storage.desc",
+                  "placeholder": "minecraft:temp"
+                },
+                {
+                  "name": "path",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.path.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.path.desc",
+                  "placeholder": "Health"
+                },
+                {
+                  "name": "type",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.type.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.type.desc",
+                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
+                  "defaultValue": "int"
+                },
+                {
+                  "name": "scale",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.scale.display",
+                  "type": "number",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.scale.desc",
+                  "defaultValue": 1
+                }
+              ]
+            },
+            {
+              "id": "store-success-storage",
+              "labelKey": "app.lab.command-generator.execute.store-success-storage.label",
+              "descriptionKey": "app.lab.command-generator.execute.store-success-storage.desc",
+              "template": "store success storage {storage} {path} {type} {scale}",
+              "arguments": [
+                {
+                  "name": "storage",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.storage.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.storage.desc",
+                  "placeholder": "minecraft:temp"
+                },
+                {
+                  "name": "path",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.path.display",
+                  "type": "string",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.path.desc",
+                  "placeholder": "Health"
+                },
+                {
+                  "name": "type",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.type.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.type.desc",
+                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
+                  "defaultValue": "int"
+                },
+                {
+                  "name": "scale",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.scale.display",
+                  "type": "number",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.scale.desc",
+                  "defaultValue": 1
                 }
               ]
             }

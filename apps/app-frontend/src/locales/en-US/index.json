@@ -21727,5 +21727,62 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "Unknown file warning"
+  },
+  "app.observability-mcp.title": {
+    "message": "Observability MCP"
+  },
+  "app.observability-mcp.enabled": {
+    "message": "Enable the observability MCP"
+  },
+  "app.observability-mcp.enabled-description": {
+    "message": "Keep the most recent telemetry in memory so a local AI client can read it. Nothing is uploaded, and turning this off drops everything that was kept."
+  },
+  "app.observability-mcp.require-auth": {
+    "message": "Require authentication"
+  },
+  "app.observability-mcp.require-auth-description": {
+    "message": "Require clients to provide a connection token. Changing this setting restarts the listener."
+  },
+  "app.observability-mcp.running": {
+    "message": "Listening for connections"
+  },
+  "app.observability-mcp.not-running": {
+    "message": "The observability MCP could not start. Resolve the error below and retry."
+  },
+  "app.observability-mcp.disabled": {
+    "message": "The observability MCP is off and nothing is being kept."
+  },
+  "app.observability-mcp.token": {
+    "message": "Connection token"
+  },
+  "app.observability-mcp.copy-token": {
+    "message": "Copy token"
+  },
+  "app.observability-mcp.token-copied": {
+    "message": "Token copied"
+  },
+  "app.observability-mcp.copy-failed": {
+    "message": "Could not copy the token. Try again."
+  },
+  "app.observability-mcp.enable-first": {
+    "message": "Enable the observability MCP to see the connection address."
+  },
+  "app.observability-mcp.privacy-notice": {
+    "message": "Captured telemetry stays in this process: recent events, aggregated counters and histogram summaries, and span names with durations. Values the launcher marks sensitive are never recorded, and the lists are bounded."
+  },
+  "app.observability-mcp.claude-step": {
+    "message": "Run this command in a terminal. The tools only read telemetry, so no approval flow follows."
+  },
+  "app.observability-mcp.codex-step": {
+    "message": "Merge this into ~/.codex/config.toml, replacing any existing entry with the same name, then restart Codex."
+  },
+  "app.observability-mcp.debug-title": {
+    "message": "Read telemetry from an AI client"
+  },
+  "app.observability-mcp.debug-description": {
+    "message": "Start with observability_status, then list events, metrics or spans. These tools are read-only."
+  },
+  "app.observability-mcp.client-search": {
+    "message": "observability diagnostics telemetry traces spans metrics events OTLP MCP Codex Claude Code"
   }
 }

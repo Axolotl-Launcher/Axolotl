@@ -45,6 +45,7 @@ const settingsComponentFiles = {
     updates: ['./UpdateSettings.vue'],
     logs: ['./LogsSettings.vue'],
     about: ['./AboutSettings.vue'],
+    'observability-mcp': ['./ObservabilityMcpSettings.vue'],
     'feature-flags': ['./FeatureFlagSettings.vue'],
 } as const
 
@@ -215,7 +216,7 @@ it('settings navigation groups preserve the intended Axolotl information archite
         'logs',
     ])
     expect(categoriesForGroup('developer')).toEqual([])
-    expect(categoriesForGroup('developer', true)).toEqual(['feature-flags'])
+    expect(categoriesForGroup('developer', true)).toEqual(['observability-mcp', 'feature-flags'])
 })
 
 it('Chinese contains every user-facing settings category label', () => {

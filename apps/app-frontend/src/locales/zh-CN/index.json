@@ -21727,5 +21727,62 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "未知文件警告"
+  },
+  "app.observability-mcp.title": {
+    "message": "可观测性 MCP"
+  },
+  "app.observability-mcp.enabled": {
+    "message": "启用可观测性 MCP"
+  },
+  "app.observability-mcp.enabled-description": {
+    "message": "在内存中保留最近的遥测数据，供本机 AI 客户端读取。不会上传任何内容；关闭后会丢弃已保留的数据。"
+  },
+  "app.observability-mcp.require-auth": {
+    "message": "要求身份验证"
+  },
+  "app.observability-mcp.require-auth-description": {
+    "message": "要求客户端提供连接令牌。修改此项会重启监听。"
+  },
+  "app.observability-mcp.running": {
+    "message": "正在等待连接"
+  },
+  "app.observability-mcp.not-running": {
+    "message": "可观测性 MCP 未能启动。请先处理下方错误后重试。"
+  },
+  "app.observability-mcp.disabled": {
+    "message": "可观测性 MCP 已关闭，不会保留任何数据。"
+  },
+  "app.observability-mcp.token": {
+    "message": "连接令牌"
+  },
+  "app.observability-mcp.copy-token": {
+    "message": "复制令牌"
+  },
+  "app.observability-mcp.token-copied": {
+    "message": "令牌已复制"
+  },
+  "app.observability-mcp.copy-failed": {
+    "message": "无法复制令牌，请重试。"
+  },
+  "app.observability-mcp.enable-first": {
+    "message": "启用可观测性 MCP 后可查看连接地址。"
+  },
+  "app.observability-mcp.privacy-notice": {
+    "message": "捕获的遥测只保存在本进程内：最近的事件、聚合的计数器与直方图摘要，以及 span 名称与耗时。标记为敏感的取值不会被记录，各列表长度均有上限。"
+  },
+  "app.observability-mcp.claude-step": {
+    "message": "在终端运行该命令。工具只读取遥测数据，因此不会触发审批流程。"
+  },
+  "app.observability-mcp.codex-step": {
+    "message": "将该段合并到 ~/.codex/config.toml，替换同名条目后重启 Codex。"
+  },
+  "app.observability-mcp.debug-title": {
+    "message": "用 AI 客户端读取遥测"
+  },
+  "app.observability-mcp.debug-description": {
+    "message": "先调用 observability_status，再列出事件、指标或 span。这些工具均为只读。"
+  },
+  "app.observability-mcp.client-search": {
+    "message": "可观测性 诊断 遥测 追踪 span 指标 事件 OTLP MCP Codex Claude Code"
   }
 }

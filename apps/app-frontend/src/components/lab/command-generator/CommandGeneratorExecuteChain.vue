@@ -299,6 +299,8 @@ function onDragStart() {
     dragging.value = true
     const active = document.activeElement
     if (active instanceof HTMLElement) active.blur()
+    // sortablejs 的克隆体是在 start 之前就 clone 好的，拿不到上面那个 inert，这里补一下
+    chainSectionRef.value?.querySelector('.sortable-fallback')?.setAttribute('inert', '')
 }
 
 function onDragEnd() {
@@ -407,86 +409,96 @@ defineExpose({ getState, setState })
                         :data-step-id="step.id"
                         class="min-w-0 rounded-lg border border-solid border-surface-4 bg-surface-3 p-3"
                     >
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span
-                                class="execute-chain-drag-handle flex shrink-0 cursor-grab touch-none items-center text-[var(--color-text-tertiary)] active:cursor-grabbing"
-                                aria-hidden="true"
-                                ><GripVerticalIcon class="h-4 w-4"
-                            /></span>
-                            <span class="text-sm tabular-nums text-[var(--color-text-tertiary)]"
-                                >{{ index + 1 }}.</span
-                            >
-                            <button
-                                class="flex min-w-0 flex-1 items-center gap-2 bg-transparent p-0 text-left text-sm font-semibold text-[var(--color-text-primary)]"
-                                :aria-expanded="step.expanded"
-                                @click="step.expanded = !step.expanded"
-                            >
-                                <component
-                                    :is="subcommandIcon(step.subcommandId)"
+                        <!-- 拖动时内容整体 inert：卡片留在原位、克隆体跟着指针，两者都不该再吃焦点 -->
+                        <div class="min-w-0" :inert="dragging || undefined">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span
+                                    class="execute-chain-drag-handle flex shrink-0 cursor-grab touch-none items-center text-[var(--color-text-tertiary)] active:cursor-grabbing"
                                     aria-hidden="true"
-                                    class="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]"
-                                />
-                                <span>
-                                    {{
-                                        getSubcommand(step.subcommandId)
-                                            ? formatDynamic(
-                                                  getSubcommand(step.subcommandId)!.labelKey,
-                                                  step.subcommandId,
-                                              )
-                                            : step.subcommandId
-                                    }}
-                                </span>
-                            </button>
-                            <div
-                                class="flex items-center gap-1"
-                                data-tooltip-group="execute-actions"
-                            >
-                                <Button
-                                    v-tooltip="formatMessage(messages.moveUp)"
-                                    type="quiet"
-                                    size="sm"
-                                    icon-only
-                                    :label="formatMessage(messages.moveUp)"
-                                    :disabled="index === 0"
-                                    @click="moveStep(index, -1)"
-                                    ><ChevronUpIcon
-                                        class="transition-transform duration-200 ease-out"
-                                        :class="isNudged(step.id, 'up') ? '-translate-y-1' : ''"
-                                /></Button>
-                                <Button
-                                    v-tooltip="formatMessage(messages.moveDown)"
-                                    type="quiet"
-                                    size="sm"
-                                    icon-only
-                                    :label="formatMessage(messages.moveDown)"
-                                    :disabled="index === chain.length - 1"
-                                    @click="moveStep(index, 1)"
-                                    ><ChevronDownIcon
-                                        class="transition-transform duration-200 ease-out"
-                                        :class="isNudged(step.id, 'down') ? 'translate-y-1' : ''"
-                                /></Button>
-                                <Button
-                                    v-tooltip="formatMessage(messages.removeStep)"
-                                    type="quiet"
-                                    size="sm"
-                                    icon-only
-                                    :label="formatMessage(messages.removeStep)"
-                                    @click="removeStep(index)"
-                                    ><XIcon
-                                /></Button>
+                                    ><GripVerticalIcon class="h-4 w-4"
+                                /></span>
+                                <span class="text-sm tabular-nums text-[var(--color-text-tertiary)]"
+                                    >{{ index + 1 }}.</span
+                                >
+                                <button
+                                    class="flex min-w-0 flex-1 items-center gap-2 bg-transparent p-0 text-left text-sm font-semibold text-[var(--color-text-primary)]"
+                                    :aria-expanded="step.expanded"
+                                    @click="step.expanded = !step.expanded"
+                                >
+                                    <component
+                                        :is="subcommandIcon(step.subcommandId)"
+                                        aria-hidden="true"
+                                        class="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]"
+                                    />
+                                    <span>
+                                        {{
+                                            getSubcommand(step.subcommandId)
+                                                ? formatDynamic(
+                                                      getSubcommand(step.subcommandId)!.labelKey,
+                                                      step.subcommandId,
+                                                  )
+                                                : step.subcommandId
+                                        }}
+                                    </span>
+                                </button>
+                                <div
+                                    class="flex items-center gap-1"
+                                    data-tooltip-group="execute-actions"
+                                >
+                                    <Button
+                                        v-tooltip="formatMessage(messages.moveUp)"
+                                        type="quiet"
+                                        size="sm"
+                                        icon-only
+                                        :label="formatMessage(messages.moveUp)"
+                                        :disabled="index === 0"
+                                        @click="moveStep(index, -1)"
+                                        ><ChevronUpIcon
+                                            class="transition-transform duration-200 ease-out"
+                                            :class="
+                                                isNudged(step.id, 'up') ? '-translate-y-1' : ''
+                                            "
+                                    /></Button>
+                                    <Button
+                                        v-tooltip="formatMessage(messages.moveDown)"
+                                        type="quiet"
+                                        size="sm"
+                                        icon-only
+                                        :label="formatMessage(messages.moveDown)"
+                                        :disabled="index === chain.length - 1"
+                                        @click="moveStep(index, 1)"
+                                        ><ChevronDownIcon
+                                            class="transition-transform duration-200 ease-out"
+                                            :class="
+                                                isNudged(step.id, 'down') ? 'translate-y-1' : ''
+                                            "
+                                    /></Button>
+                                    <Button
+                                        v-tooltip="formatMessage(messages.removeStep)"
+                                        type="quiet"
+                                        size="sm"
+                                        icon-only
+                                        :label="formatMessage(messages.removeStep)"
+                                        @click="removeStep(index)"
+                                        ><XIcon
+                                    /></Button>
+                                </div>
                             </div>
-                        </div>
-                        <code
-                            class="mt-2 block break-all text-xs leading-5 text-[var(--color-text-tertiary)]"
-                            >{{ renderStep(step) }}</code
-                        >
-                        <div v-if="step.expanded" class="mt-4 grid min-w-0 gap-4 md:grid-cols-2">
-                            <CommandGeneratorArgument
-                                v-for="arg in getSubcommand(step.subcommandId)?.arguments ?? []"
-                                :key="arg.name"
-                                v-model="step.values[arg.name]"
-                                :arg="arg"
-                            />
+                            <code
+                                class="mt-2 block break-all text-xs leading-5 text-[var(--color-text-tertiary)]"
+                                >{{ renderStep(step) }}</code
+                            >
+                            <div
+                                v-if="step.expanded"
+                                class="mt-4 grid min-w-0 gap-4 md:grid-cols-2"
+                            >
+                                <CommandGeneratorArgument
+                                    v-for="arg in getSubcommand(step.subcommandId)?.arguments ?? []"
+                                    :key="arg.name"
+                                    v-model="step.values[arg.name]"
+                                    :arg="arg"
+                                />
+                            </div>
                         </div>
                     </li>
                 </template>

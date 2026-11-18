@@ -69,6 +69,7 @@ pub(crate) mod external_version;
 pub(crate) mod instance_runtime;
 mod local_artifact;
 mod natives;
+mod version_json;
 
 pub mod download;
 pub mod jvm_args;

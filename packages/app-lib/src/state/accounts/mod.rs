@@ -30,7 +30,7 @@ impl Accounts {
     pub(crate) fn new(persistence: &Persistence) -> Self {
         Self {
             document: persistence
-                .document("accounts.json", "axolotl-accounts", 1)
+                .document(crate::state::layout::ACCOUNTS, "axolotl-accounts", 1)
                 .expect("constant account document path"),
             session: Arc::new(Session::default()),
             _temporary: None,

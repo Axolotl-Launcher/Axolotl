@@ -28,7 +28,7 @@ fn document(
     persistence: &crate::state::persistence::Persistence,
 ) -> crate::state::persistence::document::Document {
     persistence
-        .document("state/sync-pending.json", PROTOCOL, 1)
+        .document(crate::state::layout::SYNC_PENDING, PROTOCOL, 1)
         .expect("constant pending path")
 }
 

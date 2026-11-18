@@ -12,15 +12,15 @@ use std::time::Duration;
 async fn cold_core_pool_serves_reads_during_disabled_sync_config_and_backup() {
     let temporary = tempfile::tempdir().unwrap();
     let dirs = DirectoryInfo {
-        settings_dir: temporary.path().join("settings"),
+        settings_dir: temporary.path().join("data/settings"),
         config_dir: temporary.path().join("content"),
         app_identifier: "startup-concurrency-test".into(),
     };
-    tokio::fs::create_dir_all(dirs.settings_dir.join("settings"))
+    tokio::fs::create_dir_all(dirs.settings_dir.join("data/settings"))
         .await
         .unwrap();
     tokio::fs::write(
-        dirs.settings_dir.join("settings/bootstrap.json"),
+        dirs.settings_dir.join("data/settings/bootstrap.json"),
         serde_json::to_vec(&serde_json::json!({
             "schema_version": 1,
             "data": { "custom_dir": dirs.config_dir }
@@ -30,7 +30,7 @@ async fn cold_core_pool_serves_reads_during_disabled_sync_config_and_backup() {
     .await
     .unwrap();
     tokio::fs::write(
-        dirs.settings_dir.join("settings/appearance.json"),
+        dirs.settings_dir.join("data/settings/appearance.json"),
         serde_json::to_vec(&serde_json::json!({
             "schema_version": 1,
             "data": { "minimal_home_instance_id": "instance-0" }

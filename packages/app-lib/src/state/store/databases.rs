@@ -6,6 +6,7 @@
 //! super-journal makes transactions spanning attached files atomic. Changing
 //! these connections to WAL would lose that property.
 
+use crate::state::layout;
 use serde::Deserialize;
 use sqlx::sqlite::{
     SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions,
@@ -91,11 +92,120 @@ fn qualified(table: &Table) -> String {
 }
 
 pub(crate) fn directory(settings_dir: &Path) -> PathBuf {
-    settings_dir.join("databases")
+    layout::data(settings_dir)
 }
 
 pub(crate) fn exists(settings_dir: &Path) -> bool {
     directory(settings_dir).join("system.db").is_file()
+}
+
+pub(crate) async fn has_installation(
+    settings_dir: &Path,
+) -> crate::Result<bool> {
+    if has_installation_record(settings_dir).await? {
+        return Ok(true);
+    }
+    any_member(
+        settings_dir,
+        &["data/system.db", "data/instances.db", "data/storage.db"],
+    )
+    .await
+}
+
+async fn has_installation_record(settings_dir: &Path) -> crate::Result<bool> {
+    any_member(
+        settings_dir,
+        &[
+            layout::INSTALLATION,
+            "data/persistence/installation.json.previous",
+            layout::INSTANCE_RECOVERY,
+        ],
+    )
+    .await
+}
+
+async fn any_member(
+    settings_dir: &Path,
+    members: &[&str],
+) -> crate::Result<bool> {
+    for relative in members {
+        match tokio::fs::symlink_metadata(settings_dir.join(relative)).await {
+            Ok(_) => return Ok(true),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(false)
+}
+
+async fn verify_core_files(settings_dir: &Path) -> crate::Result<()> {
+    let directory = layout::data(settings_dir);
+    let mut missing = Vec::new();
+    let mut existing = Vec::new();
+    for name in ["system.db", "instances.db", "storage.db"] {
+        let path = directory.join(name);
+        match tokio::fs::symlink_metadata(&path).await {
+            Ok(metadata) if metadata.is_file() => {
+                existing.push((path, metadata.len()))
+            }
+            Ok(_) => {
+                return Err(crate::ErrorKind::FSError(format!(
+                    "A durable database domain ({name}) is not a regular file"
+                ))
+                .into());
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                missing.push(name);
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let unavailable = || {
+        crate::ErrorKind::FSError(format!(
+            "Durable database domains ({}) are unavailable; restore the complete database set before continuing",
+            missing.join(", ")
+        ))
+    };
+    if has_installation_record(settings_dir).await? {
+        return Err(unavailable().into());
+    }
+    for (path, length) in existing {
+        if length == 0 {
+            continue;
+        }
+        let mut connection =
+            crate::state::db_backup::open_read_only_db(&path).await?;
+        let has_schema: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM main.sqlite_schema)",
+        )
+        .fetch_one(&mut connection)
+        .await?;
+        connection.close().await?;
+        if has_schema {
+            return Err(unavailable().into());
+        }
+    }
+    Ok(())
+}
+
+pub(super) async fn mark_installation(
+    settings_dir: &Path,
+) -> crate::Result<()> {
+    let path = settings_dir.join(layout::INSTALLATION);
+    if !tokio::fs::try_exists(&path).await? {
+        crate::state::persistence::document::write_json(
+            &path,
+            serde_json::to_vec(&serde_json::json!({
+                "protocol": "axolotl-storage-installation",
+                "schema_version": 1,
+            }))?,
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 async fn attached_domains(
@@ -318,9 +428,9 @@ where
                 .sync_all()
                 .await?;
         }
-        let settings = settings_dir.join("settings");
-        let target_settings = staging.join("settings");
-        tokio::fs::create_dir(&target_settings).await?;
+        let settings = settings_dir.join(layout::SETTINGS);
+        let target_settings = staging.join(layout::SETTINGS);
+        tokio::fs::create_dir_all(&target_settings).await?;
         if tokio::fs::try_exists(&settings).await? {
             let mut entries = tokio::fs::read_dir(&settings).await?;
             while let Some(entry) = entries.next_entry().await? {
@@ -384,20 +494,23 @@ where
     before_copy().await;
     let result = async {
         backup_receipts(settings_dir, &staging, &mut exclusions, false).await?;
+        if !exclusions.iter().any(|domain| domain == "sync") {
+            super::sync_documents::copy_pack_files(
+                &settings_dir.join(layout::SYNC_ROOT),
+                &staging.join("synced-options"),
+            ).await?;
+        }
         if let Err(error) = super::records_db::backup(settings_dir, &staging.join("records.db")).await {
             tracing::warn!(%error,"Core snapshot excludes unavailable optional daily history");
             exclusions.push("daily-playtime".into());
             crate::state::persistence::document::write_json(&staging.join("backup-status.json"),serde_json::to_vec(&serde_json::json!({"optional_exclusions":["records.db"]}))?).await?;
         }
-        if let Err(error)=super::operations_db::backup(settings_dir,&staging.join(super::operations_db::FILE)).await {
-            tracing::warn!(%error,"Optional task history excluded from core snapshot");
-            exclusions.push("operation-history".into());
-        }
+        copy_regular(&settings_dir.join(layout::INSTALLATION), &staging.join(layout::INSTALLATION)).await?;
         super::recovery_documents::backup(&staging.join("system.db"),&staging).await?;
         let mut absent_authorities = backup_independent_files(settings_dir,&staging).await?;
         absent_authorities.extend(absent_settings);
         capture_missing_authorities(settings_dir, &staging, &mut exclusions, &mut absent_authorities).await?;
-        crate::state::persistence::document::write_json(&staging.join("snapshot.json"),serde_json::to_vec(&serde_json::json!({"protocol":"axolotl-storage-snapshot","version":1,"absent_authorities":absent_authorities,"optional_exclusions":exclusions,"core":["system.db","instances.db","storage.db"]}))?).await?;
+        crate::state::persistence::document::write_json(&staging.join("snapshot.json"),serde_json::to_vec(&serde_json::json!({"protocol":"axolotl-storage-snapshot","version":layout::SNAPSHOT_VERSION,"absent_authorities":absent_authorities,"optional_exclusions":exclusions,"core":["system.db","instances.db","storage.db"]}))?).await?;
         tokio::fs::write(staging.join("complete"), b"axolotl database set\n")
             .await?;
         tokio::fs::rename(&staging, &destination).await?;
@@ -420,9 +533,9 @@ async fn backup_receipts(
 ) -> crate::Result<()> {
     // Keep takeover receipts with the snapshot. Restoring only the SQL
     // files must never make a retired domain active again.
-    let receipts = settings_dir.join("state/persistence/imports");
+    let receipts = settings_dir.join(layout::IMPORT_RECEIPTS);
     if tokio::fs::try_exists(&receipts).await? {
-        let target = staging.join("state/persistence/imports");
+        let target = staging.join(layout::IMPORT_RECEIPTS);
         tokio::fs::create_dir_all(&target).await?;
         let mut entries = tokio::fs::read_dir(&receipts).await?;
         while let Some(entry) = entries.next_entry().await? {
@@ -494,7 +607,7 @@ async fn preserve_raw_receipt(
     name: &str,
 ) -> crate::Result<()> {
     let relative =
-        PathBuf::from("state/persistence/imports").join(format!("{name}.json"));
+        PathBuf::from(layout::IMPORT_RECEIPTS).join(format!("{name}.json"));
     let source = root.join(&relative);
     if tokio::fs::try_exists(&source).await? {
         copy_regular(&source, &staging.join("unavailable").join(&relative))
@@ -559,7 +672,7 @@ async fn capture_missing_authorities(
         if exclusions.iter().any(|excluded| excluded == name) {
             continue;
         }
-        let marker = format!("state/persistence/imports/{name}.json");
+        let marker = format!("{}/{name}.json", layout::IMPORT_RECEIPTS);
         if staging.join(relative).exists() && staging.join(&marker).exists() {
             continue;
         }
@@ -601,24 +714,32 @@ async fn capture_missing_authorities(
 }
 
 pub(super) const IMPORT_AUTHORITIES: [(&str, &str, &str); 8] = [
-    ("accounts", "accounts.json", "axolotl-accounts"),
-    ("telemetry", "state/telemetry.json", "axolotl-telemetry"),
-    ("media", "state/media.json", "axolotl-media"),
-    ("worlds", "state/worlds.json", "axolotl-world-choices"),
-    ("joins", "state/joins.json", "axolotl-server-joins"),
+    ("accounts", layout::ACCOUNTS, "axolotl-accounts"),
+    ("telemetry", layout::TELEMETRY, "axolotl-telemetry"),
+    ("media", layout::MEDIA, "axolotl-media"),
+    (
+        "worlds",
+        "data/user-state/worlds.json",
+        "axolotl-world-choices",
+    ),
+    (
+        "joins",
+        "data/user-state/joins.json",
+        "axolotl-server-joins",
+    ),
     (
         "shared_logs",
-        "state/shared_logs.json",
+        "data/user-state/shared_logs.json",
         "axolotl-shared-logs",
     ),
     (
         "resource_favorites",
-        "state/resource_favorites.json",
+        "data/user-state/resource_favorites.json",
         "axolotl-resource-favorites",
     ),
     (
         "instance_pins",
-        "state/instance_pins.json",
+        "data/user-state/instance_pins.json",
         "axolotl-instance-pins",
     ),
 ];
@@ -628,7 +749,7 @@ pub(super) fn known_settings_authorities() -> Vec<String> {
         .iter()
         .map(|(name, _, _)| *name)
         .chain(["ai", "translation", "log_share", "java", "login_proof"])
-        .map(|name| format!("settings/{name}.json"))
+        .map(|name| format!("{}/{name}.json", layout::SETTINGS))
         .collect()
 }
 
@@ -640,16 +761,13 @@ pub(super) fn known_absence_authorities() -> Vec<String> {
     paths.extend(known_settings_authorities());
     for (name, target, _) in IMPORT_AUTHORITIES {
         paths.push(target.into());
-        paths.push(format!("state/persistence/imports/{name}.json"));
+        paths.push(format!("{}/{name}.json", layout::IMPORT_RECEIPTS));
     }
     paths
 }
 
-pub(super) const STANDALONE_AUTHORITIES: [&str; 3] = [
-    "instance_groups.json",
-    "favorite_groups.json",
-    "axolotl_config.json",
-];
+pub(super) const STANDALONE_AUTHORITIES: [&str; 2] =
+    [layout::INSTANCE_GROUPS, layout::FAVORITE_GROUPS];
 
 async fn backup_independent_files(
     root: &Path,
@@ -658,10 +776,10 @@ async fn backup_independent_files(
     let mut absent = Vec::new();
     for name in STANDALONE_AUTHORITIES {
         let bytes = match name {
-            "instance_groups.json" => {
+            layout::INSTANCE_GROUPS => {
                 crate::state::instance_groups::snapshot(root)?
             }
-            "favorite_groups.json" => {
+            layout::FAVORITE_GROUPS => {
                 crate::state::favorite_groups::snapshot(root)?
             }
             _ => match crate::state::persistence::document::snapshot_json(
@@ -684,8 +802,16 @@ async fn backup_independent_files(
             None => absent.push(name.to_owned()),
         }
     }
-    let mut pending =
-        vec![PathBuf::from("state"), PathBuf::from("media/skins")];
+    let mut pending = [
+        "data/user-state",
+        "data/media",
+        "data/accounts",
+        "data/telemetry",
+        "data/persistence",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .collect::<Vec<_>>();
     while let Some(relative) = pending.pop() {
         let source = root.join(&relative);
         if !tokio::fs::try_exists(&source).await? {
@@ -698,8 +824,12 @@ async fn backup_independent_files(
         let mut entries = tokio::fs::read_dir(&source).await?;
         while let Some(entry) = entries.next_entry().await? {
             let relative = relative.join(entry.file_name());
-            if relative == Path::new("state/persistence/imports")
-                || relative == Path::new("state/instances")
+            if [
+                layout::IMPORT_RECEIPTS,
+                layout::IMPORT_SNAPSHOT,
+                layout::RESTORE_INTENT,
+            ]
+            .contains(&relative.to_str().unwrap_or_default())
             {
                 continue;
             }
@@ -711,14 +841,25 @@ async fn backup_independent_files(
             {
                 let target = staging.join(&relative);
                 if !tokio::fs::try_exists(&target).await? {
-                    copy_regular(
-                        &entry.path(),
-                        &staging.join("unavailable").join(&relative),
-                    )
-                    .await?;
+                    let destination =
+                        if relative.starts_with("data/media/skins") {
+                            target
+                        } else {
+                            staging.join("unavailable").join(&relative)
+                        };
+                    copy_regular(&entry.path(), &destination).await?;
                 }
             }
         }
+    }
+    if let Some(bytes) = crate::state::persistence::document::snapshot_json(
+        &root.join(layout::SYNC_PENDING),
+    )? {
+        crate::state::persistence::document::write_blob(
+            &staging.join(layout::SYNC_PENDING),
+            bytes,
+        )
+        .await?;
     }
     Ok(absent)
 }
@@ -779,11 +920,7 @@ pub(crate) async fn maintain_backups(
 /// All connections attach only the relational instance and ownership files.
 /// Independent documents, history and derived databases are never attachments.
 pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
-    if tokio::fs::try_exists(
-        settings_dir.join("databases/storage-restore.json"),
-    )
-    .await?
-    {
+    if tokio::fs::try_exists(settings_dir.join(layout::RESTORE_INTENT)).await? {
         let _ownership = crate::state::db::acquire_domain_ownership(
             &directory(settings_dir).join("system.db"),
         )
@@ -801,6 +938,9 @@ pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
     let core_import_complete: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM main.database_imports WHERE source='app.db' AND completed=1)",
     ).fetch_one(&pool).await?;
+    if !core_import_complete {
+        super::legacy_documents::copy_existing_documents(settings_dir).await?;
+    }
     if has_legacy_app && !core_import_complete {
         // Empty new core tables are not import sources. The first takeover
         // provides a migrated snapshot before any independent receipt exists.
@@ -811,7 +951,11 @@ pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
     {
         tracing::warn!(%error,"Optional daily history unavailable; core startup continues");
     }
-    if !has_legacy_app || settings_dir.join("settings/bootstrap.json").is_file()
+    if !has_legacy_app
+        || settings_dir
+            .join(layout::SETTINGS)
+            .join("bootstrap.json")
+            .is_file()
     {
         super::sync_documents::initialize(settings_dir, None).await;
     }
@@ -850,13 +994,7 @@ async fn open_with_retired(
             .await?,
     );
     super::maintenance::finish_restore(settings_dir).await?;
-    if !root.join("system.db").is_file()
-        && ["instances", "storage"]
-            .iter()
-            .any(|domain| root.join(format!("{domain}.db")).is_file())
-    {
-        return Err(crate::ErrorKind::FSError("The database coordinator is missing; existing domain files were preserved instead of reimported".into()).into());
-    }
+    verify_core_files(settings_dir).await?;
     let memory_name = String::new();
     let options = SqliteConnectOptions::new()
         .filename(directory(settings_dir).join("system.db"))
@@ -881,6 +1019,8 @@ async fn open_with_retired(
     }
     initialize_connection(&mut keeper, &root, &memory_name, true, &domains)
         .await?;
+    mark_installation(settings_dir).await?;
+    tokio::fs::create_dir_all(root.join("groups")).await?;
     let pool = SqlitePoolOptions::new()
         // Preserve the previous launcher pool budget: waiting SQLite writers
         // must not consume every slot needed by an active writer's readers.
@@ -1325,7 +1465,7 @@ pub(crate) async fn import(
         for legacy_table in &legacy_baseline().tables {
             let Some(table)=baseline().tables.iter().find(|table|table.name==legacy_table.name) else {continue};
             if !attached.contains(&table.domain) { continue; }
-            if table.name == "cache" { continue; }
+            if matches!(table.name.as_str(), "cache" | "resource_identity_evidence") { continue; }
             let columns = table.columns.iter().map(|column| quote(column)).collect::<Vec<_>>().join(", ");
             connection.execute(sqlx::AssertSqlSafe(format!("DELETE FROM {}", qualified(table)).as_str())).await?;
             connection.execute(sqlx::AssertSqlSafe(format!("INSERT INTO {} ({columns}) SELECT {columns} FROM legacy_import.{}", qualified(table), quote(&table.name)).as_str())).await?;
@@ -1367,8 +1507,8 @@ mod tests {
             .unwrap();
         let _unavailable = super::super::secrets::testing::without_store();
         let pool = open(root.path()).await.unwrap();
-        assert!(!root.path().join("accounts.json").exists());
-        assert!(!root.path().join("state/persistence/imports").exists());
+        assert!(!root.path().join("data/accounts/accounts.json").exists());
+        assert!(!root.path().join("data/persistence/imports").exists());
         assert_eq!(
             tokio::fs::read(root.path().join("release/app.db"))
                 .await
@@ -1385,15 +1525,13 @@ mod tests {
     async fn failed_core_open_preserves_independent_sources_without_credential_writes()
      {
         let root = tempfile::tempdir().unwrap();
-        tokio::fs::create_dir_all(root.path().join("databases"))
+        tokio::fs::create_dir_all(root.path().join("data/telemetry"))
             .await
             .unwrap();
-        tokio::fs::create_dir_all(
-            root.path().join("state/persistence/imports"),
-        )
-        .await
-        .unwrap();
-        let retry = root.path().join("databases/legacy-document-import.db");
+        tokio::fs::create_dir_all(root.path().join("data/persistence/imports"))
+            .await
+            .unwrap();
+        let retry = root.path().join("data/persistence/legacy-app.db");
         let legacy = SqlitePoolOptions::new()
             .max_connections(1)
             .connect_with(
@@ -1408,34 +1546,31 @@ mod tests {
         sqlx::query("INSERT INTO minecraft_users VALUES('microsoft:test','00000000-0000-4000-8000-000000000001','Player','microsoft',1,0,0,'preserved-access','preserved-refresh')")
             .execute(&legacy).await.unwrap();
         legacy.close().await;
-        tokio::fs::write(
-            root.path().join("databases/system.db"),
-            b"corrupt core",
-        )
-        .await
-        .unwrap();
+        tokio::fs::write(root.path().join("data/system.db"), b"corrupt core")
+            .await
+            .unwrap();
         // Ownership is an existing core protocol, independent of document
         // publication. Precreate its empty file to compare the whole tree.
         tokio::fs::write(
-            root.path().join("databases/system.db.ownership.lock"),
+            root.path().join("data/system.db.ownership.lock"),
             b"",
         )
         .await
         .unwrap();
         tokio::fs::write(
-            root.path().join("state/telemetry.json"),
+            root.path().join("data/telemetry/telemetry.json"),
             b"corrupt document",
         )
         .await
         .unwrap();
-        tokio::fs::write(root.path().join("state/telemetry.json.previous"), br#"{"protocol":"axolotl-telemetry","schema_version":1,"revision":1,"data":{"installation_id":"preserved","outbox":{}}}"#).await.unwrap();
+        tokio::fs::write(root.path().join("data/telemetry/telemetry.json.previous"), br#"{"protocol":"axolotl-telemetry","schema_version":1,"revision":1,"data":{"installation_id":"preserved","outbox":{}}}"#).await.unwrap();
         tokio::fs::write(
-            root.path().join("state/persistence/imports/telemetry.json"),
+            root.path().join("data/persistence/imports/telemetry.json"),
             b"corrupt receipt",
         )
         .await
         .unwrap();
-        tokio::fs::write(root.path().join("state/persistence/imports/telemetry.json.previous"), br#"{"protocol":"axolotl-import","schema_version":1,"revision":1,"data":{"name":"telemetry","target":"state/telemetry.json","complete":true}}"#).await.unwrap();
+        tokio::fs::write(root.path().join("data/persistence/imports/telemetry.json.previous"), br#"{"protocol":"axolotl-import","schema_version":1,"revision":1,"data":{"name":"telemetry","target":"data/telemetry/telemetry.json","complete":true}}"#).await.unwrap();
         fn tree(root: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
             fn visit(
                 base: &Path,
@@ -1522,7 +1657,7 @@ mod tests {
         let persistence =
             crate::state::persistence::Persistence::new(root.path());
         let target = persistence
-            .document("accounts.json", "axolotl-accounts", 1)
+            .document("data/accounts/accounts.json", "axolotl-accounts", 1)
             .unwrap();
         crate::state::persistence::import::Import::new(
             &persistence,
@@ -1552,15 +1687,19 @@ mod tests {
         .await
         .unwrap();
         assert!(excluded.is_empty());
-        assert!(!absent.iter().any(|name| name == "accounts.json"));
+        assert!(
+            !absent
+                .iter()
+                .any(|name| name == "data/accounts/accounts.json")
+        );
         assert!(
             staged
                 .path()
-                .join("state/persistence/imports/accounts.json")
+                .join("data/persistence/imports/accounts.json")
                 .is_file()
         );
         let value: serde_json::Value = serde_json::from_slice(
-            &tokio::fs::read(staged.path().join("accounts.json"))
+            &tokio::fs::read(staged.path().join("data/accounts/accounts.json"))
                 .await
                 .unwrap(),
         )
@@ -1572,12 +1711,15 @@ mod tests {
     async fn backup_never_completes_with_a_corrupt_standalone_authority() {
         let root = tempfile::tempdir().unwrap();
         let pool = open(root.path()).await.unwrap();
-        tokio::fs::write(root.path().join("favorite_groups.json"), b"{")
-            .await
-            .unwrap();
+        tokio::fs::write(
+            root.path().join("data/groups/favorite_groups.json"),
+            b"{",
+        )
+        .await
+        .unwrap();
         assert!(backup(&pool, root.path()).await.is_err());
         let parent = crate::state::db_backup::app_db_backup_dir_for(
-            &root.path().join("databases/system.db"),
+            &root.path().join("data/system.db"),
         )
         .unwrap();
         let mut entries = tokio::fs::read_dir(parent).await.unwrap();
@@ -1777,7 +1919,7 @@ mod tests {
         // stays unavailable and must not be replaced from the retired SQL.
         let newer_media = br#"{"protocol":"axolotl-media","schema_version":2,"revision":1,"data":{"future_reference":"retain"}}"#;
         tokio::fs::write(
-            temporary.path().join("state/media.json"),
+            temporary.path().join("data/media/media.json"),
             newer_media,
         )
         .await
@@ -1804,7 +1946,7 @@ mod tests {
         drop(second);
         assert!(ensure_cleanup_supported(&pool).await.is_err());
         assert_eq!(
-            tokio::fs::read(temporary.path().join("state/media.json"))
+            tokio::fs::read(temporary.path().join("data/media/media.json"))
                 .await
                 .unwrap(),
             newer_media
@@ -1842,7 +1984,7 @@ mod tests {
         let persistence =
             crate::state::persistence::Persistence::new(temporary.path());
         let document = persistence
-            .document("state/telemetry.json", "test", 1)
+            .document("data/telemetry/telemetry.json", "test", 1)
             .unwrap();
         crate::state::persistence::import::Import::new(
             &persistence,
@@ -1862,7 +2004,7 @@ mod tests {
     #[tokio::test]
     async fn unreadable_handover_does_not_make_retired_sql_data_available() {
         let temporary = tempfile::tempdir().unwrap();
-        let receipts = temporary.path().join("state/persistence/imports");
+        let receipts = temporary.path().join("data/persistence/imports");
         tokio::fs::create_dir_all(&receipts).await.unwrap();
         tokio::fs::write(receipts.join("accounts.json"), b"broken")
             .await
@@ -1915,7 +2057,7 @@ mod tests {
         assert!(!snapshot.join("accounts.db").exists());
         assert!(
             snapshot
-                .join("state/persistence/imports/accounts.json")
+                .join("data/persistence/imports/accounts.json")
                 .is_file()
         );
         assert_eq!(
@@ -2201,9 +2343,11 @@ mod tests {
         let pool = open(temporary.path()).await.unwrap();
         import(&pool, &source, temporary.path()).await.unwrap();
         let appearance: serde_json::Value = serde_json::from_slice(
-            &tokio::fs::read(temporary.path().join("settings/appearance.json"))
-                .await
-                .unwrap(),
+            &tokio::fs::read(
+                temporary.path().join("data/settings/appearance.json"),
+            )
+            .await
+            .unwrap(),
         )
         .unwrap();
         assert_eq!(appearance["data"]["default_page"], "Library");
@@ -2233,8 +2377,8 @@ mod tests {
     async fn legacy_row_migration_does_not_migrate_existing_document_hooks_again()
      {
         let temporary = tempfile::tempdir().unwrap();
-        let directory = temporary.path().join("settings");
-        tokio::fs::create_dir(&directory).await.unwrap();
+        let directory = temporary.path().join("data/settings");
+        tokio::fs::create_dir_all(&directory).await.unwrap();
         let original = br#"{"schema_version":2,"data":{"hooks":{"wrapper":"\"already quoted command\""}}}"#;
         tokio::fs::write(directory.join("game.json"), original)
             .await
@@ -2319,11 +2463,11 @@ mod tests {
             curseforge_settings::get(&pool).await.unwrap().as_deref(),
             Some("changed-key")
         );
-        assert!(temporary.path().join("settings/proxy.json").is_file());
+        assert!(temporary.path().join("data/settings/proxy.json").is_file());
         assert!(
             temporary
                 .path()
-                .join("settings/content_providers.json")
+                .join("data/settings/content_providers.json")
                 .is_file()
         );
     }

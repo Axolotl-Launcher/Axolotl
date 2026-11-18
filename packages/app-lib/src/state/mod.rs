@@ -94,6 +94,7 @@ pub(crate) mod content_store;
 pub(crate) mod documents;
 pub mod favorite_groups;
 pub mod instance_groups;
+pub(crate) mod layout;
 pub(crate) mod media;
 pub(crate) mod persistence;
 pub(crate) mod recovery;
@@ -463,26 +464,10 @@ impl State {
     {
         self.resource_service
             .get_or_try_init(|| async {
-                let selected = db::read_update_channel_state(&self.directories.settings_dir)
-                    .await
-                    .map_err(|error| crate::resources::ResourceError::Cache(error.to_string()))?;
-                let channel = selected.active_channel.as_deref()
-                    .filter(|channel| matches!(*channel, "release" | "beta"))
-                    .unwrap_or_else(|| db::default_update_channel());
-                let path = self
-                    .directories
-                    .resource_cache_db(channel)
-                    .map_err(|_| {
-                        crate::resources::ResourceError::InvalidRequest(
-                            "invalid cache channel".into(),
-                        )
-                    })?;
+                let path = self.directories.resource_cache_db();
                 let cache = Arc::new(
                     crate::resources::cache::ResourceCache::open(path).await,
                 );
-                if let Err(error) = cache.import_legacy(self.cache_pool()).await {
-                    tracing::warn!(error = %error, "Legacy resource cache import incomplete");
-                }
                 crate::resources::ResourceService::with_store(
                     cache,
                     crate::resources::providers::default_providers(),
@@ -1602,7 +1587,7 @@ impl State {
 
         let derived = store::derived_db::DerivedDb::open(
             directories
-                .databases_dir()
+                .cache_db_dir()
                 .join(store::derived_db::FILE_NAME),
         )
         .await;
@@ -1839,6 +1824,8 @@ pub(crate) async fn test_state(
     directories: DirectoryInfo,
     pool: SqlitePool,
 ) -> crate::Result<Arc<State>> {
+    tokio::fs::create_dir_all(directories.databases_dir().join("groups"))
+        .await?;
     store::legacy_documents::initialize(&directories.settings_dir).await;
     let file_watcher = instances::watcher::init_watcher().await?;
     let curseforge_api_key = curseforge_settings::get(&pool).await?;
@@ -1851,7 +1838,7 @@ pub(crate) async fn test_state(
     )?;
     let derived = store::derived_db::DerivedDb::open(
         directories
-            .databases_dir()
+            .cache_db_dir()
             .join(store::derived_db::FILE_NAME),
     )
     .await;

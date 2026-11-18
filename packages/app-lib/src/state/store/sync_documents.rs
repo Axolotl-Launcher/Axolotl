@@ -1,6 +1,7 @@
 //! SQL is only the read-only old sync importer and coordinator decision record.
 use super::Collection;
 use crate::state::{
+    layout,
     persistence::{Persistence, import::Import},
     sync_state::{self, manifest},
 };
@@ -14,9 +15,11 @@ pub(crate) async fn configured_root(root: &Path) -> crate::Result<PathBuf> {
     let pool = SqlitePool::connect_lazy_with(
         sqlx::sqlite::SqliteConnectOptions::new().in_memory(true),
     );
-    let documents =
-        crate::state::documents::Documents::at(root.join("settings"), &pool)
-            .with_config_root(crate::state::documents::config_root());
+    let documents = crate::state::documents::Documents::at(
+        root.join(layout::SETTINGS),
+        &pool,
+    )
+    .with_config_root(crate::state::documents::config_root());
     crate::state::documents::settings::content_root_before_state(
         root, &documents,
     )
@@ -33,12 +36,15 @@ async fn initialize_inner(
 ) -> crate::Result<()> {
     let persistence = Persistence::new(root);
     let shared = sync_state::root(&persistence).await?;
-    let target =
-        persistence.document("state/sync.json", "axolotl-sync-authority", 1)?;
+    let target = persistence.document(
+        layout::SYNC_AUTHORITY,
+        "axolotl-sync-authority",
+        1,
+    )?;
     let source_root = root.to_owned();
     let initial_snapshot = snapshot.clone();
     let result = Import::new(&persistence,"sync",target)?.run(move||async move{
-  if initial_snapshot.is_none() && !source_root.join("databases/sync.db").is_file() && ["app.db","release/app.db","beta/app.db"].iter().any(|path|source_root.join(path).is_file()) && !source_root.join("databases/legacy-document-import.db").is_file(){return Err(crate::ErrorKind::FSError("Shared sync import awaits migrated source".into()).into());}
+  if initial_snapshot.is_none() && !source_root.join("databases/sync.db").is_file() && ["app.db","release/app.db","beta/app.db"].iter().any(|path|source_root.join(path).is_file()) && !source_root.join(layout::IMPORT_SNAPSHOT).is_file(){return Err(crate::ErrorKind::FSError("Shared sync import awaits migrated source".into()).into());}
   let read=manifest::document(&shared).read().await?;
   if read.availability==crate::state::persistence::status::Availability::Missing{
    let mut collections=manifest::Collections::new();let mut opaque=false;
@@ -70,6 +76,9 @@ async fn initialize_inner(
     connection.close().await?;
    }
    let history=shared.join("command_history.txt");
+   let legacy_shared=configured_root(&source_root).await?.join("synced-options");
+   copy_native_sources(&legacy_shared, &shared).await?;
+   copy_pack_files(&legacy_shared, &shared).await?;
    if history.is_file(){collections.entry("native_text".into()).or_default().insert("command_history".into(),json!({"record":{"document":manifest::read_bounded(&history,16<<20).await?}}));}
    manifest::initial(&shared,collections,opaque).await?;
   }else{manifest::load(&shared).await?;}
@@ -90,6 +99,85 @@ async fn initialize_inner(
     }
     Ok(())
 }
+async fn copy_native_sources(
+    source: &Path,
+    destination: &Path,
+) -> crate::Result<()> {
+    for name in [
+        "options.txt",
+        "command_history.txt",
+        "hotbar.nbt",
+        "servers.dat",
+    ] {
+        let path = source.join(name);
+        let target = destination.join(name);
+        if tokio::fs::try_exists(&target).await? {
+            continue;
+        }
+        match tokio::fs::symlink_metadata(&path).await {
+            Ok(metadata) if metadata.is_file() => {
+                crate::state::persistence::document::write_blob(
+                    &target,
+                    manifest::read_bounded(&path, 16 << 20).await?,
+                )
+                .await?;
+            }
+            Ok(_) => {
+                return Err(crate::ErrorKind::FSError(format!(
+                    "Shared sync source {} is not a regular file",
+                    path.display()
+                ))
+                .into());
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(())
+}
+
+pub(super) async fn copy_pack_files(
+    source: &Path,
+    destination: &Path,
+) -> crate::Result<()> {
+    let packs = source.join("packs/files");
+    let mut entries = match tokio::fs::read_dir(&packs).await {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(());
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let target_packs = destination.join("packs/files");
+    while let Some(entry) = entries.next_entry().await? {
+        let name = entry.file_name();
+        if !entry.file_type().await?.is_file()
+            || !name.to_str().is_some_and(|name| {
+                name.len() == 40
+                    && name.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
+        {
+            continue;
+        }
+        let target = target_packs.join(name);
+        if tokio::fs::try_exists(&target).await? {
+            continue;
+        }
+        tokio::fs::create_dir_all(&target_packs).await?;
+        let staged =
+            target.with_extension(format!("{}.next", uuid::Uuid::new_v4()));
+        tokio::fs::copy(entry.path(), &staged).await?;
+        tokio::fs::OpenOptions::new()
+            .write(true)
+            .open(&staged)
+            .await?
+            .sync_all()
+            .await?;
+        tokio::fs::rename(staged, target).await?;
+    }
+    Ok(())
+}
+
 /// Preserve every source cell, including columns and enum values this binary
 /// cannot interpret. Blob cells are immutable binary objects after preparation.
 async fn capture_raw(
@@ -328,7 +416,7 @@ pub(crate) async fn authority(
 ) -> crate::Result<std::path::PathBuf> {
     let configured = sync_state::root(persistence).await?;
     let read = persistence
-        .document("state/sync.json", "axolotl-sync-authority", 1)?
+        .document(layout::SYNC_AUTHORITY, "axolotl-sync-authority", 1)?
         .read()
         .await?;
     if !matches!(
@@ -368,106 +456,6 @@ pub(crate) async fn authority(
     Ok(configured)
 }
 
-/// Directory moves copy and validate the complete immutable generation before
-/// changing the descriptor. The original remains a retryable recovery source.
-pub(crate) async fn move_authority(
-    pool: &SqlitePool,
-    persistence: &Persistence,
-    old: &Path,
-    new: &Path,
-) -> crate::Result<()> {
-    let descriptor =
-        persistence.document("state/sync.json", "axolotl-sync-authority", 1)?;
-    let read = descriptor.read().await?;
-    if read.availability
-        == crate::state::persistence::status::Availability::Missing
-    {
-        return Ok(());
-    }
-    let data = read
-        .snapshot
-        .and_then(|snapshot| snapshot.data().cloned())
-        .ok_or_else(|| {
-            crate::ErrorKind::FSError("Sync move descriptor unavailable".into())
-        })?;
-    if data.get("contract").and_then(Value::as_u64) != Some(1) {
-        return Err(crate::ErrorKind::InputError(
-            "Unsupported sync move descriptor".into(),
-        )
-        .into());
-    }
-    let old = old.join("synced-options");
-    let new = new.join("synced-options");
-    let stored = data
-        .get("root")
-        .and_then(Value::as_str)
-        .map(Path::new)
-        .ok_or_else(|| {
-            crate::ErrorKind::InputError("Sync root missing".into())
-        })?;
-    if stored == new {
-        manifest::load(&new).await?;
-        return Ok(());
-    }
-    if stored != old {
-        return Err(crate::ErrorKind::FSError(
-            "Sync authority root does not match directory move source".into(),
-        )
-        .into());
-    }
-    let (mut tx, tx_diagnostics) =
-        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
-            .await?;
-    let committed = decision(&mut tx).await?;
-    let transaction =
-        sync_state::journal::Transaction::begin(old.clone(), committed.clone())
-            .await?;
-    let source = manifest::load(&old).await?.0;
-    let current = manifest::document(&new).read().await?;
-    if current.availability
-        != crate::state::persistence::status::Availability::Missing
-    {
-        let target = manifest::load(&new).await?.0;
-        if serde_json::to_value(&target)? != serde_json::to_value(&source)? {
-            return Err(crate::ErrorKind::FSError(
-                "Sync destination contains another generation".into(),
-            )
-            .into());
-        }
-    }
-    manifest::backup(&old, &new, committed.as_deref()).await?;
-    let target = manifest::load(&new).await?.0;
-    if serde_json::to_value(target)? != serde_json::to_value(source)? {
-        return Err(crate::ErrorKind::FSError(
-            "Sync move verification failed".into(),
-        )
-        .into());
-    }
-    let old_value = old.to_string_lossy().to_string();
-    let new_value = new.to_string_lossy().to_string();
-    descriptor
-        .update(move |data| {
-            if data.get("contract").and_then(Value::as_u64) != Some(1)
-                || data.get("root").and_then(Value::as_str)
-                    != Some(old_value.as_str())
-            {
-                return Err(crate::ErrorKind::InputError(
-                    "Sync descriptor changed while moving".into(),
-                )
-                .into());
-            }
-            data.insert("root".into(), Value::String(new_value));
-            Ok(())
-        })
-        .await?;
-    drop(transaction);
-    tx_diagnostics
-        .observe("rollback_wait", tx.rollback())
-        .await?;
-    tx_diagnostics.complete("rolled_back");
-    Ok(())
-}
-
 pub(crate) async fn backup_in(
     connection: &mut SqliteConnection,
     persistence: &Persistence,
@@ -478,7 +466,9 @@ pub(crate) async fn backup_in(
     let transaction =
         sync_state::journal::Transaction::begin(shared, committed.clone())
             .await?;
-    manifest::backup(&transaction.root, destination, committed.as_deref()).await
+    manifest::backup(&transaction.root, destination, committed.as_deref())
+        .await?;
+    copy_native_sources(&transaction.root, destination).await
 }
 
 #[cfg(test)]
@@ -534,14 +524,14 @@ mod tests {
         let custom = tempfile::tempdir().unwrap();
         let local = tempfile::tempdir().unwrap();
         let pool = crate::state::store::tests::support::empty_pool().await;
-        tokio::fs::create_dir(original.path().join("settings"))
+        tokio::fs::create_dir_all(original.path().join("data/settings"))
             .await
             .unwrap();
         tokio::fs::write(deployment.path().join("bootstrap.json"),
             serde_json::to_vec(&json!({"schema_version":1,"data":{"custom_dir":custom.path()}})).unwrap())
             .await.unwrap();
         let documents = crate::state::documents::Documents::at(
-            original.path().join("settings"),
+            original.path().join("data/settings"),
             &pool,
         )
         .with_config_root(Some(deployment.path().to_owned()));
@@ -555,7 +545,7 @@ mod tests {
             custom.path(),
         );
         tokio::fs::write(
-            original.path().join("settings/bootstrap.json"),
+            original.path().join("data/settings/bootstrap.json"),
             serde_json::to_vec(
                 &json!({"schema_version":1,"data":{"custom_dir":local.path()}}),
             )
@@ -607,7 +597,7 @@ mod tests {
             );
         }
         tokio::fs::write(
-            root.path().join("settings/resources.json"),
+            root.path().join("data/settings/resources.json"),
             br#"{"schema_version":1,"data":{"preferred_source":"mcarchive"}}"#,
         )
         .await
@@ -616,7 +606,7 @@ mod tests {
             .await
             .unwrap();
         let settings: Value = serde_json::from_slice(
-            &tokio::fs::read(root.path().join("settings/resources.json"))
+            &tokio::fs::read(root.path().join("data/settings/resources.json"))
                 .await
                 .unwrap(),
         )
@@ -641,13 +631,16 @@ mod tests {
             .unwrap();
         pool.close().await;
         drop(pool);
-        let shared = root.path().join("synced-options");
+        let shared = root.path().join(layout::SYNC_ROOT);
         tokio::fs::remove_file(shared.join("state/head.json"))
             .await
             .unwrap();
         tokio::fs::remove_file(shared.join("state/head.json.previous"))
             .await
             .ok();
+        tokio::fs::create_dir(root.path().join("databases"))
+            .await
+            .unwrap();
         tokio::fs::write(
             root.path().join("databases/sync.db"),
             b"corrupt retired SQLite",

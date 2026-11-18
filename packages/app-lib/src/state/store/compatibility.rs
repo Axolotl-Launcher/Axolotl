@@ -549,7 +549,7 @@ mod tests {
         .await
         .unwrap();
         let bytes =
-            tokio::fs::read(temporary.path().join("settings/sync.json"))
+            tokio::fs::read(temporary.path().join("data/settings/sync.json"))
                 .await
                 .unwrap();
         let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();

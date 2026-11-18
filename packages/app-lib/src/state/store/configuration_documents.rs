@@ -70,7 +70,7 @@ impl Pending {
         let mut documents = self.documents.clone();
         if let Some(record) = &self.settings {
             let source = crate::state::documents::Documents::at(
-                self.root.join("settings"),
+                self.root.join(crate::state::layout::SETTINGS),
                 handle.pool(),
             )
             .with_config_root(crate::state::documents::config_root());
@@ -120,7 +120,9 @@ pub(crate) async fn read_local(
     name: &str,
     writable: bool,
 ) -> crate::Result<Value> {
-    let path = root.join("settings").join(format!("{name}.json"));
+    let path = root
+        .join(crate::state::layout::SETTINGS)
+        .join(format!("{name}.json"));
     let value = match tokio::fs::metadata(&path).await {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return Ok(json!({"schema_version":1,"data":{}}));
@@ -154,7 +156,10 @@ async fn provided(
     name: &str,
 ) -> crate::Result<Map<String, Value>> {
     let source = crate::state::documents::Documents::at(
-        handle.persistence().root().join("settings"),
+        handle
+            .persistence()
+            .root()
+            .join(crate::state::layout::SETTINGS),
         handle.pool(),
     )
     .with_config_root(crate::state::documents::config_root());
@@ -454,13 +459,14 @@ pub(crate) async fn lock_files(root: &Path) -> crate::Result<tokio::fs::File> {
         phase = "configuration_file_open",
         "Configuration writer phase"
     );
-    tokio::fs::create_dir_all(root.join("settings")).await?;
+    let settings = root.join(crate::state::layout::SETTINGS);
+    tokio::fs::create_dir_all(&settings).await?;
     let file = tokio::fs::OpenOptions::new()
         .create(true)
         .truncate(false)
         .read(true)
         .write(true)
-        .open(root.join("settings/.writer-lock"))
+        .open(settings.join(".writer-lock"))
         .await?;
     tracing::debug!(
         phase = "configuration_file_lock_acquire",
@@ -503,17 +509,17 @@ mod tests {
             .await
             .unwrap();
         let appearance=br#"{"schema_version":99,"data":{"locale":"zh-CN","future":{"keep":true}}}"#;
-        tokio::fs::create_dir_all(root.path().join("settings"))
+        tokio::fs::create_dir_all(root.path().join("data/settings"))
             .await
             .unwrap();
         tokio::fs::write(
-            root.path().join("settings/appearance.json"),
+            root.path().join("data/settings/appearance.json"),
             appearance,
         )
         .await
         .unwrap();
         tokio::fs::write(
-            root.path().join("settings/download.json"),
+            root.path().join("data/settings/download.json"),
             b"broken document",
         )
         .await
@@ -532,9 +538,9 @@ mod tests {
             crate::state::Settings::default().max_concurrent_downloads
         );
         assert!(settings.update(&handle).await.is_err());
-        assert!(!root.path().join("settings/.writer-lock").exists());
+        assert!(!root.path().join("data/settings/.writer-lock").exists());
         assert_eq!(
-            tokio::fs::read(root.path().join("settings/appearance.json"))
+            tokio::fs::read(root.path().join("data/settings/appearance.json"))
                 .await
                 .unwrap(),
             appearance
@@ -554,14 +560,14 @@ mod tests {
         let handle = Handle::new(pool);
         let local = json!({"schema_version":2,"envelope_extension":{"keep":true},"data":{"locale":"zh-CN","future":7}});
         crate::state::persistence::document::write_json(
-            &root.path().join("settings/appearance.json"),
+            &root.path().join("data/settings/appearance.json"),
             serde_json::to_vec(&local).unwrap(),
         )
         .await
         .unwrap();
         let download = br#"{"schema_version":999,"data":{"future":true}}"#;
         crate::state::persistence::document::write_json(
-            &root.path().join("settings/download.json"),
+            &root.path().join("data/settings/download.json"),
             download.to_vec(),
         )
         .await
@@ -573,7 +579,7 @@ mod tests {
             .await
             .unwrap();
         let saved: Value = serde_json::from_slice(
-            &tokio::fs::read(root.path().join("settings/appearance.json"))
+            &tokio::fs::read(root.path().join("data/settings/appearance.json"))
                 .await
                 .unwrap(),
         )
@@ -583,7 +589,7 @@ mod tests {
         assert_eq!(saved["data"]["locale"], "zh-TW");
         assert!(saved["data"].get("hide_nametag_skins_page").is_none());
         assert_eq!(
-            tokio::fs::read(root.path().join("settings/download.json"))
+            tokio::fs::read(root.path().join("data/settings/download.json"))
                 .await
                 .unwrap(),
             download

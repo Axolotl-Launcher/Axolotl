@@ -150,7 +150,7 @@ pub(crate) async fn complete_bundle(
     };
     let manifest: serde_json::Value = serde_json::from_slice(&bytes)?;
     Ok(manifest["protocol"] == "axolotl-storage-snapshot"
-        && manifest["version"] == 1
+        && manifest["version"] == crate::state::layout::SNAPSHOT_VERSION
         && manifest["core"]
             == serde_json::json!(["system.db", "instances.db", "storage.db"]))
 }

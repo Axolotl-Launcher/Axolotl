@@ -49,7 +49,11 @@ pub(crate) async fn entry_files(
 }
 
 async fn cache(handle: &Handle) -> Option<Arc<DerivedDb>> {
-    cache_at(handle.persistence().root().join("databases/derived.db")).await
+    cache_at(
+        crate::state::layout::cache(handle.persistence().root())
+            .join(super::derived_db::FILE_NAME),
+    )
+    .await
 }
 
 async fn cache_at(path: PathBuf) -> Option<Arc<DerivedDb>> {
@@ -57,7 +61,7 @@ async fn cache_at(path: PathBuf) -> Option<Arc<DerivedDb>> {
         && path
             == state
                 .directories
-                .databases_dir()
+                .cache_db_dir()
                 .join(super::derived_db::FILE_NAME)
     {
         return (!state.derived.is_disabled())

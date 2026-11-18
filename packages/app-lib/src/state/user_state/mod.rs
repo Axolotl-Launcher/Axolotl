@@ -23,7 +23,7 @@ impl Domain {
     ) -> Self {
         Self {
             document: persistence
-                .document(format!("state/{name}.json"), protocol, 1)
+                .document(format!("data/user-state/{name}.json"), protocol, 1)
                 .expect("constant user-state path"),
         }
     }

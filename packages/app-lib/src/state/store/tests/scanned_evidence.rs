@@ -158,7 +158,7 @@ async fn adding_an_unrelated_file_retains_exact_completed_evidence_but_late_old_
     );
     let cache = sqlx::SqlitePool::connect_with(
         sqlx::sqlite::SqliteConnectOptions::new()
-            .filename(root.path().join("databases/derived.db")),
+            .filename(root.path().join("cache/derived.db")),
     )
     .await
     .unwrap();

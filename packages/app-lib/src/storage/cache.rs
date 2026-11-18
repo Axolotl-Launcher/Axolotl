@@ -21,7 +21,11 @@ async fn retained_content(
     directories: &DirectoryInfo,
     active: Option<&sqlx::SqlitePool>,
 ) -> crate::Result<HashSet<String>> {
-    if crate::state::store::databases::exists(&directories.settings_dir) {
+    if crate::state::store::databases::has_installation(
+        &directories.settings_dir,
+    )
+    .await?
+    {
         let pool = active.ok_or_else(|| {
             invalid(
                 "Opened database domains are required before clearing caches",
@@ -160,13 +164,13 @@ fn verify_resource_cache(
     path: &Path,
 ) -> std::io::Result<()> {
     let relative = path
-        .strip_prefix(directories.databases_dir())
+        .strip_prefix(directories.cache_db_dir())
         .map_err(std::io::Error::other)?;
     let settings = Dir::open_ambient_dir(
         &directories.settings_dir,
         cap_std::ambient_authority(),
     )?;
-    let mut dir = settings.open_dir_nofollow("databases")?;
+    let mut dir = settings.open_dir_nofollow("cache")?;
     for part in relative.parent().into_iter().flat_map(Path::iter) {
         dir = dir.open_dir_nofollow(part)?;
     }
@@ -297,27 +301,6 @@ pub async fn clear_cache() -> crate::Result<CacheCleanupResult> {
     .await
     {
         failures.push(format!("Resource cache: {error}"));
-    }
-    for channel in ["release", "beta"] {
-        let path = directories.resource_cache_db(channel)?;
-        if path == resources.cache().path() || !fs::try_exists(&path).await? {
-            continue;
-        }
-        if let Err(error) = verify_resource_cache(&directories, &path) {
-            failures.push(format!("resources/{channel}: {error}"));
-            continue;
-        }
-        let cache = crate::resources::cache::ResourceCache::open(path).await;
-        let result = async {
-            cache.info().await?;
-            cache.clear().await?;
-            cache.compact().await
-        }
-        .await;
-        cache.close().await;
-        if let Err(error) = result {
-            failures.push(format!("resources/{channel}: {error}"));
-        }
     }
     let result = tokio::task::spawn_blocking(move || {
         let _usage = _usage;

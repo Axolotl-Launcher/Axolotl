@@ -1,5 +1,6 @@
 //! Explicit offline restore, with a durable roll-forward receipt before replacing
 //! the first authority. Prior files remain in the restore workspace.
+use crate::state::layout;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{Connection, Executor, sqlite::SqliteConnectOptions};
@@ -29,7 +30,7 @@ fn invalid(message: &str) -> crate::Error {
     crate::ErrorKind::InputError(message.into()).into()
 }
 fn receipt(root: &Path) -> PathBuf {
-    root.join("databases/storage-restore.json")
+    root.join(layout::RESTORE_INTENT)
 }
 async fn digest(path: &Path) -> crate::Result<String> {
     if !tokio::fs::symlink_metadata(path)
@@ -155,20 +156,20 @@ pub(crate) async fn restore_snapshot(
     if crate::State::get_if_initialized().is_some() {
         return Err(invalid("Close the launcher before restoring its storage"));
     }
-    tokio::fs::create_dir_all(root.join("databases")).await?;
+    tokio::fs::create_dir_all(layout::data(root)).await?;
     tokio::fs::create_dir_all(content_root).await?;
     let root = tokio::fs::canonicalize(root).await?;
     let content_root = tokio::fs::canonicalize(content_root).await?;
     let bundle = tokio::fs::canonicalize(bundle).await?;
     let _ownership = crate::state::db::acquire_domain_ownership(
-        &root.join("databases/system.db"),
+        &layout::data(&root).join("system.db"),
     )
     .await?;
     finish_restore(&root).await?;
     let metadata: serde_json::Value =
         bounded_json(&bundle.join("snapshot.json")).await?;
     if metadata["protocol"] != "axolotl-storage-snapshot"
-        || metadata["version"] != 1
+        || metadata["version"] != layout::SNAPSHOT_VERSION
         || !tokio::fs::try_exists(bundle.join("complete")).await?
     {
         return Err(invalid(
@@ -187,53 +188,45 @@ pub(crate) async fn restore_snapshot(
     tokio::fs::create_dir(&staged).await?;
     let mut files = Vec::new();
     for relative in tree(&bundle).await? {
-        if !["settings", "state", "media", "synced-options"]
-            .iter()
-            .any(|name| relative.starts_with(name))
+        if ![
+            layout::SETTINGS,
+            layout::INSTANCE_RECOVERY,
+            "data/accounts",
+            "data/groups",
+            "data/user-state",
+            "data/media",
+            "data/telemetry",
+            layout::SYNC_ROOT,
+            "data/persistence",
+            "synced-options",
+        ]
+        .iter()
+        .any(|name| relative.starts_with(name))
             && !matches!(
                 relative.to_str(),
                 Some(
-                    "system.db"
-                        | "instances.db"
-                        | "storage.db"
-                        | "records.db"
-                        | "operations-history.db"
-                        | "accounts.json"
-                        | "instance_groups.json"
-                        | "favorite_groups.json"
-                        | "axolotl_config.json"
+                    "system.db" | "instances.db" | "storage.db" | "records.db"
                 )
             )
         {
             continue;
         }
-        if relative.starts_with("operation-records")
-            || relative.starts_with("unavailable")
-            || matches!(
-                relative.to_str(),
-                Some(
-                    "snapshot.json"
-                        | "complete"
-                        | "backup-status.json"
-                        | "sync-backup-status.json"
-                )
-            )
+        if relative == Path::new(layout::RESTORE_INTENT)
+            || relative == Path::new(layout::IMPORT_SNAPSHOT)
         {
             continue;
         }
         let target = if matches!(
             relative.to_str(),
-            Some(
-                "system.db"
-                    | "instances.db"
-                    | "storage.db"
-                    | "records.db"
-                    | "operations-history.db"
-            )
+            Some("system.db" | "instances.db" | "storage.db" | "records.db")
         ) {
-            root.join("databases").join(&relative)
+            layout::data(&root).join(&relative)
         } else if relative.starts_with("synced-options") {
-            content_root.join(&relative)
+            root.join(layout::SYNC_ROOT).join(
+                relative
+                    .strip_prefix("synced-options")
+                    .expect("sync member"),
+            )
         } else {
             root.join(&relative)
         };
@@ -288,7 +281,7 @@ pub(crate) async fn restore_snapshot(
     connection.execute("COMMIT").await?;
     connection.close().await?;
     // A requested content-root selection is explicit; preserve all other keys.
-    let bootstrap = staged.join("settings/bootstrap.json");
+    let bootstrap = staged.join(layout::SETTINGS).join("bootstrap.json");
     if bootstrap.is_file() {
         let mut value: serde_json::Value =
             serde_json::from_slice(&tokio::fs::read(&bootstrap).await?)?;
@@ -307,7 +300,7 @@ pub(crate) async fn restore_snapshot(
             "Snapshot has no bootstrap document for the selected content directory",
         ));
     }
-    let descriptor = staged.join("state/sync.json");
+    let descriptor = staged.join(layout::SYNC_AUTHORITY);
     if sync_available {
         let mut value = bounded_json(&descriptor).await?;
         if value["protocol"] != "axolotl-sync-authority"
@@ -320,8 +313,7 @@ pub(crate) async fn restore_snapshot(
             &staged.join("synced-options"),
         )
         .await?;
-        value["data"]["root"] =
-            serde_json::json!(content_root.join("synced-options"));
+        value["data"]["root"] = serde_json::json!(root.join(layout::SYNC_ROOT));
         crate::state::persistence::document::write_json(
             &descriptor,
             serde_json::to_vec(&value)?,
@@ -334,7 +326,7 @@ pub(crate) async fn restore_snapshot(
         if !files.iter().any(|file| file.source == descriptor) {
             files.push(File {
                 source: descriptor.clone(),
-                target: root.join("state/sync.json"),
+                target: root.join(layout::SYNC_AUTHORITY),
                 sha256: String::new(),
             });
         }
@@ -362,18 +354,18 @@ pub(crate) async fn restore_snapshot(
                 return Err(invalid("Invalid excluded domain name"));
             }
             let target = match name {
-                "accounts" => "accounts.json".to_owned(),
-                "telemetry" => "state/telemetry.json".to_owned(),
-                "media" => "state/media.json".to_owned(),
-                "sync" => "state/sync.json".to_owned(),
+                "accounts" => layout::ACCOUNTS.to_owned(),
+                "telemetry" => layout::TELEMETRY.to_owned(),
+                "media" => layout::MEDIA.to_owned(),
+                "sync" => layout::SYNC_AUTHORITY.to_owned(),
                 "worlds" | "joins" | "shared_logs" | "resource_favorites"
-                | "instance_pins" => format!("state/{name}.json"),
-                "daily-playtime" => "state/records.json".to_owned(),
-                "sync-pending" => "state/sync-pending.json".to_owned(),
-                _ => format!("state/unavailable/{name}.json"),
+                | "instance_pins" => format!("data/user-state/{name}.json"),
+                "daily-playtime" => layout::PLAYTIME.to_owned(),
+                "sync-pending" => layout::SYNC_PENDING.to_owned(),
+                _ => format!("data/persistence/unavailable/{name}.json"),
             };
             let relative_receipt =
-                format!("state/persistence/imports/{name}.json");
+                format!("{}/{name}.json", layout::IMPORT_RECEIPTS);
             let unavailable = serde_json::json!({"protocol":"axolotl-restored-unavailable","schema_version":1,"revision":1,"data":{"domain":name,"reason":"excluded-from-restored-snapshot"}});
             let takeover = serde_json::json!({"protocol":"axolotl-import","schema_version":1,"revision":1,"data":{"name":name,"target":target,"complete":true,"restored_unavailable":true}});
             for (relative, value) in
@@ -422,7 +414,7 @@ pub(crate) async fn restore_snapshot(
         for (name, target, protocol) in
             super::super::databases::IMPORT_AUTHORITIES
         {
-            let marker = format!("state/persistence/imports/{name}.json");
+            let marker = format!("{}/{name}.json", layout::IMPORT_RECEIPTS);
             if seen.contains(target) != seen.contains(&marker) {
                 return Err(invalid(
                     "Snapshot absence must include the authority and its takeover receipt",
@@ -643,7 +635,10 @@ mod tests {
                 .unwrap();
         pool.close().await;
         drop(pool);
-        for name in ["favorite_groups.json", "favorite_groups.json.previous"] {
+        for name in [
+            "data/groups/favorite_groups.json",
+            "data/groups/favorite_groups.json.previous",
+        ] {
             tokio::fs::write(
                 directory.path().join(name),
                 br#"{"groups":[{"id":"later"}]}"#,
@@ -661,11 +656,16 @@ mod tests {
             restore_snapshot(directory.path(), &snapshot, directory.path())
                 .await
                 .unwrap();
-        assert!(!directory.path().join("favorite_groups.json").exists());
         assert!(
             !directory
                 .path()
-                .join("favorite_groups.json.previous")
+                .join("data/groups/favorite_groups.json")
+                .exists()
+        );
+        assert!(
+            !directory
+                .path()
+                .join("data/groups/favorite_groups.json.previous")
                 .exists()
         );
         assert_eq!(
@@ -681,10 +681,9 @@ mod tests {
         )
         .unwrap();
         assert!(
-            manifest["absent_authorities"]
-                .as_array()
-                .unwrap()
-                .contains(&serde_json::json!("favorite_groups.json"))
+            manifest["absent_authorities"].as_array().unwrap().contains(
+                &serde_json::json!("data/groups/favorite_groups.json")
+            )
         );
         let mut entries = tokio::fs::read_dir(archived.join("previous"))
             .await
@@ -706,9 +705,10 @@ mod tests {
         let pool = crate::state::store::databases::open(directory.path())
             .await
             .unwrap();
-        for relative in
-            ["accounts.json", "state/persistence/imports/accounts.json"]
-        {
+        for relative in [
+            "data/accounts/accounts.json",
+            "data/persistence/imports/accounts.json",
+        ] {
             for name in [relative.to_owned(), format!("{relative}.previous")] {
                 let path = directory.path().join(name);
                 if path.is_file() {
@@ -723,13 +723,15 @@ mod tests {
         pool.close().await;
         drop(pool);
         tokio::fs::write(
-            directory.path().join("accounts.json"),
+            directory.path().join("data/accounts/accounts.json"),
             b"post-backup accounts",
         )
         .await
         .unwrap();
         tokio::fs::write(
-            directory.path().join("accounts.json.previous"),
+            directory
+                .path()
+                .join("data/accounts/accounts.json.previous"),
             b"post-backup fallback",
         )
         .await
@@ -737,7 +739,7 @@ mod tests {
         tokio::fs::write(
             directory
                 .path()
-                .join("state/persistence/imports/accounts.json"),
+                .join("data/persistence/imports/accounts.json"),
             b"post-backup receipt",
         )
         .await
@@ -747,7 +749,7 @@ mod tests {
             .unwrap();
         let persistence = Persistence::new(directory.path());
         let target = persistence
-            .document("accounts.json", "axolotl-accounts", 1)
+            .document("data/accounts/accounts.json", "axolotl-accounts", 1)
             .unwrap();
         let loaded =
             std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -783,10 +785,15 @@ mod tests {
         accounts.set("offline:new", &user).await.unwrap();
         assert_eq!(accounts.get_all().await.unwrap().len(), 1);
         assert!(
-            !directory.path().join("accounts.json.previous").is_file()
+            !directory
+                .path()
+                .join("data/accounts/accounts.json.previous")
+                .is_file()
                 || !String::from_utf8_lossy(
                     &tokio::fs::read(
-                        directory.path().join("accounts.json.previous")
+                        directory
+                            .path()
+                            .join("data/accounts/accounts.json.previous")
                     )
                     .await
                     .unwrap()
@@ -819,7 +826,7 @@ mod tests {
             .await
             .unwrap();
         tokio::fs::write(
-            directory.path().join("favorite_groups.json"),
+            directory.path().join("data/groups/favorite_groups.json"),
             b"current",
         )
         .await
@@ -828,9 +835,11 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            tokio::fs::read(directory.path().join("favorite_groups.json"))
-                .await
-                .unwrap(),
+            tokio::fs::read(
+                directory.path().join("data/groups/favorite_groups.json")
+            )
+            .await
+            .unwrap(),
             b"current"
         );
     }

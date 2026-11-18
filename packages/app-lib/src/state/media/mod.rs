@@ -21,7 +21,7 @@ impl Media {
         Self {
             persistence: persistence.clone(),
             document: persistence
-                .document("state/media.json", "axolotl-media", 1)
+                .document(crate::state::layout::MEDIA, "axolotl-media", 1)
                 .expect("constant media document path"),
         }
     }

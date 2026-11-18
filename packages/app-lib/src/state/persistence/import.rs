@@ -54,7 +54,7 @@ impl Import {
         let marker = persistence.document(marker_path(name), PROTOCOL, 1)?;
         if relative_target
             .to_ascii_lowercase()
-            .starts_with("state/persistence/")
+            .starts_with(concat!("data/persistence/", "imports/"))
         {
             return Err(crate::ErrorKind::InputError(
                 "Import targets cannot overwrite persistence receipts".into(),
@@ -150,7 +150,7 @@ fn complete(result: &ReadResult, name: &str, target: &str) -> bool {
 }
 
 fn marker_path(name: &str) -> String {
-    format!("state/persistence/imports/{name}.json")
+    format!("{}/{name}.json", crate::state::layout::IMPORT_RECEIPTS)
 }
 
 /// These names are reserved for whole-domain handovers. A marker is written
@@ -188,7 +188,7 @@ mod receipt_tests {
     #[tokio::test]
     async fn retirement_probe_preserves_corrupt_and_previous_only_receipts() {
         let root = tempfile::tempdir().unwrap();
-        let directory = root.path().join("state/persistence/imports");
+        let directory = root.path().join(crate::state::layout::IMPORT_RECEIPTS);
         tokio::fs::create_dir_all(&directory).await.unwrap();
         tokio::fs::write(
             directory.join("accounts.json.previous"),
@@ -253,7 +253,7 @@ pub(crate) async fn snapshot(
             != Some("json")
             || target
                 .to_ascii_lowercase()
-                .starts_with("state/persistence/")
+                .starts_with(concat!("data/persistence/", "imports/"))
         {
             return Err(crate::ErrorKind::InputError(
                 "Invalid authority in handover receipt".into(),

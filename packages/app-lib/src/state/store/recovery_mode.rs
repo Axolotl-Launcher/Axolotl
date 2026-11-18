@@ -199,11 +199,11 @@ mod tests {
                 .await
                 .unwrap();
         let original_instances =
-            tokio::fs::read(root.join("instance_groups.json"))
+            tokio::fs::read(root.join("data/groups/instance_groups.json"))
                 .await
                 .unwrap();
         let original_favorites =
-            tokio::fs::read(root.join("favorite_groups.json"))
+            tokio::fs::read(root.join("data/groups/favorite_groups.json"))
                 .await
                 .unwrap();
         register(&state.pool, &root);
@@ -243,13 +243,13 @@ mod tests {
             .is_err()
         );
         assert_eq!(
-            tokio::fs::read(root.join("instance_groups.json"))
+            tokio::fs::read(root.join("data/groups/instance_groups.json"))
                 .await
                 .unwrap(),
             original_instances
         );
         assert_eq!(
-            tokio::fs::read(root.join("favorite_groups.json"))
+            tokio::fs::read(root.join("data/groups/favorite_groups.json"))
                 .await
                 .unwrap(),
             original_favorites

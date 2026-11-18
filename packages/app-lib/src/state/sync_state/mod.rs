@@ -8,18 +8,7 @@ mod tests;
 use crate::state::persistence::Persistence;
 use std::path::{Path, PathBuf};
 pub(crate) async fn root(persistence: &Persistence) -> crate::Result<PathBuf> {
-    if let Some(state) = crate::State::get_if_initialized() {
-        if state.persistence.root() == persistence.root() {
-            return Ok(state.directories.synced_options_dir());
-        }
-    }
-    Ok(
-        crate::state::store::sync_documents::configured_root(
-            persistence.root(),
-        )
-        .await?
-        .join("synced-options"),
-    )
+    Ok(persistence.root().join(crate::state::layout::SYNC_ROOT))
 }
 pub(crate) fn supported(raw: &serde_json::Value) -> bool {
     raw.is_object()

@@ -41,7 +41,10 @@ pub(crate) fn id_key(id: &str) -> String {
     format!("{:x}", Sha256::digest(id.as_bytes()))
 }
 fn authority(root: &Path, id: &str) -> Persistence {
-    Persistence::new(root.join("state/instances").join(id_key(id)))
+    Persistence::new(
+        root.join(crate::state::layout::INSTANCE_RECOVERY)
+            .join(id_key(id)),
+    )
 }
 fn head(
     root: &Path,
@@ -314,7 +317,10 @@ pub(crate) async fn read(
 
 pub(crate) async fn list(root: &Path) -> crate::Result<Vec<RecoverySnapshot>> {
     let mut output = Vec::new();
-    let mut dirs = match tokio::fs::read_dir(root.join("state/instances")).await
+    let mut dirs = match tokio::fs::read_dir(
+        root.join(crate::state::layout::INSTANCE_RECOVERY),
+    )
+    .await
     {
         Ok(dirs) => dirs,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -513,14 +519,17 @@ pub(crate) async fn backup(
     root: &Path,
     destination: &Path,
 ) -> crate::Result<()> {
-    let mut directories =
-        match tokio::fs::read_dir(root.join("state/instances")).await {
-            Ok(value) => value,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                return Ok(());
-            }
-            Err(error) => return Err(error.into()),
-        };
+    let mut directories = match tokio::fs::read_dir(
+        root.join(crate::state::layout::INSTANCE_RECOVERY),
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(());
+        }
+        Err(error) => return Err(error.into()),
+    };
     while let Some(entry) = directories.next_entry().await? {
         if !entry.file_type().await?.is_dir() {
             continue;
@@ -532,8 +541,9 @@ pub(crate) async fn backup(
         }
         let document =
             Persistence::new(&base).document("recovery.json", PROTOCOL, 1)?;
-        let target =
-            destination.join("state/instances").join(entry.file_name());
+        let target = destination
+            .join(crate::state::layout::INSTANCE_RECOVERY)
+            .join(entry.file_name());
         document
             .inspect(move |read| {
                 if !matches!(

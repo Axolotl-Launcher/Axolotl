@@ -221,7 +221,9 @@ impl Handle {
         if configuration_documents::runtime(&self.pool) {
             Some(
                 crate::state::documents::Documents::at(
-                    self.persistence().root().join("settings"),
+                    self.persistence()
+                        .root()
+                        .join(crate::state::layout::SETTINGS),
                     &self.pool,
                 )
                 .with_config_root(crate::state::documents::config_root()),

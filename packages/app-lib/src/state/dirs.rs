@@ -61,7 +61,7 @@ async fn prepare_directory_move(
 
 impl DirectoryInfo {
     pub(crate) fn synced_options_dir(&self) -> std::path::PathBuf {
-        self.config_dir.join("synced-options")
+        self.settings_dir.join(super::layout::SYNC_ROOT)
     }
     pub fn global_handle_if_ready() -> Option<&'static Self> {
         LAUNCHER_STATE.get().map(|x| &x.directories)
@@ -329,19 +329,15 @@ impl DirectoryInfo {
     }
 
     pub fn databases_dir(&self) -> PathBuf {
-        self.settings_dir.join("databases")
+        super::layout::data(&self.settings_dir)
     }
 
-    pub fn resource_cache_db(&self, channel: &str) -> crate::Result<PathBuf> {
-        if !matches!(channel, "release" | "beta") {
-            return Err(crate::ErrorKind::InputError(
-                "Invalid resource cache channel".into(),
-            )
-            .into());
-        }
-        Ok(self
-            .databases_dir()
-            .join(format!("resource-cache-{channel}.db")))
+    pub fn cache_db_dir(&self) -> PathBuf {
+        super::layout::cache(&self.settings_dir)
+    }
+
+    pub fn resource_cache_db(&self) -> PathBuf {
+        self.cache_db_dir().join("resources.db")
     }
 
     pub fn content_store_dir(&self) -> PathBuf {
@@ -454,14 +450,6 @@ impl DirectoryInfo {
                         .await?;
                     }
                 }
-
-                crate::state::store::sync_documents::move_authority(
-                    pool,
-                    &crate::state::persistence::Persistence::new(&app_dir),
-                    &prev_dir,
-                    &move_dir,
-                )
-                .await?;
 
                 const MOVE_DIRS: &[&str] = &[
                     CACHES_FOLDER_NAME,
@@ -671,9 +659,10 @@ impl DirectoryInfo {
                 .await?;
                 // Derived records stay under the original settings directory;
                 // only their Java executable paths follow the content move.
-                let derived =
-                    DerivedDb::open(app_dir.join("databases").join(FILE_NAME))
-                        .await;
+                let derived = DerivedDb::open(
+                    super::layout::cache(&app_dir).join(FILE_NAME),
+                )
+                .await;
                 derived
                     .write(async |derived_handle| {
                         let mut unit = atom(derived_handle).await?;

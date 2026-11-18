@@ -19,14 +19,14 @@ pub(crate) async fn initialize(
 ) -> crate::Result<()> {
     let persistence = Persistence::new(root);
     let target = persistence.document(
-        "state/records.json",
+        crate::state::layout::PLAYTIME,
         "axolotl-playtime-store",
         1,
     )?;
-    let path = root.join("databases/records.db");
+    let path = root.join("data/records.db");
     let root = root.to_owned();
     let result=Import::new(&persistence,"daily-playtime",target)?.run(move||async move{
-        let snapshot=match snapshot {Some(path)=>Some(path),None=>{let pending=root.join("databases/legacy-document-import.db");if pending.is_file(){Some(pending)}else{None}}};
+        let snapshot=match snapshot {Some(path)=>Some(path),None=>{let pending=root.join(crate::state::layout::IMPORT_SNAPSHOT);if pending.is_file(){Some(pending)}else{None}}};
         if !path.is_file() && snapshot.is_none() && ["app.db","release/app.db","beta/app.db"].iter().any(|name|root.join(name).is_file()) {
             return Err(crate::ErrorKind::FSError("Daily history awaits its migrated legacy snapshot".into()).into());
         }
@@ -60,10 +60,10 @@ pub(crate) async fn initialize(
             Ok::<_,crate::Error>(())
         }.await;
         pool.close().await;result?;
-        Ok(Map::from_iter([("file".into(),json!("databases/records.db")),("contract".into(),json!(1))]))
+        Ok(Map::from_iter([("file".into(),json!("data/records.db")),("contract".into(),json!(1))]))
     },|snapshot|{
         let data=snapshot.data().ok_or_else(||crate::ErrorKind::InputError("Missing daily history contract".into()))?;
-        if data.get("file").and_then(Value::as_str)!=Some("databases/records.db")||data.get("contract").and_then(Value::as_u64)!=Some(1){return Err(crate::ErrorKind::InputError("Unsupported daily history contract".into()).into());}Ok(())
+        if data.get("file").and_then(Value::as_str)!=Some("data/records.db")||data.get("contract").and_then(Value::as_u64)!=Some(1){return Err(crate::ErrorKind::InputError("Unsupported daily history contract".into()).into());}Ok(())
     }).await?;
     if !matches!(
         result.availability,
@@ -83,7 +83,7 @@ async fn open(root: &Path) -> crate::Result<SqlitePool> {
             root.display()
         ))
     })?;
-    let path = root.join("databases/records.db");
+    let path = root.join("data/records.db");
     if !tokio::fs::try_exists(&path).await? {
         return Err(crate::ErrorKind::FSError(format!(
             "Daily history authority is missing at {}; its completed handover prevents importing retired data again",
@@ -158,10 +158,11 @@ pub(crate) async fn backup(
     root: &Path,
     destination: &Path,
 ) -> crate::Result<bool> {
-    let source = root.join("databases/records.db");
+    let source = root.join("data/records.db");
     if !source.is_file() {
         if root
-            .join("state/persistence/imports/daily-playtime.json")
+            .join(crate::state::layout::IMPORT_RECEIPTS)
+            .join("daily-playtime.json")
             .is_file()
         {
             return Err(crate::ErrorKind::FSError(
@@ -197,18 +198,17 @@ mod tests {
         initialize(temporary.path(), None).await.unwrap();
         let receipt_path = temporary
             .path()
-            .join("state/persistence/imports/daily-playtime.json");
-        let authority_path = temporary.path().join("state/records.json");
+            .join("data/persistence/imports/daily-playtime.json");
+        let authority_path =
+            temporary.path().join("data/persistence/records.json");
         let receipt = tokio::fs::read(&receipt_path).await.unwrap();
         let authority = tokio::fs::read(&authority_path).await.unwrap();
-        let records_path = temporary.path().join("databases/records.db");
+        let records_path = temporary.path().join("data/records.db");
         tokio::fs::remove_file(&records_path).await.unwrap();
         let mut legacy = sqlx::SqliteConnection::connect_with(
             &SqliteConnectOptions::new()
                 .filename(
-                    temporary
-                        .path()
-                        .join("databases/legacy-document-import.db"),
+                    temporary.path().join("data/persistence/legacy-app.db"),
                 )
                 .create_if_missing(true),
         )
@@ -238,13 +238,13 @@ mod tests {
         let canonical =
             tokio::fs::canonicalize(temporary.path()).await.unwrap();
         assert!(canonical.to_string_lossy().starts_with(r"\\?\"));
-        let path = canonical.join("databases/records.db");
+        let path = canonical.join("data/records.db");
         assert!(!path.to_string_lossy().contains('/'));
         let core = SqlitePoolOptions::new()
             .max_connections(1)
             .connect_with(
                 SqliteConnectOptions::new()
-                    .filename(canonical.join("databases/system.db"))
+                    .filename(canonical.join("data/system.db"))
                     .create_if_missing(true),
             )
             .await

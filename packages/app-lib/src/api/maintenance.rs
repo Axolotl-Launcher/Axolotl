@@ -285,13 +285,13 @@ mod tests {
     async fn lists_complete_bundles_and_legacy_files_with_recursive_byte_sizes()
     {
         let root = tempfile::tempdir().unwrap();
-        let shared = root.path().join("databases");
+        let shared = crate::state::layout::data(root.path());
         let old = root.path().join("app-db");
         let bundle = shared.join(uuid::Uuid::new_v4().to_string());
         tokio::fs::create_dir_all(bundle.join("state"))
             .await
             .unwrap();
-        let manifest = serde_json::to_vec(&serde_json::json!({"protocol":"axolotl-storage-snapshot","version":1,"core":["system.db","instances.db","storage.db"]})).unwrap();
+        let manifest = serde_json::to_vec(&serde_json::json!({"protocol":"axolotl-storage-snapshot","version":crate::state::layout::SNAPSHOT_VERSION,"core":["system.db","instances.db","storage.db"]})).unwrap();
         tokio::fs::write(bundle.join("snapshot.json"), &manifest)
             .await
             .unwrap();

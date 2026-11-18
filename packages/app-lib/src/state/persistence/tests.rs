@@ -288,7 +288,7 @@ async fn publication_without_receipt_resumes_without_reading_legacy_snapshot() {
     assert!(
         persistence
             .root()
-            .join("state/persistence/imports/example.json")
+            .join("data/persistence/imports/example.json")
             .is_file()
     );
 }
@@ -332,7 +332,7 @@ async fn corrupt_or_future_receipt_never_reopens_legacy_source() {
         let (_temporary, persistence, document) = setup();
         let marker = persistence
             .root()
-            .join("state/persistence/imports/example.json");
+            .join("data/persistence/imports/example.json");
         std::fs::create_dir_all(marker.parent().unwrap()).unwrap();
         std::fs::write(&marker, bytes).unwrap();
         let import =
@@ -392,7 +392,7 @@ fn state_paths_and_import_names_cannot_escape_or_alias_receipts() {
     }
     assert!(Import::new(&persistence, "../accounts", document).is_err());
     let marker = persistence
-        .document("state/persistence/imports/example.json", "test", 1)
+        .document("data/persistence/imports/example.json", "test", 1)
         .unwrap();
     assert!(Import::new(&persistence, "example", marker).is_err());
 }
@@ -418,7 +418,7 @@ async fn invalid_new_authority_wins_over_legacy_even_without_receipt() {
     assert!(
         !persistence
             .root()
-            .join("state/persistence/imports/example.json")
+            .join("data/persistence/imports/example.json")
             .exists()
     );
 }
@@ -449,7 +449,7 @@ async fn snapshots_include_receipt_and_current_authority_and_refuse_missing_data
     assert_eq!(files.len(), 2);
     assert_eq!(
         files[0].0,
-        std::path::Path::new("state/persistence/imports/example.json")
+        std::path::Path::new("data/persistence/imports/example.json")
     );
     assert_eq!(files[1].0, std::path::Path::new("state/example.json"));
     assert_eq!(files[1].1, std::fs::read(document.path()).unwrap());

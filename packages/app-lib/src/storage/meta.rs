@@ -318,7 +318,12 @@ async fn references(
 ) -> References {
     let mut refs = References::default();
     let mut databases = 0;
-    if crate::state::store::databases::exists(&directories.settings_dir) {
+    if crate::state::store::databases::has_installation(
+        &directories.settings_dir,
+    )
+    .await
+    .unwrap_or(true)
+    {
         if let Some(pool) = active {
             databases = 1;
             if let Err(error) =

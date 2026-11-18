@@ -1,14 +1,14 @@
 //! Optional task history. No connection to this service is attached to the core.
 use sqlx::{
-    Connection, Executor, SqlitePool,
+    Executor, SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub(crate) const FILE: &str = "operations-history.db";
 
 pub(crate) async fn open(root: &Path) -> crate::Result<SqlitePool> {
-    let directory = root.join("databases");
+    let directory = crate::state::layout::cache(root);
     tokio::fs::create_dir_all(&directory).await?;
     let pool = SqlitePoolOptions::new()
         .max_connections(2)
@@ -45,7 +45,7 @@ pub(crate) async fn open(root: &Path) -> crate::Result<SqlitePool> {
 pub(crate) async fn legacy(root: &Path) -> crate::Result<Option<SqlitePool>> {
     for path in [
         root.join("databases/operations.db"),
-        root.join("databases/legacy-document-import.db"),
+        root.join(crate::state::layout::IMPORT_SNAPSHOT),
     ] {
         if !tokio::fs::try_exists(&path).await? {
             continue;
@@ -83,25 +83,4 @@ pub(crate) async fn archive(
     pool.close().await;
     result?;
     Ok(())
-}
-
-pub(crate) async fn backup(
-    root: &Path,
-    destination: &Path,
-) -> crate::Result<bool> {
-    let source: PathBuf = root.join("databases").join(FILE);
-    if !tokio::fs::try_exists(&source).await? {
-        return Ok(false);
-    }
-    let mut connection = sqlx::SqliteConnection::connect_with(
-        &SqliteConnectOptions::new().filename(source).read_only(true),
-    )
-    .await?;
-    crate::state::db_backup::create_verified_sqlite_snapshot(
-        &mut connection,
-        destination,
-    )
-    .await?;
-    connection.close().await?;
-    Ok(true)
 }

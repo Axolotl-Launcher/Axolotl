@@ -181,9 +181,10 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let core = super::super::databases::open(temp.path()).await.unwrap();
         // Discard only the intentionally empty first-install media authority.
-        for relative in
-            ["state/media.json", "state/persistence/imports/media.json"]
-        {
+        for relative in [
+            "data/media/media.json",
+            "data/persistence/imports/media.json",
+        ] {
             tokio::fs::remove_file(temp.path().join(relative))
                 .await
                 .unwrap();

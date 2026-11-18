@@ -49,7 +49,7 @@ pub(crate) mod login_proof;
 pub(crate) mod settings;
 pub(crate) mod translation;
 
-pub(crate) const DIR_NAME: &str = "settings";
+pub(crate) const DIR_NAME: &str = crate::state::layout::SETTINGS;
 const HANDOVER_MARKER: &str = ".handed-over";
 
 /// The variable the deployment names the directory of documents it provides
@@ -1164,12 +1164,12 @@ mod tests {
         assert!(
             settings_dir
                 .path()
-                .join("settings")
+                .join("data/settings")
                 .join(".handed-over")
                 .is_file()
         );
 
-        let root = settings_dir.path().join("settings");
+        let root = settings_dir.path().join("data/settings");
         let documents = Documents::at(root, &pool);
         assert!(!ai::read(&documents).await.unwrap().enabled);
         assert_eq!(
@@ -1232,7 +1232,7 @@ mod tests {
         .unwrap();
 
         let settings_dir = tempfile::tempdir().unwrap();
-        let root = settings_dir.path().join("settings");
+        let root = settings_dir.path().join("data/settings");
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(root.join(".handed-over"), "0.0.0").unwrap();
 
@@ -1258,7 +1258,7 @@ mod tests {
             .unwrap();
 
         let settings_dir = tempfile::tempdir().unwrap();
-        let root = settings_dir.path().join("settings");
+        let root = settings_dir.path().join("data/settings");
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(
             root.join("ai.json"),
@@ -1279,7 +1279,7 @@ mod tests {
     async fn a_write_leaves_a_document_a_newer_build_wrote() {
         let pool = pool().await;
         let settings_dir = tempfile::tempdir().unwrap();
-        let root = settings_dir.path().join("settings");
+        let root = settings_dir.path().join("data/settings");
         std::fs::create_dir_all(&root).unwrap();
         let path = root.join("java.json");
         let newer = br#"{"schema_version":99,"data":{"runtimes":[{"path":"/old/java/bin/java","major_version":21,"full_version":"21.0.1"}]}}"#;
@@ -1303,7 +1303,7 @@ mod tests {
     async fn a_write_that_changes_nothing_leaves_the_document_alone() {
         let pool = pool().await;
         let settings_dir = tempfile::tempdir().unwrap();
-        let root = settings_dir.path().join("settings");
+        let root = settings_dir.path().join("data/settings");
         std::fs::create_dir_all(&root).unwrap();
         let path = root.join("ai.json");
         // Written the way another build left it, so a rewrite would show as

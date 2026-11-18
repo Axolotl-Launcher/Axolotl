@@ -186,7 +186,7 @@ async fn shared_log_tokens_survive_service_recreation_only_in_keyring_or_session
     assert!(!bytes.contains("replacement-secret"));
 }
 fn shared_logs_path(root: &std::path::Path) -> std::path::PathBuf {
-    root.join("state/shared_logs.json")
+    root.join("data/user-state/shared_logs.json")
 }
 
 #[tokio::test]
@@ -236,16 +236,13 @@ async fn corrupted_records_database_does_not_block_core_loading() {
         .unwrap();
     let core = store::databases::open(temp.path()).await.unwrap();
     sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES('instance','path','installed','none','Example',0,0)").execute(&core).await.unwrap();
-    tokio::fs::write(
-        temp.path().join("databases/records.db"),
-        b"broken records",
-    )
-    .await
-    .unwrap();
+    tokio::fs::write(temp.path().join("data/records.db"), b"broken records")
+        .await
+        .unwrap();
     assert!(store::records_db::pool_for(&core).await.is_none());
     assert!(crate::state::instances::adapters::sqlite::instance_rows::get_instance_by_id("instance",&core).await.unwrap().is_some());
     assert_eq!(
-        tokio::fs::read(temp.path().join("databases/records.db"))
+        tokio::fs::read(temp.path().join("data/records.db"))
             .await
             .unwrap(),
         b"broken records"
@@ -404,18 +401,18 @@ async fn fresh_root_creates_core_before_optional_records_and_backups_include_doc
  {
     let temp = tempfile::tempdir().unwrap();
     let core = store::databases::open(temp.path()).await.unwrap();
-    assert!(temp.path().join("databases/system.db").is_file());
-    assert!(temp.path().join("databases/records.db").is_file());
+    assert!(temp.path().join("data/system.db").is_file());
+    assert!(temp.path().join("data/records.db").is_file());
     let destination =
         store::databases::backup(&core, temp.path()).await.unwrap();
     assert!(destination.join("records.db").is_file());
     for path in [
-        "state/worlds.json",
-        "state/joins.json",
-        "state/resource_favorites.json",
-        "state/instance_pins.json",
-        "state/shared_logs.json",
-        "state/records.json",
+        "data/user-state/worlds.json",
+        "data/user-state/joins.json",
+        "data/user-state/resource_favorites.json",
+        "data/user-state/instance_pins.json",
+        "data/user-state/shared_logs.json",
+        "data/persistence/records.json",
     ] {
         assert!(destination.join(path).is_file(), "{path}");
     }
@@ -430,12 +427,12 @@ async fn existing_daily_authority_does_not_reimport_a_deleted_row_before_descrip
     core.close().await;
     // Simulate the interval after committed SQL handover but before its JSON
     // receipt publication; the existing table remains the authority.
-    tokio::fs::remove_file(temp.path().join("state/records.json"))
+    tokio::fs::remove_file(temp.path().join("data/persistence/records.json"))
         .await
         .unwrap();
     tokio::fs::remove_file(
         temp.path()
-            .join("state/persistence/imports/daily-playtime.json"),
+            .join("data/persistence/imports/daily-playtime.json"),
     )
     .await
     .unwrap();
@@ -454,7 +451,7 @@ async fn existing_daily_authority_does_not_reimport_a_deleted_row_before_descrip
         .unwrap();
     let mut current = SqliteConnection::connect_with(
         &SqliteConnectOptions::new()
-            .filename(temp.path().join("databases/records.db")),
+            .filename(temp.path().join("data/records.db")),
     )
     .await
     .unwrap();
@@ -469,7 +466,7 @@ async fn failed_user_document_import_retries_retained_snapshot_instead_of_daily_
     let temp = tempfile::tempdir().unwrap();
     let source = snapshot(temp.path()).await;
     // A non-file target makes the first publication fail before a receipt.
-    tokio::fs::create_dir_all(temp.path().join("state/worlds.json"))
+    tokio::fs::create_dir_all(temp.path().join("data/user-state/worlds.json"))
         .await
         .unwrap();
     store::legacy_user_state::initialize(temp.path(), Some(source.clone()))
@@ -477,26 +474,24 @@ async fn failed_user_document_import_retries_retained_snapshot_instead_of_daily_
     assert!(
         !temp
             .path()
-            .join("state/persistence/imports/worlds.json")
+            .join("data/persistence/imports/worlds.json")
             .exists()
     );
-    tokio::fs::remove_dir(temp.path().join("state/worlds.json"))
+    tokio::fs::remove_dir(temp.path().join("data/user-state/worlds.json"))
         .await
         .unwrap();
     let core = store::databases::open(temp.path()).await.unwrap();
     // Opening retries before this fixture retains the migrated source. Remove
     // that deliberate empty first-install authority to model the pending task.
-    for relative in
-        ["state/worlds.json", "state/persistence/imports/worlds.json"]
-    {
+    for relative in [
+        "data/user-state/worlds.json",
+        "data/persistence/imports/worlds.json",
+    ] {
         let _ = tokio::fs::remove_file(temp.path().join(relative)).await;
     }
-    tokio::fs::copy(
-        source,
-        temp.path().join("databases/legacy-document-import.db"),
-    )
-    .await
-    .unwrap();
+    tokio::fs::copy(source, temp.path().join("data/persistence/legacy-app.db"))
+        .await
+        .unwrap();
     store::legacy_user_state::initialize(temp.path(), None).await;
     let choices = worlds::get_all(&Persistence::new(temp.path()), "instance")
         .await
@@ -513,7 +508,7 @@ async fn missing_existing_records_format_row_is_not_seeded_as_a_known_version()
     core.close().await;
     let mut db = SqliteConnection::connect_with(
         &SqliteConnectOptions::new()
-            .filename(temp.path().join("databases/records.db")),
+            .filename(temp.path().join("data/records.db")),
     )
     .await
     .unwrap();
@@ -523,8 +518,8 @@ async fn missing_existing_records_format_row_is_not_seeded_as_a_known_version()
         .unwrap();
     db.close().await.unwrap();
     for relative in [
-        "state/records.json",
-        "state/persistence/imports/daily-playtime.json",
+        "data/persistence/records.json",
+        "data/persistence/imports/daily-playtime.json",
     ] {
         tokio::fs::remove_file(temp.path().join(relative))
             .await
@@ -537,7 +532,7 @@ async fn missing_existing_records_format_row_is_not_seeded_as_a_known_version()
     );
     let mut db = SqliteConnection::connect_with(
         &SqliteConnectOptions::new()
-            .filename(temp.path().join("databases/records.db")),
+            .filename(temp.path().join("data/records.db")),
     )
     .await
     .unwrap();
@@ -567,20 +562,17 @@ async fn interrupted_core_handover_uses_retained_snapshot_before_empty_baseline_
         "instance_pins",
     ] {
         for relative in [
-            format!("state/{name}.json"),
-            format!("state/persistence/imports/{name}.json"),
+            format!("data/user-state/{name}.json"),
+            format!("data/persistence/imports/{name}.json"),
         ] {
             tokio::fs::remove_file(temp.path().join(relative))
                 .await
                 .unwrap();
         }
     }
-    tokio::fs::copy(
-        source,
-        temp.path().join("databases/legacy-document-import.db"),
-    )
-    .await
-    .unwrap();
+    tokio::fs::copy(source, temp.path().join("data/persistence/legacy-app.db"))
+        .await
+        .unwrap();
     store::legacy_user_state::initialize(temp.path(), None).await;
     let persistence = Persistence::new(temp.path());
     assert_eq!(favorites::all(&persistence).await.unwrap().len(), 1);
@@ -635,8 +627,8 @@ async fn completed_core_uses_retained_snapshot_for_each_missing_legacy_table() {
         .await
         .unwrap();
     for relative in [
-        "state/shared_logs.json",
-        "state/persistence/imports/shared_logs.json",
+        "data/user-state/shared_logs.json",
+        "data/persistence/imports/shared_logs.json",
     ] {
         tokio::fs::remove_file(temp.path().join(relative))
             .await
@@ -644,18 +636,15 @@ async fn completed_core_uses_retained_snapshot_for_each_missing_legacy_table() {
     }
     let mut records = SqliteConnection::connect_with(
         &SqliteConnectOptions::new()
-            .filename(temp.path().join("databases/records.db")),
+            .filename(temp.path().join("data/records.db")),
     )
     .await
     .unwrap();
     sqlx::query("CREATE TABLE attached_world_data(instance_id TEXT,world_type TEXT,world_id TEXT,display_status TEXT,project_id TEXT,content_kind TEXT)").execute(&mut records).await.unwrap();
     records.close().await.unwrap();
-    tokio::fs::copy(
-        source,
-        temp.path().join("databases/legacy-document-import.db"),
-    )
-    .await
-    .unwrap();
+    tokio::fs::copy(source, temp.path().join("data/persistence/legacy-app.db"))
+        .await
+        .unwrap();
     store::legacy_user_state::initialize(temp.path(), None).await;
     let data = user_state::shared_logs::domain(&Persistence::new(temp.path()))
         .read()

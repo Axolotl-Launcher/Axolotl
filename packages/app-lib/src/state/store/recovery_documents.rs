@@ -377,7 +377,7 @@ async fn write_inner<T: Serialize>(
     let root = root(connection).await?;
     let mut boundary = root.clone();
     let mut directory = root
-        .join("state/instances")
+        .join(crate::state::layout::EXTERNAL_OPERATIONS)
         .join(crate::state::instances::manifest::id_key(
             owner.as_deref().unwrap_or("_launcher"),
         ))
@@ -489,7 +489,7 @@ where
             continue;
         }
         let directory = settings_root
-            .join("state/instances")
+            .join(crate::state::layout::EXTERNAL_OPERATIONS)
             .join(crate::state::instances::manifest::id_key(instance_id))
             .join("operations")
             .join(uuid::Uuid::new_v4().to_string());
@@ -1066,7 +1066,9 @@ pub(crate) async fn move_authority(
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let records:Vec<(String,String,Option<String>,i64,String,String)>=sqlx::query_as("SELECT kind,id,instance_id,revision,object_path,sha256 FROM main.operation_publications WHERE deleted=0").fetch_all(&mut *transaction).await?;
     for (kind, key, owner, revision, path, hash) in records {
-        if Path::new(&path).starts_with(settings_root.join("state")) {
+        if Path::new(&path).starts_with(
+            settings_root.join(crate::state::layout::EXTERNAL_OPERATIONS),
+        ) {
             continue;
         }
         let Ok(profile_relative) =
@@ -1152,7 +1154,9 @@ pub(crate) async fn restore_references(
         )
         .await?;
         if has_file_obligation(kind, &value)
-            && !Path::new(path).starts_with(root.join("state"))
+            && !Path::new(path).starts_with(
+                root.join(crate::state::layout::EXTERNAL_OPERATIONS),
+            )
             && !Path::new(path).starts_with(content_root.join("profiles"))
         {
             return Err(invalid(
@@ -1180,7 +1184,7 @@ pub(crate) async fn restore_references(
         .await?;
         let mut boundary = root.to_owned();
         let mut destination = root
-            .join("state/instances")
+            .join(crate::state::layout::EXTERNAL_OPERATIONS)
             .join(crate::state::instances::manifest::id_key(
                 owner.as_deref().unwrap_or("_launcher"),
             ))
@@ -1453,7 +1457,7 @@ mod tests {
             .execute(&pool).await.unwrap();
         pool.close().await;
         drop(pool);
-        let instance_database = root.path().join("databases/instances.db");
+        let instance_database = root.path().join("data/instances.db");
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             .max_connections(1)
             .after_connect(move |connection, _| {
@@ -1468,7 +1472,7 @@ mod tests {
             })
             .connect_with(
                 sqlx::sqlite::SqliteConnectOptions::new()
-                    .filename(root.path().join("databases/system.db")),
+                    .filename(root.path().join("data/system.db")),
             )
             .await
             .unwrap();
@@ -1530,7 +1534,8 @@ mod tests {
             assert!(
                 Path::new(&after.4).starts_with(
                     tokio::fs::canonicalize(
-                        root.path().join("state/instances")
+                        root.path()
+                            .join(crate::state::layout::EXTERNAL_OPERATIONS)
                     )
                     .await
                     .unwrap()
@@ -1691,14 +1696,14 @@ mod tests {
     }
     async fn fixture() -> (tempfile::TempDir, sqlx::SqlitePool) {
         let root = tempfile::tempdir().unwrap();
-        tokio::fs::create_dir(root.path().join("databases"))
+        tokio::fs::create_dir(root.path().join("data"))
             .await
             .unwrap();
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             .max_connections(2)
             .connect_with(
                 sqlx::sqlite::SqliteConnectOptions::new()
-                    .filename(root.path().join("databases/system.db"))
+                    .filename(root.path().join("data/system.db"))
                     .create_if_missing(true),
             )
             .await
@@ -1847,7 +1852,7 @@ mod tests {
                 tokio::fs::canonicalize(root.path())
                     .await
                     .unwrap()
-                    .join("state/instances")
+                    .join(crate::state::layout::EXTERNAL_OPERATIONS)
             )
         );
         assert!(!external.path().join(".axolotl").exists());

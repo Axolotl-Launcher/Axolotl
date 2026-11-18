@@ -2,11 +2,81 @@
 //! credentials move directly to the system store, never into document payloads.
 
 use crate::state::accounts::document::Metadata;
+use crate::state::layout;
 use crate::state::persistence::{Persistence, import::Import};
 use serde_json::{Map, Value, json};
 use sqlx::{Connection, Row, SqliteConnection, sqlite::SqliteConnectOptions};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+
+pub(crate) async fn copy_existing_documents(root: &Path) -> crate::Result<()> {
+    let source_settings = root.join("settings");
+    let mut entries = match tokio::fs::read_dir(&source_settings).await {
+        Ok(entries) => Some(entries),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error.into()),
+    };
+    if let Some(entries) = &mut entries {
+        while let Some(entry) = entries.next_entry().await? {
+            let name = entry.file_name();
+            if Path::new(&name)
+                .extension()
+                .is_some_and(|ext| ext == "json")
+            {
+                copy_existing_document(
+                    &entry.path(),
+                    &root.join(layout::SETTINGS).join(name),
+                )
+                .await?;
+            }
+        }
+    }
+    for (legacy, target) in [
+        ("instance_groups.json", layout::INSTANCE_GROUPS),
+        ("favorite_groups.json", layout::FAVORITE_GROUPS),
+        ("axolotl_config.json", "data/user-state/axolotl_config.json"),
+    ] {
+        copy_existing_document(&root.join(legacy), &root.join(target)).await?;
+    }
+    Ok(())
+}
+
+async fn copy_existing_document(
+    source: &Path,
+    target: &Path,
+) -> crate::Result<()> {
+    use crate::state::persistence::document;
+    if !document::absent_pair(
+        target.to_path_buf(),
+        target.with_file_name(format!(
+            "{}.previous",
+            target.file_name().expect("document name").to_string_lossy()
+        )),
+    )
+    .await?
+    {
+        return Ok(());
+    }
+    let previous = source.with_file_name(format!(
+        "{}.previous",
+        source
+            .file_name()
+            .expect("legacy document name")
+            .to_string_lossy()
+    ));
+    let bytes = match document::snapshot_json(source) {
+        Ok(Some(bytes)) => Some(bytes),
+        Ok(None) => document::snapshot_json(&previous)?,
+        Err(error) => match document::snapshot_json(&previous)? {
+            Some(bytes) => Some(bytes),
+            None => return Err(error),
+        },
+    };
+    if let Some(bytes) = bytes {
+        document::write_blob(target, bytes).await?;
+    }
+    Ok(())
+}
 
 /// These retired domains have no file-retention relationships in the known
 /// protocol. Opaque extensions remain in their preserved source database and
@@ -14,9 +84,9 @@ use std::path::{Path, PathBuf};
 pub(crate) async fn ensure_cleanup_supported(root: &Path) -> crate::Result<()> {
     let persistence = Persistence::new(root);
     for (path, protocol) in [
-        ("accounts.json", "axolotl-accounts"),
-        ("state/telemetry.json", "axolotl-telemetry"),
-        ("state/media.json", "axolotl-media"),
+        (crate::state::layout::ACCOUNTS, "axolotl-accounts"),
+        (crate::state::layout::TELEMETRY, "axolotl-telemetry"),
+        (crate::state::layout::MEDIA, "axolotl-media"),
     ] {
         let read = persistence.document(path, protocol, 1)?.read().await?;
         if !matches!(
@@ -83,14 +153,65 @@ pub(crate) async fn initialize_from_snapshot(
     root: &Path,
     snapshot: &Path,
 ) -> crate::Result<()> {
+    initialize_domain(root, "accounts", Some(snapshot.to_path_buf())).await?;
     // Optional imports must be retryable after the temporary migrated image is
     // dropped, even when the core has already switched to its new layout.
-    let retry = root.join("databases/legacy-document-import.db");
+    let retry = root.join(layout::IMPORT_SNAPSHOT);
     if !retry.is_file() {
         let result = async {
-            tokio::fs::create_dir_all(root.join("databases")).await?;
-            let mut connection =
-                crate::state::db_backup::open_read_only_db(snapshot).await?;
+            tokio::fs::create_dir_all(
+                retry.parent().expect("import directory"),
+            )
+            .await?;
+            let temporary = tempfile::tempdir()?;
+            let scrubbed = temporary.path().join("legacy-app.db");
+            tokio::fs::copy(snapshot, &scrubbed).await?;
+            let mut connection = SqliteConnection::connect_with(
+                &SqliteConnectOptions::new().filename(scrubbed),
+            )
+            .await?;
+            sqlx::query("PRAGMA secure_delete=ON")
+                .execute(&mut connection)
+                .await?;
+            let account_columns =
+                columns(&mut connection, "minecraft_users").await?;
+            if !account_columns.is_empty() {
+                let assignments =
+                    ["access_token", "refresh_token", "yggdrasil_client_token"]
+                        .into_iter()
+                        .filter(|field| account_columns.contains(*field))
+                        .map(|field| format!("{field}=''"))
+                        .collect::<Vec<_>>()
+                        .join(",");
+                if !assignments.is_empty() {
+                    sqlx::query(sqlx::AssertSqlSafe(format!(
+                        "UPDATE minecraft_users SET {assignments}"
+                    )))
+                    .execute(&mut connection)
+                    .await?;
+                }
+            }
+            if columns(&mut connection, "modrinth_users")
+                .await?
+                .contains("session_id")
+            {
+                sqlx::query("UPDATE modrinth_users SET session_id=''")
+                    .execute(&mut connection)
+                    .await?;
+            }
+            if !columns(&mut connection, "resource_identity_evidence")
+                .await?
+                .is_empty()
+            {
+                sqlx::query("DELETE FROM resource_identity_evidence")
+                    .execute(&mut connection)
+                    .await?;
+            }
+            if !columns(&mut connection, "cache").await?.is_empty() {
+                sqlx::query("DELETE FROM cache")
+                    .execute(&mut connection)
+                    .await?;
+            }
             crate::state::db_backup::create_verified_sqlite_snapshot(
                 &mut connection,
                 &retry,
@@ -112,7 +233,6 @@ pub(crate) async fn initialize_from_snapshot(
     {
         tracing::warn!(%error, "Independent playtime import unavailable; core startup continues");
     }
-    initialize_domain(root, "accounts", Some(snapshot.to_path_buf())).await?;
     for domain in ["telemetry"] {
         if let Err(error) =
             initialize_domain(root, domain, Some(snapshot.to_path_buf())).await
@@ -136,9 +256,9 @@ async fn initialize_domain(
 ) -> crate::Result<()> {
     let persistence = Persistence::new(root);
     let target = if domain == "accounts" {
-        "accounts.json"
+        crate::state::layout::ACCOUNTS
     } else {
-        "state/telemetry.json"
+        crate::state::layout::TELEMETRY
     };
     let protocol = if domain == "accounts" {
         "axolotl-accounts"
@@ -226,16 +346,14 @@ pub(super) async fn source(
     domain: &str,
 ) -> crate::Result<Option<SqliteConnection>> {
     let experimental = root.join("databases").join(format!("{domain}.db"));
-    let candidates: Vec<PathBuf> = if tokio::fs::try_exists(&experimental)
-        .await?
-    {
-        vec![experimental]
-    } else if root
-        .join("databases/legacy-document-import.db")
+    let candidates: Vec<PathBuf> = if root
+        .join(crate::state::layout::IMPORT_SNAPSHOT)
         .try_exists()?
     {
-        vec![root.join("databases/legacy-document-import.db")]
-    } else if root.join("databases/system.db").try_exists()? {
+        vec![root.join(crate::state::layout::IMPORT_SNAPSHOT)]
+    } else if tokio::fs::try_exists(&experimental).await? {
+        vec![experimental]
+    } else if super::databases::exists(root) {
         // An initialized experimental set never falls back to an older app.db.
         Vec::new()
     } else {
@@ -301,10 +419,10 @@ pub(super) async fn columns(
 pub(super) async fn read_source_for(
     root: &Path,
     domain: &str,
-    table: &str,
+    _table: &str,
     snapshot: Option<PathBuf>,
 ) -> crate::Result<Option<SqliteConnection>> {
-    let retained = root.join("databases/legacy-document-import.db");
+    let retained = root.join(crate::state::layout::IMPORT_SNAPSHOT);
     // Only the old-app handover creates this migrated retry snapshot. Blank
     // baseline domains are not authoritative before the core import commits;
     // afterward it is needed only for a legacy table absent from its domain.
@@ -312,20 +430,12 @@ pub(super) async fn read_source_for(
     if let Some(path) = snapshot {
         return open_snapshot(path).await.map(Some);
     }
-    let active = root.join("databases").join(format!("{domain}.db"));
-    if active.is_file() {
-        let mut current = source(root, domain).await?.expect("active source");
-        if retained.is_file()
-            && (!core_import_complete(root).await?
-                || columns(&mut current, table).await?.is_empty())
-        {
-            current.close().await?;
-            return open_snapshot(retained).await.map(Some);
-        }
-        return Ok(Some(current));
-    }
     if retained.is_file() {
         return open_snapshot(retained).await.map(Some);
+    }
+    let active = root.join("databases").join(format!("{domain}.db"));
+    if active.is_file() {
+        return open_snapshot(active).await.map(Some);
     }
     let connection = source(root, domain).await?;
     if let Some(connection) = connection {
@@ -344,23 +454,6 @@ async fn open_snapshot(path: PathBuf) -> crate::Result<SqliteConnection> {
     .await?;
     sqlx::query("BEGIN").execute(&mut connection).await?;
     Ok(connection)
-}
-async fn core_import_complete(root: &Path) -> crate::Result<bool> {
-    let path = root.join("databases/system.db");
-    if !path.is_file() {
-        return Ok(false);
-    }
-    let mut connection = open_snapshot(path).await?;
-    let table = !columns(&mut connection, "database_imports")
-        .await?
-        .is_empty();
-    let complete = if table {
-        sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM database_imports WHERE source='app.db' AND completed=1)").fetch_one(&mut connection).await?
-    } else {
-        false
-    };
-    connection.close().await?;
-    Ok(complete)
 }
 
 async fn accounts(
@@ -556,10 +649,11 @@ mod tests {
         let _unavailable =
             crate::state::store::secrets::testing::without_store();
         initialize_from_snapshot(root.path(), &file).await.unwrap();
-        let document =
-            tokio::fs::read_to_string(root.path().join("accounts.json"))
-                .await
-                .unwrap();
+        let document = tokio::fs::read_to_string(
+            root.path().join("data/accounts/accounts.json"),
+        )
+        .await
+        .unwrap();
         assert!(document.contains("future-provider"));
         assert!(!document.contains("future-access-secret"));
         assert!(!document.contains("future-refresh-secret"));
@@ -569,20 +663,14 @@ mod tests {
         assert!(accounts.get_all().await.unwrap().is_empty());
         assert_eq!(tokio::fs::read(&file).await.unwrap(), original);
         let mut retained = crate::state::db_backup::open_read_only_db(
-            &root.path().join("databases/legacy-document-import.db"),
+            &root.path().join("data/persistence/legacy-app.db"),
         )
         .await
         .unwrap();
         let tokens: (String, String) = sqlx::query_as(
             "SELECT access_token, refresh_token FROM minecraft_users WHERE account_id='future:test'",
         ).fetch_one(&mut retained).await.unwrap();
-        assert_eq!(
-            tokens,
-            (
-                "future-access-secret".into(),
-                "future-refresh-secret".into()
-            )
-        );
+        assert!(tokens.0.is_empty() && tokens.1.is_empty());
         retained.close().await.unwrap();
     }
 
@@ -596,10 +684,11 @@ mod tests {
             .execute(&pool).await.unwrap();
         pool.close().await;
         initialize_from_snapshot(root.path(), &file).await.unwrap();
-        let bytes =
-            tokio::fs::read_to_string(root.path().join("accounts.json"))
-                .await
-                .unwrap();
+        let bytes = tokio::fs::read_to_string(
+            root.path().join("data/accounts/accounts.json"),
+        )
+        .await
+        .unwrap();
         assert!(!bytes.contains("legacy-secret"));
         let raw: Value = serde_json::from_str(&bytes).unwrap();
         assert_eq!(raw["data"]["default_account_id"], "microsoft:test");
@@ -613,7 +702,7 @@ mod tests {
         );
         assert!(
             root.path()
-                .join("state/persistence/imports/accounts.json")
+                .join("data/persistence/imports/accounts.json")
                 .exists()
         );
         let reopened = crate::state::accounts::Accounts::new(
@@ -641,14 +730,10 @@ mod tests {
         initialize_from_snapshot(root.path(), &file).await.unwrap();
         assert!(
             root.path()
-                .join("state/persistence/imports/accounts.json")
+                .join("data/persistence/imports/accounts.json")
                 .exists()
         );
-        assert!(
-            root.path()
-                .join("databases/legacy-document-import.db")
-                .exists()
-        );
+        assert!(root.path().join("data/persistence/legacy-app.db").exists());
         assert_eq!(tokio::fs::read(&file).await.unwrap(), before);
         let reopened = crate::state::accounts::Accounts::new(
             &Persistence::new(root.path()),
@@ -664,16 +749,17 @@ mod tests {
             crate::state::minecraft_auth::CredentialPersistence::RequiresLogin
         );
         assert_eq!(tokio::fs::read(&file).await.unwrap(), before);
-        let document =
-            tokio::fs::read_to_string(root.path().join("accounts.json"))
-                .await
-                .unwrap();
+        let document = tokio::fs::read_to_string(
+            root.path().join("data/accounts/accounts.json"),
+        )
+        .await
+        .unwrap();
         assert!(
             !document.contains("legacy-refresh")
                 && !document.contains("legacy-access")
         );
         let mut retained = crate::state::db_backup::open_read_only_db(
-            &root.path().join("databases/legacy-document-import.db"),
+            &root.path().join("data/persistence/legacy-app.db"),
         )
         .await
         .unwrap();
@@ -682,7 +768,7 @@ mod tests {
                 .fetch_one(&mut retained)
                 .await
                 .unwrap();
-        assert_eq!(refresh, "legacy-refresh");
+        assert!(refresh.is_empty());
         retained.close().await.unwrap();
     }
 
@@ -744,10 +830,11 @@ mod tests {
                 .2,
             crate::state::minecraft_auth::CredentialPersistence::Keyring
         );
-        let document =
-            tokio::fs::read_to_string(root.path().join("accounts.json"))
-                .await
-                .unwrap();
+        let document = tokio::fs::read_to_string(
+            root.path().join("data/accounts/accounts.json"),
+        )
+        .await
+        .unwrap();
         assert!(
             !document.contains("small-access")
                 && !document.contains(&oversized)
@@ -807,7 +894,7 @@ mod tests {
         pool.close().await;
         initialize_from_snapshot(root.path(), &file).await.unwrap();
         let raw: Value = serde_json::from_slice(
-            &tokio::fs::read(root.path().join("accounts.json"))
+            &tokio::fs::read(root.path().join("data/accounts/accounts.json"))
                 .await
                 .unwrap(),
         )
@@ -827,16 +914,19 @@ mod tests {
             .unwrap();
         pool.close().await;
         drop(pool);
+        tokio::fs::create_dir(root.path().join("databases"))
+            .await
+            .unwrap();
         for (domain, document) in [
-            ("accounts", "accounts.json"),
-            ("telemetry", "state/telemetry.json"),
+            ("accounts", "data/accounts/accounts.json"),
+            ("telemetry", "data/telemetry/telemetry.json"),
         ] {
             tokio::fs::remove_file(root.path().join(document))
                 .await
                 .unwrap();
             tokio::fs::remove_file(
                 root.path()
-                    .join(format!("state/persistence/imports/{domain}.json")),
+                    .join(format!("data/persistence/imports/{domain}.json")),
             )
             .await
             .unwrap();

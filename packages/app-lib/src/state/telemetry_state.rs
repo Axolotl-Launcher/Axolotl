@@ -32,7 +32,11 @@ impl TelemetryState {
     pub(crate) fn new(persistence: &Persistence) -> Self {
         Self {
             document: persistence
-                .document("state/telemetry.json", "axolotl-telemetry", 1)
+                .document(
+                    crate::state::layout::TELEMETRY,
+                    "axolotl-telemetry",
+                    1,
+                )
                 .expect("constant telemetry document path"),
         }
     }

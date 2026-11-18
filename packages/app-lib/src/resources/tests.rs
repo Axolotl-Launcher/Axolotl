@@ -2078,21 +2078,20 @@ fn probes_have_bounded_history_and_md5_is_not_identity_evidence() {
 }
 
 #[test]
-fn cache_paths_are_channel_scoped_and_reject_path_traversal() {
+fn cache_path_is_shared_and_independent_of_the_content_root() {
     let directories = crate::state::DirectoryInfo {
         settings_dir: "settings".into(),
         config_dir: "custom".into(),
         app_identifier: "test".into(),
     };
     assert_eq!(
-        directories.resource_cache_db("beta").unwrap(),
-        std::path::Path::new("settings/databases/resource-cache-beta.db")
+        directories.resource_cache_db(),
+        std::path::Path::new("settings/cache/resources.db")
     );
     assert_ne!(
-        directories.resource_cache_db("beta").unwrap(),
-        directories.resource_cache_db("release").unwrap()
+        directories.resource_cache_db(),
+        directories.databases_dir().join("resources.db")
     );
-    assert!(directories.resource_cache_db("../outside").is_err());
 }
 
 fn target() -> ipc::ResourceTarget {

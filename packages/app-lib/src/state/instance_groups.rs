@@ -128,7 +128,7 @@ fn file_path() -> Option<PathBuf> {
         state
             .directories
             .settings_dir
-            .join(INSTANCE_GROUPS_FILE_NAME),
+            .join(crate::state::layout::INSTANCE_GROUPS),
     )
 }
 
@@ -167,7 +167,7 @@ fn write_to_disk(file: &InstanceGroupsFile) -> crate::Result<()> {
     let path = state
         .directories
         .settings_dir
-        .join(INSTANCE_GROUPS_FILE_NAME);
+        .join(crate::state::layout::INSTANCE_GROUPS);
     let _file_guard = FILE_ACCESS
         .lock()
         .unwrap_or_else(|error| error.into_inner());
@@ -183,12 +183,12 @@ pub(crate) fn snapshot(
     let _guard = FILE_ACCESS
         .lock()
         .unwrap_or_else(|error| error.into_inner());
-    let path = root.join(INSTANCE_GROUPS_FILE_NAME);
+    let path = root.join(crate::state::layout::INSTANCE_GROUPS);
     match crate::state::persistence::document::snapshot_json(&path)? {
         Some(bytes) => Ok(Some(bytes)),
-        None => crate::state::persistence::document::snapshot_json(
-            &root.join(format!("{INSTANCE_GROUPS_FILE_NAME}.previous")),
-        ),
+        None => crate::state::persistence::document::snapshot_json(&root.join(
+            format!("{}.previous", crate::state::layout::INSTANCE_GROUPS),
+        )),
     }
 }
 
@@ -478,7 +478,7 @@ pub(crate) async fn import_from_pool(
     pool: &sqlx::SqlitePool,
     root: &std::path::Path,
 ) -> crate::Result<()> {
-    let path = root.join(INSTANCE_GROUPS_FILE_NAME);
+    let path = root.join(crate::state::layout::INSTANCE_GROUPS);
     if tokio::fs::try_exists(&path).await? {
         return Ok(());
     }
@@ -564,7 +564,8 @@ mod tests {
     #[test]
     fn snapshot_waits_for_the_complete_standalone_write() {
         let root = tempfile::tempdir().unwrap();
-        let path = root.path().join(INSTANCE_GROUPS_FILE_NAME);
+        let path = root.path().join(crate::state::layout::INSTANCE_GROUPS);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
         let guard = FILE_ACCESS
             .lock()
             .unwrap_or_else(|error| error.into_inner());

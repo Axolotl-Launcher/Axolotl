@@ -130,7 +130,7 @@ fn file_path() -> Option<PathBuf> {
         state
             .directories
             .settings_dir
-            .join(FAVORITE_GROUPS_FILE_NAME),
+            .join(crate::state::layout::FAVORITE_GROUPS),
     )
 }
 
@@ -169,7 +169,7 @@ fn write_to_disk(file: &FavoriteGroupsFile) -> crate::Result<()> {
     let path = state
         .directories
         .settings_dir
-        .join(FAVORITE_GROUPS_FILE_NAME);
+        .join(crate::state::layout::FAVORITE_GROUPS);
     let _file_guard = FILE_ACCESS
         .lock()
         .unwrap_or_else(|error| error.into_inner());
@@ -185,12 +185,12 @@ pub(crate) fn snapshot(
     let _guard = FILE_ACCESS
         .lock()
         .unwrap_or_else(|error| error.into_inner());
-    let path = root.join(FAVORITE_GROUPS_FILE_NAME);
+    let path = root.join(crate::state::layout::FAVORITE_GROUPS);
     match crate::state::persistence::document::snapshot_json(&path)? {
         Some(bytes) => Ok(Some(bytes)),
-        None => crate::state::persistence::document::snapshot_json(
-            &root.join(format!("{FAVORITE_GROUPS_FILE_NAME}.previous")),
-        ),
+        None => crate::state::persistence::document::snapshot_json(&root.join(
+            format!("{}.previous", crate::state::layout::FAVORITE_GROUPS),
+        )),
     }
 }
 
@@ -383,7 +383,8 @@ mod tests {
     #[test]
     fn snapshot_waits_for_the_complete_standalone_write() {
         let root = tempfile::tempdir().unwrap();
-        let path = root.path().join(FAVORITE_GROUPS_FILE_NAME);
+        let path = root.path().join(crate::state::layout::FAVORITE_GROUPS);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
         let guard = FILE_ACCESS
             .lock()
             .unwrap_or_else(|error| error.into_inner());

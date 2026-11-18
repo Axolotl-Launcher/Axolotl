@@ -157,7 +157,10 @@ mod tests {
         let (_temp, state) = fixture(true).await;
         // A damaged optional document is reported without failing startup or
         // acquiring an installation database permit.
-        let path = state.directories.settings_dir.join("state/telemetry.json");
+        let path = state
+            .directories
+            .settings_dir
+            .join(crate::state::layout::TELEMETRY);
         tokio::fs::write(&path, b"broken").await.unwrap();
         let previous =
             std::path::PathBuf::from(format!("{}.previous", path.display()));

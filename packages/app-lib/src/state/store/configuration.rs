@@ -2,6 +2,7 @@
 //! A staged document is synced before its commit token enters the durable SQL
 //! transaction. Startup finishes a committed stage before reading preferences.
 
+use crate::state::layout;
 use serde_json::{Value, json};
 use sqlx::{Executor, Sqlite, SqliteConnection, SqlitePool, Transaction};
 use std::collections::BTreeSet;
@@ -69,7 +70,7 @@ async fn sync_write(path: &Path, value: &Value) -> Result<(), sqlx::Error> {
 
 async fn publish(root: &Path, token: &str) -> Result<(), sqlx::Error> {
     uuid::Uuid::parse_str(token).map_err(protocol)?;
-    let directory = root.join("settings");
+    let directory = root.join(layout::SETTINGS);
     let stage = directory.join(".transactions").join(token);
     if !tokio::fs::try_exists(&stage).await? {
         return Err(protocol("The committed preference stage is missing"));
@@ -180,7 +181,10 @@ async fn finalize(
             return Err(error);
         }
     }
-    let stage = root.join("settings").join(".transactions").join(token);
+    let stage = root
+        .join(layout::SETTINGS)
+        .join(".transactions")
+        .join(token);
     if let Err(error) = tokio::fs::remove_dir_all(&stage).await {
         if error.kind() != std::io::ErrorKind::NotFound {
             tracing::warn!(%error, "Completed preference stage cleanup deferred");
@@ -254,12 +258,12 @@ mod tests {
         let pool = super::super::databases::open(root.path()).await.unwrap();
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
         let token=prepare_documents(&mut transaction,root.path(),vec![("resources".into(),json!({"schema_version":1,"data":{"preferred_source":"curseforge","future":{"keep":true}}}))]).await.unwrap().unwrap();
-        assert!(!root.path().join("settings/resources.json").exists());
+        assert!(!root.path().join("data/settings/resources.json").exists());
         transaction.commit().await.unwrap();
         publish_prepared(root.path(), &token).await.unwrap();
         let manual = json!({"schema_version":1,"data":{"preferred_source":"mcarchive","future":{"keep":true}}});
         crate::state::persistence::document::write_json(
-            &root.path().join("settings/resources.json"),
+            &root.path().join("data/settings/resources.json"),
             serde_json::to_vec(&manual).unwrap(),
         )
         .await
@@ -274,7 +278,7 @@ mod tests {
             transaction.rollback().await.unwrap();
         }
         assert_eq!(
-            read_document(&root.path().join("settings/resources.json"))
+            read_document(&root.path().join("data/settings/resources.json"))
                 .await
                 .unwrap(),
             manual
@@ -287,7 +291,7 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let pool = super::super::databases::open(root.path()).await.unwrap();
         let handle = super::super::Handle::new(pool.clone());
-        let path = root.path().join("settings/resources.json");
+        let path = root.path().join("data/settings/resources.json");
         let original = json!({"schema_version":1,"future_envelope":7,"data":{"preferred_source":"modrinth","unknown":true}});
         crate::state::persistence::document::write_json(
             &path,
@@ -332,7 +336,7 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let pool = super::super::databases::open(root.path()).await.unwrap();
         let handle = super::super::Handle::new(pool);
-        let path = root.path().join("settings/resources.json");
+        let path = root.path().join("data/settings/resources.json");
         let newer = br#"{"schema_version":9,"data":{"future":[1,2]}}"#;
         crate::state::persistence::document::write_json(&path, newer.to_vec())
             .await
@@ -402,7 +406,10 @@ pub(crate) async fn prepare_documents(
     .await?;
     if let Some(previous) = previous {
         uuid::Uuid::parse_str(&previous).map_err(protocol)?;
-        let stage = root.join("settings/.transactions").join(previous);
+        let stage = root
+            .join(layout::SETTINGS)
+            .join(".transactions")
+            .join(previous);
         let names: Vec<String> = serde_json::from_slice(
             &bounded_bytes(&stage.join("manifest.json"), 1 << 20).await?,
         )
@@ -418,7 +425,7 @@ pub(crate) async fn prepare_documents(
         }
     }
     let token = uuid::Uuid::new_v4().to_string();
-    let directory = root.join("settings/.transactions");
+    let directory = root.join(layout::SETTINGS).join(".transactions");
     let stage = directory.join(&token);
     tokio::fs::create_dir_all(&stage).await?;
     for (name, value) in &documents {
@@ -432,7 +439,7 @@ pub(crate) async fn prepare_documents(
     .await?;
     sync_directory(&stage).await?;
     sync_directory(&directory).await?;
-    sync_directory(&root.join("settings")).await?;
+    sync_directory(&root.join(layout::SETTINGS)).await?;
     sqlx::query("INSERT INTO main.document_commits VALUES(1,?) ON CONFLICT(id) DO UPDATE SET token=excluded.token").bind(&token).execute(connection).await?;
     Ok(Some(token))
 }
@@ -527,13 +534,13 @@ pub(crate) async fn import_legacy(
             json!({"schema_version":1,"data":{"curseforge_api_key":columns.curseforge_api_key}}),
         ),
     ] {
-        let target = root.join("settings").join(format!("{name}.json"));
+        let target = root.join(layout::SETTINGS).join(format!("{name}.json"));
         if tokio::fs::try_exists(&target).await? {
             continue;
         }
         let mut value = value;
         let documents = crate::state::documents::Documents::at(
-            root.join("settings"),
+            root.join(layout::SETTINGS),
             &pool,
         )
         .with_config_root(crate::state::documents::config_root());

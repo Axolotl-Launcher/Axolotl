@@ -217,7 +217,7 @@ impl Media {
         Ok(self
             .persistence
             .root()
-            .join("media/skins")
+            .join("data/media/skins")
             .join(format!("{digest}.png")))
     }
 

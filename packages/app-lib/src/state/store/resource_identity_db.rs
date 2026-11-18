@@ -134,11 +134,12 @@ pub(super) async fn stage_excluded_receipt(staged: &Path) -> crate::Result<()> {
     write_receipt(staged, false).await
 }
 
-fn options(path: &Path) -> SqliteConnectOptions {
-    SqliteConnectOptions::new()
-        .filename(path)
+async fn options(path: &Path) -> crate::Result<SqliteConnectOptions> {
+    let path = crate::state::db_backup::sqlite_native_path(path).await?;
+    Ok(SqliteConnectOptions::new()
+        .filename(path.as_ref())
         .foreign_keys(true)
-        .busy_timeout(Duration::from_secs(5))
+        .busy_timeout(Duration::from_secs(5)))
 }
 
 async fn validate_connection(
@@ -205,9 +206,10 @@ pub(crate) async fn initialize(
         ));
     }
     tokio::fs::create_dir_all(&data).await?;
-    let mut connection =
-        SqliteConnection::connect_with(&options(&path).create_if_missing(true))
-            .await?;
+    let mut connection = SqliteConnection::connect_with(
+        &options(&path).await?.create_if_missing(true),
+    )
+    .await?;
     let mut transaction = connection.begin_with("BEGIN IMMEDIATE").await?;
     let id: i64 = sqlx::query_scalar("PRAGMA application_id")
         .fetch_one(&mut *transaction)
@@ -302,7 +304,9 @@ async fn open(root: &Path, read_only: bool) -> crate::Result<SqlitePool> {
     let pool = SqlitePoolOptions::new()
         .max_connections(4)
         .connect_with(
-            options(&layout::data(root).join(FILE)).read_only(read_only),
+            options(&layout::data(root).join(FILE))
+                .await?
+                .read_only(read_only),
         )
         .await?;
     let mut connection = pool.acquire().await?;
@@ -354,7 +358,9 @@ pub(super) async fn backup(root: &Path, staging: &Path) -> crate::Result<()> {
     ensure_available(root).await?;
     let bytes = tokio::fs::read(root.join(RECEIPT)).await?;
     let mut source = SqliteConnection::connect_with(
-        &options(&layout::data(root).join(FILE)).read_only(true),
+        &options(&layout::data(root).join(FILE))
+            .await?
+            .read_only(true),
     )
     .await?;
     validate_connection(&mut source).await?;
@@ -374,7 +380,7 @@ pub(super) async fn backup(root: &Path, staging: &Path) -> crate::Result<()> {
 pub(super) async fn validate_backup(staging: &Path) -> crate::Result<()> {
     ensure_available(staging).await?;
     let mut connection = SqliteConnection::connect_with(
-        &options(&staging.join(FILE)).read_only(true),
+        &options(&staging.join(FILE)).await?.read_only(true),
     )
     .await?;
     validate_connection(&mut connection).await?;
@@ -398,7 +404,7 @@ mod tests {
         let root = temporary.path();
         let snapshot = root.join("legacy-fixture.db");
         let mut connection = SqliteConnection::connect_with(
-            &options(&snapshot).create_if_missing(true),
+            &options(&snapshot).await.unwrap().create_if_missing(true),
         )
         .await
         .unwrap();
@@ -507,9 +513,10 @@ mod tests {
                 VALUES('entry','modrinth','abcdefgh','version1','file1',1);
         ").execute(&core).await.unwrap();
         let path = layout::data(root).join(FILE);
-        let mut connection = SqliteConnection::connect_with(&options(&path))
-            .await
-            .unwrap();
+        let mut connection =
+            SqliteConnection::connect_with(&options(&path).await.unwrap())
+                .await
+                .unwrap();
         sqlx::query("PRAGMA user_version = 100")
             .execute(&mut connection)
             .await

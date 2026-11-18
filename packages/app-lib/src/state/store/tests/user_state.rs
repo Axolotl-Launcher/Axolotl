@@ -203,7 +203,7 @@ async fn migrated_daily_totals_are_imported_once_and_survive_core_deletion() {
     sqlx::raw_sql("CREATE TABLE instance_daily_playtime(played_on TEXT,instance_id TEXT,instance_name TEXT,played_seconds INTEGER,session_count INTEGER);INSERT INTO instance_daily_playtime VALUES('2026-11-15','instance','Example',30,1);").execute(&mut legacy).await.unwrap();
     legacy.close().await.unwrap();
     let core = store::databases::open(temp.path()).await.unwrap();
-    store::records_db::initialize(temp.path(), Some(path.clone()))
+    store::records_db::initialize(temp.path(), Some(path.clone()), Some(&core))
         .await
         .unwrap();
     sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES('instance','path','installed','none','Example',0,0)").execute(&core).await.unwrap();
@@ -213,7 +213,7 @@ async fn migrated_daily_totals_are_imported_once_and_survive_core_deletion() {
     )
     .await
     .unwrap();
-    store::records_db::initialize(temp.path(), Some(path))
+    store::records_db::initialize(temp.path(), Some(path), Some(&core))
         .await
         .unwrap();
     crate::state::instances::adapters::sqlite::instance_rows::delete_instance_by_id("instance",&core).await.unwrap();
@@ -446,7 +446,7 @@ async fn existing_daily_authority_does_not_reimport_a_deleted_row_before_descrip
     .unwrap();
     sqlx::raw_sql("CREATE TABLE instance_daily_playtime(played_on TEXT,instance_id TEXT,instance_name TEXT,played_seconds INTEGER,session_count INTEGER);INSERT INTO instance_daily_playtime VALUES('2026-11-15','deleted','Old',100,1);").execute(&mut db).await.unwrap();
     db.close().await.unwrap();
-    store::records_db::initialize(temp.path(), Some(source))
+    store::records_db::initialize(temp.path(), Some(source), None)
         .await
         .unwrap();
     let mut current = SqliteConnection::connect_with(
@@ -526,7 +526,7 @@ async fn missing_existing_records_format_row_is_not_seeded_as_a_known_version()
             .unwrap();
     }
     assert!(
-        store::records_db::initialize(temp.path(), None)
+        store::records_db::initialize(temp.path(), None, None)
             .await
             .is_err()
     );

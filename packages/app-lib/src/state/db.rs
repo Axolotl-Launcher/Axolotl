@@ -189,7 +189,11 @@ async fn complete_startup_import(
         };
         new_install = source_path.is_none() && !existed;
         let temporary = tempfile::tempdir()?;
-        let snapshot = temporary.path().join("app.db");
+        let snapshot = super::db_backup::sqlite_native_path(
+            &temporary.path().join("app.db"),
+        )
+        .await?
+        .into_owned();
         if let Some(db_path) = source_path {
             let mut source =
                 super::db_backup::open_read_only_db(&db_path).await?;
@@ -203,7 +207,11 @@ async fn complete_startup_import(
         if let Some(progress) = &mut progress {
             progress.update("core", 0, 0, 0.1);
         }
-        let legacy = connect_app_db(&snapshot).await?;
+        // This private working copy was just verified (or is brand new).
+        // Legacy startup recovery and backups would search the temp parent
+        // for unrelated databases and keep a redundant, unscrubbed copy.
+        let ownership = Arc::new(files::Ownership::acquire(&snapshot).await?);
+        let legacy = open_migrated_app_db(&snapshot, ownership).await?;
         legacy.close().await;
         super::store::legacy_documents::initialize_from_snapshot(
             settings_dir,
@@ -619,6 +627,7 @@ fn sidecar_path(path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
+#[cfg(test)]
 async fn connect_app_db(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
     let ownership = Arc::new(files::Ownership::acquire(db_path).await?);
     files::recover(db_path).await?;

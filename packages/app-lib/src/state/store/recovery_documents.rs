@@ -615,11 +615,13 @@ pub(crate) async fn backup(
     snapshot: &Path,
     staging: &Path,
 ) -> crate::Result<()> {
+    let snapshot =
+        crate::state::db_backup::sqlite_native_path(snapshot).await?;
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(1)
         .connect_with(
             sqlx::sqlite::SqliteConnectOptions::new()
-                .filename(snapshot)
+                .filename(snapshot.as_ref())
                 .read_only(true),
         )
         .await?;

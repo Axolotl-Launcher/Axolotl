@@ -445,15 +445,30 @@ fn sync_write(
     data: impl AsRef<[u8]>,
     path: impl AsRef<Path>,
 ) -> Result<(), std::io::Error> {
+    let path = path.as_ref();
+    #[cfg(windows)]
+    let native_path = {
+        // TempPath::persist calls Win32 directly and needs extended paths
+        // for both the temporary file and the final filename.
+        let parent = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        let name = path.file_name().ok_or_else(|| {
+            std::io::Error::other("could not get filename for atomic write")
+        })?;
+        std::fs::canonicalize(parent)?.join(name)
+    };
+    #[cfg(windows)]
+    let path = native_path.as_path();
     let mut tempfile =
-        NamedTempFile::new_in(path.as_ref().parent().ok_or_else(|| {
+        NamedTempFile::new_in(path.parent().ok_or_else(|| {
             std::io::Error::other(
                 "could not get parent directory for temporary file",
             )
         })?)?;
     tempfile.write_all(data.as_ref())?;
     let tmp_path = tempfile.into_temp_path();
-    let path = path.as_ref();
     tmp_path.persist(path)?;
     std::io::Result::Ok(())
 }

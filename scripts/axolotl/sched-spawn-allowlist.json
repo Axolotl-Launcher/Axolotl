@@ -2699,8 +2699,8 @@
     {
       "file": "packages/app-lib/src/util/io.rs",
       "form": "std::fs",
-      "count": 12,
-      "reason": "phase-0 synchronous file I/O remains outside L0; reviewed native_path parent canonicalization belongs to the existing synchronous atomic replacement primitive, obtains Windows extended-length paths without following the moved leaf, and acquires no scheduler managed resource (D17)",
+      "count": 13,
+      "reason": "phase-0 synchronous file I/O remains outside L0; native_path and sync_write resolve Windows parent directories without following the moved leaf. sync_write runs in the existing file-write blocking worker before creating its temporary file, and neither site acquires a scheduler managed resource (D17)",
       "sites": [
         "atomically_replace_file: std::fs::rename(source, destination)",
         "is_same_disk: let new_meta = std::fs::symlink_metadata(new_dir)",
@@ -2713,7 +2713,8 @@
         "remove_safe: let rd = match std::fs::read_dir(path) {",
         "remove_safe: return std::fs::remove_file(path)",
         "remove_safe: return std::fs::remove_file(path)",
-        "remove_safe: std::fs::remove_dir(path)"
+        "remove_safe: std::fs::remove_dir(path)",
+        "sync_write: std::fs::canonicalize(parent)?.join(name)"
       ]
     },
     {

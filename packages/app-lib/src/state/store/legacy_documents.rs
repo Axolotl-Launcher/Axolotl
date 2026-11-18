@@ -175,8 +175,10 @@ pub(crate) async fn initialize_from_snapshot(
             let temporary = tempfile::tempdir()?;
             let scrubbed = temporary.path().join("legacy-app.db");
             tokio::fs::copy(snapshot, &scrubbed).await?;
+            let scrubbed =
+                crate::state::db_backup::sqlite_native_path(&scrubbed).await?;
             let mut connection = SqliteConnection::connect_with(
-                &SqliteConnectOptions::new().filename(scrubbed),
+                &SqliteConnectOptions::new().filename(scrubbed.as_ref()),
             )
             .await?;
             sqlx::query("PRAGMA secure_delete=ON")
@@ -241,11 +243,6 @@ pub(crate) async fn initialize_from_snapshot(
         super::resource_identity_db::initialize(root, Some(snapshot)).await
     {
         tracing::warn!(%error, "Optional resource identity import unavailable; retaining the migrated snapshot for retry");
-    }
-    if let Err(error) =
-        super::records_db::initialize(root, Some(snapshot.to_path_buf())).await
-    {
-        tracing::warn!(%error, "Independent playtime import unavailable; core startup continues");
     }
     for domain in ["telemetry"] {
         if let Err(error) =
@@ -404,10 +401,8 @@ pub(super) async fn source(
         if !tokio::fs::try_exists(&path).await? {
             continue;
         }
-        let mut connection = SqliteConnection::connect_with(
-            &SqliteConnectOptions::new().filename(path).read_only(true),
-        )
-        .await?;
+        let mut connection =
+            crate::state::db_backup::open_read_only_db(&path).await?;
         sqlx::query("BEGIN").execute(&mut connection).await?;
         return Ok(Some(connection));
     }
@@ -462,10 +457,8 @@ pub(super) async fn read_source_for(
     Ok(None)
 }
 async fn open_snapshot(path: PathBuf) -> crate::Result<SqliteConnection> {
-    let mut connection = SqliteConnection::connect_with(
-        &SqliteConnectOptions::new().filename(path).read_only(true),
-    )
-    .await?;
+    let mut connection =
+        crate::state::db_backup::open_read_only_db(&path).await?;
     sqlx::query("BEGIN").execute(&mut connection).await?;
     Ok(connection)
 }

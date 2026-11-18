@@ -4359,6 +4359,90 @@ async fn legacy_startup_snapshot_keeps_pins_favorites_world_choices_and_daily_to
     core.close().await;
 }
 
+#[cfg(windows)]
+#[tokio::test]
+async fn legacy_startup_imports_and_backs_up_at_long_windows_paths() {
+    let temporary = tempfile::tempdir().unwrap();
+    let legacy_path = temporary.path().join("legacy.db");
+    let legacy = connect_app_db(&legacy_path).await.unwrap();
+    let legacy_version = format!("fixture-{}", uuid::Uuid::new_v4());
+    sqlx::query("UPDATE app_metadata SET value=? WHERE key='app_version'")
+        .bind(&legacy_version)
+        .execute(&legacy)
+        .await
+        .unwrap();
+    sqlx::raw_sql(
+        "INSERT INTO resources(id) VALUES('long-path-resource');
+         INSERT INTO instance_daily_playtime VALUES('2026-11-15','deleted','History',77,1);",
+    )
+    .execute(&legacy)
+    .await
+    .unwrap();
+    legacy.close().await;
+
+    let mut root = dunce::simplified(temporary.path()).to_path_buf();
+    while root.as_os_str().len() <= 250 {
+        root.push("long-directory-".repeat(4));
+    }
+    tokio::fs::create_dir_all(&root).await.unwrap();
+    let source = root.join("app.db");
+    tokio::fs::copy(&legacy_path, &source).await.unwrap();
+    let core = connect_at(&root).await.unwrap();
+    let day = "2026-11-15".parse().unwrap();
+    let history = crate::state::instances::adapters::sqlite::playtime::get_daily_playtime(day, day, &core)
+        .await
+        .unwrap();
+    assert_eq!(history[0].played_seconds, 77);
+
+    let snapshot = crate::state::store::databases::backup(&core, &root)
+        .await
+        .unwrap();
+    let mut records = super::super::db_backup::open_read_only_db(
+        &snapshot.join("records.db"),
+    )
+    .await
+    .unwrap();
+    let seconds: i64 = sqlx::query_scalar(
+        "SELECT played_seconds FROM instance_daily_playtime",
+    )
+    .fetch_one(&mut records)
+    .await
+    .unwrap();
+    assert_eq!(seconds, 77);
+    records.close().await.unwrap();
+
+    let mut resources = super::super::db_backup::open_read_only_db(
+        &snapshot.join("resources.db"),
+    )
+    .await
+    .unwrap();
+    let id: String = sqlx::query_scalar("SELECT id FROM resources")
+        .fetch_one(&mut resources)
+        .await
+        .unwrap();
+    assert_eq!(id, "long-path-resource");
+    resources.close().await.unwrap();
+    assert_eq!(
+        tokio::fs::read(&source).await.unwrap(),
+        tokio::fs::read(&legacy_path).await.unwrap(),
+    );
+    let temp_backups = super::super::db_backup::app_db_backup_dir_for(
+        &temporary.path().join("app.db"),
+    )
+    .unwrap();
+    if let Ok(mut entries) = tokio::fs::read_dir(temp_backups).await {
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            assert!(
+                !entry
+                    .file_name()
+                    .to_string_lossy()
+                    .contains(&legacy_version)
+            );
+        }
+    }
+    core.close().await;
+}
+
 #[tokio::test]
 async fn startup_retries_pending_operation_takeover_without_opening_retired_channel()
  {

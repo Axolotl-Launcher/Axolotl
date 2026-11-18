@@ -446,7 +446,8 @@ pub(crate) async fn authority(
     let stored = data.get("root").and_then(Value::as_str).ok_or_else(|| {
         crate::ErrorKind::InputError("Sync authority root missing".into())
     })?;
-    if std::path::Path::new(stored) != configured {
+    let stored = std::path::Path::new(stored);
+    if stored != configured && !same_sync_directory(stored, &configured).await {
         return Err(crate::ErrorKind::FSError(
             "Sync storage moved without its authority; original state retained"
                 .into(),
@@ -454,6 +455,29 @@ pub(crate) async fn authority(
         .into());
     }
     Ok(configured)
+}
+
+async fn same_sync_directory(
+    stored: &std::path::Path,
+    current: &std::path::Path,
+) -> bool {
+    #[cfg(windows)]
+    {
+        // The coordinator opens SQLite with an extended path, while an
+        // existing sync descriptor can name that same directory without it.
+        match tokio::try_join!(
+            tokio::fs::canonicalize(stored),
+            tokio::fs::canonicalize(current),
+        ) {
+            Ok((stored, current)) => stored == current,
+            Err(_) => false,
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (stored, current);
+        false
+    }
 }
 
 pub(crate) async fn backup_in(

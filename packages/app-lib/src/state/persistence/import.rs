@@ -84,6 +84,36 @@ impl Import {
         Fut: Future<Output = crate::Result<Map<String, Value>>> + Send,
         V: Fn(&Snapshot) -> crate::Result<()> + Send + 'static,
     {
+        self.run_inner(move |_| load(), validate, false).await
+    }
+
+    /// A descriptor can be rebuilt when the existing authority independently
+    /// proves that its handover committed. The loader must only verify that
+    /// authority when `true` is passed; it must never read the legacy source.
+    pub(crate) async fn run_recovering_descriptor<F, Fut, V>(
+        &self,
+        load: F,
+        validate: V,
+    ) -> crate::Result<ReadResult>
+    where
+        F: FnOnce(bool) -> Fut + Send + 'static,
+        Fut: Future<Output = crate::Result<Map<String, Value>>> + Send,
+        V: Fn(&Snapshot) -> crate::Result<()> + Send + 'static,
+    {
+        self.run_inner(load, validate, true).await
+    }
+
+    async fn run_inner<F, Fut, V>(
+        &self,
+        load: F,
+        validate: V,
+        recover_descriptor: bool,
+    ) -> crate::Result<ReadResult>
+    where
+        F: FnOnce(bool) -> Fut + Send + 'static,
+        Fut: Future<Output = crate::Result<Map<String, Value>>> + Send,
+        V: Fn(&Snapshot) -> crate::Result<()> + Send + 'static,
+    {
         let marker = self.marker.clone();
         let target = self.target.clone();
         let name = self.name.clone();
@@ -102,7 +132,13 @@ impl Import {
                         snapshot: None,
                     });
                 }
-                let current = target.read_locked()?;
+                let mut current = target.read_locked()?;
+                if recover_descriptor && current.availability == Availability::Missing {
+                    let snapshot = target.initial(runtime.block_on(load(true))?);
+                    validate(&snapshot)?;
+                    target.write_locked(&snapshot)?;
+                    current = target.read_locked()?;
+                }
                 if let Some(snapshot) = current.snapshot.as_ref()
                     && matches!(current.availability, Availability::Ready | Availability::Recovered) {
                     validate(snapshot)?;
@@ -110,16 +146,22 @@ impl Import {
                 return Ok(current);
             }
             let mut current = target.read_locked()?;
+            let had_target = current.availability != Availability::Missing;
             if current.availability == Availability::Missing {
-                let snapshot = target.initial(runtime.block_on(load())?);
-                validate(&snapshot)?;
-                target.write_locked(&snapshot)?;
+                let initial = target.initial(runtime.block_on(load(false))?);
+                validate(&initial)?;
+                target.write_locked(&initial)?;
                 current = target.read_locked()?;
+            } else if recover_descriptor && matches!(current.availability, Availability::Ready | Availability::Recovered) {
+                validate(current.snapshot.as_ref().expect("readable document"))?;
+                runtime.block_on(load(true))?;
             }
             if !matches!(current.availability, Availability::Ready | Availability::Recovered) {
                 return Ok(current);
             }
-            validate(current.snapshot.as_ref().expect("readable document"))?;
+            if !recover_descriptor || !had_target {
+                validate(current.snapshot.as_ref().expect("readable document"))?;
+            }
             let receipt = marker.initial(Map::from_iter([
                 ("name".into(), json!(name)),
                 ("target".into(), json!(relative_target)),

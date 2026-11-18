@@ -10,11 +10,13 @@ pub(crate) const FILE: &str = "operations-history.db";
 pub(crate) async fn open(root: &Path) -> crate::Result<SqlitePool> {
     let directory = crate::state::layout::cache(root);
     tokio::fs::create_dir_all(&directory).await?;
+    let path = directory.join(FILE);
+    let path = crate::state::db_backup::sqlite_native_path(&path).await?;
     let pool = SqlitePoolOptions::new()
         .max_connections(2)
         .connect_with(
             SqliteConnectOptions::new()
-                .filename(directory.join(FILE))
+                .filename(path.as_ref())
                 .create_if_missing(true)
                 .foreign_keys(false)
                 .busy_timeout(std::time::Duration::from_secs(5)),
@@ -50,12 +52,13 @@ pub(crate) async fn legacy(root: &Path) -> crate::Result<Option<SqlitePool>> {
         if !tokio::fs::try_exists(&path).await? {
             continue;
         }
+        let path = crate::state::db_backup::sqlite_native_path(&path).await?;
         return Ok(Some(
             SqlitePoolOptions::new()
                 .max_connections(1)
                 .connect_with(
                     SqliteConnectOptions::new()
-                        .filename(path)
+                        .filename(path.as_ref())
                         .read_only(true)
                         .create_if_missing(false)
                         .busy_timeout(std::time::Duration::from_secs(5)),

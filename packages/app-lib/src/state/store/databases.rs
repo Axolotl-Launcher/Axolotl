@@ -527,9 +527,12 @@ where
                 &staging.join("synced-options"),
             ).await?;
         }
-        if let Err(error) = super::records_db::backup(settings_dir, &staging.join("records.db")).await {
+        if let Err(error) = super::records_db::backup(settings_dir, &staging, Some(pool)).await {
             tracing::warn!(%error,"Core snapshot excludes unavailable optional daily history");
-            exclusions.push("daily-playtime".into());
+            exclusions.push(super::records_db::DOMAIN.into());
+            if let Err(error) = preserve_raw_receipt(settings_dir, &staging, super::records_db::DOMAIN).await {
+                tracing::warn!(%error, "Unable to include evidence for the excluded daily history authority");
+            }
             crate::state::persistence::document::write_json(&staging.join("backup-status.json"),serde_json::to_vec(&serde_json::json!({"optional_exclusions":["records.db"]}))?).await?;
         }
         if let Err(error) = super::resource_identity_db::backup(settings_dir, &staging).await {
@@ -591,7 +594,9 @@ async fn backup_receipts(
                         "Invalid handover receipt name".into(),
                     )
                 })?;
-            if (name == "sync") != sync_only {
+            if (name == "sync") != sync_only
+                || name == super::records_db::DOMAIN
+            {
                 continue;
             }
             let snapshot = crate::state::persistence::import::snapshot(
@@ -981,7 +986,8 @@ pub(crate) async fn open(settings_dir: &Path) -> crate::Result<SqlitePool> {
         return Ok(pool);
     }
     super::legacy_documents::initialize(settings_dir).await;
-    if let Err(error) = super::records_db::initialize(settings_dir, None).await
+    if let Err(error) =
+        super::records_db::initialize(settings_dir, None, Some(&pool)).await
     {
         tracing::warn!(%error,"Optional daily history unavailable; core startup continues");
     }
@@ -1023,14 +1029,21 @@ async fn open_with_retired(
     );
     let root = directory(settings_dir);
     tokio::fs::create_dir_all(&root).await?;
+    let system_path = root.join("system.db");
+    let system_path =
+        crate::state::db_backup::sqlite_native_path(&system_path).await?;
+    let root = system_path
+        .parent()
+        .expect("core database directory")
+        .to_owned();
     let ownership = Arc::new(
-        crate::state::db::acquire_domain_ownership(&root.join("system.db"))
+        crate::state::db::acquire_domain_ownership(system_path.as_ref())
             .await?,
     );
     super::maintenance::finish_restore(settings_dir).await?;
     let initialized = verify_core_files(settings_dir).await?;
     let options = SqliteConnectOptions::new()
-        .filename(directory(settings_dir).join("system.db"))
+        .filename(system_path.as_ref())
         .create_if_missing(!initialized)
         .journal_mode(SqliteJournalMode::Delete)
         .synchronous(sqlx::sqlite::SqliteSynchronous::Full)
@@ -1456,10 +1469,13 @@ pub(crate) async fn import(
         return Ok(());
     }
     super::configuration::import_legacy(source, settings_dir).await?;
+    let source = crate::state::db_backup::sqlite_native_path(source).await?;
     let legacy = SqlitePoolOptions::new()
         .max_connections(1)
         .connect_with(
-            SqliteConnectOptions::new().filename(source).read_only(true),
+            SqliteConnectOptions::new()
+                .filename(source.as_ref())
+                .read_only(true),
         )
         .await?;
     let groups =
@@ -1514,6 +1530,15 @@ pub(crate) async fn import(
     create_schema(&mut connection, false).await?;
     drop(connection);
     sqlx::query("INSERT INTO main.database_imports (source, completed) VALUES ('app.db', 1) ON CONFLICT(source) DO UPDATE SET completed = 1").execute(pool).await?;
+    if let Err(error) = super::records_db::initialize(
+        settings_dir,
+        Some(source.into_owned()),
+        Some(pool),
+    )
+    .await
+    {
+        tracing::warn!(%error, "Independent playtime import unavailable; core startup continues");
+    }
     Ok(())
 }
 

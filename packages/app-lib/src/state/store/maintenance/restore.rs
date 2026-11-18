@@ -1,6 +1,6 @@
 //! Explicit offline restore, with a durable roll-forward receipt before replacing
 //! the first authority. Prior files remain in the restore workspace.
-use super::super::resource_identity_db;
+use super::super::{records_db, resource_identity_db};
 use crate::state::layout;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -193,11 +193,26 @@ pub(crate) async fn restore_snapshot(
         .is_some_and(|values| {
             values.iter().any(|value| value == "resource-identities")
         });
+    let excluded_history = metadata["optional_exclusions"]
+        .as_array()
+        .is_some_and(|values| {
+            values.iter().any(|value| value == records_db::DOMAIN)
+        });
     for relative in tree(&bundle).await? {
         let resource_authority = relative
             == Path::new(resource_identity_db::FILE)
             || relative == Path::new(resource_identity_db::RECEIPT);
         if resource_authority && excluded_resources {
+            continue;
+        }
+        if [layout::PLAYTIME, records_db::RECEIPT]
+            .iter()
+            .any(|path| relative == Path::new(&format!("{path}.previous")))
+            || (excluded_history
+                && [records_db::FILE, layout::PLAYTIME, records_db::RECEIPT]
+                    .iter()
+                    .any(|path| relative == Path::new(path)))
+        {
             continue;
         }
         if ![
@@ -282,22 +297,65 @@ pub(crate) async fn restore_snapshot(
             return Err(invalid("Snapshot lacks a required core file"));
         }
     }
+    let history_available = if excluded_history
+        || !staged.join(records_db::FILE).is_file()
+    {
+        false
+    } else if let Err(error) = records_db::validate_backup(&staged).await {
+        tracing::warn!(%error, "Restore excludes unreadable optional daily history; snapshot retained");
+        false
+    } else {
+        true
+    };
+    if !history_available {
+        // Keep a previously installed records file on disk without reading it
+        // as part of this restored generation. The coordinator fence also
+        // covers subsequent loss of both JSON files and their fallbacks.
+        files.retain(|file| file.source != staged.join(records_db::FILE));
+        let descriptor = serde_json::json!({"protocol":"axolotl-restored-unavailable","schema_version":1,"revision":1,"data":{"domain":records_db::DOMAIN,"reason":"excluded-from-restored-snapshot"}});
+        let takeover = serde_json::json!({"protocol":"axolotl-import","schema_version":1,"revision":1,"data":{"name":records_db::DOMAIN,"target":layout::PLAYTIME,"complete":true,"restored_unavailable":true}});
+        for (relative, value) in [
+            (layout::PLAYTIME, descriptor),
+            (records_db::RECEIPT, takeover),
+        ] {
+            let source = staged.join(relative);
+            crate::state::persistence::document::write_json(
+                &source,
+                serde_json::to_vec(&value)?,
+            )
+            .await?;
+            if !files.iter().any(|file| file.source == source) {
+                files.push(File {
+                    source,
+                    target: root.join(relative),
+                    sha256: String::new(),
+                });
+            }
+        }
+    }
+    for relative in [layout::PLAYTIME, records_db::RECEIPT] {
+        files.push(File {
+            source: staged.join(relative),
+            target: root.join(format!("{relative}.previous")),
+            sha256: String::new(),
+        });
+    }
+    let system_path = staged.join("system.db");
+    let system_path =
+        crate::state::db_backup::sqlite_native_path(&system_path).await?;
     let mut connection = sqlx::SqliteConnection::connect_with(
         &SqliteConnectOptions::new()
-            .filename(staged.join("system.db"))
+            .filename(system_path.as_ref())
             .foreign_keys(true),
     )
     .await?;
     for name in ["instances", "storage"] {
+        let path = staged.join(format!("{name}.db"));
+        let path = crate::state::db_backup::sqlite_native_path(&path).await?;
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "ATTACH DATABASE ? AS {name}"
         )))
-        .bind(
-            staged
-                .join(format!("{name}.db"))
-                .to_string_lossy()
-                .into_owned(),
-        )
+        .bind(path.to_string_lossy().into_owned())
         .execute(&mut connection)
         .await?;
     }
@@ -305,6 +363,8 @@ pub(crate) async fn restore_snapshot(
     let sync_available =
         staged.join("synced-options/state/head.json").is_file();
     connection.execute("BEGIN IMMEDIATE").await?;
+    records_db::stage_restore_decision(&mut connection, history_available)
+        .await?;
     if !sync_available {
         connection
             .execute("DELETE FROM main.sync_decisions")
@@ -379,8 +439,12 @@ pub(crate) async fn restore_snapshot(
             let name = excluded
                 .as_str()
                 .ok_or_else(|| invalid("Invalid excluded domain name"))?;
-            if matches!(name, "instance-recovery-copies" | "operation-history")
-            {
+            if matches!(
+                name,
+                "instance-recovery-copies"
+                    | "operation-history"
+                    | records_db::DOMAIN
+            ) {
                 continue;
             }
             if name.is_empty()
@@ -399,7 +463,6 @@ pub(crate) async fn restore_snapshot(
                 "sync" => layout::SYNC_AUTHORITY.to_owned(),
                 "worlds" | "joins" | "shared_logs" | "resource_favorites"
                 | "instance_pins" => format!("data/user-state/{name}.json"),
-                "daily-playtime" => layout::PLAYTIME.to_owned(),
                 "sync-pending" => layout::SYNC_PENDING.to_owned(),
                 _ => format!("data/persistence/unavailable/{name}.json"),
             };
@@ -935,6 +998,41 @@ mod tests {
                 .contains("excluded from the restored snapshot")
         );
         assert_eq!(tokio::fs::read(resources).await.unwrap(), original);
+        core.close().await;
+    }
+
+    #[tokio::test]
+    async fn restore_with_excluded_history_preserves_current_file_without_reviving_it()
+     {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path();
+        let core = super::super::super::databases::open(root).await.unwrap();
+        let records = layout::data(root).join(records_db::FILE);
+        let parked = root.join("parked-records.db");
+        tokio::fs::rename(&records, &parked).await.unwrap();
+        let snapshot = super::super::super::databases::backup(&core, root)
+            .await
+            .unwrap();
+        core.close().await;
+        drop(core);
+        assert!(bounded_json(&snapshot.join("snapshot.json")).await.unwrap()
+            ["optional_exclusions"].as_array().unwrap().iter()
+            .any(|name| name == records_db::DOMAIN));
+        assert!(!snapshot.join(records_db::FILE).exists());
+        tokio::fs::rename(&parked, &records).await.unwrap();
+        let original = tokio::fs::read(&records).await.unwrap();
+        restore_snapshot(root, &snapshot, root).await.unwrap();
+        for relative in [layout::PLAYTIME, records_db::RECEIPT] {
+            for path in [
+                root.join(relative),
+                root.join(format!("{relative}.previous")),
+            ] {
+                tokio::fs::remove_file(path).await.unwrap();
+            }
+        }
+        let core = super::super::super::databases::open(root).await.unwrap();
+        assert!(records_db::pool_for(&core).await.is_none());
+        assert_eq!(tokio::fs::read(records).await.unwrap(), original);
         core.close().await;
     }
 

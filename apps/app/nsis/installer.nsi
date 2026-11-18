@@ -165,8 +165,18 @@ Var UninstallFailure
 ; Offer this launcher as an alternative without taking the extension over. Used
 ; when the user opted into associations but another application already owns the
 ; extension: the ProgID becomes selectable from "Open with", while the
-; extension's default value and its recorded backup stay untouched.
+; extension's default value stays untouched. The handler the extension points at
+; now is still recorded, because the user can pick this ProgID as the default
+; later and uninstall has to be able to put that handler back.
 !macro AxlRegisterFileTypeAlternative EXT FILECLASS DESCRIPTION ICON COMMANDTEXT COMMAND
+  Push $R0
+  ClearErrors
+  ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.${EXT}" ""
+  ${If} $R0 != ""
+  ${AndIf} $R0 != "${FILECLASS}"
+    WriteRegStr SHELL_CONTEXT "Software\Classes\.${EXT}" "${FILECLASS}_backup" "$R0"
+  ${EndIf}
+  Pop $R0
   WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}" "" `${DESCRIPTION}`
   WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}\DefaultIcon" "" `${ICON}`
   WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}\shell" "" "open"

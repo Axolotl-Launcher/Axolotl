@@ -343,7 +343,7 @@ defineExpose({ getState, setState })
                 tag="ol"
                 class="m-0 flex min-w-0 list-none flex-col gap-3 p-0"
                 handle=".execute-chain-drag-handle"
-                ghost-class="opacity-30 !border-dashed !border-brand"
+                ghost-class="opacity-30"
                 :animation="150"
                 :force-fallback="true"
                 :fallback-on-body="false"

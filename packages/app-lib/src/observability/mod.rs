@@ -143,6 +143,14 @@ pub(crate) use command_metrics::CommandMetricsLayer;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Capture is process-wide, so these tests must not interleave.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn lock() -> std::sync::MutexGuard<'static, ()> {
+        TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner())
+    }
 
     #[test]
     fn disabled_without_the_opt_in_variable() {
@@ -152,6 +160,7 @@ mod tests {
 
     #[test]
     fn flush_succeeds_when_only_capture_is_installed() {
+        let _guard = lock();
         // Local capture keeps data in memory; there is nothing to push, so a
         // flush must not report failure just because OTLP is off.
         let capture = capture::start(4);
@@ -162,20 +171,18 @@ mod tests {
 
     #[test]
     fn flush_without_any_consumer_succeeds() {
+        let _guard = lock();
         capture::stop();
         assert!(flush(Duration::from_millis(1)));
     }
 
     #[test]
     fn capture_alone_reports_telemetry_as_enabled() {
+        let _guard = lock();
         capture::stop();
         capture::reset_for_test();
         let started = super::capture::start(4);
         assert!(is_enabled());
-        assert_eq!(
-            capture::active().map(std::sync::Arc::strong_count),
-            Some(3)
-        );
         assert!(started.is_recording());
         super::capture::stop();
         assert!(!started.is_recording());

@@ -1,6 +1,6 @@
 use super::*;
 use axum::http::StatusCode;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use std::{
     sync::{
         Arc,
@@ -78,26 +78,26 @@ fn source() -> Arc<dyn Source> {
                 severity: "info".into(),
                 occurred_at_unix_ms: 2,
                 duration_ms: Some(5),
-                attributes: Default::default(),
+                attributes: Map::default(),
             },
             EventRecord {
                 name: "app.started".into(),
                 severity: "info".into(),
                 occurred_at_unix_ms: 1,
                 duration_ms: None,
-                attributes: Default::default(),
+                attributes: Map::default(),
             },
         ],
         counters: vec![
             CounterSeries {
                 name: "axolotl.errors".into(),
                 value: 3,
-                attributes: Default::default(),
+                attributes: Map::default(),
             },
             CounterSeries {
                 name: "other.counter".into(),
                 value: 1,
-                attributes: Default::default(),
+                attributes: Map::default(),
             },
         ],
         histograms: vec![HistogramSeries {
@@ -107,7 +107,7 @@ fn source() -> Arc<dyn Source> {
             max: 3.0,
             last: 3.0,
             sum: 4.0,
-            attributes: Default::default(),
+            attributes: Map::default(),
         }],
         spans: vec![
             SpanRecord {

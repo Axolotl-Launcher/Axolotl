@@ -138,13 +138,12 @@ impl Server {
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .running = false;
-        if let Some(mut task) = self.task.take() {
-            if tokio::time::timeout(Duration::from_secs(2), &mut task)
+        if let Some(mut task) = self.task.take()
+            && tokio::time::timeout(Duration::from_secs(2), &mut task)
                 .await
                 .is_err()
-            {
-                task.abort();
-            }
+        {
+            task.abort();
         }
     }
 }
@@ -222,9 +221,10 @@ impl ServerHandler for Handler {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        let mut result = ListToolsResult::default();
-        result.tools = protocol::tools();
-        Ok(result)
+        Ok(ListToolsResult {
+            tools: protocol::tools(),
+            ..Default::default()
+        })
     }
 
     async fn call_tool(

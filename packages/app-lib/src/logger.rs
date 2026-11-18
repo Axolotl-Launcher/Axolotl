@@ -1743,12 +1743,13 @@ pub fn start_logger(app_identifier: &str) -> Option<LoggerGuard> {
                 .with_filter(observability_log_filter()),
             )
         }))
-        .with(observability.as_ref().map(|_| {
+        // Both local layers can start after this subscriber exists, so they are
+        // always attached and each checks `is_enabled()` per span instead of
+        // being gated on the OTLP guard.
+        .with(
             crate::observability::CommandMetricsLayer::new()
-                .with_filter(command_metrics_filter())
-        }))
-        // The capture can be enabled after this subscriber exists, so the
-        // layer is always registered and checks its own flag per span.
+                .with_filter(command_metrics_filter()),
+        )
         .with(
             crate::observability::spans::CaptureSpanLayer::new()
                 .with_filter(capture_span_filter()),

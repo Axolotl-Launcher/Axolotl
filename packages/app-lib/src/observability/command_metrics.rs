@@ -5,6 +5,11 @@
 //! `axolotl.ipc.duration` histogram. Nothing is recorded when observability is
 //! disabled, and the layer never emits tracing events itself, so it cannot
 //! feed back into the subscriber.
+//!
+//! The layer is attached for the whole process rather than only when OTLP
+//! starts, because local capture can be enabled from the settings page long
+//! after the subscriber exists. Each span therefore checks [`is_enabled`]
+//! itself: with no consumer installed the cost is one atomic load.
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -29,6 +34,8 @@ impl CommandMetricsLayer {
     pub(crate) fn new() -> Self {
         Self {
             record: Arc::new(|command, domain, duration_ms| {
+                // Capture can start after this layer is attached, so the check
+                // has to happen per span, not when the subscriber is built.
                 if !crate::observability::is_enabled() {
                     return;
                 }
@@ -106,6 +113,54 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
     use tracing_subscriber::prelude::*;
+
+    /// Capture and the telemetry registry are process-wide.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn lock() -> std::sync::MutexGuard<'static, ()> {
+        TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner())
+    }
+
+    #[test]
+    fn records_durations_with_only_local_capture_installed() {
+        let _guard = lock();
+        crate::observability::capture::stop();
+        crate::observability::capture::reset_for_test();
+        crate::observability::start_capture();
+        assert!(crate::observability::is_enabled());
+
+        let subscriber =
+            tracing_subscriber::registry().with(CommandMetricsLayer::new());
+        tracing::subscriber::with_default(subscriber, || {
+            let span = tracing::info_span!(
+                target: "theseus_gui::api::instance",
+                "list_instances"
+            );
+            drop(span);
+        });
+
+        let histograms = crate::observability::capture::active()
+            .expect("capture")
+            .histograms();
+        crate::observability::stop_capture();
+
+        let recorded = histograms
+            .iter()
+            .find(|histogram| histogram.name == DURATION_HISTOGRAM)
+            .expect("ipc duration recorded");
+        assert_eq!(recorded.count, 1);
+        assert_eq!(
+            recorded.attributes.get("command").and_then(|value| {
+                match value {
+                    launcher_observability::AttributeValue::String(value) => {
+                        Some(value.as_str())
+                    }
+                    _ => None,
+                }
+            }),
+            Some("list_instances")
+        );
+    }
 
     #[test]
     fn matches_only_the_command_target_namespace() {

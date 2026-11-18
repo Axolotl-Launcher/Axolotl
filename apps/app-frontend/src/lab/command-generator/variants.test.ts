@@ -18,7 +18,6 @@ const ifSub: ExecuteChainSubcommand = {
     variants: {
         argument: 'condition',
         labelKey: 'variant.field.condition',
-        layout: 'card',
         options: [
             {
                 id: 'entity',
@@ -87,7 +86,6 @@ const positionedSub: ExecuteChainSubcommand = {
     variants: {
         argument: 'positioning',
         labelKey: 'variant.field.positioning',
-        layout: 'compact',
         options: [
             {
                 id: 'pos',
@@ -145,7 +143,6 @@ const storeSub: ExecuteChainSubcommand = {
     variants: {
         argument: 'destination',
         labelKey: 'variant.field.destination',
-        layout: 'card',
         options: [
             {
                 id: 'score',

@@ -6027,7 +6027,7 @@
     "message": "result keeps the command value, success keeps 1 or 0"
   },
   "app.lab.command-generator.arg.execute.store.mode.display": {
-    "message": "What to keep"
+    "message": "What to store"
   },
   "app.lab.command-generator.arg.execute.summon.entity.desc": {
     "message": "Entity ID"

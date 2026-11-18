@@ -832,7 +832,6 @@
               "variants": {
                 "argument": "positioning",
                 "labelKey": "app.lab.command-generator.execute.variant.field.positioning",
-                "layout": "compact",
                 "options": [
                   {
                     "id": "pos",
@@ -926,7 +925,6 @@
               "variants": {
                 "argument": "rotation",
                 "labelKey": "app.lab.command-generator.execute.variant.field.rotation",
-                "layout": "compact",
                 "options": [
                   {
                     "id": "angle",
@@ -1022,7 +1020,6 @@
               "variants": {
                 "argument": "orientation",
                 "labelKey": "app.lab.command-generator.execute.variant.field.orientation",
-                "layout": "compact",
                 "options": [
                   {
                     "id": "pos",
@@ -1206,7 +1203,6 @@
               "variants": {
                 "argument": "condition",
                 "labelKey": "app.lab.command-generator.execute.variant.field.condition",
-                "layout": "card",
                 "options": [
                   {
                     "id": "entity",
@@ -1638,7 +1634,6 @@
               "variants": {
                 "argument": "condition",
                 "labelKey": "app.lab.command-generator.execute.variant.field.condition",
-                "layout": "card",
                 "options": [
                   {
                     "id": "entity",
@@ -2067,7 +2062,6 @@
               "variants": {
                 "argument": "destination",
                 "labelKey": "app.lab.command-generator.execute.variant.field.destination",
-                "layout": "card",
                 "options": [
                   {
                     "id": "score",

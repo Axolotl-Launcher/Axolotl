@@ -3824,7 +3824,7 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.arg.execute.store.mode.display': {
         id: 'app.lab.command-generator.arg.execute.store.mode.display',
-        defaultMessage: 'What to keep',
+        defaultMessage: 'What to store',
     },
     'app.lab.command-generator.arg.execute.store.mode.desc': {
         id: 'app.lab.command-generator.arg.execute.store.mode.desc',

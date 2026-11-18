@@ -117,11 +117,6 @@ export interface ExecuteChainVariants {
     descriptionKey?: string
     /** 不填则强制用户选；填了就按这个写法入链 */
     defaultValue?: string
-    /**
-     * 选择器里的入口形态：`card` 是大卡片（带说明与写法数量），
-     * `compact` 是与普通子命令同排的小按钮。
-     */
-    layout: 'card' | 'compact'
     options: ExecuteChainVariantOption[]
 }
 

@@ -6027,7 +6027,7 @@
     "message": "result 存命令的返回值，success 存 1 或 0"
   },
   "app.lab.command-generator.arg.execute.store.mode.display": {
-    "message": "存什么"
+    "message": "存储内容"
   },
   "app.lab.command-generator.arg.execute.summon.entity.desc": {
     "message": "实体 ID"

@@ -307,16 +307,6 @@ function onVariantChange(step: ChainStep, optionId: string) {
     step.values = switchVariant(sub, step.values, optionId)
 }
 
-/** 写法多的子命令用大卡片，说明与写法数量都摊开。 */
-function cardSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
-    return category.subcommands.filter((sub) => sub.variants?.layout === 'card')
-}
-
-/** 普通子命令与写法少的家族共用一排小按钮，家族多一个折角提示还要再选。 */
-function compactSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
-    return category.subcommands.filter((sub) => sub.variants?.layout !== 'card')
-}
-
 const output = computed(() => {
     const parts = chain.value.map(renderStep).filter(Boolean)
     const final = finalCommand.value.trim()
@@ -669,13 +659,10 @@ defineExpose({ getState, setState })
                     <p class="m-0 text-xs font-medium text-[var(--color-text-tertiary)]">
                         {{ formatDynamic(cat.labelKey, cat.id) }}
                     </p>
-                    <!-- 写法多的子命令要再选一次跟什么，所以给它们更大的卡，而不是一排小按钮 -->
-                    <div
-                        v-if="cardSubcommands(cat).length"
-                        class="grid min-w-0 gap-2 sm:grid-cols-2"
-                    >
+                    <!-- 每个子命令都是一张卡：图标、命令名、作用，家族再多一行写法数量 -->
+                    <div class="grid min-w-0 gap-2 sm:grid-cols-2">
                         <button
-                            v-for="sub in cardSubcommands(cat)"
+                            v-for="sub in cat.subcommands"
                             :key="sub.id"
                             type="button"
                             class="flex min-w-0 items-start gap-3 rounded-xl border border-solid border-surface-4 bg-surface-3 p-3 text-left transition-colors hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
@@ -698,31 +685,17 @@ defineExpose({ getState, setState })
                                 <span class="text-xs leading-5 text-[var(--color-text-tertiary)]">{{
                                     formatDynamic(sub.descriptionKey, sub.id)
                                 }}</span>
-                                <span class="text-xs text-[var(--color-text-tertiary)]">{{
-                                    formatMessage(messages.variantCount, {
-                                        count: sub.variants?.options.length ?? 0,
-                                    })
-                                }}</span>
+                                <span
+                                    v-if="sub.variants"
+                                    class="text-xs text-[var(--color-text-tertiary)]"
+                                    >{{
+                                        formatMessage(messages.variantCount, {
+                                            count: sub.variants.options.length,
+                                        })
+                                    }}</span
+                                >
                             </span>
                         </button>
-                    </div>
-                    <div v-if="compactSubcommands(cat).length" class="flex flex-wrap gap-2">
-                        <Button
-                            v-for="sub in compactSubcommands(cat)"
-                            :key="sub.id"
-                            v-tooltip="formatDynamic(sub.descriptionKey, sub.id)"
-                            type="outlined"
-                            size="sm"
-                            @click="addSubcommand(sub)"
-                            ><component
-                                :is="subcommandIcon(sub.id)"
-                                aria-hidden="true"
-                                class="h-4 w-4" />{{ formatDynamic(sub.labelKey, sub.id)
-                            }}<ChevronDownIcon
-                                v-if="sub.variants"
-                                aria-hidden="true"
-                                class="h-3 w-3 opacity-60"
-                        /></Button>
                     </div>
                 </div>
             </div>

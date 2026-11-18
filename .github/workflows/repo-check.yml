@@ -39,8 +39,6 @@ jobs:
 
   typos:
     name: Run typos checks
-    needs: changes
-    if: needs.changes.outputs.desktop == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.website == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

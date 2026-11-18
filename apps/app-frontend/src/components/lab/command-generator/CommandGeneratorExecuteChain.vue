@@ -541,7 +541,7 @@ defineExpose({ getState, setState, missingRunTarget })
                                             >·</span
                                         >
                                         <span
-                                            class="font-normal text-[var(--color-text-secondary)]"
+                                            class="font-normal text-[var(--color-text-default)]"
                                             >{{ variantLabel(step) }}</span
                                         >
                                     </template>
@@ -684,7 +684,7 @@ defineExpose({ getState, setState, missingRunTarget })
                             @click="addSubcommand(sub)"
                         >
                             <span
-                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-4 text-[var(--color-text-secondary)]"
+                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-4 text-[var(--color-text-default)]"
                             >
                                 <component
                                     :is="subcommandIcon(sub.id)"

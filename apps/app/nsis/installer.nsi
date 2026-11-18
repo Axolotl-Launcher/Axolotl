@@ -177,6 +177,10 @@ Var UninstallFailure
 ; and that ProgID still points at this installation. If the user rebound it to
 ; another application, its handler stays untouched; only our leftover entries
 ; are dropped.
+; The ProgID key itself is left in place: several extensions of one group share
+; it, and deleting it while the first of them is processed would make the rest
+; look unowned and leave them pointing at a key that no longer exists. Call
+; AxlDeleteProgIDIfOwned once after the whole group has been unassociated.
 !macro AxlUnassociateFileTypeIfOwned EXT FILECLASS
   Push $R0
   Push $R1
@@ -210,14 +214,24 @@ Var UninstallFailure
   ; update may have registered the ProgID as an alternative only.
   ClearErrors
   DeleteRegValue SHELL_CONTEXT "Software\Classes\.${EXT}\OpenWithProgids" "${FILECLASS}"
-  ; The ProgID name is generic, so only delete it while it belongs to us.
-  ${If} $R2 == "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
-    ClearErrors
-    DeleteRegKey SHELL_CONTEXT "Software\Classes\${FILECLASS}"
-  ${EndIf}
   !insertmacro UPDATEFILEASSOC
   Pop $R2
   Pop $R1
+  Pop $R0
+!macroend
+
+; Delete the ProgID shared by a group of extensions, once every extension of
+; that group has been unassociated. Only an installation whose command is still
+; the one recorded under the ProgID removes it; a ProgID another application
+; now uses stays untouched.
+!macro AxlDeleteProgIDIfOwned FILECLASS
+  Push $R0
+  ClearErrors
+  ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\${FILECLASS}\shell\open\command" ""
+  ${If} $R0 == "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+    ClearErrors
+    DeleteRegKey SHELL_CONTEXT "Software\Classes\${FILECLASS}"
+  ${EndIf}
   Pop $R0
 !macroend
 
@@ -1359,6 +1373,17 @@ Section Install
           !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
         ${EndIf}
       {{/each}}
+      ; The group shares one ProgID, so it can only go once every extension of
+      ; the group has been released.
+      ${If} $AssociationState != ${BST_CHECKED}
+        {{#if association.name}}
+        !insertmacro AxlDeleteProgIDIfOwned "{{association.name}}"
+        {{else}}
+        {{#each association.ext as |ext| ~}}
+        !insertmacro AxlDeleteProgIDIfOwned "{{ext}}"
+        {{/each}}
+        {{/if}}
+      ${EndIf}
     {{/each}}
   ${EndIf}
 
@@ -1683,6 +1708,13 @@ Section Uninstall
         {{#each association.ext as |ext| ~}}
           !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
         {{/each}}
+        {{#if association.name}}
+        !insertmacro AxlDeleteProgIDIfOwned "{{association.name}}"
+        {{else}}
+        {{#each association.ext as |ext| ~}}
+        !insertmacro AxlDeleteProgIDIfOwned "{{ext}}"
+        {{/each}}
+        {{/if}}
       ${EndIf}
     {{/each}}
   ${EndIf}

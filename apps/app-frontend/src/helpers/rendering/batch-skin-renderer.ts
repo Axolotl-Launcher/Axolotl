@@ -7,6 +7,7 @@ import { skinPreviewStorage } from '../storage/skin-preview-storage'
 
 export interface RenderResult {
     forwards: string
+    capeMissing?: boolean
 }
 
 export interface RawRenderResult {

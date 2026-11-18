@@ -35,13 +35,13 @@ pub async fn lookup_player_skin(
 
 /// `invoke('plugin:minecraft-skins|get_available_capes')`
 ///
-/// See also: [minecraft_skins::get_available_capes]
+/// See also: [minecraft_skins::get_available_capes_for_preview]
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_available_capes(
     cached_only: Option<bool>,
 ) -> Result<Vec<Cape>> {
-    Ok(minecraft_skins::get_available_capes_with_cache(
+    Ok(minecraft_skins::get_available_capes_for_preview(
         cached_only.unwrap_or(false),
     )
     .await?)

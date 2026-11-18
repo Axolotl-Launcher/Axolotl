@@ -390,7 +390,7 @@ const skinTexture = computedAsync(async () => {
         return ''
     }
 })
-const capeTexture = computed(() => currentCape.value?.texture)
+const capeTexture = computed(() => currentCape.value?.texture ?? undefined)
 const skinVariant = computed(() => selectedSkin.value?.variant)
 const skinNametag = computed(() => (themeStore.hideNametagSkinsPage ? undefined : username.value))
 // Uses the interface's custom font when the setting is on; without one it falls
@@ -520,7 +520,7 @@ async function loadSkins(
                 : loadedSkins
         if (generation !== skinAccountGeneration) return
         skins.value = nextSkins
-        void generateSkinPreviews(nextSkins, capes.value)
+        if (!cachedOnly) void generateSkinPreviews(nextSkins, capes.value)
         const equippedSkin = nextSkins.find((s) => s.is_equipped) ?? null
         const preview = selectedSkin.value
         const keepPreview =
@@ -945,6 +945,7 @@ async function refreshSelectedAccount() {
     }
     await Promise.all([loadCapes(generation, true), loadSkins(generation, true)])
     if (!skinAccountSessions.isCurrent(session)) return
+    void generateSkinPreviews(skins.value, capes.value)
     isSkinLibraryLoading.value = false
     if (!offline.value && currentAccountType.value !== 'offline') {
         void refreshOnlineSkinLibrary(generation)

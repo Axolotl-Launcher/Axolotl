@@ -2,6 +2,9 @@
 
 use super::Handle;
 use crate::resources::{ResourceId, SourceId};
+use crate::state::instances::adapters::sqlite::resource_rows::{
+    EntryProject, ResourceStore, entry_identities, project_key,
+};
 use crate::state::instances::adapters::sqlite::{instance_rows, links};
 use crate::state::instances::{
     ContentEntry, ContentSet, Instance, InstanceFile, InstanceLink, PackMember,
@@ -149,19 +152,24 @@ pub(crate) async fn get(
         .bind(&content_set.id).fetch_all(&mut *tx).await?;
     let mut references = HashMap::<String, Vec<ContentProviderRef>>::new();
     let mut origins = HashMap::new();
+    let mut entry_projects = Vec::<EntryProject>::new();
     for row in rows {
         let entry: String = row.try_get("content_entry_id")?;
+        let provider: String = row.try_get("provider")?;
+        let project_id: String = row.try_get("provider_project_id")?;
+        let origin: bool = row.try_get("is_origin")?;
         let reference = ContentProviderRef::from_database(
-            row.try_get("provider")?,
-            row.try_get("provider_project_id")?,
+            &provider,
+            &project_id,
             row.try_get::<Option<String>, _>("provider_release_id")?
                 .as_deref(),
             row.try_get::<Option<String>, _>("provider_file_id")?
                 .as_deref(),
         );
+        entry_projects.push((entry.clone(), provider, project_id, origin));
         match reference {
             Ok(reference) => {
-                if row.try_get::<bool, _>("is_origin")? {
+                if origin {
                     origins.insert(entry.clone(), reference.provider());
                 }
                 references.entry(entry).or_default().push(reference);
@@ -179,39 +187,10 @@ pub(crate) async fn get(
             Err(error) => { tracing::warn!(%entry, %error, "Skipping invalid installed artifact"); None }
         }
     }).collect();
-    let rows: Vec<(String, String)> = sqlx::query_as("SELECT entry.id, COALESCE(MAX(CASE WHEN ref.is_origin = 1 THEN link.resource_id END), MIN(link.resource_id)) FROM instance_content_entries entry JOIN instance_content_provider_refs ref ON ref.content_entry_id = entry.id LEFT JOIN resource_entry_links link ON link.reference_id = ref.id WHERE entry.content_set_id = ? GROUP BY entry.id HAVING (MAX(ref.is_origin) = 0 AND COUNT(link.resource_id) = COUNT(*) AND COUNT(DISTINCT link.resource_id) = 1) OR (MAX(ref.is_origin) = 1 AND SUM(CASE WHEN ref.is_origin = 1 AND link.resource_id IS NOT NULL THEN 1 ELSE 0 END) = 1)")
-        .bind(&content_set.id).fetch_all(&mut *tx).await?;
-    let mut entry_resources = resource_ids(rows);
-    let mut projects = HashMap::new();
-    for (entry, record) in &artifacts {
-        if entry_resources.contains_key(entry) {
-            continue;
-        }
-        let project = &record.artifact.reference.release.project;
-        if !projects.contains_key(project) {
-            let key =
-                super::resource_source_projects::ResourceSourceProjectKey {
-                    source: project.source.as_str().into(),
-                    project_id: project.project_id.as_str().into(),
-                };
-            let resource =
-                super::resource_source_projects::ResourceSourceProjects::read(
-                    &mut tx, &key,
-                )
-                .await?
-                .and_then(|record| ResourceId::new(record.resource_id).ok());
-            projects.insert(project.clone(), resource);
-        }
-        if let Some(Some(resource)) = projects.get(project) {
-            entry_resources.insert(entry.clone(), resource.clone());
-        }
-    }
-    let rows: Vec<(String, String)> = sqlx::query_as("SELECT link.member_id, link.resource_id FROM resource_pack_links link JOIN instance_pack_members member ON member.id = link.member_id WHERE member.content_set_id = ?")
-        .bind(&content_set.id).fetch_all(&mut *tx).await?;
-    let pack_resources = resource_ids(rows);
-    let pack_resource: Option<String> = sqlx::query_scalar("SELECT resource_id FROM resource_instance_pack_links WHERE instance_id = ?")
+    let pack_project: Option<(String, Option<String>)> = sqlx::query_as("SELECT source, project_id FROM resource_instance_pack_projects WHERE instance_id = ?")
         .bind(instance_id).fetch_optional(&mut *tx).await?;
-    let pack_resource = pack_resource.and_then(|id| ResourceId::new(id).ok());
+    let pack_project = pack_project
+        .and_then(|(source, id)| project_key(&source, id.as_deref()?));
     let preferred = if super::configuration_documents::runtime(handle.pool()) {
         None
     } else {
@@ -228,6 +207,48 @@ pub(crate) async fn get(
         super::content_evidence::entry_files(&mut tx, instance_id).await?;
     tx_diagnostics.observe("commit_wait", tx.commit()).await?;
     tx_diagnostics.complete("committed");
+    let member_projects = members
+        .iter()
+        .filter_map(|member: &PackMember| {
+            Some((
+                &member.id,
+                project_key(
+                    member.provider?.as_str(),
+                    member.provider_project_id.as_deref()?,
+                )?,
+            ))
+        })
+        .collect::<Vec<_>>();
+    let projects = entry_projects
+        .iter()
+        .filter_map(|(_, source, id, _)| project_key(source, id))
+        .chain(member_projects.iter().map(|(_, project)| project.clone()))
+        .chain(pack_project.iter().cloned())
+        .chain(artifacts.values().filter_map(|record| {
+            let project = &record.artifact.reference.release.project;
+            project_key(project.source.as_str(), project.project_id.as_str())
+        }))
+        .collect::<Vec<_>>();
+    let identities = ResourceStore::new(handle.pool().clone())
+        .enrich_many(&projects)
+        .await;
+    let mut entry_resources = entry_identities(&entry_projects, &identities);
+    for (entry, record) in &artifacts {
+        let project = &record.artifact.reference.release.project;
+        if let Some(identity) = identities.get(project) {
+            entry_resources
+                .entry(entry.clone())
+                .or_insert_with(|| identity.clone());
+        }
+    }
+    let pack_resources = member_projects
+        .into_iter()
+        .filter_map(|(member, project)| {
+            Some((member.clone(), identities.get(&project)?.clone()))
+        })
+        .collect();
+    let pack_resource =
+        pack_project.and_then(|project| identities.get(&project).cloned());
     // The routing preference is presentation state, outside the relationship
     // snapshot. Reading its documents must not extend the core write reservation.
     let preferred = match preferred {
@@ -325,13 +346,6 @@ pub(crate) async fn get_with_saved_pack(
         )
         .await?;
     Ok(records)
-}
-
-fn resource_ids(rows: Vec<(String, String)>) -> HashMap<String, ResourceId> {
-    rows.into_iter().filter_map(|(key, value)| match ResourceId::new(value) {
-        Ok(id) => Some((key, id)),
-        Err(error) => { tracing::warn!(%key, %error, "Skipping invalid resource identity"); None }
-    }).collect()
 }
 
 pub(crate) async fn get_instance(

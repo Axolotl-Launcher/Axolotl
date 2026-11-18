@@ -142,18 +142,12 @@ pub(crate) async fn rows(
         }
         result.insert(table.to_owned(), Value::Array(values));
     }
-    let projects = project_owners();
-    let reached = format!(
-        "WITH RECURSIVE reached(id) AS (SELECT project.resource_id FROM resource_source_projects project JOIN ({projects}) owner ON owner.provider=project.source AND owner.project_id=project.project_id WHERE owner.instance_id=? UNION SELECT resource.redirect_to FROM resources resource JOIN reached ON resource.id=reached.id WHERE resource.redirect_to IS NOT NULL) SELECT id FROM reached"
-    );
-    for (table,predicate) in vec![
-        ("resource_installed_artifacts","entry_id IN (SELECT id FROM instance_content_entries WHERE instance_id=?)".to_owned()),
-        ("resource_pack_unlinks","instance_id=?".to_owned()),
-        ("resources",format!("id IN ({reached})")),
-        ("resource_source_projects",format!("resource_id IN ({reached})")),
-        ("resource_aliases",format!("(source,project_id) IN (SELECT source,project_id FROM resource_source_projects WHERE resource_id IN ({reached}))")),
-        ("resource_source_types",format!("(source,project_id) IN (SELECT source,project_id FROM resource_source_projects WHERE resource_id IN ({reached}))")),
-        ("resource_identity_evidence",format!("resource_id IN ({reached})")),
+    for (table, predicate) in [
+        (
+            "resource_installed_artifacts",
+            "entry_id IN (SELECT id FROM instance_content_entries WHERE instance_id=?)",
+        ),
+        ("resource_pack_unlinks", "instance_id=?"),
     ] {
         let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM instances.sqlite_schema WHERE type='table' AND name=?)").bind(table).fetch_one(&mut *connection).await?;
         if !exists {
@@ -283,24 +277,13 @@ pub(crate) async fn generation(pool: &SqlitePool) -> crate::Result<String> {
 /// Provider roots also exist before a pack member has a materialized entry.
 /// Keep the union independent of runtime views so connection setup may install
 /// the tracking triggers before creating those views.
-fn project_owners() -> &'static str {
-    "SELECT entry.instance_id, ref.provider, ref.provider_project_id AS project_id FROM instance_content_provider_refs ref JOIN instance_content_entries entry ON entry.id=ref.content_entry_id UNION SELECT content.instance_id,member.provider,member.provider_project_id FROM instance_pack_members member JOIN instance_content_sets content ON content.id=member.content_set_id UNION SELECT instance_id,provider,provider_project_id FROM instance_pending_manual_downloads UNION SELECT instance_id,'modrinth',modrinth_project_id FROM instance_links WHERE link_kind='modrinth_modpack' UNION SELECT instance_id,'modrinth',content_project_id FROM instance_links WHERE link_kind='server_project_modpack' UNION SELECT instance_id,'curseforge',CAST(curseforge_project_id AS TEXT) FROM instance_links WHERE link_kind='curseforge_modpack'"
-}
-fn resource_tables() -> Vec<(&'static str, String)> {
-    let owners = project_owners();
-    let matching = |condition: &str| {
-        format!(
-            "SELECT owner.instance_id FROM ({owners}) owner LEFT JOIN resource_source_projects linked ON linked.source=owner.provider AND linked.project_id=owner.project_id WHERE {condition}"
-        )
-    };
-    vec![
-        ("resource_installed_artifacts","SELECT instance_id FROM instance_content_entries WHERE id=$row.entry_id".into()),
-        ("resource_pack_unlinks","SELECT $row.instance_id".into()),
-        ("resource_source_projects",matching("(owner.provider=$row.source AND owner.project_id=$row.project_id) OR linked.resource_id=$row.resource_id")),
-        ("resource_aliases",matching("(owner.provider=$row.source AND owner.project_id=$row.project_id) OR linked.resource_id IN (SELECT resource_id FROM resource_source_projects WHERE source=$row.source AND project_id=$row.project_id)")),
-        ("resource_source_types",matching("(owner.provider=$row.source AND owner.project_id=$row.project_id) OR linked.resource_id IN (SELECT resource_id FROM resource_source_projects WHERE source=$row.source AND project_id=$row.project_id)")),
-        ("resource_identity_evidence",matching("linked.resource_id=$row.resource_id")),
-        ("resources",matching("linked.resource_id=$row.id")),
+fn resource_tables() -> [(&'static str, &'static str); 2] {
+    [
+        (
+            "resource_installed_artifacts",
+            "SELECT instance_id FROM instance_content_entries WHERE id=$row.entry_id",
+        ),
+        ("resource_pack_unlinks", "SELECT $row.instance_id"),
     ]
 }
 

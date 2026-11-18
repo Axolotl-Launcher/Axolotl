@@ -6,11 +6,13 @@ impl ResourceService {
         metadata: &SourceProjectMetadata,
         cancel: &CancellationToken,
     ) -> ResourceResult<()> {
-        if self.store().is_none()
-            || !matches!(
-                metadata.project.source.as_str(),
-                "modrinth" | "curseforge"
-            )
+        let Some(store) = self.store() else {
+            return Ok(());
+        };
+        if !matches!(
+            metadata.project.source.as_str(),
+            "modrinth" | "curseforge"
+        ) || !store.identity_available().await
         {
             return Ok(());
         }

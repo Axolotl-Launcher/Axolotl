@@ -348,13 +348,13 @@ impl ResourceService {
         let mut groups: Vec<ResourceSearchResult> = Vec::new();
         let identities = if let Some(store) = self.store() {
             store
-                .lookup_many(
+                .enrich_many(
                     &pool
                         .iter()
                         .map(|metadata| metadata.project.clone())
                         .collect::<Vec<_>>(),
                 )
-                .await?
+                .await
         } else {
             HashMap::new()
         };

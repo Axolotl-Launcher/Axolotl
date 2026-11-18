@@ -877,32 +877,45 @@ mod tests {
         assert!(!destination.path().join("databases").exists());
     }
     #[tokio::test]
-    async fn unmaterialized_pack_projects_and_identity_evidence_are_recoverable()
+    async fn unmaterialized_pack_projects_are_recoverable_without_the_identity_graph()
      {
         let (root, dirs, pool) = fixture().await;
         instance(&dirs, &pool, "one").await;
         sqlx::query("INSERT INTO instance_pack_members(id,content_set_id,member_key,project_type,expected_relative_path,provider,provider_project_id,created_at,modified_at) VALUES('member','set:one','key','mod','mods/pending.jar','modrinth','abcdefgh',0,0)").execute(&pool).await.unwrap();
-        // The resource bootstrap may have already created this identity.
-        let resource:String=sqlx::query_scalar("SELECT resource_id FROM resource_source_projects WHERE source='modrinth' AND project_id='abcdefgh'").fetch_one(&pool).await.unwrap();
-        sqlx::query("INSERT INTO resource_identity_evidence VALUES('evidence',?,'{}',0)").bind(&resource).execute(&pool).await.unwrap();
         publish(&dirs, &pool, "one").await.unwrap();
         let snapshot = read(root.path(), "one").await.unwrap().unwrap();
         assert_eq!(
-            snapshot.relationships["resource_source_projects"]
-                .as_array()
-                .unwrap()
-                .len(),
-            1
+            snapshot.relationships["instance_pack_members"][0]["provider_project_id"],
+            "abcdefgh"
         );
-        assert_eq!(
-            snapshot.relationships["resource_identity_evidence"]
-                .as_array()
-                .unwrap()
-                .len(),
-            1
+        assert!(
+            !snapshot
+                .relationships
+                .contains_key("resource_source_projects")
+        );
+        assert!(
+            !snapshot
+                .relationships
+                .contains_key("resource_identity_evidence")
         );
         let before = manifest_rows::revision(&pool, "one").await.unwrap();
-        sqlx::query("UPDATE resource_identity_evidence SET confirmed_at=1 WHERE evidence_id='evidence'").execute(&pool).await.unwrap();
-        assert!(manifest_rows::revision(&pool, "one").await.unwrap() > before);
+        let store = crate::state::resources::ResourceStore::new(pool.clone());
+        store
+            .ensure_project(
+                &crate::resources::SourceProjectRef {
+                    source: crate::resources::SourceId::modrinth(),
+                    project_id: crate::resources::SourceProjectId::new(
+                        "abcdefgh",
+                    )
+                    .unwrap(),
+                },
+                &[crate::resources::ResourceType::Mod],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            manifest_rows::revision(&pool, "one").await.unwrap(),
+            before
+        );
     }
 }

@@ -76,6 +76,7 @@ pub(crate) mod resource_execution_journals;
 pub(crate) mod resource_favorites;
 pub(crate) mod resource_history;
 pub(crate) mod resource_history_cleanup_plans;
+pub(crate) mod resource_identity_db;
 pub(crate) mod resource_installed_artifacts;
 pub(crate) mod resource_legacy_import;
 pub(crate) mod resource_operation_plans;

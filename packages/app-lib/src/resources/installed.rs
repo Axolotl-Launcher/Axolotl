@@ -278,9 +278,8 @@ pub(crate) async fn attach_compatibility(
         })
         .collect::<Vec<_>>();
     let identities = crate::state::resources::ResourceStore::new(pool.clone())
-        .lookup_many(&projects)
-        .await
-        .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
+        .enrich_many(&projects)
+        .await;
     for ((id, sha1, size, local, artifact), cached) in
         rows.into_iter().zip(cached)
     {

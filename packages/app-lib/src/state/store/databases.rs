@@ -78,8 +78,32 @@ fn legacy_baseline() -> &'static Baseline {
 fn baseline() -> &'static Baseline {
     static VALUE: OnceLock<Baseline> = OnceLock::new();
     VALUE.get_or_init(|| {
-        serde_json::from_str(include_str!("core_baseline.json"))
-            .expect("the checked-in core contract is valid")
+        let mut baseline: Baseline =
+            serde_json::from_str(include_str!("core_baseline.json"))
+                .expect("the checked-in core contract is valid");
+        let detached = [
+            "resources",
+            "resource_source_projects",
+            "resource_source_types",
+            "resource_aliases",
+            "resource_identity_evidence",
+        ];
+        baseline
+            .tables
+            .retain(|table| !detached.contains(&table.name.as_str()));
+        baseline.objects.retain(|object| {
+            !detached.contains(&object.table.as_str())
+                && !matches!(
+                    object.name.as_str(),
+                    "resource_legacy_projects"
+                        | "resource_entry_links"
+                        | "resource_pack_links"
+                        | "resource_instance_pack_links"
+                )
+                && !(object.kind == "trigger"
+                    && object.name.starts_with("resource_instance_"))
+        });
+        baseline
     })
 }
 
@@ -504,6 +528,10 @@ where
             tracing::warn!(%error,"Core snapshot excludes unavailable optional daily history");
             exclusions.push("daily-playtime".into());
             crate::state::persistence::document::write_json(&staging.join("backup-status.json"),serde_json::to_vec(&serde_json::json!({"optional_exclusions":["records.db"]}))?).await?;
+        }
+        if let Err(error) = super::resource_identity_db::backup(settings_dir, &staging).await {
+            tracing::warn!(%error, "Snapshot excludes unavailable resource identities");
+            exclusions.push("resource-identities".into());
         }
         copy_regular(&settings_dir.join(layout::INSTALLATION), &staging.join(layout::INSTALLATION)).await?;
         super::recovery_documents::backup(&staging.join("system.db"),&staging).await?;
@@ -2817,21 +2845,8 @@ async fn import_recovery_snapshot(
                 )
                 .into());
             }
-            let shared = matches!(
-                table.name.as_str(),
-                "resources"
-                    | "resource_source_projects"
-                    | "resource_source_types"
-                    | "resource_aliases"
-                    | "resource_identity_evidence"
-            );
-            let conflict = if shared {
-                " ON CONFLICT DO NOTHING"
-            } else {
-                ""
-            };
             let sql = format!(
-                "INSERT INTO {} ({}) VALUES ({}){conflict}",
+                "INSERT INTO {} ({}) VALUES ({})",
                 qualified(table),
                 columns
                     .iter()

@@ -624,12 +624,15 @@ pub(crate) async fn installed(
         let links = links_by_entry.remove(&entry_id).unwrap_or_default();
         let mut resource_id = links
             .first()
-            .and_then(|link| ResourceId::new(link.resource_id.as_str()).ok());
+            .and_then(|link| link.resource_id.as_deref())
+            .and_then(|id| ResourceId::new(id).ok());
         if let Some(artifact) = &exact {
+            let project = &artifact.reference.release.project;
             resource_id =
                 crate::state::resources::ResourceStore::new(pool.clone())
-                    .lookup(&artifact.reference.release.project)
-                    .await?
+                    .enrich_many(std::slice::from_ref(project))
+                    .await
+                    .remove(project)
                     .or(resource_id);
         }
         if resource_id.is_none() {
@@ -647,7 +650,14 @@ pub(crate) async fn installed(
                     )?,
                 };
                 if crate::state::instances::adapters::sqlite::resource_rows::validate_project(&project).is_ok() {
-                    resource_id = Some(crate::state::resources::ResourceStore::new(pool.clone()).ensure_project(&project, &[resource_type]).await?);
+                    resource_id = match crate::state::resources::ResourceStore::new(pool.clone()).ensure_project(&project, &[resource_type]).await {
+                        Ok(identity) => Some(identity),
+                        Err(ResourceError::Database(error)) => {
+                            tracing::warn!(%error, "Continuing with the installed platform project");
+                            None
+                        }
+                        Err(error) => return Err(error),
+                    };
                 }
             }
         }
@@ -976,11 +986,22 @@ impl ResourceService {
             ));
         }
         let id = if let Some(store) = self.store() {
-            Some(
-                store
-                    .ensure_project(&metadata.project, &metadata.types)
-                    .await?,
-            )
+            match store
+                .ensure_project(&metadata.project, &metadata.types)
+                .await
+            {
+                Ok(identity) => Some(identity),
+                Err(ResourceError::Database(error))
+                    if matches!(
+                        &selection.resource,
+                        ResourceRef::Source { .. }
+                    ) =>
+                {
+                    tracing::warn!(%error, "Falling back to the selected platform project");
+                    None
+                }
+                Err(error) => return Err(error),
+            }
         } else {
             known_id
         };

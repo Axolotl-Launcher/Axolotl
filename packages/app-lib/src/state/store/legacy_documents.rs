@@ -138,6 +138,15 @@ pub(crate) async fn ensure_cleanup_supported(root: &Path) -> crate::Result<()> {
 }
 
 pub(crate) async fn initialize(root: &Path) {
+    let snapshot = root.join(crate::state::layout::IMPORT_SNAPSHOT);
+    if let Err(error) = super::resource_identity_db::initialize(
+        root,
+        snapshot.is_file().then_some(snapshot.as_path()),
+    )
+    .await
+    {
+        tracing::warn!(%error, "Resource identity import unavailable; core startup continues");
+    }
     super::legacy_user_state::initialize(root, None).await;
     for domain in ["accounts", "telemetry"] {
         if let Err(error) = initialize_domain(root, domain, None).await {
@@ -228,6 +237,11 @@ pub(crate) async fn initialize_from_snapshot(
 
     super::legacy_user_state::initialize(root, Some(snapshot.to_path_buf()))
         .await;
+    if let Err(error) =
+        super::resource_identity_db::initialize(root, Some(snapshot)).await
+    {
+        tracing::warn!(%error, "Optional resource identity import unavailable; retaining the migrated snapshot for retry");
+    }
     if let Err(error) =
         super::records_db::initialize(root, Some(snapshot.to_path_buf())).await
     {

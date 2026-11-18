@@ -728,7 +728,7 @@ async fn imported_pack_member_persists_exact_artifact_and_identity_after_cache_c
         serde_json::from_str::<ResourceArtifact>(&saved).unwrap(),
         *artifact
     );
-    let links: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM resource_entry_links WHERE entry_id = ? AND source = 'modrinth' AND project_id = 'YL57xq9U'").bind(&entries[0].id).fetch_one(&pool).await.unwrap();
+    let links: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instance_content_provider_refs WHERE content_entry_id = ? AND provider = 'modrinth' AND provider_project_id = 'YL57xq9U'").bind(&entries[0].id).fetch_one(&pool).await.unwrap();
     assert_eq!(links, 1);
     let members = pack_members::get_pack_members("set", &pool).await.unwrap();
     assert_eq!(members.len(), 1);

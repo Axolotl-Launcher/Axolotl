@@ -1,5 +1,6 @@
 //! Explicit offline restore, with a durable roll-forward receipt before replacing
 //! the first authority. Prior files remain in the restore workspace.
+use super::super::resource_identity_db;
 use crate::state::layout;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -187,7 +188,18 @@ pub(crate) async fn restore_snapshot(
     let staged = workspace.join("next");
     tokio::fs::create_dir(&staged).await?;
     let mut files = Vec::new();
+    let excluded_resources = metadata["optional_exclusions"]
+        .as_array()
+        .is_some_and(|values| {
+            values.iter().any(|value| value == "resource-identities")
+        });
     for relative in tree(&bundle).await? {
+        let resource_authority = relative
+            == Path::new(resource_identity_db::FILE)
+            || relative == Path::new(resource_identity_db::RECEIPT);
+        if resource_authority && excluded_resources {
+            continue;
+        }
         if ![
             layout::SETTINGS,
             layout::INSTANCE_RECOVERY,
@@ -202,6 +214,7 @@ pub(crate) async fn restore_snapshot(
         ]
         .iter()
         .any(|name| relative.starts_with(name))
+            && !resource_authority
             && !matches!(
                 relative.to_str(),
                 Some(
@@ -213,12 +226,19 @@ pub(crate) async fn restore_snapshot(
         }
         if relative == Path::new(layout::RESTORE_INTENT)
             || relative == Path::new(layout::IMPORT_SNAPSHOT)
+            || relative == Path::new(resource_identity_db::PREVIOUS_RECEIPT)
         {
             continue;
         }
         let target = if matches!(
             relative.to_str(),
-            Some("system.db" | "instances.db" | "storage.db" | "records.db")
+            Some(
+                resource_identity_db::FILE
+                    | "system.db"
+                    | "instances.db"
+                    | "storage.db"
+                    | "records.db"
+            )
         ) {
             layout::data(&root).join(&relative)
         } else if relative.starts_with("synced-options") {
@@ -238,6 +258,25 @@ pub(crate) async fn restore_snapshot(
             sha256: String::new(),
         });
     }
+    let resource_receipt = staged.join(resource_identity_db::RECEIPT);
+    if excluded_resources
+        || (!staged.join(resource_identity_db::FILE).is_file()
+            && !resource_receipt.is_file())
+    {
+        resource_identity_db::stage_excluded_receipt(&staged).await?;
+        files.push(File {
+            source: resource_receipt.clone(),
+            target: root.join(resource_identity_db::RECEIPT),
+            sha256: String::new(),
+        });
+    } else {
+        resource_identity_db::validate_backup(&staged).await?;
+    }
+    files.push(File {
+        source: resource_receipt,
+        target: root.join(resource_identity_db::PREVIOUS_RECEIPT),
+        sha256: String::new(),
+    });
     for name in ["system.db", "instances.db", "storage.db"] {
         if !staged.join(name).is_file() {
             return Err(invalid("Snapshot lacks a required core file"));
@@ -861,6 +900,44 @@ mod tests {
         );
         pool.close().await;
     }
+    #[tokio::test]
+    async fn restore_with_excluded_identities_preserves_the_existing_file_but_disables_access()
+     {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path();
+        let core = super::super::super::databases::open(root).await.unwrap();
+        let resources = layout::data(root).join(resource_identity_db::FILE);
+        let parked = root.join("parked-resources.db");
+        tokio::fs::rename(&resources, &parked).await.unwrap();
+        let snapshot = super::super::super::databases::backup(&core, root)
+            .await
+            .unwrap();
+        core.close().await;
+        drop(core);
+        assert!(bounded_json(&snapshot.join("snapshot.json")).await.unwrap()
+            ["optional_exclusions"].as_array().unwrap().iter()
+            .any(|name| name == "resource-identities"));
+        tokio::fs::rename(&parked, &resources).await.unwrap();
+        let original = tokio::fs::read(&resources).await.unwrap();
+        restore_snapshot(root, &snapshot, root).await.unwrap();
+        for relative in [
+            resource_identity_db::RECEIPT,
+            resource_identity_db::PREVIOUS_RECEIPT,
+        ] {
+            let receipt = bounded_json(&root.join(relative)).await.unwrap();
+            assert_eq!(receipt["data"]["available"], false);
+        }
+        let core = super::super::super::databases::open(root).await.unwrap();
+        let error = resource_identity_db::pool_for(&core).await.unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("excluded from the restored snapshot")
+        );
+        assert_eq!(tokio::fs::read(resources).await.unwrap(), original);
+        core.close().await;
+    }
+
     #[tokio::test]
     async fn restore_replaces_core_and_preserves_previous_authorities() {
         let directory = tempfile::tempdir().unwrap();

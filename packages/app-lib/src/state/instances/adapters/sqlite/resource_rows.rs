@@ -1,5 +1,5 @@
-use serde::Serialize;
 use sqlx::{Row, SqlitePool};
+use std::collections::HashMap;
 
 use crate::resources::{
     ResourceArtifact, ResourceError, ResourceId, ResourceResult, ResourceType,
@@ -20,6 +20,54 @@ pub(crate) fn validate_project(
     project: &SourceProjectRef,
 ) -> ResourceResult<()> {
     validate_stable_id(&project.source, project.project_id.as_str())
+}
+
+pub(crate) fn project_key(
+    source: &str,
+    project_id: &str,
+) -> Option<SourceProjectRef> {
+    let project = SourceProjectRef {
+        source: SourceId::new(source).ok()?,
+        project_id: SourceProjectId::new(project_id).ok()?,
+    };
+    validate_project(&project).ok()?;
+    Some(project)
+}
+
+pub(crate) type EntryProject = (String, String, String, bool);
+
+pub(crate) fn entry_identities(
+    entries: &[EntryProject],
+    identities: &HashMap<SourceProjectRef, ResourceId>,
+) -> HashMap<String, ResourceId> {
+    let mut grouped = HashMap::<&str, Vec<(bool, Option<&ResourceId>)>>::new();
+    for (entry, source, project_id, is_origin) in entries {
+        let identity = project_key(source, project_id)
+            .as_ref()
+            .and_then(|project| identities.get(project));
+        grouped
+            .entry(entry)
+            .or_default()
+            .push((*is_origin, identity));
+    }
+    grouped
+        .into_iter()
+        .filter_map(|(entry, refs)| {
+            let mut origins = refs.iter().filter(|(is_origin, _)| *is_origin);
+            let identity = match origins.next() {
+                Some((_, identity)) if origins.next().is_none() => (*identity)?,
+                Some(_) => return None,
+                None => {
+                    let identity = refs.first()?.1?;
+                    if !refs.iter().all(|(_, id)| *id == Some(identity)) {
+                        return None;
+                    }
+                    identity
+                }
+            };
+            Some((entry.to_owned(), identity.clone()))
+        })
+        .collect()
 }
 
 fn validate_stable_id(source: &SourceId, id: &str) -> ResourceResult<()> {
@@ -62,6 +110,28 @@ impl ResourceStore {
         Self { pool }
     }
 
+    async fn identities(&self) -> ResourceResult<SqlitePool> {
+        crate::state::store::resource_identity_db::pool_for(&self.pool)
+            .await
+            .map_err(|error| ResourceError::Database(error.to_string()))
+    }
+
+    async fn writable_identities(&self) -> ResourceResult<SqlitePool> {
+        crate::state::store::recovery_mode::ensure_writable(&self.pool)
+            .map_err(|error| ResourceError::Database(error.to_string()))?;
+        self.identities().await
+    }
+
+    pub(crate) async fn identity_available(&self) -> bool {
+        match self.identities().await {
+            Ok(_) => true,
+            Err(error) => {
+                tracing::warn!(%error, "Resource identity lookup unavailable");
+                false
+            }
+        }
+    }
+
     pub(crate) async fn installed_artifacts(
         &self,
         instance_id: &str,
@@ -87,7 +157,7 @@ impl ResourceStore {
         let rows: Vec<String> = sqlx::query_scalar(
             "SELECT content_type FROM resource_source_types WHERE source = ? AND project_id = ?"
         ).bind(project.source.as_str()).bind(project.project_id.as_str())
-            .fetch_all(&self.pool).await.map_err(database_error)?;
+            .fetch_all(&self.identities().await?).await.map_err(database_error)?;
         Ok(rows
             .into_iter()
             .filter_map(|value| match value.as_str() {
@@ -110,7 +180,7 @@ impl ResourceStore {
         validate_project(project)?;
         let id: Option<String> = sqlx::query_scalar("SELECT resource_id FROM resource_source_projects WHERE source = ? AND project_id = ?")
             .bind(project.source.as_str()).bind(project.project_id.as_str())
-            .fetch_optional(&self.pool).await.map_err(database_error)?;
+            .fetch_optional(&self.identities().await?).await.map_err(database_error)?;
         id.map(ResourceId::new).transpose().map_err(Into::into)
     }
 
@@ -119,6 +189,10 @@ impl ResourceStore {
         projects: &[SourceProjectRef],
     ) -> ResourceResult<std::collections::HashMap<SourceProjectRef, ResourceId>>
     {
+        if projects.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let pool = self.identities().await?;
         let mut unique = std::collections::HashSet::new();
         for project in projects {
             validate_project(project)?;
@@ -137,10 +211,19 @@ impl ResourceStore {
             query.push(") SELECT project.source, project.project_id, project.resource_id FROM resource_source_projects project JOIN selected ON selected.source = project.source AND selected.project_id = project.project_id");
             for row in query
                 .build()
-                .fetch_all(&self.pool)
+                .fetch_all(&pool)
                 .await
                 .map_err(database_error)?
             {
+                let raw_id: String =
+                    row.try_get("resource_id").map_err(database_error)?;
+                let id = match ResourceId::new(raw_id) {
+                    Ok(id) => id,
+                    Err(error) => {
+                        tracing::warn!(%error, "Skipping an unsupported resource identity");
+                        continue;
+                    }
+                };
                 result.insert(
                     SourceProjectRef {
                         source: SourceId::new(
@@ -152,14 +235,24 @@ impl ResourceStore {
                                 .map_err(database_error)?,
                         )?,
                     },
-                    ResourceId::new(
-                        row.try_get::<String, _>("resource_id")
-                            .map_err(database_error)?,
-                    )?,
+                    id,
                 );
             }
         }
         Ok(result)
+    }
+
+    pub(crate) async fn enrich_many(
+        &self,
+        projects: &[SourceProjectRef],
+    ) -> std::collections::HashMap<SourceProjectRef, ResourceId> {
+        match self.lookup_many(projects).await {
+            Ok(known) => known,
+            Err(error) => {
+                tracing::warn!(%error, "Continuing without optional resource identities");
+                std::collections::HashMap::new()
+            }
+        }
     }
 
     /// Resolve a saved ID after any number of confirmed project merges.
@@ -171,7 +264,7 @@ impl ResourceStore {
             "SELECT COALESCE(redirect_to, id) FROM resources WHERE id = ?",
         )
         .bind(id.as_str())
-        .fetch_optional(&self.pool)
+        .fetch_optional(&self.identities().await?)
         .await
         .map_err(database_error)?;
         value.map(ResourceId::new).transpose().map_err(Into::into)
@@ -183,9 +276,10 @@ impl ResourceStore {
         types: &[ResourceType],
     ) -> ResourceResult<ResourceId> {
         validate_project(project)?;
+        let pool = self.writable_identities().await?;
         let (mut transaction, transaction_diagnostics) =
             crate::state::store::lock_diagnostics::begin(
-                &self.pool,
+                &pool,
                 "BEGIN IMMEDIATE",
             )
             .await
@@ -209,7 +303,7 @@ impl ResourceStore {
         let rows = sqlx::query("SELECT source, project_id FROM resource_source_projects
             WHERE resource_id = (SELECT COALESCE(redirect_to, id) FROM resources WHERE id = ?)
             ORDER BY source, project_id")
-            .bind(id.as_str()).fetch_all(&self.pool).await.map_err(database_error)?;
+            .bind(id.as_str()).fetch_all(&self.identities().await?).await.map_err(database_error)?;
         rows.into_iter()
             .map(|row| {
                 Ok(SourceProjectRef {
@@ -235,6 +329,7 @@ impl ResourceStore {
     ) -> ResourceResult<()> {
         validate_project(project)?;
         SourceProjectId::new(alias)?;
+        let pool = self.writable_identities().await?;
         if self.lookup(project).await?.is_none() {
             return Err(ResourceError::InvalidRequest(
                 "alias requires a durable project".into(),
@@ -242,7 +337,7 @@ impl ResourceStore {
         }
         sqlx::query("INSERT OR IGNORE INTO resource_aliases(source, alias, project_id) VALUES (?, ?, ?)")
             .bind(project.source.as_str()).bind(alias).bind(project.project_id.as_str())
-            .execute(&self.pool).await.map_err(database_error)?;
+            .execute(&pool).await.map_err(database_error)?;
         Ok(())
     }
 
@@ -252,7 +347,7 @@ impl ResourceStore {
         alias: &str,
     ) -> ResourceResult<Vec<SourceProjectRef>> {
         let ids: Vec<String> = sqlx::query_scalar("SELECT project_id FROM resource_aliases WHERE source = ? AND alias = ? ORDER BY project_id")
-            .bind(source.as_str()).bind(alias).fetch_all(&self.pool).await.map_err(database_error)?;
+            .bind(source.as_str()).bind(alias).fetch_all(&self.identities().await?).await.map_err(database_error)?;
         ids.into_iter()
             .map(|id| {
                 Ok(SourceProjectRef {
@@ -269,11 +364,10 @@ impl ResourceStore {
     ) -> ResourceResult<Option<String>> {
         sqlx::query_scalar("SELECT alias FROM resource_aliases WHERE source = ? AND project_id = ? ORDER BY rowid DESC LIMIT 1")
             .bind(project.source.as_str()).bind(project.project_id.as_str())
-            .fetch_optional(&self.pool).await.map_err(database_error)
+            .fetch_optional(&self.identities().await?).await.map_err(database_error)
     }
 
-    /// Confirmation retains the complete byte/type evidence in the main DB.
-    /// Cache eviction cannot undo a relationship used by business records.
+    /// Validate the artifact pair before publishing project identity.
     pub async fn confirm_projects(
         &self,
         left: &SourceProjectMetadata,
@@ -299,38 +393,7 @@ impl ResourceStore {
         {
             return Err(ResourceError::InvalidRequest("project confirmation requires compatible types and matching primary artifacts".into()));
         }
-        #[derive(Serialize)]
-        #[serde(rename_all = "camelCase")]
-        struct Confirmation<'a> {
-            version: u32,
-            left: &'a SourceProjectRef,
-            right: &'a SourceProjectRef,
-            left_types: &'a [ResourceType],
-            right_types: &'a [ResourceType],
-            left_artifact: &'a ResourceArtifact,
-            right_artifact: &'a ResourceArtifact,
-        }
-        let payload = serde_json::to_string(&Confirmation {
-            version: 1,
-            left: &left.project,
-            right: &right.project,
-            left_types: &left.types,
-            right_types: &right.types,
-            left_artifact,
-            right_artifact,
-        })?;
-        use sha2::{Digest, Sha256};
-        let mut references = [
-            serde_json::to_string(&left_artifact.reference)?,
-            serde_json::to_string(&right_artifact.reference)?,
-        ];
-        references.sort();
-        let evidence_id = format!(
-            "artifact-pair:{:x}",
-            Sha256::digest(serde_json::to_vec(&references)?)
-        );
-        self.confirm_identity(left, right, &evidence_id, &payload)
-            .await
+        self.confirm_identity(left, right).await
     }
 
     /// Trust the bundled MCMOD source pair only within one exact subvariant.
@@ -359,7 +422,7 @@ impl ResourceStore {
             &[mr_slug.clone()],
             &[cf_slug.clone()],
         );
-        let record = lookup
+        lookup
             .modrinth
             .get(mr_slug)
             .filter(|records| records.len() == 1)
@@ -379,28 +442,20 @@ impl ResourceStore {
                 "curated project types do not match".into(),
             ));
         }
-        let payload = serde_json::to_string(&serde_json::json!({
-            "version": 1, "kind": "mcmod-source-pair", "mapping": record.key,
-            "left": left.project, "right": right.project,
-            "leftSlug": left.slug, "rightSlug": right.slug,
-        }))?;
-        let evidence_id = format!("mcmod-source-pair:{}", record.key);
-        self.confirm_identity(left, right, &evidence_id, &payload)
-            .await
+        self.confirm_identity(left, right).await
     }
 
     async fn confirm_identity(
         &self,
         left: &SourceProjectMetadata,
         right: &SourceProjectMetadata,
-        evidence_id: &str,
-        payload: &str,
     ) -> ResourceResult<ResourceId> {
         validate_project(&left.project)?;
         validate_project(&right.project)?;
+        let pool = self.writable_identities().await?;
         let (mut transaction, transaction_diagnostics) =
             crate::state::store::lock_diagnostics::begin(
-                &self.pool,
+                &pool,
                 "BEGIN IMMEDIATE",
             )
             .await
@@ -417,12 +472,7 @@ impl ResourceStore {
                 .bind(winner).bind(loser).execute(&mut *transaction).await.map_err(database_error)?;
             sqlx::query("UPDATE resources SET redirect_to = ? WHERE id = ? OR redirect_to = ?")
                 .bind(winner).bind(loser).bind(loser).execute(&mut *transaction).await.map_err(database_error)?;
-            sqlx::query("UPDATE resource_identity_evidence SET resource_id = ? WHERE resource_id = ?")
-                .bind(winner).bind(loser).execute(&mut *transaction).await.map_err(database_error)?;
         }
-        sqlx::query("INSERT INTO resource_identity_evidence(evidence_id, resource_id, payload, confirmed_at) VALUES (?, ?, ?, ?) ON CONFLICT(evidence_id) DO UPDATE SET resource_id = excluded.resource_id, payload = excluded.payload, confirmed_at = excluded.confirmed_at WHERE resource_identity_evidence.resource_id <> excluded.resource_id OR resource_identity_evidence.payload <> excluded.payload")
-            .bind(evidence_id).bind(winner).bind(payload).bind(chrono::Utc::now().timestamp())
-            .execute(&mut *transaction).await.map_err(database_error)?;
         let id = ResourceId::new(winner.clone())?;
         transaction_diagnostics
             .observe("commit_wait", transaction.commit())
@@ -486,55 +536,63 @@ impl ResourceStore {
         &self,
         instance_id: &str,
     ) -> ResourceResult<std::collections::HashMap<String, ResourceId>> {
-        let rows = sqlx::query("SELECT entry.id AS entry_id,
-            COALESCE(MAX(CASE WHEN ref.is_origin = 1 THEN link.resource_id END), MIN(link.resource_id)) AS resource_id
+        let rows: Vec<EntryProject> = sqlx::query_as(
+            "SELECT entry.id, ref.provider, ref.provider_project_id, ref.is_origin
             FROM instance_content_entries entry
             JOIN instance_content_provider_refs ref ON ref.content_entry_id = entry.id
-            LEFT JOIN resource_entry_links link ON link.reference_id = ref.id
-            WHERE entry.instance_id = ?
-            GROUP BY entry.id
-            HAVING (MAX(ref.is_origin) = 0 AND COUNT(link.resource_id) = COUNT(*) AND COUNT(DISTINCT link.resource_id) = 1)
-                OR (MAX(ref.is_origin) = 1 AND SUM(CASE WHEN ref.is_origin = 1 AND link.resource_id IS NOT NULL THEN 1 ELSE 0 END) = 1)")
+            WHERE entry.instance_id = ?")
             .bind(instance_id).fetch_all(&self.pool).await.map_err(database_error)?;
-        let mut output = std::collections::HashMap::new();
-        for row in rows {
-            let entry: String =
-                row.try_get("entry_id").map_err(database_error)?;
-            let id: String =
-                row.try_get("resource_id").map_err(database_error)?;
-            output.insert(entry, ResourceId::new(id)?);
-        }
-        Ok(output)
+        let projects = rows
+            .iter()
+            .filter_map(|(_, source, id, _)| project_key(source, id))
+            .collect::<Vec<_>>();
+        let identities = self.enrich_many(&projects).await;
+        Ok(entry_identities(&rows, &identities))
     }
 
     pub async fn pack_resources(
         &self,
         instance_id: &str,
     ) -> ResourceResult<std::collections::HashMap<String, ResourceId>> {
-        let rows = sqlx::query("SELECT link.member_id, link.resource_id FROM resource_pack_links link
-            JOIN instance_pack_members member ON member.id = link.member_id
-            JOIN instance_content_sets content_set ON content_set.id = member.content_set_id WHERE content_set.instance_id = ?")
+        let rows: Vec<(String, String, String)> = sqlx::query_as(
+            "SELECT member.id, member.provider, member.provider_project_id
+            FROM instance_pack_members member JOIN instance_content_sets content_set ON content_set.id = member.content_set_id
+            WHERE content_set.instance_id = ? AND member.provider IS NOT NULL AND member.provider_project_id IS NOT NULL")
             .bind(instance_id).fetch_all(&self.pool).await.map_err(database_error)?;
-        rows.into_iter()
-            .map(|row| {
-                Ok((
-                    row.try_get("member_id").map_err(database_error)?,
-                    ResourceId::new(
-                        row.try_get::<String, _>("resource_id")
-                            .map_err(database_error)?,
-                    )?,
-                ))
+        let projects = rows
+            .into_iter()
+            .filter_map(|(member, source, id)| {
+                Some((member, project_key(&source, &id)?))
             })
-            .collect()
+            .collect::<Vec<_>>();
+        let keys = projects
+            .iter()
+            .map(|(_, project)| project.clone())
+            .collect::<Vec<_>>();
+        let identities = self.enrich_many(&keys).await;
+        Ok(projects
+            .into_iter()
+            .filter_map(|(member, project)| {
+                Some((member, identities.get(&project)?.clone()))
+            })
+            .collect())
     }
 
     pub async fn instance_pack_resource(
         &self,
         instance_id: &str,
     ) -> ResourceResult<Option<ResourceId>> {
-        let id: Option<String> = sqlx::query_scalar("SELECT resource_id FROM resource_instance_pack_links WHERE instance_id = ?")
+        let row: Option<(String, Option<String>)> = sqlx::query_as("SELECT source, project_id FROM resource_instance_pack_projects WHERE instance_id = ?")
             .bind(instance_id).fetch_optional(&self.pool).await.map_err(database_error)?;
-        id.map(ResourceId::new).transpose().map_err(Into::into)
+        let Some(project) =
+            row.and_then(|(source, id)| project_key(&source, id.as_deref()?))
+        else {
+            return Ok(None);
+        };
+        Ok(self
+            .enrich_many(std::slice::from_ref(&project))
+            .await
+            .remove(&project))
     }
 }
 

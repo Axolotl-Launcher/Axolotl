@@ -3,11 +3,8 @@ use std::collections::HashMap;
 
 use super::*;
 use crate::event::emit::emit_favorite_groups_changed;
-use crate::state::store::Collection as _;
-use crate::state::store::Handle;
-use crate::state::store::resource_source_projects::{
-    ResourceSourceProjectKey, ResourceSourceProjects,
-};
+use crate::state::instances::adapters::sqlite::resource_rows::project_key;
+use crate::state::resources::ResourceStore;
 use crate::state::user_state::favorites as documents;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -140,7 +137,13 @@ pub(crate) async fn saved(
     prepare_fixture(pool).await;
     let rows = documents::all(&crate::state::store::persistence_for_pool(pool))
         .await?;
-    let handle = Handle::new(pool.clone());
+    let projects = rows
+        .iter()
+        .filter_map(|row| project_key(&row.source, &row.project_id))
+        .collect::<Vec<_>>();
+    let identities = ResourceStore::new(pool.clone())
+        .enrich_many(&projects)
+        .await;
     let mut favorites = Vec::with_capacity(rows.len());
     for row in rows {
         let (Ok(source), Ok(project_id), Ok(content_type)) = (
@@ -150,21 +153,10 @@ pub(crate) async fn saved(
         ) else {
             continue;
         };
-        let key = ResourceSourceProjectKey {
-            source: row.source,
-            project_id: row.project_id,
-        };
-        let resource_id = match ResourceSourceProjects::get(&handle, &key).await
-        {
-            Ok(Some(record)) => ResourceId::new(record.resource_id).ok(),
-            Ok(None) => None,
-            Err(error) => {
-                tracing::warn!(%error,"Favorite identity enrichment unavailable");
-                None
-            }
-        };
+        let project = SourceProjectRef { source, project_id };
+        let resource_id = identities.get(&project).cloned();
         favorites.push(SavedFavorite {
-            project: SourceProjectRef { source, project_id },
+            project,
             content_type,
             saved_at: row.saved_at,
             resource_id,

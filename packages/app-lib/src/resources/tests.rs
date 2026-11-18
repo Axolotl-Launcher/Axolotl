@@ -739,8 +739,7 @@ async fn changelog_curseforge_uses_release_html_and_rejects_other_projects() {
 }
 
 #[tokio::test]
-async fn state_resource_service_imports_legacy_metadata_from_derived_not_core()
-{
+async fn state_resource_service_starts_without_importing_legacy_metadata() {
     let temporary = tempfile::tempdir().unwrap();
     let core = crate::state::store::databases::open(temporary.path())
         .await
@@ -774,28 +773,22 @@ async fn state_resource_service_imports_legacy_metadata_from_derived_not_core()
         id: SourceProjectId::new("abcdefgh").unwrap(),
         slug: None,
     };
-    let key =
-        CacheKey::new("modrinth-v2-dates".into(), SourceId::modrinth(), &query)
-            .unwrap();
-    assert!(matches!(service.cache().get(&key).await,
-        Some(ProviderValue::Description(text)) if text.body == "Preserved derived description"));
-    let probe = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(
-            sqlx::sqlite::SqliteConnectOptions::new()
-                .filename(service.cache().path()),
-        )
-        .await
-        .unwrap();
+    let source = SourceId::modrinth();
+    let key = CacheKey::new(
+        service.source_namespace(&source).unwrap(),
+        source,
+        &query.cache_identity(),
+    )
+    .unwrap();
+    assert!(service.cache().get(&key).await.is_none());
     assert!(
-        sqlx::query_scalar::<_, bool>(
-            "SELECT completed FROM resource_legacy_import WHERE id=1"
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM cache WHERE id='abcdefgh' AND data_type='project'"
         )
-        .fetch_one(&probe)
+        .fetch_one(state.cache_pool())
         .await
-        .unwrap()
+        .unwrap() == 1
     );
-    probe.close().await;
     service.cache().close().await;
     state.cache_pool().close().await;
     state.pool.close().await;
@@ -3474,13 +3467,12 @@ async fn curated_project_confirmation_rejects_different_mcmod_subvariants() {
     assert_eq!(store.lookup(&full.project).await.unwrap(), Some(id.clone()));
     assert_eq!(store.lookup(&counterpart.project).await.unwrap(), Some(id));
     assert!(store.lookup(&lite.project).await.unwrap().is_none());
-    let evidence: String =
-        sqlx::query_scalar("SELECT payload FROM resource_identity_evidence")
+    let evidence: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM resource_identity_evidence")
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert!(evidence.contains("mcmod-source-pair"));
-    assert!(!evidence.contains("leftArtifact"));
+    assert_eq!(evidence, 0);
     pool.close().await;
 }
 

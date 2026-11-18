@@ -8,7 +8,7 @@ macro_rules! impl_cache_methods {
     ($(($variant:ident, $type:ty)),*) => {
         $(
             paste::paste! {
-                #[tracing::instrument]
+                #[tracing::instrument(skip_all, level = "info")]
                 pub async fn [<get_ $variant:snake>](
                     id: &str,
                     cache_behaviour: Option<CacheBehaviour>,
@@ -18,7 +18,7 @@ macro_rules! impl_cache_methods {
                     Ok(CachedEntry::[<get_ $variant:snake _many>](&[id], cache_behaviour, state.cache_pool(), &state.api_semaphore).await?.into_iter().next())
                 }
 
-                #[tracing::instrument]
+                #[tracing::instrument(skip_all, level = "info")]
                 pub async fn [<get_ $variant:snake _many>](
                     ids: &[&str],
                     cache_behaviour: Option<CacheBehaviour>,
@@ -44,7 +44,7 @@ impl_cache_methods!(
     (SearchResultsV3, SearchResultsV3)
 );
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_project(
     id: &str,
     cache_behaviour: Option<CacheBehaviour>,
@@ -60,7 +60,7 @@ pub async fn get_project(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_project_many(
     ids: &[&str],
     cache_behaviour: Option<CacheBehaviour>,
@@ -79,7 +79,7 @@ pub async fn get_project_many(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_version(
     id: &str,
     cache_behaviour: Option<CacheBehaviour>,
@@ -95,7 +95,7 @@ pub async fn get_version(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_version_many(
     ids: &[&str],
     cache_behaviour: Option<CacheBehaviour>,
@@ -114,7 +114,7 @@ pub async fn get_version_many(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_version_v3(
     id: &str,
     cache_behaviour: Option<CacheBehaviour>,
@@ -130,7 +130,7 @@ pub async fn get_version_v3(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_version_v3_many(
     ids: &[&str],
     cache_behaviour: Option<CacheBehaviour>,
@@ -173,7 +173,7 @@ pub async fn purge_cache_types(
 
 /// Get versions for a project (without changelogs for fast loading).
 /// Uses the cache system with the ProjectVersions cache type.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_project_versions(
     project_id: &str,
     cache_behaviour: Option<CacheBehaviour>,

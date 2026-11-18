@@ -202,7 +202,7 @@ async fn switcheroo_gpu_environment() -> crate::Result<Vec<(String, String)>> {
 
 /// Mojang/HMCL ordered rule semantics: an empty list allows, a non-empty list
 /// starts disallowed, and each matching rule replaces the previous decision.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn parse_rules(
     rules: &[d::minecraft::Rule],
     java_version: &str,
@@ -221,7 +221,7 @@ pub fn parse_rules(
 
 /// Returns this rule's action only when every declared OS and feature
 /// restriction matches. OS and features on the same rule are conjunctive.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn parse_rule(
     rule: &d::minecraft::Rule,
     java_version: &str,
@@ -2065,7 +2065,7 @@ fn link_project_and_version(
     }
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub async fn launch_minecraft(
     java_args: &[String],

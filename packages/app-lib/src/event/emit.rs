@@ -102,7 +102,7 @@ pub async fn init_loading_unsafe(
 // increment refers to by what relative increment to the loading struct's total to update
 // message is the message to display on the loading bar- if None, use the loading bar's default one
 // By convention, fraction is the fraction of the progress bar that is filled
-#[tracing::instrument(level = "debug")]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn emit_loading(
     key: &LoadingBarId,
     increment_frac: f64,
@@ -496,7 +496,7 @@ macro_rules! loading_join {
 // Total is the total amount of progress that the loading bar should take up by all futures in this (will be split evenly amongst them).
 // If message is Some(t) you will overwrite this loading bar's message with a custom one
 // num_futs is the number of futures that will be run, which is needed as we allow Iterator to be passed in, which doesn't have a size
-#[tracing::instrument(skip(stream, f))]
+#[tracing::instrument(skip_all, level = "info")]
 
 pub async fn loading_try_for_each_concurrent<I, F, Fut, T>(
     stream: I,

@@ -17,14 +17,14 @@ pub(crate) async fn copy_existing_documents(root: &Path) -> crate::Result<()> {
         Err(error) => return Err(error.into()),
     };
     if let Some(entries) = &mut entries {
+        let mut copied = HashSet::new();
         while let Some(entry) = entries.next_entry().await? {
             let name = entry.file_name();
-            if Path::new(&name)
-                .extension()
-                .is_some_and(|ext| ext == "json")
-            {
+            let Some(name) = name.to_str() else { continue };
+            let name = name.strip_suffix(".previous").unwrap_or(name);
+            if name.ends_with(".json") && copied.insert(name.to_owned()) {
                 copy_existing_document(
-                    &entry.path(),
+                    &source_settings.join(name),
                     &root.join(layout::SETTINGS).join(name),
                 )
                 .await?;

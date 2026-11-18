@@ -162,7 +162,7 @@ async fn any_member(
     Ok(false)
 }
 
-async fn verify_core_files(settings_dir: &Path) -> crate::Result<()> {
+async fn verify_core_files(settings_dir: &Path) -> crate::Result<bool> {
     let directory = layout::data(settings_dir);
     let mut missing = Vec::new();
     let mut existing = Vec::new();
@@ -184,9 +184,6 @@ async fn verify_core_files(settings_dir: &Path) -> crate::Result<()> {
             Err(error) => return Err(error.into()),
         }
     }
-    if missing.is_empty() {
-        return Ok(());
-    }
     let unavailable = || {
         crate::ErrorKind::FSError(format!(
             "Durable database domains ({}) are unavailable; restore the complete database set before continuing",
@@ -194,7 +191,13 @@ async fn verify_core_files(settings_dir: &Path) -> crate::Result<()> {
         ))
     };
     if has_installation_record(settings_dir).await? {
-        return Err(unavailable().into());
+        if !missing.is_empty() {
+            return Err(unavailable().into());
+        }
+        return Ok(true);
+    }
+    if missing.is_empty() {
+        return Ok(false);
     }
     for (path, length) in existing {
         if length == 0 {
@@ -212,7 +215,7 @@ async fn verify_core_files(settings_dir: &Path) -> crate::Result<()> {
             return Err(unavailable().into());
         }
     }
-    Ok(())
+    Ok(false)
 }
 
 pub(super) async fn mark_installation(
@@ -856,8 +859,11 @@ async fn backup_independent_files(
                 layout::IMPORT_RECEIPTS,
                 layout::IMPORT_SNAPSHOT,
                 layout::RESTORE_INTENT,
+                super::resource_identity_db::RECEIPT,
+                super::resource_identity_db::PREVIOUS_RECEIPT,
             ]
-            .contains(&relative.to_str().unwrap_or_default())
+            .iter()
+            .any(|path| relative == Path::new(path))
             {
                 continue;
             }
@@ -1022,11 +1028,10 @@ async fn open_with_retired(
             .await?,
     );
     super::maintenance::finish_restore(settings_dir).await?;
-    verify_core_files(settings_dir).await?;
-    let memory_name = String::new();
+    let initialized = verify_core_files(settings_dir).await?;
     let options = SqliteConnectOptions::new()
         .filename(directory(settings_dir).join("system.db"))
-        .create_if_missing(true)
+        .create_if_missing(!initialized)
         .journal_mode(SqliteJournalMode::Delete)
         .synchronous(sqlx::sqlite::SqliteSynchronous::Full)
         .busy_timeout(Duration::from_secs(30))
@@ -1045,8 +1050,7 @@ async fn open_with_retired(
             return Err(crate::ErrorKind::FSError("A durable database domain is missing; restore the complete database set before continuing".into()).into());
         }
     }
-    initialize_connection(&mut keeper, &root, &memory_name, true, &domains)
-        .await?;
+    attach_connection(&mut keeper, &root, &domains, true, initialized).await?;
     mark_installation(settings_dir).await?;
     tokio::fs::create_dir_all(root.join("groups")).await?;
     let pool = SqlitePoolOptions::new()
@@ -1058,51 +1062,27 @@ async fn open_with_retired(
         .max_lifetime(None)
         .after_connect(move |connection, _| {
             let root = root.clone();
-            let memory_name = memory_name.clone();
             let ownership = ownership.clone();
             let domains = domains.clone();
             Box::pin(async move {
                 let _ownership = ownership;
-                initialize_connection(
-                    connection,
-                    &root,
-                    &memory_name,
-                    false,
-                    &domains,
-                )
-                .await
+                attach_connection(connection, &root, &domains, false, false)
+                    .await
             })
         })
-        .connect_with(options)
+        .connect_with(options.create_if_missing(false))
         .await?;
     super::configuration::recover_and_load(&mut keeper, settings_dir).await?;
     keeper.close().await?;
     Ok(pool)
 }
 
-async fn initialize_connection(
-    connection: &mut SqliteConnection,
-    root: &Path,
-    memory_name: &str,
-    durable: bool,
-    domains: &[String],
-) -> Result<(), sqlx::Error> {
-    if durable {
-        return attach_connection(connection, root, memory_name, true, domains)
-            .await;
-    }
-    // Runtime setup only reads durable schemas and creates connection-local
-    // TEMP objects. Keep each statement in autocommit so its read locks end
-    // before the next statement; a new reader must not reserve the core writer.
-    attach_connection(connection, root, memory_name, false, domains).await
-}
-
 async fn attach_connection(
     connection: &mut SqliteConnection,
     root: &Path,
-    _memory_name: &str,
-    durable: bool,
     domains: &[String],
+    durable: bool,
+    initialized: bool,
 ) -> Result<(), sqlx::Error> {
     for domain in domains {
         sqlx::query(sqlx::AssertSqlSafe(
@@ -1111,23 +1091,42 @@ async fn attach_connection(
         .bind(root.join(format!("{domain}.db")).to_string_lossy().as_ref())
         .execute(&mut *connection)
         .await?;
-        if durable {
-            connection
-                .execute(sqlx::AssertSqlSafe(
-                    format!("PRAGMA {}.journal_mode = DELETE", quote(domain))
-                        .as_str(),
-                ))
-                .await?;
-            connection
-                .execute(sqlx::AssertSqlSafe(
-                    format!("PRAGMA {}.synchronous = FULL", quote(domain))
-                        .as_str(),
-                ))
-                .await?;
-        }
     }
     if !durable {
         return create_schema(connection, false).await;
+    }
+    if initialized {
+        for (domain, table) in [
+            ("main", "database_imports"),
+            ("instances", "instances"),
+            ("storage", "store_blobs"),
+        ] {
+            let query = format!(
+                "SELECT EXISTS(SELECT 1 FROM {domain}.sqlite_schema WHERE type='table' AND name=?)"
+            );
+            let present: bool = sqlx::query_scalar(sqlx::AssertSqlSafe(query))
+                .bind(table)
+                .fetch_one(&mut *connection)
+                .await?;
+            if !present {
+                return Err(sqlx::Error::Protocol(format!(
+                    "Core database domain {domain} is missing required schema; restore the complete database set"
+                )));
+            }
+        }
+    }
+    for domain in domains {
+        connection
+            .execute(sqlx::AssertSqlSafe(
+                format!("PRAGMA {}.journal_mode = DELETE", quote(domain))
+                    .as_str(),
+            ))
+            .await?;
+        connection
+            .execute(sqlx::AssertSqlSafe(
+                format!("PRAGMA {}.synchronous = FULL", quote(domain)).as_str(),
+            ))
+            .await?;
     }
     connection.execute("BEGIN IMMEDIATE").await?;
     let result = create_schema(connection, true).await;

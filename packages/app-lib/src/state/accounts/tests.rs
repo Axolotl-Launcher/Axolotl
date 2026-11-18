@@ -33,9 +33,11 @@ async fn keyring_credentials_survive_reopen_without_plaintext_documents() {
     assert_eq!(list[0].1.access_token, record.access_token);
     assert_eq!(list[0].2, CredentialPersistence::Keyring);
     assert_eq!(host.store().unwrap().keys().len(), 2);
-    let contents = tokio::fs::read_to_string(root.path().join("accounts.json"))
-        .await
-        .unwrap();
+    let contents = tokio::fs::read_to_string(
+        root.path().join(crate::state::layout::ACCOUNTS),
+    )
+    .await
+    .unwrap();
     assert!(!contents.contains(&record.access_token));
     assert!(!contents.contains(&record.refresh_token));
 }
@@ -60,9 +62,11 @@ async fn rejected_keyring_stays_in_session_and_requires_login_after_restart() {
     assert!(list[0].1.access_token.is_empty());
     assert!(list[0].1.refresh_token.is_empty());
     assert_eq!(list[0].2, CredentialPersistence::RequiresLogin);
-    let contents = tokio::fs::read_to_string(root.path().join("accounts.json"))
-        .await
-        .unwrap();
+    let contents = tokio::fs::read_to_string(
+        root.path().join(crate::state::layout::ACCOUNTS),
+    )
+    .await
+    .unwrap();
     assert!(!contents.contains(&record.refresh_token));
 }
 
@@ -252,10 +256,11 @@ async fn device_credentials_follow_the_same_keyring_or_session_policy() {
             reopened.device_token().await.unwrap().is_some(),
             persistent
         );
-        let bytes =
-            tokio::fs::read_to_string(root.path().join("accounts.json"))
-                .await
-                .unwrap();
+        let bytes = tokio::fs::read_to_string(
+            root.path().join(crate::state::layout::ACCOUNTS),
+        )
+        .await
+        .unwrap();
         assert!(!bytes.contains("private-device-key"));
         assert!(!bytes.contains("device-secret"));
     }

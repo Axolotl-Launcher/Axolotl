@@ -4321,6 +4321,41 @@ async fn legacy_startup_snapshot_keeps_pins_favorites_world_choices_and_daily_to
     );
     let day = "2026-11-15".parse().unwrap();
     assert_eq!(crate::state::instances::adapters::sqlite::playtime::get_daily_playtime(day,day,&core).await.unwrap()[0].played_seconds,77);
+    let project = crate::resources::SourceProjectRef {
+        source: crate::resources::SourceId::modrinth(),
+        project_id: crate::resources::SourceProjectId::new("12345678").unwrap(),
+    };
+    let resources = crate::state::resources::ResourceStore::new(core.clone());
+    let identity = resources.lookup(&project).await.unwrap().unwrap();
+    assert_eq!(identity.as_str(), "handover-resource");
+    let cache_root = crate::state::layout::cache(temporary.path());
+    let cache_path = cache_root.join(crate::resources::cache::FILE_NAME);
+    let cache =
+        crate::resources::cache::ResourceCache::open(cache_path.clone()).await;
+    assert!(cache.available());
+    cache.close().await;
+    tokio::fs::rename(&cache_root, temporary.path().join("lost-cache"))
+        .await
+        .unwrap();
+    assert_eq!(resources.lookup(&project).await.unwrap(), Some(identity));
+    assert_eq!(
+        crate::state::user_state::favorites::all(&persistence)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT id FROM instances")
+            .fetch_one(&core)
+            .await
+            .unwrap(),
+        "handover"
+    );
+    let rebuilt =
+        crate::resources::cache::ResourceCache::open(cache_path.clone()).await;
+    assert!(rebuilt.available() && cache_path.is_file());
+    rebuilt.close().await;
     core.close().await;
 }
 
@@ -4574,6 +4609,10 @@ async fn legacy_takeover_keeps_both_channels_and_preserves_local_documents() {
     tokio::fs::write(root.join("settings/appearance.json"), local)
         .await
         .unwrap();
+    let fallback = br#"{"schema_version":2,"data":{"preserve":true}}"#;
+    tokio::fs::write(root.join("settings/future.json.previous"), fallback)
+        .await
+        .unwrap();
     let group =
         br#"{"schema_version":1,"groups":[],"memberships":{"beta":[]}}"#;
     tokio::fs::write(root.join("instance_groups.json"), group)
@@ -4600,6 +4639,12 @@ async fn legacy_takeover_keeps_both_channels_and_preserves_local_documents() {
             .await
             .unwrap(),
         local
+    );
+    assert_eq!(
+        tokio::fs::read(root.join(layout::SETTINGS).join("future.json"))
+            .await
+            .unwrap(),
+        fallback
     );
     assert_eq!(
         tokio::fs::read(root.join("instance_groups.json"))
@@ -4646,4 +4691,48 @@ async fn core_loss_cannot_recreate_core_or_take_over_retired_source() {
             .await
             .is_err()
     );
+}
+
+#[tokio::test]
+async fn empty_replacement_of_any_core_file_is_preserved_without_reimport() {
+    use crate::state::layout;
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path();
+    let pool = connect_at(root).await.unwrap();
+    pool.close().await;
+    drop(pool);
+    tokio::fs::write(root.join("app.db"), b"retired source")
+        .await
+        .unwrap();
+    let empty = root.join("empty.db");
+    let mut connection = sqlx::SqliteConnection::connect_with(
+        &SqliteConnectOptions::new()
+            .filename(&empty)
+            .create_if_missing(true),
+    )
+    .await
+    .unwrap();
+    sqlx::query("VACUUM")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    connection.close().await.unwrap();
+    let empty_sqlite = tokio::fs::read(&empty).await.unwrap();
+    assert!(empty_sqlite.starts_with(b"SQLite format 3\0"));
+    for name in ["instances.db", "storage.db", "system.db"] {
+        let path = layout::data(root).join(name);
+        let original = tokio::fs::read(&path).await.unwrap();
+        for replacement in [b"".as_slice(), empty_sqlite.as_slice()] {
+            tokio::fs::write(&path, replacement).await.unwrap();
+            let error = connect_at(root).await.unwrap_err();
+            assert!(crate::state::store::recovery_mode::can_recover(&error));
+            assert_eq!(tokio::fs::read(&path).await.unwrap(), replacement);
+        }
+        tokio::fs::write(&path, original).await.unwrap();
+    }
+    assert_eq!(
+        tokio::fs::read(root.join("app.db")).await.unwrap(),
+        b"retired source"
+    );
+    connect_at(root).await.unwrap().close().await;
 }

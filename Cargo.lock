@@ -3661,10 +3661,8 @@ name = "launcher-observability-mcp"
 version = "0.1.0"
 dependencies = [
  "axum",
- "launcher-observability",
  "reqwest",
  "rmcp",
- "rustls",
  "serde",
  "serde_json",
  "tokio",

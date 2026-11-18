@@ -6,7 +6,6 @@ rust-version.workspace = true
 
 [dependencies]
 axum = { workspace = true }
-launcher-observability = { workspace = true }
 rmcp = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -16,7 +15,6 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 reqwest = { workspace = true, features = ["json", "stream"] }
-rustls = { workspace = true }
 
 [lints]
 workspace = true

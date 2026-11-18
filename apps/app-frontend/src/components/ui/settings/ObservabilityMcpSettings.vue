@@ -14,9 +14,6 @@ onBeforeUnmount(release)
 
 const endpoint = computed(() => state.value.endpoint ?? 'MCP_URL')
 const bearer = computed(() => state.value.token ?? 'MCP_TOKEN')
-const authorizationHeaders = computed(() =>
-    state.value.require_auth ? { Authorization: `Bearer ${bearer.value}` } : undefined,
-)
 const tokenCopied = ref(false)
 const copyError = ref(false)
 watch(

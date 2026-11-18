@@ -357,13 +357,7 @@ pub(crate) async fn backfill_dependency_edges_from_metadata(
         .collect();
     let mut backfill = DependencyBackfill::default();
     if !version_ids.is_empty() {
-        match CachedEntry::get_version_many(
-            &version_ids,
-            None,
-            state.cache_pool(),
-            &state.api_semaphore,
-        )
-        .await
+        match CachedEntry::get_version_many_for_state(&version_ids, state).await
         {
             Ok(versions) => {
                 for parent in entries {

@@ -1304,6 +1304,34 @@ impl CachedEntry {
             .collect())
     }
 
+    pub(crate) async fn get_version_many_for_state(
+        ids: &[ModrinthVersionId],
+        state: &crate::State,
+    ) -> crate::Result<Vec<Version>> {
+        use crate::resources::protocol;
+
+        let service = state.resources().await.map_err(protocol::error)?;
+        let keys = ids
+            .iter()
+            .map(ModrinthVersionId::as_str)
+            .collect::<Vec<_>>();
+        let entries = protocol::many(
+            service,
+            CacheValueType::Version,
+            &keys,
+            None,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .await?;
+        Ok(entries
+            .into_iter()
+            .filter_map(|entry| match entry.data {
+                Some(CacheValue::Version(version)) => Some(version),
+                _ => None,
+            })
+            .collect())
+    }
+
     pub async fn get_version_v3(
         id: &ModrinthVersionId,
         cache_behaviour: Option<CacheBehaviour>,

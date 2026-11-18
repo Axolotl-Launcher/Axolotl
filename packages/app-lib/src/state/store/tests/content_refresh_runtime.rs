@@ -16,6 +16,7 @@ struct Provider {
     fail: AtomicBool,
     queries: AtomicUsize,
     identify_queries: AtomicUsize,
+    dependency_version_queries: AtomicUsize,
     batches: AtomicUsize,
     largest_batch: AtomicUsize,
 }
@@ -140,6 +141,13 @@ impl ResourceProvider for Provider {
                     changelog: None,
                     protocol: None,
                 })),
+                ProviderQuery::Release {
+                    project_id: None, ..
+                } => {
+                    self.dependency_version_queries
+                        .fetch_add(1, Ordering::SeqCst);
+                    Ok(ProviderValue::NotFound)
+                }
                 ProviderQuery::Releases { project_id, .. } => {
                     if project_id.as_str() == "slow"
                         && self.hold_slow.load(Ordering::SeqCst)
@@ -466,7 +474,7 @@ async fn all_refresh_content_kinds_recover_candidates_and_reuse_hashes() {
         ("shaderpacks", "zip", "shaderpack"),
         ("saves/Test World/datapacks", "zip", "datapack"),
     ] {
-        let (_temp, state, _) = fixture().await;
+        let (_temp, state, provider) = fixture().await;
         let records = content_snapshot::get(&state.data, "instance")
             .await
             .unwrap();
@@ -502,6 +510,7 @@ async fn all_refresh_content_kinds_recover_candidates_and_reuse_hashes() {
             .await
             .unwrap();
         finished(&state).await;
+        assert!(provider.dependency_version_queries.load(Ordering::SeqCst) > 0);
         let recovered = state
             .content_refresh
             .state(&state, "instance")
@@ -796,6 +805,7 @@ async fn fixture() -> (tempfile::TempDir, Arc<crate::State>, Arc<Provider>) {
         fail: AtomicBool::new(false),
         queries: AtomicUsize::new(0),
         identify_queries: AtomicUsize::new(0),
+        dependency_version_queries: AtomicUsize::new(0),
         batches: AtomicUsize::new(0),
         largest_batch: AtomicUsize::new(0),
     });

@@ -1108,7 +1108,8 @@
                       "labelKey": "app.lab.command-generator.preset.dimension.end",
                       "value": "minecraft:the_end"
                     }
-                  ]
+                  ],
+                  "defaultValue": "minecraft:overworld"
                 }
               ]
             },

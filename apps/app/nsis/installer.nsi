@@ -119,6 +119,9 @@ Var SchematicAssociationState
 ; Holds the state of whichever association group the current loop iteration
 ; belongs to, so one loop body can serve both groups.
 Var AssociationState
+; 1 when this run may claim an extension outright, 0 when it may only fill in
+; extensions that have no handler.
+Var AssociationMode
 Var InstallerBodyFont
 Var InstallerTitleFont
 Var InstallerSmallFont
@@ -1356,26 +1359,51 @@ Section Install
   ; over their schematics. Entries that declare a ProgID name form the schematic
   ; group; the modpack entry keeps the extension-derived ProgID it has always
   ; used, so an existing installation can still be uninstalled cleanly.
-  ; A reinstall never re-claims an extension that already has a handler: the
-  ; registered command still points at this executable, and claiming the
-  ; extension again could override a handler the user picked afterwards.
-  ${If} $UpdateMode <> 1
-    {{#each file_associations as |association| ~}}
-      {{#if association.name}}
-      StrCpy $AssociationState $SchematicAssociationState
-      {{else}}
-      StrCpy $AssociationState $FileAssociationState
-      {{/if}}
+  ; Only a first install claims an extension outright. Every later run is either
+  ; the silent updater or a reinstall over an existing copy, and the install
+  ; before it already claimed the extensions the user asked for, so claiming
+  ; them again would override a handler the user picked afterwards. Those runs
+  ; fill in extensions that have no handler and offer the launcher as an
+  ; alternative everywhere else.
+  ${If} $UpdateMode = 1
+    StrCpy $AssociationMode 0
+  ${Else}
+    ClearErrors
+    ReadRegStr $R0 SHCTX "${UNINSTKEY}" "FileAssociation"
+    ${If} ${Errors}
+      StrCpy $AssociationMode 1
+    ${Else}
+      StrCpy $AssociationMode 0
+    ${EndIf}
+  ${EndIf}
+
+  {{#each file_associations as |association| ~}}
+    {{#if association.name}}
+    StrCpy $AssociationState $SchematicAssociationState
+    {{else}}
+    StrCpy $AssociationState $FileAssociationState
+    {{/if}}
+    ${If} $AssociationState = ${BST_CHECKED}
       {{#each association.ext as |ext| ~}}
-        ${If} $AssociationState = ${BST_CHECKED}
+        ${If} $AssociationMode = 1
           !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
         ${Else}
-          !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+          ClearErrors
+          ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
+          ${If} $R0 == ""
+            !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+          ${Else}
+            !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+          ${EndIf}
         ${EndIf}
       {{/each}}
-      ; The group shares one ProgID, so it can only go once every extension of
-      ; the group has been released.
-      ${If} $AssociationState != ${BST_CHECKED}
+    ${Else}
+      ; The updater cannot ask whether to drop the associations, so it leaves
+      ; whatever the user has in place alone.
+      ${If} $UpdateMode <> 1
+        {{#each association.ext as |ext| ~}}
+          !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+        {{/each}}
         {{#if association.name}}
         !insertmacro AxlDeleteProgIDIfOwned "{{association.name}}"
         {{else}}
@@ -1384,35 +1412,8 @@ Section Install
         {{/each}}
         {{/if}}
       ${EndIf}
-    {{/each}}
-  ${EndIf}
-
-  ; An in-place update still has to make the launcher usable for the types this
-  ; build introduced: without a ProgID it does not even appear in the "Open with"
-  ; list, so an association added after the user installed would never reach
-  ; them. An extension that another application already owns keeps that
-  ; application as its default handler; the launcher is only offered as an
-  ; alternative.
-  ${If} $UpdateMode = 1
-    {{#each file_associations as |association| ~}}
-      {{#if association.name}}
-      StrCpy $AssociationState $SchematicAssociationState
-      {{else}}
-      StrCpy $AssociationState $FileAssociationState
-      {{/if}}
-      ${If} $AssociationState = ${BST_CHECKED}
-        {{#each association.ext as |ext| ~}}
-          ClearErrors
-          ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
-          ${If} $R0 == ""
-            !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
-          ${Else}
-            !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
-          ${EndIf}
-        {{/each}}
-      ${EndIf}
-    {{/each}}
-  ${EndIf}
+    ${EndIf}
+  {{/each}}
 
   ; Register deep links
   {{#each deep_link_protocols as |protocol| ~}}

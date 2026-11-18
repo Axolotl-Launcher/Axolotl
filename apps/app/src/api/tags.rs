@@ -14,30 +14,35 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 }
 
 /// Gets cached category tags from the database
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn tags_get_categories() -> Result<Vec<Category>> {
     Ok(theseus::tags::get_category_tags().await?)
 }
 
 /// Gets cached report type tags from the database
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn tags_get_report_types() -> Result<Vec<String>> {
     Ok(theseus::tags::get_report_type_tags().await?)
 }
 
 /// Gets cached loader tags from the database
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn tags_get_loaders() -> Result<Vec<Loader>> {
     Ok(theseus::tags::get_loader_tags().await?)
 }
 
 /// Gets cached game version tags from the database
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn tags_get_game_versions() -> Result<Vec<GameVersion>> {
     Ok(theseus::tags::get_game_version_tags().await?)
 }
 
 /// Gets cached donation platform tags from the database
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn tags_get_donation_platforms() -> Result<Vec<DonationPlatform>> {
     Ok(theseus::tags::get_donation_platform_tags().await?)

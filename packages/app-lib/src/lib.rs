@@ -19,6 +19,7 @@ pub mod install;
 mod launcher;
 mod logger;
 pub mod mod_metadata;
+pub mod observability;
 pub mod resources;
 pub mod scheduler;
 pub mod state;
@@ -32,7 +33,8 @@ pub use event::{
     emit::init_loading,
 };
 pub use logger::{
-    DEFAULT_LOG_LEVEL, filter_log_contents, set_log_level, start_logger,
+    DEFAULT_LOG_LEVEL, LoggerGuard, filter_log_contents, set_log_level,
+    start_logger,
 };
 pub use state::db::{
     UpdateChannelState, backup_current_app_db_for_update, beta_database_exists,

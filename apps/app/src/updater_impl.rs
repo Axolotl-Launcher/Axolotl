@@ -575,6 +575,7 @@ async fn check_with_updater<R: Runtime>(
 
 // ── Tauri commands ───────────────────────────────────────────────
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn check_app_update<R: Runtime>(
     webview: Webview<R>,
@@ -584,6 +585,7 @@ pub async fn check_app_update<R: Runtime>(
 }
 
 // Reimplementation of Update::download mostly, minus the actual download part
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_update_size<R: Runtime>(
     webview: Webview<R>,
@@ -692,6 +694,7 @@ fn verify_update_signature(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn enqueue_update_for_installation<R: Runtime>(
     webview: Webview<R>,
@@ -800,6 +803,7 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn remove_enqueued_update<R: Runtime>(webview: Webview<R>) {
     let pending_data = webview.state::<PendingUpdateData>().inner();
@@ -1015,6 +1019,7 @@ fn probe_linux_host(
 
 /// Whether this install updates through apt. Kept for the frontend command
 /// surface; the decision itself is [`UpdateMethod::detect`].
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn is_apt_linux(method: tauri::State<'_, UpdateMethod>) -> bool {
     *method == UpdateMethod::Apt

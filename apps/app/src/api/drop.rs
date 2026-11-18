@@ -350,6 +350,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 ///
 /// Returns a `ClassificationResult` with an `item_type` tag that the frontend
 /// can use to decide what UI to show (confirm dialog, error, etc.).
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn drop_classify<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -402,6 +403,7 @@ pub async fn drop_classify<R: tauri::Runtime>(
 
 /// Classify ZIP
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn drop_classify_extract<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -489,6 +491,7 @@ fn sweep_stale_launcher_import_dirs(base: &std::path::Path) {
 /// path. The frontend scans and imports instances from the extraction, then
 /// calls [`drop_remove_temp_dir`] to clean it up — the archive is unpacked
 /// exactly once.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn drop_extract_zip_to_temp<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -560,6 +563,7 @@ pub async fn drop_extract_zip_to_temp<R: tauri::Runtime>(
 
 /// Remove a temporary directory created by [`drop_extract_zip_to_temp`].
 /// Only paths inside the launcher import temp root are accepted.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn drop_remove_temp_dir(path: String) -> Result<(), String> {
     let base = launcher_import_temp_base();
@@ -591,6 +595,7 @@ pub async fn drop_remove_temp_dir(path: String) -> Result<(), String> {
 ///
 /// `launcher_type` must be one of the `ImportLauncherType` variant names
 /// (e.g. `"MultiMC"`, `"PrismLauncher"`, `"HMCL"`).
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn drop_scan_launcher_instances<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -655,6 +660,7 @@ pub async fn drop_scan_launcher_instances<R: tauri::Runtime>(
 }
 
 /// Resolve launcher profiles to their external Minecraft game directories.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn drop_resolve_gamedirs(
     launcher_type: String,
@@ -676,6 +682,7 @@ pub async fn drop_resolve_gamedirs(
 ///
 /// Returns an empty list when detection is unavailable on the current platform
 /// or the required tools are not installed.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn drop_detect_file_lock(
     path: String,
@@ -694,6 +701,7 @@ pub async fn drop_detect_file_lock(
 /// Reads the JAR bytes, extracts embedded mod metadata (fabric.mod.json,
 /// quilt.mod.json, META-INF/mods.toml, etc.), and returns the parsed
 /// `LocalModMetadata` as a JSON string.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn drop_extract_mod_metadata(path: String) -> Result<String, String> {
     let path = std::path::PathBuf::from(&path);
@@ -717,6 +725,7 @@ pub async fn drop_extract_mod_metadata(path: String) -> Result<String, String> {
 ///
 /// Computes the SHA1 hash of the given file and queries the Modrinth API
 /// to find matching versions. Returns project and version information if found.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn drop_lookup_mod_hash(
     path: String,

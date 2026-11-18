@@ -86,6 +86,7 @@ mod assets {
     pub use default::DEFAULT_SKINS;
 }
 
+mod cape_texture;
 mod offline;
 pub(crate) use offline::{
     OFFLINE_SKIN_PACK_LEGACY_ID, OFFLINE_SKIN_PACK_MODERN_ID,
@@ -229,8 +230,8 @@ pub struct Cape {
     pub id: Uuid,
     /// The name of the cape.
     pub name: Arc<str>,
-    /// The URL of the cape PNG texture.
-    pub texture: Arc<Url>,
+    /// The cape PNG URL, or `None` if its preview texture is unavailable.
+    pub texture: Option<Arc<Url>>,
     /// Whether the cape is currently equipped in the Minecraft profile of its corresponding
     /// player.
     pub is_equipped: bool,
@@ -383,13 +384,43 @@ pub async fn get_available_capes_with_cache(
         .map(|cape| Cape {
             id: cape.id,
             name: Arc::clone(&cape.name),
-            texture: Arc::clone(&cape.url),
+            texture: Some(Arc::clone(&cape.url)),
             is_equipped: pending_cape_id.map_or_else(
                 || cape.state == MinecraftCharacterExpressionState::Active,
                 |cape_id| cape_id == Some(cape.id),
             ),
         })
         .collect())
+}
+
+/// Returns local cape textures for the WebView without making a missing texture
+/// remove an owned cape or block use of the skin library.
+pub async fn get_available_capes_for_preview(
+    cached_only: bool,
+) -> crate::Result<Vec<Cape>> {
+    let capes = get_available_capes_with_cache(cached_only).await?;
+    if capes.is_empty() {
+        return Ok(capes);
+    }
+
+    let state = State::get().await?;
+    let cache_dir = state.directories.caches_dir().join("minecraft-capes");
+    let client = (!cached_only).then(|| state.download_clients().system);
+    Ok(stream::iter(capes)
+        .map(|mut cape| {
+            let cache_dir = &cache_dir;
+            let client = client.as_ref();
+            async move {
+                if let Some(url) = &cape.texture {
+                    cape.texture =
+                        cape_texture::load(cache_dir, client, url).await;
+                }
+                cape
+            }
+        })
+        .buffered(4)
+        .collect()
+        .await)
 }
 
 /// Gets the skins for the selected Minecraft profile.

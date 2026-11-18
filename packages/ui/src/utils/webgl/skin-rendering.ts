@@ -478,6 +478,7 @@ export async function setupSkinModel(
 ): Promise<{
     model: THREE.Object3D
     bodyNode: THREE.Object3D | null
+    capeRendered: boolean
 }> {
     const [gltf, texture] = await Promise.all([
         loadModel(modelUrl),
@@ -488,14 +489,17 @@ export async function setupSkinModel(
     applyTexture(model, texture)
     applyThreeDSkinLayers(model, texture)
 
-    if (capeTextureUrl) {
-        const capeTexture = await loadTexture(capeTextureUrl, config)
-        applyCapeTexture(model, capeTexture)
-    }
+    const capeTexture = capeTextureUrl
+        ? await loadTexture(capeTextureUrl, config).catch((error) => {
+              console.warn('Could not load the optional cape texture:', error)
+              return null
+          })
+        : null
+    applyCapeTexture(model, capeTexture)
 
     const bodyNode = findBodyNode(model)
 
-    return { model, bodyNode }
+    return { model, bodyNode, capeRendered: capeTexture !== null }
 }
 
 export function disposeCaches(): void {

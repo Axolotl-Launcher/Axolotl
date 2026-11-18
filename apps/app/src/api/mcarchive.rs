@@ -12,12 +12,14 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcarchive_get_game_versions()
 -> Result<Vec<theseus::mcarchive::McArchiveGameVersion>> {
     Ok(theseus::mcarchive::get_game_versions().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcarchive_search_mods(
     keyword: &str,
@@ -26,6 +28,7 @@ pub async fn mcarchive_search_mods(
     Ok(theseus::mcarchive::search_mods(keyword, game_version).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcarchive_get_mod_by_slug(
     slug: &str,
@@ -33,6 +36,7 @@ pub async fn mcarchive_get_mod_by_slug(
     Ok(theseus::mcarchive::get_mod_by_slug(slug).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcarchive_get_file_by_filename(
     filename: &str,
@@ -40,6 +44,7 @@ pub async fn mcarchive_get_file_by_filename(
     Ok(theseus::mcarchive::get_file_by_filename(filename).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcarchive_get_file_by_sha256(
     sha256: &str,

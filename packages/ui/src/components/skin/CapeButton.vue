@@ -9,7 +9,7 @@ const props = withDefaults(
     defineProps<{
         name: string | undefined
         id: string
-        texture: string
+        texture: string | null
         isEquipped?: boolean
         selected?: boolean
         faded?: boolean
@@ -48,7 +48,7 @@ const highlighted = computed(() => props.selected ?? props.isEquipped)
                     'brightness-[0.3] contrast-[0.8]': faded,
                 }"
             >
-                <img :src="texture" alt="" />
+                <img v-if="texture" :src="texture" alt="" />
             </span>
             <span
                 v-if="$slots.default || $slots.icon"

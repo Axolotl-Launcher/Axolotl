@@ -162,24 +162,28 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_synced_options()
 -> Result<theseus::instance::GlobalSyncedOptions> {
     Ok(theseus::instance::get_global_synced_options().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_initialized_synced_options()
 -> Result<theseus::instance::GlobalSyncedOptions> {
     Ok(theseus::instance::get_initialized_synced_options().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_synced_game_options_config()
 -> Result<theseus::instance::GameSettingsEditorState> {
     Ok(theseus::instance::get_synced_game_options_config().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_preview_synced_game_option_changes(
     request: theseus::instance::UpdateGameSettingsRequest,
@@ -187,6 +191,7 @@ pub async fn instance_preview_synced_game_option_changes(
     Ok(theseus::instance::preview_synced_game_option_changes(request).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_save_synced_game_option_changes(
     request: theseus::instance::UpdateGameSettingsRequest,
@@ -194,12 +199,14 @@ pub async fn instance_save_synced_game_option_changes(
     Ok(theseus::instance::save_synced_game_option_changes(request).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_game_options_sync_sources()
 -> Result<Vec<theseus::instance::GameOptionsSourceCandidate>> {
     Ok(theseus::instance::list_game_options_sync_sources().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_game_setting_locale_labels(
     instance_id: Option<String>,
@@ -216,6 +223,7 @@ pub async fn instance_get_game_setting_locale_labels(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_local_game_options_config(
     instance_id: String,
@@ -223,6 +231,7 @@ pub async fn instance_get_local_game_options_config(
     Ok(theseus::instance::get_local_game_options_config(&instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_preview_local_game_option_changes(
     instance_id: String,
@@ -235,6 +244,7 @@ pub async fn instance_preview_local_game_option_changes(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_save_local_game_option_changes(
     instance_id: String,
@@ -249,6 +259,7 @@ pub async fn instance_save_local_game_option_changes(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_pack_sync_preview(
     instance_id: String,
@@ -260,6 +271,7 @@ pub async fn instance_get_pack_sync_preview(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_sync_pack(
     instance_id: String,
@@ -268,6 +280,7 @@ pub async fn instance_sync_pack(
     Ok(theseus::instance::sync_pack(&instance_id, &project_path).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_desync_pack(
     instance_id: String,
@@ -277,6 +290,7 @@ pub async fn instance_desync_pack(
     Ok(theseus::instance::desync_pack(&instance_id, &pack_id, mode).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_synced_packs(
     project_type: theseus::data::ProjectType,
@@ -284,6 +298,7 @@ pub async fn instance_list_synced_packs(
     Ok(theseus::instance::list_synced_packs(project_type).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_upload_synced_pack(
     path: PathBuf,
@@ -300,6 +315,7 @@ pub async fn instance_upload_synced_pack(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_set_synced_pack_enabled(
     pack_id: String,
@@ -308,11 +324,13 @@ pub async fn instance_set_synced_pack_enabled(
     Ok(theseus::instance::set_synced_pack_enabled(&pack_id, enabled).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_remove_synced_pack(pack_id: String) -> Result<()> {
     Ok(theseus::instance::remove_synced_pack(&pack_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_synced_options_overview(
     instance_id: String,
@@ -320,6 +338,7 @@ pub async fn instance_get_synced_options_overview(
     Ok(theseus::instance::get_synced_options_overview(&instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_synced_option_capabilities(
     instance_id: String,
@@ -327,6 +346,7 @@ pub async fn instance_get_synced_option_capabilities(
     Ok(theseus::instance::get_synced_option_capabilities(&instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_synced_option_join_preview(
     instance_id: String,
@@ -338,6 +358,7 @@ pub async fn instance_get_synced_option_join_preview(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_set_synced_option(
     option: theseus::instance::SyncedOption,
@@ -352,6 +373,7 @@ pub async fn instance_set_synced_option(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_set_instance_synced_option(
     instance_id: String,
@@ -369,11 +391,13 @@ pub async fn instance_set_instance_synced_option(
     instance_from_metadata(metadata).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_synced_command_history() -> Result<String> {
     Ok(theseus::instance::get_synced_command_history().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_set_synced_command_history(
     contents: String,
@@ -381,11 +405,13 @@ pub async fn instance_set_synced_command_history(
     Ok(theseus::instance::set_synced_command_history(&contents).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_synced_servers()
 -> Result<Vec<theseus::instance::SyncedServer>> {
     Ok(theseus::instance::list_synced_servers().await?)
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_update_synced_server(
     server: theseus::instance::SyncedServer,
@@ -393,6 +419,7 @@ pub async fn instance_update_synced_server(
     theseus::instance::update_synced_server(server).await?;
     Ok(())
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_remove_synced_server(id: String) -> Result<()> {
     theseus::instance::remove_synced_server(&id).await?;
@@ -809,18 +836,21 @@ async fn instance_from_metadata(
     Ok(instance)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_remove(instance_id: &str) -> Result<()> {
     theseus::instance::remove(instance_id).await?;
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_backup_repository_status()
 -> Result<theseus::instance::BackupRepositoryStatus> {
     Ok(theseus::instance::get_backup_repository_status().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_move_backup_repository(
     destination: PathBuf,
@@ -828,6 +858,7 @@ pub async fn instance_move_backup_repository(
     Ok(theseus::instance::move_backup_repository(destination).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_backup_config(
     instance_id: &str,
@@ -835,6 +866,7 @@ pub async fn instance_get_backup_config(
     Ok(theseus::instance::get_backup_config(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_enable_backups(
     instance_id: &str,
@@ -843,6 +875,7 @@ pub async fn instance_enable_backups(
     Ok(theseus::instance::enable_backups(instance_id, excluded_paths).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_normalize_backup_exclusion(
     instance_id: &str,
@@ -857,6 +890,7 @@ pub async fn instance_normalize_backup_exclusion(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_update_backup_exclusions(
     instance_id: &str,
@@ -871,21 +905,25 @@ pub async fn instance_update_backup_exclusions(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_disable_backups(instance_id: &str) -> Result<()> {
     Ok(theseus::instance::disable_backups(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_start_backup(instance_id: String) -> Result<uuid::Uuid> {
     Ok(theseus::instance::start_backup_snapshot(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_cancel_backup(operation_id: uuid::Uuid) -> Result<bool> {
     Ok(theseus::instance::cancel_backup(operation_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_backup_operations(
     instance_id: Option<String>,
@@ -898,6 +936,7 @@ pub async fn instance_list_backup_operations(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_backups(
     instance_id: &str,
@@ -905,11 +944,13 @@ pub async fn instance_list_backups(
     Ok(theseus::instance::list_backup_snapshots(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_delete_backup(snapshot_id: &str) -> Result<()> {
     Ok(theseus::instance::delete_backup_snapshot(snapshot_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_backup_restore_preview(
     snapshot_id: &str,
@@ -917,6 +958,7 @@ pub async fn instance_get_backup_restore_preview(
     Ok(theseus::instance::get_backup_restore_preview(snapshot_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_restore_backup(
     snapshot_id: &str,
@@ -925,6 +967,7 @@ pub async fn instance_restore_backup(
     Ok(theseus::instance::restore_snapshot(snapshot_id, plan_token).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_backup_delete_summary(
     instance_id: &str,
@@ -932,6 +975,7 @@ pub async fn instance_get_backup_delete_summary(
     Ok(theseus::instance::get_backup_delete_summary(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_create_direct_link(
     request: CreateDirectLinkInstanceRequest,
@@ -950,6 +994,7 @@ pub async fn instance_create_direct_link(
     instance_from_metadata(metadata).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_sync_direct_links(
     roots: Vec<theseus::data::ExternalMinecraftRoot>,
@@ -957,6 +1002,7 @@ pub async fn instance_sync_direct_links(
     Ok(theseus::instance::sync_direct_links(roots).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get(instance_id: &str) -> Result<Option<Instance>> {
     let Some(metadata) = theseus::instance::get(instance_id).await? else {
@@ -965,6 +1011,7 @@ pub async fn instance_get(instance_id: &str) -> Result<Option<Instance>> {
     Ok(Some(instance_from_metadata(metadata).await?))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_many(
     instance_ids: Vec<String>,
@@ -973,6 +1020,7 @@ pub async fn instance_get_many(
     instances_from_metadata(theseus::instance::get_many(&ids).await?).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list() -> Result<Vec<Instance>> {
     instances_from_metadata(theseus::instance::list().await?).await
@@ -987,6 +1035,7 @@ async fn instances_from_metadata(
         .await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_set_pinned(
     instance_id: String,
@@ -996,6 +1045,7 @@ pub async fn instance_set_pinned(
     instance_from_metadata(metadata).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_daily_playtime(
     start_date: String,
@@ -1017,6 +1067,7 @@ pub async fn instance_get_daily_playtime(
     Ok(theseus::instance::get_daily_playtime(start_date, end_date).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_daily_playtime_details(
     date: String,
@@ -1030,6 +1081,7 @@ pub async fn instance_get_daily_playtime_details(
     Ok(theseus::instance::get_daily_playtime_details(date).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_projects(
     instance_id: &str,
@@ -1038,6 +1090,7 @@ pub async fn instance_get_projects(
     Ok(theseus::instance::get_projects(instance_id, cache_behaviour).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_installed_project_ids(
     instance_id: &str,
@@ -1045,6 +1098,7 @@ pub async fn instance_get_installed_project_ids(
     Ok(theseus::instance::get_installed_project_ids(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_install_candidates(
     project_id: &str,
@@ -1059,6 +1113,7 @@ pub async fn instance_get_install_candidates(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_content(
     instance_id: &str,
@@ -1067,6 +1122,7 @@ pub async fn instance_content(
     instance_get_content_items(instance_id, cache_behaviour).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_content_items(
     instance_id: &str,
@@ -1078,6 +1134,7 @@ pub async fn instance_get_content_items(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_content_items_by_paths(
     instance_id: &str,
@@ -1092,6 +1149,7 @@ pub async fn instance_get_content_items_by_paths(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_content_snapshot(
     instance_id: &str,
@@ -1110,6 +1168,7 @@ pub async fn instance_get_content_snapshot(
     Ok(theseus::instance::get_content_snapshot(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_refresh_content(
     instance_id: &str,
@@ -1117,6 +1176,7 @@ pub async fn instance_refresh_content(
     Ok(theseus::instance::refresh_content(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_plan_content_updates(
     instance_id: &str,
@@ -1129,6 +1189,7 @@ pub async fn instance_plan_content_updates(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_apply_content_update_plan(
     plan_id: &str,
@@ -1176,6 +1237,7 @@ impl Drop for UpgradePlanningRequest {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_plan_upgrade<R: Runtime>(
     webview: tauri::Webview<R>,
@@ -1212,6 +1274,7 @@ pub async fn instance_plan_upgrade<R: Runtime>(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn instance_cancel_upgrade_planning(request_id: String) {
     if let Some(cancel) = UPGRADE_PLANNING.get(&request_id) {
@@ -1229,12 +1292,14 @@ pub fn instance_cancel_upgrade_planning(request_id: String) {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_discard_upgrade_plan(plan_id: &str) -> Result<()> {
     theseus::instance::discard_instance_upgrade_plan(plan_id);
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_upgrade_plan(
     plan_id: &str,
@@ -1242,6 +1307,7 @@ pub async fn instance_get_upgrade_plan(
     Ok(theseus::instance::get_instance_upgrade_plan(plan_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_update_upgrade_resolution(
     plan_id: &str,
@@ -1253,6 +1319,7 @@ pub async fn instance_update_upgrade_resolution(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_update_upgrade_resolutions(
     plan_id: &str,
@@ -1265,6 +1332,7 @@ pub async fn instance_update_upgrade_resolutions(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_reset_upgrade_resolution(
     plan_id: &str,
@@ -1276,6 +1344,7 @@ pub async fn instance_reset_upgrade_resolution(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_select_upgrade_solution(
     plan_id: &str,
@@ -1287,6 +1356,7 @@ pub async fn instance_select_upgrade_solution(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_resolve_custom_upgrade_solution(
     plan_id: &str,
@@ -1299,6 +1369,7 @@ pub async fn instance_resolve_custom_upgrade_solution(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_execute_upgrade(
     plan_id: &str,
@@ -1315,6 +1386,7 @@ pub async fn instance_execute_upgrade(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_post_upgrade_notice(
     instance_id: &str,
@@ -1325,6 +1397,7 @@ pub async fn instance_get_post_upgrade_notice(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_dismiss_post_upgrade_notice(
     instance_id: &str,
@@ -1335,6 +1408,7 @@ pub async fn instance_dismiss_post_upgrade_notice(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_dependencies_as_content_items(
     dependencies: Vec<Dependency>,
@@ -1347,6 +1421,7 @@ pub async fn instance_get_dependencies_as_content_items(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_linked_modpack_info(
     instance_id: &str,
@@ -1361,6 +1436,7 @@ pub async fn instance_get_linked_modpack_info(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_linked_modpack_content(
     instance_id: &str,
@@ -1373,6 +1449,7 @@ pub async fn instance_get_linked_modpack_content(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_full_path<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -1383,6 +1460,7 @@ pub async fn instance_get_full_path<R: tauri::Runtime>(
     Ok(path)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_mod_full_path<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -1444,6 +1522,7 @@ fn serialize_screenshots<R: tauri::Runtime>(
         .collect()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_screenshots<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -1454,6 +1533,7 @@ pub async fn instance_list_screenshots<R: tauri::Runtime>(
         theseus::instance::list_screenshots(instance_id).await?,
     )
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_all_screenshots<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -1470,12 +1550,14 @@ pub struct ScreenshotScanResult {
     screenshots: Vec<InstanceScreenshot>,
     skipped_instances: Vec<String>,
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_synced_screenshots<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<ScreenshotScanResult> {
     instance_list_all_screenshots(app).await
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_save_edited_screenshot<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -1488,11 +1570,13 @@ pub async fn instance_save_edited_screenshot<R: tauri::Runtime>(
         theseus::instance::save_edited_screenshot(key, bytes, mode).await?,
     )
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_screenshot_groups()
 -> Result<Vec<theseus::instance::ScreenshotGroup>> {
     Ok(theseus::instance::list_screenshot_groups().await?)
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_create_screenshot_group(
     name: String,
@@ -1500,6 +1584,7 @@ pub async fn instance_create_screenshot_group(
 ) -> Result<theseus::instance::ScreenshotGroup> {
     Ok(theseus::instance::create_screenshot_group(name, ids).await?)
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_rename_screenshot_group(
     id: String,
@@ -1507,28 +1592,33 @@ pub async fn instance_rename_screenshot_group(
 ) -> Result<theseus::instance::ScreenshotGroup> {
     Ok(theseus::instance::rename_screenshot_group(id, new_name).await?)
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_delete_screenshot_group(id: String) -> Result<()> {
     Ok(theseus::instance::delete_screenshot_group(id).await?)
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_set_screenshot_group_memberships(
     updates: Vec<theseus::instance::ScreenshotGroupMembershipUpdate>,
 ) -> Result<()> {
     Ok(theseus::instance::set_screenshot_group_memberships(updates).await?)
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_import_screenshot_groups(
     groups: Vec<theseus::instance::ScreenshotGroupImport>,
 ) -> Result<()> {
     Ok(theseus::instance::import_screenshot_groups(groups).await?)
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_delete_screenshots(
     keys: Vec<theseus::instance::ScreenshotKey>,
 ) -> Result<()> {
     Ok(theseus::instance::delete_screenshots(&keys).await?)
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_export_screenshots(
     keys: Vec<theseus::instance::ScreenshotKey>,
@@ -1536,6 +1626,7 @@ pub async fn instance_export_screenshots(
 ) -> Result<()> {
     Ok(theseus::instance::export_screenshots(&keys, path).await?)
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_move_screenshots(
     keys: Vec<theseus::instance::ScreenshotKey>,
@@ -1543,6 +1634,7 @@ pub async fn instance_move_screenshots(
 ) -> Result<Vec<theseus::instance::ScreenshotKey>> {
     Ok(theseus::instance::move_screenshots(&keys, target).await?)
 }
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_open_screenshot<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -1555,6 +1647,7 @@ pub async fn instance_open_screenshot<R: tauri::Runtime>(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_get_optimal_jre_key(
     instance_id: &str,
@@ -1562,6 +1655,7 @@ pub async fn instance_get_optimal_jre_key(
     Ok(theseus::instance::get_optimal_jre_key(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_core_components(
     instance_id: &str,
@@ -1569,6 +1663,7 @@ pub async fn instance_list_core_components(
     Ok(theseus::instance::list_core_components(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_add_core_jar_mod(
     instance_id: &str,
@@ -1585,6 +1680,7 @@ pub async fn instance_add_core_jar_mod(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_replace_core_jar(
     instance_id: &str,
@@ -1601,6 +1697,7 @@ pub async fn instance_replace_core_jar(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_move_core_component(
     instance_id: &str,
@@ -1615,6 +1712,7 @@ pub async fn instance_move_core_component(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_set_core_component_enabled(
     instance_id: &str,
@@ -1629,6 +1727,7 @@ pub async fn instance_set_core_component_enabled(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_remove_core_component(
     instance_id: &str,
@@ -1638,6 +1737,7 @@ pub async fn instance_remove_core_component(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_restore_core_component(
     instance_id: &str,
@@ -1649,6 +1749,7 @@ pub async fn instance_restore_core_component(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_preview_core_jar(
     instance_id: &str,
@@ -1656,6 +1757,7 @@ pub async fn instance_preview_core_jar(
     Ok(theseus::instance::preview_core_jar(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_install_mcarchive_modloader(
     instance_id: &str,
@@ -1668,6 +1770,7 @@ pub async fn instance_install_mcarchive_modloader(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_import_mcarchive_modloader(
     instance_id: &str,
@@ -1682,6 +1785,7 @@ pub async fn instance_import_mcarchive_modloader(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_check_installed(
     instance_id: &str,
@@ -1714,6 +1818,7 @@ pub async fn instance_check_installed(
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_queue_content_batch(
     request: InstallContentBatchRequest,
@@ -1721,6 +1826,7 @@ pub async fn instance_queue_content_batch(
     Ok(theseus::instance::queue_content_batch(request).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_queue_curseforge_world(
     request: theseus::curseforge::CurseForgeWorldInstallRequest,
@@ -1735,6 +1841,7 @@ pub async fn instance_queue_curseforge_world(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_add_project_from_path(
     instance_id: &str,
@@ -1751,6 +1858,7 @@ pub async fn instance_add_project_from_path(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_import_world_save(
     instance_id: String,
@@ -1765,6 +1873,7 @@ pub async fn instance_import_world_save(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_install_datapack_to_world(
     instance_id: String,
@@ -1781,6 +1890,7 @@ pub async fn instance_install_datapack_to_world(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_install_datapack_to_world_bytes(
     instance_id: String,
@@ -1797,6 +1907,7 @@ pub async fn instance_install_datapack_to_world_bytes(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_toggle_disable_project(
     instance_id: &str,
@@ -1811,6 +1922,7 @@ pub async fn instance_toggle_disable_project(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_toggle_content_entry(
     instance_id: &str,
@@ -1825,6 +1937,7 @@ pub async fn instance_toggle_content_entry(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_toggle_content_entries(
     instance_id: &str,
@@ -1839,6 +1952,7 @@ pub async fn instance_toggle_content_entries(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_rollback_project(
     instance_id: &str,
@@ -1847,6 +1961,7 @@ pub async fn instance_rollback_project(
     Ok(theseus::instance::rollback_project(instance_id, project_path).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_remove_project(
     instance_id: &str,
@@ -1856,6 +1971,7 @@ pub async fn instance_remove_project(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_remove_content_entry(
     instance_id: &str,
@@ -1865,6 +1981,7 @@ pub async fn instance_remove_content_entry(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_queue_content_change(
     instance_id: &str,
@@ -1881,6 +1998,7 @@ pub async fn instance_queue_content_change(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_restore_pack_member_default(
     instance_id: &str,
@@ -1892,6 +2010,7 @@ pub async fn instance_restore_pack_member_default(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_update_managed_modrinth_version(
     instance_id: String,
@@ -1904,6 +2023,7 @@ pub async fn instance_update_managed_modrinth_version(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_repair_managed_modrinth(
     instance_id: &str,
@@ -1911,6 +2031,7 @@ pub async fn instance_repair_managed_modrinth(
     Ok(theseus::instance::repair_managed_modrinth(instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_run(
     instance_id: &str,
@@ -1935,12 +2056,14 @@ pub async fn instance_run(
     Ok(InstanceRunResult { process, gc_notice })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_kill(instance_id: &str) -> Result<()> {
     theseus::instance::kill(instance_id).await?;
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_edit(
     instance_id: &str,
@@ -1950,6 +2073,7 @@ pub async fn instance_edit(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_cache_icon(
     icon_name: &str,
@@ -1958,6 +2082,7 @@ pub async fn instance_cache_icon(
     Ok(theseus::instance::cache_icon(icon_name, bytes).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_edit_icon<R: Runtime>(
     app: AppHandle<R>,
@@ -1989,16 +2114,19 @@ pub async fn instance_edit_icon<R: Runtime>(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_list_groups() -> Result<Vec<InstanceGroup>> {
     Ok(theseus::instance::list_groups().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_create_group(name: String) -> Result<InstanceGroup> {
     Ok(theseus::instance::create_group(name).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_rename_group(
     id: String,
@@ -2007,16 +2135,19 @@ pub async fn instance_rename_group(
     Ok(theseus::instance::rename_group(id, new_name).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_delete_group(id: String) -> Result<()> {
     Ok(theseus::instance::delete_group(id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_set_group_order(group_ids: Vec<String>) -> Result<()> {
     Ok(theseus::instance::set_group_order(group_ids).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_set_group_memberships(
     updates: Vec<InstanceGroupMembershipUpdate>,
@@ -2024,6 +2155,7 @@ pub async fn instance_set_group_memberships(
     Ok(theseus::instance::set_group_memberships(updates).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_update_group_memberships(
     updates: Vec<InstanceGroupMembershipChange>,

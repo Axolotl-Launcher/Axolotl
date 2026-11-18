@@ -30,6 +30,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_capability() -> Result<CurseForgeCapability> {
     // Wait for the state so the answer includes a key saved in the launcher
@@ -38,11 +39,13 @@ pub async fn curseforge_capability() -> Result<CurseForgeCapability> {
     Ok(theseus::curseforge::capability())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_api_key_override() -> Result<Option<String>> {
     Ok(theseus::curseforge::api_key_override().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_set_api_key(
     api_key: Option<String>,
@@ -50,11 +53,13 @@ pub async fn curseforge_set_api_key(
     Ok(theseus::curseforge::set_api_key_override(api_key).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_validate_credentials() -> Result<CurseForgeCapability> {
     Ok(theseus::curseforge::validate_credentials().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_search_projects(
     request: CurseForgeSearchRequest,
@@ -73,6 +78,7 @@ pub async fn curseforge_search_projects(
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_get_download_url(
     project_id: u32,
@@ -81,6 +87,7 @@ pub async fn curseforge_get_download_url(
     Ok(theseus::curseforge::get_download_url(project_id, file_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_get_categories(
     class_id: Option<u32>,
@@ -88,6 +95,7 @@ pub async fn curseforge_get_categories(
     Ok(theseus::curseforge::get_categories(class_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_recognize_instance_files(
     instance_id: String,
@@ -95,6 +103,7 @@ pub async fn curseforge_recognize_instance_files(
     Ok(theseus::curseforge::recognize_instance_files(&instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_import_manual_downloads(
     instance_id: String,
@@ -107,6 +116,7 @@ pub async fn curseforge_import_manual_downloads(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_list_pending_manual_downloads(
     instance_id: String,
@@ -117,6 +127,7 @@ pub async fn curseforge_list_pending_manual_downloads(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_import_pending_manual_download_file(
     instance_id: String,
@@ -133,6 +144,7 @@ pub async fn curseforge_import_pending_manual_download_file(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_configure_manual_download_watcher(
     enabled: bool,
@@ -145,6 +157,7 @@ pub async fn curseforge_configure_manual_download_watcher(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_install_modpack(
     request: CurseForgeModpackInstallRequest,
@@ -152,6 +165,7 @@ pub async fn curseforge_install_modpack(
     Ok(theseus::curseforge::install_modpack(request).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn curseforge_update_managed_modpack(
     instance_id: String,

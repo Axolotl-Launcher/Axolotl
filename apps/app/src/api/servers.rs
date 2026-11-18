@@ -35,16 +35,19 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_list() -> Result<Vec<ServerInfo>> {
     Ok(servers::list().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_get(server_id: &str) -> Result<ServerInfo> {
     Ok(servers::get(server_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_create(
     name: &str,
@@ -65,6 +68,7 @@ pub async fn servers_create(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_update_settings(
     server_id: &str,
@@ -89,6 +93,7 @@ pub async fn servers_update_settings(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_set_icon(
     server_id: &str,
@@ -99,6 +104,7 @@ pub async fn servers_set_icon(
 
 /// Links a server to the saved multiplayer entry its address points at, or
 /// clears the link when `linked` is `None`.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_set_linked_world(
     server_id: &str,
@@ -109,12 +115,14 @@ pub async fn servers_set_linked_world(
 
 /// Whether a server address points at this machine (localhost, loopback, or a
 /// local interface address).
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_is_local_address(address: &str) -> Result<bool> {
     Ok(servers::is_local_address(address))
 }
 
 /// Waits until a running server accepts connections on its port.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_wait_until_ready(
     server_id: &str,
@@ -127,16 +135,19 @@ pub async fn servers_wait_until_ready(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_delete(server_id: &str) -> Result<()> {
     Ok(servers::delete(server_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_read_file(server_id: &str, file: &str) -> Result<String> {
     Ok(servers::read_file(server_id, file).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_write_file(
     server_id: &str,
@@ -146,6 +157,7 @@ pub async fn servers_write_file(
     Ok(servers::write_file(server_id, file, contents).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_download_file(
     server_id: &str,
@@ -156,6 +168,7 @@ pub async fn servers_download_file(
     Ok(servers::download_file(server_id, url, filename, expected_sha1).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_install_forge(
     server_id: &str,
@@ -166,6 +179,7 @@ pub async fn servers_install_forge(
     Ok(servers::install_forge(server_id, mc_version, build, java_path).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_install_neoforge(
     server_id: &str,
@@ -179,6 +193,7 @@ pub async fn servers_install_neoforge(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn servers_install_modpack(
@@ -208,6 +223,7 @@ pub async fn servers_install_modpack(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_start(
     server_id: &str,
@@ -218,6 +234,7 @@ pub async fn servers_start(
     Ok(servers::start(server_id, java_path, memory_mb, jvm_args).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_send_console_input(
     server_id: &str,
@@ -226,6 +243,7 @@ pub async fn servers_send_console_input(
     Ok(servers::send_console_input(server_id, data).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_resize_console(
     server_id: &str,
@@ -235,21 +253,25 @@ pub async fn servers_resize_console(
     Ok(servers::resize_console(server_id, cols, rows).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_stop(server_id: &str) -> Result<()> {
     Ok(servers::stop(server_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_kill(server_id: &str) -> Result<()> {
     Ok(servers::kill(server_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_kill_port_process(port: u16) -> Result<()> {
     Ok(servers::kill_port_process(port).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_port_process(
     port: u16,
@@ -257,11 +279,13 @@ pub async fn servers_port_process(
     Ok(servers::port_process(port).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_get_log_buffer(server_id: &str) -> Result<Vec<String>> {
     Ok(servers::get_log_buffer(server_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_get_log_delta(
     server_id: &str,
@@ -270,6 +294,7 @@ pub async fn servers_get_log_delta(
     Ok(servers::get_log_delta(server_id, cursor))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_get_console_delta(
     server_id: &str,
@@ -278,6 +303,7 @@ pub async fn servers_get_console_delta(
     Ok(servers::get_console_delta(server_id, cursor))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn servers_clear_log(server_id: &str) -> Result<()> {
     Ok(servers::clear_log(server_id).await?)

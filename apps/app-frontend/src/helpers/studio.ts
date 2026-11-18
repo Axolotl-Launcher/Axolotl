@@ -1,5 +1,6 @@
-import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+
+import { invoke } from '@/helpers/invoke'
 
 export function readStudioText(instanceId: string, filePath: string): Promise<string> {
     return invoke('plugin:files|studio_read_text', { instanceId, filePath })

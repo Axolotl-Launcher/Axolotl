@@ -33,6 +33,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn create_instance_shortcut<R: Runtime>(
     app: AppHandle<R>,

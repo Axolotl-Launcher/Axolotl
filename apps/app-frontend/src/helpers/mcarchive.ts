@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@/helpers/invoke'
 
 import { resourceProjectProtocol } from './resources'
 import { sourceProjectUrl } from './source-project-links'

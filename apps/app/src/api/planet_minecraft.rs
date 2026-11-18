@@ -10,11 +10,13 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn planet_minecraft_connector_available() -> bool {
     theseus::planet_minecraft::connector_base_url().is_ok()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn planet_minecraft_search_projects(
     query: &str,
@@ -23,6 +25,7 @@ pub async fn planet_minecraft_search_projects(
     Ok(theseus::planet_minecraft::search_projects(query, game_version).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn planet_minecraft_get_project(
     id: &str,

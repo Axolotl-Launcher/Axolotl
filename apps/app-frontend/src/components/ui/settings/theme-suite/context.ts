@@ -3,6 +3,7 @@ import { save } from '@tauri-apps/plugin-dialog'
 import { computed, ref, type ShallowRef } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
 
+import { recordEvent } from '@/helpers/observability'
 import { type AppSettings, get as getSettings, update as updateSettings } from '@/helpers/settings'
 import { applyThemeRuntime, collectCurrentAppearanceSnapshot } from '@/helpers/theme-pack-runtime'
 import {
@@ -272,6 +273,12 @@ export function createThemeSuiteContext(
             resetColorsDraft()
             applyRuntimeFromSettings()
             notifyActiveSource()
+            recordEvent('theme_apply', {
+                ...(source.startsWith('pack:')
+                    ? { 'pack.id': source.slice('pack:'.length) }
+                    : { source }),
+                'ui.area': 'theme',
+            })
         } catch (failure) {
             error.value = String(failure)
         } finally {
@@ -348,6 +355,7 @@ export function createThemeSuiteContext(
             selectedPackId.value = null
             applyRuntimeFromSettings()
             notifyActiveSource()
+            recordEvent('theme_apply', { source: 'custom', 'ui.area': 'theme' })
             modal.value?.setStage('overview')
         } catch (failure) {
             error.value = String(failure)

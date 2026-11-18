@@ -12,12 +12,14 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 }
 
 /// Gets the game versions from daedalus
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn metadata_get_game_versions() -> Result<VersionManifest> {
     Ok(theseus::metadata::get_minecraft_versions().await?)
 }
 
 /// Gets the fabric versions from daedalus
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn metadata_get_loader_versions(
     loader: &str,

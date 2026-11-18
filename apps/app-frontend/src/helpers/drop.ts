@@ -5,7 +5,8 @@
  * dropped files, scan launcher instances, and detect file locks.
  */
 import type { ClassificationResult } from '@modrinth/ui'
-import { invoke } from '@tauri-apps/api/core'
+
+import { invoke } from '@/helpers/invoke'
 
 /**
  * Information about a process that has a file handle open.

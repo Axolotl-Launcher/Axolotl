@@ -13,7 +13,6 @@ import {
     Toggle,
     useVIntl,
 } from '@modrinth/ui'
-import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { computed, ref, watch } from 'vue'
 
@@ -29,6 +28,7 @@ import {
     getMissingContentScannerSettings,
     setMissingContentScannerSettings,
 } from '@/helpers/downloads-scanner'
+import { invoke } from '@/helpers/invoke'
 import { resourcePreferredSource, resourceSetPreferredSource } from '@/helpers/resources'
 import { get, getProxyConfig, setProxyConfig, testProxyConfig, update } from '@/helpers/settings.ts'
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'

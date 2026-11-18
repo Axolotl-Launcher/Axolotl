@@ -2457,7 +2457,8 @@ pub async fn launch_minecraft(
     // that will run Minecraft. The frontend supplies an ordered candidate
     // chain; we keep the preferred strategy only if this JVM understands it,
     // pruning unsupported tuning flags and falling back down the chain as
-    // needed. A `None` keeps the args passed in untouched.
+    // needed. Without an intent, keep the user's arguments but do not pass
+    // the launcher's automatic-preset marker to Java.
     let mut resolved_java_args = java_args.to_vec();
     // Custom JVM arguments from the linked launcher enter the same GC
     // compatibility pipeline below: unsupported tuning flags are pruned
@@ -2533,6 +2534,7 @@ pub async fn launch_minecraft(
         }
         extra_game_args.extend(pcl.extra_game_args());
     }
+    jvm_args::remove_unresolved_auto_gc_marker(&mut resolved_java_args);
 
     let settings = crate::state::Settings::get(&state.data).await?;
     let minecraft_java = java_environment::minecraft_java_executable(

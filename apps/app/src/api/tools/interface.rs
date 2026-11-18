@@ -94,6 +94,7 @@ pub(crate) struct UiClaim {
     scope: String,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub(crate) async fn mcp_ui_claim(
     app: tauri::AppHandle,
@@ -122,6 +123,7 @@ pub(crate) async fn mcp_ui_claim(
     })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub(crate) async fn mcp_ui_respond(
     app: tauri::AppHandle,

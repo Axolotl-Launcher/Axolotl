@@ -26,6 +26,9 @@ const testWindow = window as unknown as {
 const invoke = testWindow.__TAURI_INTERNALS__.invoke
 testWindow.__TAURI_INTERNALS__.invoke = async (command, args) => {
     if (command === 'plugin:system-accent|system_accent_color') return { hex: null }
+    if (command === 'plugin:observability|observability_status') {
+        return { enabled: false, signals: [], session_id: null }
+    }
     const result = await invoke(command, args)
     if (testWindow.__demoUnhandled?.includes(command)) {
         throw new Error(`Missing desktop E2E fixture for command: ${command}`)

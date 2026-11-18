@@ -23,7 +23,6 @@ class BatchSkinRenderer {
     private scene: THREE.Scene | null = null
     private camera: THREE.PerspectiveCamera | null = null
     private currentModel: THREE.Group | null = null
-    private transparentTexture: THREE.Texture | null = null
     private readonly width: number
     private readonly height: number
 
@@ -73,12 +72,12 @@ class BatchSkinRenderer {
         textureUrl: string,
         modelUrl: string,
         capeUrl?: string,
-    ): Promise<RawRenderResult> {
+    ): Promise<RawRenderResult & { capeRendered: boolean }> {
         this.initializeRenderer()
 
         this.clearScene()
 
-        await this.setupModel(modelUrl, textureUrl, capeUrl)
+        const capeRendered = await this.setupModel(modelUrl, textureUrl, capeUrl)
 
         const headPart = this.currentModel!.getObjectByName('Head')
         let lookAtTarget: [number, number, number]
@@ -94,7 +93,7 @@ class BatchSkinRenderer {
         const frontCameraPos: [number, number, number] = [-1.3, 1, 6.3]
         const forwards = await this.renderView(frontCameraPos, lookAtTarget)
 
-        return { forwards }
+        return { forwards, capeRendered }
     }
 
     private async renderView(
@@ -129,16 +128,16 @@ class BatchSkinRenderer {
         modelUrl: string,
         textureUrl: string,
         capeUrl?: string,
-    ): Promise<void> {
+    ): Promise<boolean> {
         if (!this.scene) {
             throw new Error('Renderer not initialized')
         }
 
-        const { model } = await this.skinRendering.setupSkinModel(modelUrl, textureUrl, capeUrl)
-
-        if (!capeUrl) {
-            this.skinRendering.applyCapeTexture(model, null, this.getTransparentTexture())
-        }
+        const { model, capeRendered } = await this.skinRendering.setupSkinModel(
+            modelUrl,
+            textureUrl,
+            capeUrl,
+        )
 
         const group = new THREE.Group()
         group.add(model)
@@ -147,14 +146,7 @@ class BatchSkinRenderer {
 
         this.scene.add(group)
         this.currentModel = group
-    }
-
-    private getTransparentTexture(): THREE.Texture {
-        if (!this.transparentTexture) {
-            this.transparentTexture = this.skinRendering.createTransparentTexture()
-        }
-
-        return this.transparentTexture
+        return capeRendered
     }
 
     private clearScene(): void {
@@ -173,11 +165,6 @@ class BatchSkinRenderer {
 
     public dispose(): void {
         this.clearScene()
-
-        if (this.transparentTexture) {
-            this.transparentTexture.dispose()
-            this.transparentTexture = null
-        }
 
         if (this.renderer) {
             this.renderer.dispose()
@@ -285,52 +272,49 @@ async function generateSkinPreviewsForGeneration(
             if (!isCurrentGeneration()) return
 
             const key = `${skin.texture_key}+${skin.variant}+${skin.cape_id ?? 'no-cape'}`
-
-            if (skinBlobUrlMap.has(key)) {
-                if (DEBUG_MODE) {
-                    const result = skinBlobUrlMap.get(key)!
-                    URL.revokeObjectURL(result.forwards)
-                    skinBlobUrlMap.delete(key)
-                } else continue
-            }
-
-            const renderer = await getSharedRenderer()
-
-            let variant = skin.variant
-            if (variant === 'UNKNOWN') {
+            const capeTexture = capes.find((cape) => cape.id === skin.cape_id)?.texture
+            const previous = skinBlobUrlMap.get(key)
+            if (DEBUG_MODE || !previous || (previous.capeMissing && capeTexture)) {
                 try {
-                    variant = await determineModelType(skin.texture)
+                    const renderer = await getSharedRenderer()
+                    const texture = await get_normalized_skin_texture(skin)
+                    let variant = skin.variant
+                    if (variant === 'UNKNOWN') {
+                        try {
+                            variant = await determineModelType(texture)
+                        } catch (error) {
+                            console.error(`Failed to determine model type for skin ${key}:`, error)
+                            variant = 'CLASSIC'
+                        }
+                    }
+
+                    const { forwards, capeRendered } = await renderer.renderSkin(
+                        texture,
+                        getModelUrlForVariant(variant),
+                        capeTexture ?? undefined,
+                    )
+                    if (!isCurrentGeneration()) return
+
+                    const capeMissing = !!skin.cape_id && !capeRendered
+                    skinBlobUrlMap.set(key, {
+                        forwards: URL.createObjectURL(forwards),
+                        capeMissing,
+                    })
+                    if (previous) URL.revokeObjectURL(previous.forwards)
+                    if (!capeMissing) await skinPreviewStorage.store(key, { forwards })
                 } catch (error) {
-                    console.error(`Failed to determine model type for skin ${key}:`, error)
-                    variant = 'CLASSIC'
+                    console.warn(`Failed to generate or store skin preview ${key}:`, error)
                 }
             }
 
-            const modelUrl = getModelUrlForVariant(variant)
-            const cape: Cape | undefined = capes.find((_cape) => _cape.id === skin.cape_id)
-            const rawRenderResult = await renderer.renderSkin(
-                await get_normalized_skin_texture(skin),
-                modelUrl,
-                cape?.texture,
-            )
-
             if (!isCurrentGeneration()) return
-
-            const renderResult: RenderResult = {
-                forwards: URL.createObjectURL(rawRenderResult.forwards),
-            }
-
-            skinBlobUrlMap.set(key, renderResult)
-
-            try {
-                await skinPreviewStorage.store(key, rawRenderResult)
-            } catch (error) {
-                console.warn('Failed to store skin preview in persistent storage:', error)
-            }
-
             const headKey = getHeadRenderKey(skin.texture_key)
             if (!headBlobUrlMap.has(headKey)) {
-                await generateHeadRender(skin)
+                try {
+                    await generateHeadRender(skin)
+                } catch (error) {
+                    console.warn(`Failed to generate head preview ${headKey}:`, error)
+                }
             }
         }
     } finally {

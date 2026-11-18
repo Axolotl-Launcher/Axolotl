@@ -37,6 +37,88 @@ async fn database_pool_retains_exclusive_file_ownership_until_dropped() {
 }
 
 #[tokio::test]
+async fn startup_repairs_dangling_home_instance_selection() {
+    use sqlx::ConnectOptions;
+
+    let directory = tempfile::tempdir().unwrap();
+    let database = directory.path().join("beta/app.db");
+    let settings_dir = directory.path().join("settings");
+    let appearance = settings_dir.join("appearance.json");
+    let original = br#"{"schema_version":1,"data":{"minimal_home_instance_id":"release-home"}}"#;
+    std::fs::create_dir(&settings_dir).unwrap();
+    std::fs::write(&appearance, original).unwrap();
+
+    let pool = connect_app_db(&database).await.unwrap();
+    sqlx::query(
+        "INSERT INTO instances
+            (id, path, install_stage, launcher_feature_version, name, created, modified)
+         VALUES ('beta-home', 'beta-home', 'installed', '1', 'Beta', 1, 1)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    pool.close().await;
+    drop(pool);
+
+    let mut connection = SqliteConnectOptions::new()
+        .filename(&database)
+        .foreign_keys(false)
+        .connect()
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE settings SET minimal_home_instance_id = 'release-home',
+            home_layout = 'minimal' WHERE id = 0",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    assert_eq!(
+        sqlx::query("PRAGMA foreign_key_check(settings)")
+            .fetch_all(&mut connection)
+            .await
+            .unwrap()
+            .len(),
+        1,
+    );
+    connection.close().await.unwrap();
+
+    let selection = "SELECT minimal_home_instance_id, home_layout FROM settings WHERE id = 0";
+    let pool = connect_app_db(&database).await.unwrap();
+    assert_eq!(
+        sqlx::query_as::<_, (Option<String>, String)>(selection)
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        (None, "minimal".to_string()),
+    );
+    assert!(
+        sqlx::query("PRAGMA foreign_key_check")
+            .fetch_optional(&pool)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    sqlx::query("UPDATE settings SET minimal_home_instance_id = 'beta-home' WHERE id = 0")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    drop(pool);
+
+    let pool = connect_app_db(&database).await.unwrap();
+    assert_eq!(
+        sqlx::query_as::<_, (Option<String>, String)>(selection)
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        (Some("beta-home".to_string()), "minimal".to_string()),
+    );
+    pool.close().await;
+    assert_eq!(std::fs::read(appearance).unwrap(), original);
+}
+
+#[tokio::test]
 async fn channel_copy_does_not_replay_the_previous_database_wal() {
     use sqlx::ConnectOptions;
     let directory = tempfile::tempdir().unwrap();

@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@/helpers/invoke'
 
 export type ThemePackCapability = 'tokens' | 'styles' | 'pages'
 export type ThemePackPermission = 'storage' | 'instances.read' | 'instances.logs' | 'network'

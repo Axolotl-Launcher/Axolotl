@@ -24,7 +24,6 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { arrayBufferToBase64 } from '@modrinth/utils'
-import { invoke } from '@tauri-apps/api/core'
 import type { DragDropEvent } from '@tauri-apps/api/webview'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { computedAsync } from '@vueuse/core'
@@ -45,6 +44,7 @@ import { get_default_user, users } from '@/helpers/auth'
 import type { MinecraftCredential } from '@/helpers/auth-types'
 import { errorText } from '@/helpers/error-text'
 import { DEFAULT_UI_FONT_STACK, resolveFontFamily } from '@/helpers/font-family.ts'
+import { invoke } from '@/helpers/invoke'
 import type { RenderResult } from '@/helpers/rendering/batch-skin-renderer.ts'
 import { setActiveSkinPreviews, skinBlobUrlMap } from '@/helpers/rendering/batch-skin-renderer.ts'
 import { createSkinAccountSession } from '@/helpers/skin-account-session'
@@ -390,7 +390,7 @@ const skinTexture = computedAsync(async () => {
         return ''
     }
 })
-const capeTexture = computed(() => currentCape.value?.texture)
+const capeTexture = computed(() => currentCape.value?.texture ?? undefined)
 const skinVariant = computed(() => selectedSkin.value?.variant)
 const skinNametag = computed(() => (themeStore.hideNametagSkinsPage ? undefined : username.value))
 // Uses the interface's custom font when the setting is on; without one it falls
@@ -520,7 +520,7 @@ async function loadSkins(
                 : loadedSkins
         if (generation !== skinAccountGeneration) return
         skins.value = nextSkins
-        void generateSkinPreviews(nextSkins, capes.value)
+        if (!cachedOnly) void generateSkinPreviews(nextSkins, capes.value)
         const equippedSkin = nextSkins.find((s) => s.is_equipped) ?? null
         const preview = selectedSkin.value
         const keepPreview =
@@ -945,6 +945,7 @@ async function refreshSelectedAccount() {
     }
     await Promise.all([loadCapes(generation, true), loadSkins(generation, true)])
     if (!skinAccountSessions.isCurrent(session)) return
+    void generateSkinPreviews(skins.value, capes.value)
     isSkinLibraryLoading.value = false
     if (!offline.value && currentAccountType.value !== 'offline') {
         void refreshOnlineSkinLibrary(generation)

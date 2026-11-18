@@ -69,7 +69,7 @@ import {
     useTemplateRef,
     watch,
 } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 import { schematicMessages, schematicSourceMessages } from '@/components/browse/schematics/messages'
 import SchematicBlockPickerModal from '@/components/lab/schematic-preview/SchematicBlockPickerModal.vue'
@@ -79,6 +79,7 @@ import SchematicMaterialSwatch from '@/components/lab/schematic-preview/Schemati
 import SchematicStateCard from '@/components/lab/schematic-preview/SchematicStateCard.vue'
 import { errorText } from '@/helpers/error-text'
 import { list } from '@/helpers/instance'
+import { onSchematicOpenRequest } from '@/helpers/schematic-open-request'
 import { isSchematicFileName, isSchematicSource } from '@/helpers/schematics'
 import type { GameInstance } from '@/helpers/types.d.ts'
 import {
@@ -177,7 +178,6 @@ type EditHistoryEntry = BlockEditHistoryEntry | TransformHistoryEntry
 const { addNotification, handleError } = injectNotificationManager()
 const { formatMessage, locale } = useVIntl()
 const route = useRoute()
-const router = useRouter()
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
 const workspace = useTemplateRef<HTMLElement>('workspace')
 const viewport = useTemplateRef<HTMLElement>('viewport')
@@ -623,14 +623,6 @@ async function chooseLocalFile() {
 
 async function openSource(source: SchematicPreviewSource) {
     if (disposed) return
-    // Keep the URL naming the file that is on screen. The picker and the native
-    // drop handler open files without navigating, so without this the route
-    // would keep pointing at whatever the page was mounted with, and opening
-    // that file again from the shell would navigate to an identical location
-    // and never reach the watcher.
-    if (source.kind === 'external' && route.query.external !== source.path) {
-        void router.replace({ query: { external: source.path } })
-    }
     const epoch = ++requestEpoch
     resourceEpoch++
     resourceController?.abort()
@@ -1620,10 +1612,13 @@ function externalFilePath() {
     return typeof path === 'string' && isSchematicFileName(path) ? path : ''
 }
 
-// A second launch hands a new file to an already-mounted workshop, which
-// onMounted cannot observe. The route alone cannot tell these apart: opening a
-// file through the picker or a drop leaves the previous route value behind, so
-// compare against the file actually on screen as well.
+// Reaching the workshop through the route only covers the first hand-off: a
+// second launch of the same file produces an identical location, so the page
+// also listens for hand-offs delivered directly while it is mounted.
+let stopSchematicOpenRequests: (() => void) | undefined
+
+// A navigation that names a different file still has to load it, which mounting
+// cannot observe.
 watch(
     () => route.query.external,
     () => {
@@ -1635,6 +1630,9 @@ watch(
 )
 
 onMounted(async () => {
+    stopSchematicOpenRequests = onSchematicOpenRequest((path) => {
+        void openSource({ kind: 'external', path })
+    })
     await loadInstances()
     if (disposed) return
     window.addEventListener('keydown', handleKeydown)
@@ -1682,6 +1680,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
     disposed = true
+    stopSchematicOpenRequests?.()
     resourceController?.abort()
     requestEpoch += 1
     resourceEpoch++

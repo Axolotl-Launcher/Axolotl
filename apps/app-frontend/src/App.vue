@@ -157,6 +157,7 @@ import {
     isResourceOperationError,
     resourceOperationError,
 } from '@/helpers/resource-operation-logic'
+import { requestSchematicOpen } from '@/helpers/schematic-open-request'
 import { getQuickScrollEnabled, getShowScrollTop } from '@/helpers/scroll-top-state'
 import {
     appSettingsKeys,
@@ -2494,6 +2495,10 @@ async function handleCommand(e: AppCommand | null) {
     // operating system handed over must not depend on network status.
     if (e.event === 'OpenSchematic') {
         if (!e.path) return
+        // A mounted workshop takes the file directly. Pushing the same path a
+        // second time is an identical location the router skips, so a retry
+        // after a failed read would never reach the page.
+        if (requestSchematicOpen(e.path)) return
         await router.push({ path: '/lab/schematic-preview', query: { external: e.path } })
         return
     }

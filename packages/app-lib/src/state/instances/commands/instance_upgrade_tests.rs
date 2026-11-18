@@ -3463,6 +3463,77 @@ fn assert_disabled_shader_selection(runtime: ShaderRuntime) {
     assert!(!solution.selections[0].enabled);
 }
 
+#[test]
+fn proven_incompatibility_survives_global_search_limit() {
+    let roots = vec![root("a", "a-old", true), root("b", "b-old", true)];
+    let a_candidates = (0..6)
+        .map(|index| {
+            let mut candidate =
+                candidate("a", &format!("a-{index}"), 20 - index);
+            candidate.dependencies.push(incompatible("b"));
+            candidate
+        })
+        .collect::<Vec<_>>();
+    let b_candidates = (0..6)
+        .map(|index| {
+            let mut candidate =
+                candidate("b", &format!("b-{index}"), 20 - index);
+            candidate
+                .dependencies
+                .push(required("x", Some(&format!("x-b-{index}"))));
+            candidate
+        })
+        .collect::<Vec<_>>();
+    let x_candidates = (0..6)
+        .map(|index| candidate("x", &format!("x-b-{index}"), 10 - index))
+        .collect::<Vec<_>>();
+    let catalog = catalog([
+        (key("a"), a_candidates),
+        (key("b"), b_candidates),
+        (key("x"), x_candidates),
+    ]);
+
+    let outcome = solve_for_strategy_with_limit(
+        SolveStrategy::Newest,
+        &roots,
+        &catalog,
+        &HashMap::new(),
+        &HashSet::new(),
+        &InstalledAliasIndex::default(),
+        10,
+    );
+    assert!(outcome.solution.is_none());
+    assert_eq!(outcome.visited_states, 10);
+    let issue = outcome.issue.expect("a failure issue");
+    assert_eq!(
+        issue.code,
+        InstanceUpgradeIssueCode::IncompatibleDependency,
+        "a proven incompatibility must stay actionable when the search budget runs out: {issue:?}"
+    );
+    assert_eq!(issue.conflicting_project_id.as_deref(), Some("b"));
+}
+
+#[test]
+fn concrete_incompatibility_takes_priority_over_search_limit() {
+    let incompatibility = issue_with_requirements(
+        InstanceUpgradeIssueCode::IncompatibleDependency,
+        "a is incompatible with b",
+        Some(&key("a")),
+        Some("a"),
+        Some("b"),
+        Vec::new(),
+    );
+    let selected = select_upgrade_failure_issue(
+        [Some(search_limit_issue(true)), Some(incompatibility)],
+        &FixedRootConstraints::default(),
+    );
+    assert_eq!(
+        selected.code,
+        InstanceUpgradeIssueCode::IncompatibleDependency
+    );
+    assert_eq!(selected.conflicting_project_id.as_deref(), Some("b"));
+}
+
 fn test_environment(
     shader_runtime: ShaderRuntime,
 ) -> InstanceUpgradeEnvironment {

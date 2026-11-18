@@ -1336,7 +1336,7 @@ pub(super) fn select_upgrade_failure_issue(
                 .iter()
                 .flatten()
                 .find(|issue| {
-                    issue.code == InstanceUpgradeIssueCode::SearchLimitReached
+                    issue.code != InstanceUpgradeIssueCode::SearchLimitReached
                 })
                 .cloned()
         })
@@ -1643,9 +1643,32 @@ pub(super) fn solve_for_strategy_with_fixed_roots_and_limit(
             };
         }
         if state.limit_reached {
+            if let Some(concrete) = state.first_issue.clone()
+                && concrete.code
+                    == InstanceUpgradeIssueCode::IncompatibleDependency
+            {
+                let conflict = conflict_set_from_issue(&concrete, roots);
+                retain_best_failure(
+                    &mut best_failure,
+                    ConflictFailure {
+                        issue: concrete,
+                        conflict,
+                    },
+                );
+            }
+            let issue = match best_failure {
+                Some(failure)
+                    if failure.issue.code
+                        == InstanceUpgradeIssueCode::IncompatibleDependency
+                        && !failure.conflict.candidate_search_incomplete() =>
+                {
+                    failure.issue
+                }
+                _ => search_limit_issue(true),
+            };
             return StrategySolveOutcome {
                 solution: None,
-                issue: Some(search_limit_issue(true)),
+                issue: Some(issue),
                 canceled: false,
                 #[cfg(test)]
                 visited_states: total_visited,

@@ -28,8 +28,8 @@ fn main() {
         }
         return;
     }
-    if let Some(chinese) = prerequisite::requested_language() {
-        std::process::exit(prerequisite::show(chinese));
+    if let Some(request) = prerequisite::requested_dialog() {
+        std::process::exit(prerequisite::show(request));
     }
     if let Err(error) = windows::run() {
         eprintln!("{error}");

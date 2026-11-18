@@ -1,7 +1,4 @@
-use crate::state::instances::{
-    InstanceLaunchOverridesData, InstanceMetadata,
-    adapters::sqlite::config_sync_rows, get_instance,
-};
+use crate::state::instances::{InstanceLaunchOverridesData, InstanceMetadata};
 use crate::state::{DirectoryInfo, State};
 use crate::util::io;
 use chrono::{DateTime, Utc};
@@ -107,9 +104,12 @@ pub(crate) async fn sync_instance(
     state: &State,
     instance_id: &str,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     // Keep the metadata read and file write in the same critical section as
     // deletion, so a sync cannot recreate a file while the profile is removed.
     let _instance_lock = state.lock_instance_content(instance_id).await;
+    super::manifest::publish(&state.directories, &state.pool, instance_id)
+        .await?;
     sync_instance_with_dirs(&state.directories, &state.pool, instance_id).await
 }
 
@@ -118,69 +118,98 @@ async fn sync_instance_with_dirs(
     pool: &SqlitePool,
     instance_id: &str,
 ) -> crate::Result<()> {
-    let Some(metadata) = get_instance(instance_id, pool).await? else {
+    let Some(metadata) =
+        super::adapters::sqlite::manifest_rows::metadata(pool, instance_id)
+            .await?
+    else {
         return Ok(());
     };
 
     // Directly associated instances have no profile folder of their own and
     // must never write into the linked `.minecraft`; skip them entirely.
-    if metadata.instance.linked_dot_minecraft.is_some() {
+    if metadata.instance.is_direct_linked()
+        || metadata.instance.linked_dot_minecraft.is_some()
+        || metadata.instance.symlink_target.is_some()
+        || metadata.instance.game_dir_override.is_some()
+    {
         return Ok(());
     }
 
+    let profile = dirs.instances_dir().join(&metadata.instance.path);
+    let canonical = tokio::fs::canonicalize(&profile).await?;
+    if !canonical
+        .starts_with(tokio::fs::canonicalize(dirs.instances_dir()).await?)
+    {
+        return Ok(());
+    }
     let config_path = config_path(dirs, &metadata.instance.path);
+    if tokio::fs::symlink_metadata(&config_path)
+        .await
+        .is_ok_and(|value| value.file_type().is_symlink())
+    {
+        return Ok(());
+    }
+
     let temp_path = config_path.with_file_name(CONFIG_FILE_TEMP_NAME);
 
     match io::read(&config_path).await {
         Ok(existing) if config_matches(&metadata, &existing) => {
-            config_sync_rows::update_config_sync_generated_at(
-                instance_id,
-                Utc::now().timestamp(),
-                pool,
-            )
-            .await?;
             return Ok(());
         }
-        Ok(_) => {}
+        Ok(existing) => {
+            // This compatibility description is not the recovery authority.
+            // Keep a newer schema or opaque fields rather than replacing them.
+            let parsed: serde_json::Value = serde_json::from_slice(&existing)?;
+            if parsed
+                .get("schema_version")
+                .and_then(serde_json::Value::as_u64)
+                != Some(u64::from(CONFIG_SCHEMA_VERSION))
+            {
+                return Ok(());
+            }
+            let known =
+                serde_json::to_value(config_file(&metadata, Utc::now()))?;
+            if parsed.as_object().is_none_or(|object| {
+                object.keys().any(|key| known.get(key).is_none())
+            }) {
+                return Ok(());
+            }
+        }
         Err(error) if error.kind() == ErrorKind::NotFound => {}
         Err(error) => return Err(error.into()),
     }
 
     let bytes = serde_json::to_vec_pretty(&config_file(&metadata, Utc::now()))?;
     write_config_file(&config_path, &temp_path, &bytes).await?;
-    config_sync_rows::update_config_sync_generated_at(
-        instance_id,
-        Utc::now().timestamp(),
-        pool,
-    )
-    .await?;
 
     Ok(())
 }
 
 pub(crate) async fn reconcile_all(state: &State) -> crate::Result<()> {
-    let rows =
-        config_sync_rows::list_instance_config_sync_rows(&state.pool).await?;
-
-    for row in rows {
-        let file_exists =
-            tokio::fs::try_exists(config_path(&state.directories, &row.path))
-                .await
-                .unwrap_or(false);
-        let needs_sync = !file_exists
-            || row.generated_at.is_none()
-            || row.config_updated_at.is_none()
-            || row.generated_at < row.config_updated_at;
-
-        if !needs_sync {
-            continue;
+    let mut ids = super::adapters::sqlite::manifest_rows::pending(&state.pool)
+        .await?
+        .into_iter()
+        .map(|(id, _, _)| id)
+        .collect::<std::collections::BTreeSet<_>>();
+    // A completed publication can lose only its files. Probe heads during the
+    // periodic pass and republish from healthy SQL without timestamp chains.
+    for id in
+        super::adapters::sqlite::manifest_rows::live_ids(&state.pool).await?
+    {
+        if !super::manifest::head_present(&state.directories.settings_dir, &id)
+            .await?
+        {
+            super::adapters::sqlite::manifest_rows::force_dirty(
+                &state.pool,
+                &id,
+            )
+            .await?;
+            ids.insert(id);
         }
-
-        if let Err(error) = sync_instance(state, &row.instance_id).await {
-            tracing::warn!(
-                "Failed to sync instance config for {}: {error}",
-                row.instance_id
-            );
+    }
+    for instance_id in ids {
+        if let Err(error) = sync_instance(state, &instance_id).await {
+            tracing::warn!(%error,instance_id,"Recovery publication deferred");
         }
     }
 
@@ -297,25 +326,19 @@ mod tests {
         InstanceLaunchOverridesPatch, InstanceLink, create_instance,
         edit_instance,
     };
+    use crate::state::instances::{
+        adapters::sqlite::manifest_rows, get_instance,
+    };
     use crate::state::{
         InstanceInstallStage, LauncherFeatureVersion, ModLoader, ReleaseChannel,
     };
-    use sqlx::sqlite::SqlitePoolOptions;
     use std::time::Duration;
     use tempfile::TempDir;
 
-    async fn test_pool() -> SqlitePool {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
+    async fn test_pool(dirs: &DirectoryInfo) -> SqlitePool {
+        crate::state::store::databases::open(&dirs.settings_dir)
             .await
-            .expect("in-memory SQLite pool");
-        sqlx::query("PRAGMA foreign_keys = ON")
-            .execute(&pool)
-            .await
-            .expect("enable foreign keys");
-        sqlx::migrate!().run(&pool).await.expect("migrations");
-        pool
+            .expect("isolated stable database")
     }
 
     fn test_dirs() -> (TempDir, DirectoryInfo) {
@@ -538,7 +561,7 @@ mod tests {
     #[tokio::test]
     async fn create_instance_marks_state_and_writes_config_file() {
         let (temp, dirs) = test_dirs();
-        let pool = test_pool().await;
+        let pool = test_pool(&dirs).await;
         let state_dirs = DirectoryInfo {
             settings_dir: dirs.settings_dir.clone(),
             config_dir: dirs.config_dir.clone(),
@@ -566,7 +589,7 @@ mod tests {
         .expect("create instance");
 
         let state_rows: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM instance_config_sync_state
+            "SELECT COUNT(*) FROM instance_recovery_publications
              WHERE instance_id = ?",
         )
         .bind(&instance.id)
@@ -589,7 +612,7 @@ mod tests {
     #[tokio::test]
     async fn edit_instance_updates_name_and_java_path() {
         let (temp, dirs) = test_dirs();
-        let pool = test_pool().await;
+        let pool = test_pool(&dirs).await;
         insert_instance(
             &dirs,
             &pool,
@@ -598,7 +621,7 @@ mod tests {
             "Old Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:edit", &pool)
+        manifest_rows::force_dirty(&pool, "local:edit")
             .await
             .unwrap();
         sync_instance_with_dirs(&dirs, &pool, "local:edit")
@@ -636,7 +659,7 @@ mod tests {
     #[tokio::test]
     async fn unchanged_content_does_not_rewrite_file() {
         let (temp, dirs) = test_dirs();
-        let pool = test_pool().await;
+        let pool = test_pool(&dirs).await;
         insert_instance(
             &dirs,
             &pool,
@@ -645,7 +668,7 @@ mod tests {
             "Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:unchanged", &pool)
+        manifest_rows::force_dirty(&pool, "local:unchanged")
             .await
             .unwrap();
         sync_instance_with_dirs(&dirs, &pool, "local:unchanged")
@@ -656,15 +679,9 @@ mod tests {
         let before_bytes = std::fs::read(&path).unwrap();
         let before_modified =
             std::fs::metadata(&path).unwrap().modified().unwrap();
-        sqlx::query(
-            "UPDATE instance_config_sync_state
-             SET config_updated_at = generated_at + 100
-             WHERE instance_id = ?",
-        )
-        .bind("local:unchanged")
-        .execute(&pool)
-        .await
-        .unwrap();
+        manifest_rows::force_dirty(&pool, "local:unchanged")
+            .await
+            .unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
 
         sync_instance_with_dirs(&dirs, &pool, "local:unchanged")
@@ -683,7 +700,7 @@ mod tests {
     #[tokio::test]
     async fn reconcile_all_rebuilds_missing_file() {
         let (temp, dirs) = test_dirs();
-        let pool = test_pool().await;
+        let pool = test_pool(&dirs).await;
         let state = crate::state::test_state(
             DirectoryInfo {
                 settings_dir: dirs.settings_dir.clone(),
@@ -702,20 +719,15 @@ mod tests {
             "Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:rebuild", &pool)
+        manifest_rows::force_dirty(&pool, "local:rebuild")
             .await
             .unwrap();
 
         reconcile_all(&state).await.unwrap();
 
         assert!(config_path(&dirs, "Rebuild Instance").is_file());
-        let generated_at = config_sync_rows::get_config_sync_generated_at(
-            "local:rebuild",
-            &pool,
-        )
-        .await
-        .unwrap();
-        assert!(generated_at.is_some());
+        let published: bool=sqlx::query_scalar("SELECT published_revision=revision FROM instance_recovery_publications WHERE instance_id='local:rebuild'").fetch_one(&pool).await.unwrap();
+        assert!(published);
 
         drop(temp);
     }
@@ -723,7 +735,7 @@ mod tests {
     #[tokio::test]
     async fn reconcile_all_skips_when_state_is_latest() {
         let (temp, dirs) = test_dirs();
-        let pool = test_pool().await;
+        let pool = test_pool(&dirs).await;
         let state = crate::state::test_state(
             DirectoryInfo {
                 settings_dir: dirs.settings_dir.clone(),
@@ -742,12 +754,8 @@ mod tests {
             "Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:latest", &pool)
-            .await
-            .unwrap();
-        sync_instance_with_dirs(&dirs, &pool, "local:latest")
-            .await
-            .unwrap();
+        sync_instance(&state, "local:latest").await.unwrap();
+        assert!(manifest_rows::pending(&pool).await.unwrap().is_empty());
         let path = config_path(&dirs, "Latest Instance");
         let before_modified =
             std::fs::metadata(&path).unwrap().modified().unwrap();
@@ -763,9 +771,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn corrupt_json_is_rewritten() {
+    async fn corrupt_compatibility_json_is_preserved() {
         let (temp, dirs) = test_dirs();
-        let pool = test_pool().await;
+        let pool = test_pool(&dirs).await;
         insert_instance(
             &dirs,
             &pool,
@@ -774,7 +782,7 @@ mod tests {
             "Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:corrupt", &pool)
+        manifest_rows::force_dirty(&pool, "local:corrupt")
             .await
             .unwrap();
         std::fs::write(
@@ -783,11 +791,15 @@ mod tests {
         )
         .unwrap();
 
-        sync_instance_with_dirs(&dirs, &pool, "local:corrupt")
-            .await
-            .unwrap();
-
-        read_config(&dirs, "Corrupt Instance");
+        assert!(
+            sync_instance_with_dirs(&dirs, &pool, "local:corrupt")
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            std::fs::read(config_path(&dirs, "Corrupt Instance")).unwrap(),
+            b"not valid json"
+        );
 
         drop(temp);
     }
@@ -795,7 +807,7 @@ mod tests {
     #[tokio::test]
     async fn deletion_cascades_state_and_removes_config_file() {
         let (temp, dirs) = test_dirs();
-        let pool = test_pool().await;
+        let pool = test_pool(&dirs).await;
         insert_instance(
             &dirs,
             &pool,
@@ -804,7 +816,7 @@ mod tests {
             "Name",
         )
         .await;
-        config_sync_rows::upsert_config_updated_at("local:delete", &pool)
+        manifest_rows::force_dirty(&pool, "local:delete")
             .await
             .unwrap();
         sync_instance_with_dirs(&dirs, &pool, "local:delete")
@@ -824,14 +836,17 @@ mod tests {
             .await
             .unwrap();
         let state_rows: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM instance_config_sync_state
+            "SELECT COUNT(*) FROM instance_recovery_publications
              WHERE instance_id = ?",
         )
         .bind("local:delete")
         .fetch_one(&pool)
         .await
         .unwrap();
-        assert_eq!(state_rows, 0);
+        assert_eq!(
+            state_rows, 1,
+            "Deletion leaves a durable recovery tombstone"
+        );
 
         drop(temp);
     }

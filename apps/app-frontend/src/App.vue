@@ -177,6 +177,7 @@ import {
 } from '@/helpers/shortcut-actions'
 import { resolveAllBindings } from '@/helpers/shortcut-bindings'
 import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.ts'
+import { createStartupProgress } from '@/helpers/startup-progress'
 import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
 import { applyThemeRuntime, reapplyThemeRuntime } from '@/helpers/theme-pack-runtime'
 import {
@@ -404,7 +405,9 @@ provideModalBehavior({
     noblur: computed(() => !themeStore.advancedRendering),
 })
 
-const stateInitialization = initialize_state()
+const startupProgress = createStartupProgress()
+const stateInitialization = startupProgress.initialize(initialize_state)
+onUnmounted(startupProgress.dispose)
 const {
     instanceIconPickerModal,
     installationModal,
@@ -1901,6 +1904,7 @@ stateInitialization
             console.warn('Failed to configure manual-download watcher', error)
         })
         setupApp().catch((err) => {
+            startupProgress.dispose()
             stateFailed.value = true
             console.error(err)
             showStateInitError(err)
@@ -3030,7 +3034,13 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 </script>
 
 <template>
-    <SplashScreen v-if="!stateFailed" ref="splashScreen" data-tauri-drag-region />
+    <SplashScreen
+        v-if="!stateFailed"
+        ref="splashScreen"
+        :startup-progress="startupProgress.progress.value"
+        data-tauri-drag-region
+        @finished="startupProgress.dispose"
+    />
     <!--
         A failed initialization never renders the app shell, so this framed window
         ends up with no title bar and no controls at all. This strip keeps the

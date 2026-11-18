@@ -1,0 +1,2919 @@
+{
+  "tables": [
+    {
+      "name": "minecraft_device_tokens",
+      "domain": "accounts",
+      "sql": "CREATE TABLE minecraft_device_tokens (\n    id INTEGER NOT NULL CHECK (id = 0),\n\n    uuid TEXT NOT NULL,\n    private_key TEXT NOT NULL,\n    x TEXT NOT NULL,\n    y TEXT NOT NULL,\n    issue_instant INTEGER NOT NULL,\n    not_after INTEGER NOT NULL,\n    token TEXT NOT NULL,\n    display_claims JSONB NOT NULL, secrets_externalized INTEGER NOT NULL DEFAULT 0,\n\n    PRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "uuid",
+        "private_key",
+        "x",
+        "y",
+        "issue_instant",
+        "not_after",
+        "token",
+        "display_claims",
+        "secrets_externalized"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "modrinth_users",
+      "domain": "accounts",
+      "sql": "CREATE TABLE modrinth_users (\n    id TEXT NOT NULL,\n    active INTEGER NOT NULL DEFAULT FALSE,\n    session_id TEXT NOT NULL,\n    expires INTEGER NOT NULL, secrets_externalized INTEGER NOT NULL DEFAULT 0,\n\n    PRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "active",
+        "session_id",
+        "expires",
+        "secrets_externalized"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "cache",
+      "domain": "configuration",
+      "sql": "CREATE TABLE cache (\n    id TEXT NOT NULL,\n    data_type TEXT NOT NULL,\n    alias TEXT NULL,\n\n    data JSONB NULL,\n    expires INTEGER NOT NULL,\n\n    UNIQUE (data_type, alias),\n    PRIMARY KEY (id, data_type)\n)",
+      "columns": [
+        "id",
+        "data_type",
+        "alias",
+        "data",
+        "expires"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "custom_minecraft_skins",
+      "domain": "media",
+      "sql": "CREATE TABLE custom_minecraft_skins (\n    minecraft_user_uuid TEXT NOT NULL,\n    texture_key TEXT NOT NULL,\n    variant TEXT NOT NULL ,\n    cape_id TEXT, display_order INTEGER NOT NULL DEFAULT 0,\n\n    PRIMARY KEY (minecraft_user_uuid, texture_key, variant, cape_id),\n    FOREIGN KEY (texture_key) REFERENCES custom_minecraft_skin_textures(texture_key)\n        ON DELETE CASCADE ON UPDATE CASCADE\n)",
+      "columns": [
+        "minecraft_user_uuid",
+        "texture_key",
+        "variant",
+        "cape_id",
+        "display_order"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "custom_minecraft_skin_textures",
+          "columns": [
+            {
+              "child": "texture_key",
+              "parent": "texture_key"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "CASCADE"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "custom_minecraft_skin_textures",
+      "domain": "media",
+      "sql": "CREATE TABLE custom_minecraft_skin_textures (\n    texture_key TEXT NOT NULL,\n    texture PNG BLOB NOT NULL,\n\n    PRIMARY KEY (texture_key)\n)",
+      "columns": [
+        "texture_key",
+        "texture"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "instances",
+      "domain": "instances",
+      "sql": "CREATE TABLE instances (\n\tid TEXT NOT NULL,\n\tpath TEXT NOT NULL,\n\tapplied_content_set_id TEXT NULL,\n\n\tinstall_stage TEXT NOT NULL,\n\tlauncher_feature_version TEXT NOT NULL,\n\tupdate_channel TEXT NOT NULL DEFAULT 'release',\n\n\tname TEXT NOT NULL,\n\ticon_path TEXT NULL,\n\n\tcreated INTEGER NOT NULL,\n\tmodified INTEGER NOT NULL,\n\tlast_played INTEGER NULL,\n\n\tsubmitted_time_played INTEGER NOT NULL DEFAULT 0,\n\trecent_time_played INTEGER NOT NULL DEFAULT 0, symlink_target TEXT, pinned_at INTEGER NULL, game_dir_override TEXT, linked_launcher TEXT NULL, linked_launcher_root TEXT NULL, linked_dot_minecraft TEXT NULL, linked_version_id TEXT NULL, linked_version_json_path TEXT NULL, linked_game_dir_mode TEXT NULL,\n\n\tPRIMARY KEY (id),\n\tUNIQUE (path)\n)",
+      "columns": [
+        "id",
+        "path",
+        "applied_content_set_id",
+        "install_stage",
+        "launcher_feature_version",
+        "update_channel",
+        "name",
+        "icon_path",
+        "created",
+        "modified",
+        "last_played",
+        "submitted_time_played",
+        "recent_time_played",
+        "symlink_target",
+        "pinned_at",
+        "game_dir_override",
+        "linked_launcher",
+        "linked_launcher_root",
+        "linked_dot_minecraft",
+        "linked_version_id",
+        "linked_version_json_path",
+        "linked_game_dir_mode"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "instance_links",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_links (\n\tinstance_id TEXT NOT NULL,\n\tlink_kind TEXT NOT NULL,\n\n\tmodrinth_project_id TEXT NULL,\n\tmodrinth_version_id TEXT NULL,\n\n\tserver_project_id TEXT NULL,\n\n\tcontent_project_id TEXT NULL,\n\tcontent_version_id TEXT NULL,\n\n\thosting_server_id TEXT NULL,\n\thosting_instance_ids JSONB NULL,\n\thosting_active_instance_id TEXT NULL,\n\n\tshared_instance_id TEXT NULL, imported_name TEXT NULL, imported_version_number TEXT NULL, imported_filename TEXT NULL, curseforge_project_id INTEGER NULL, curseforge_file_id INTEGER NULL,\n\n\tPRIMARY KEY (instance_id),\n\tFOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE CASCADE\n)",
+      "columns": [
+        "instance_id",
+        "link_kind",
+        "modrinth_project_id",
+        "modrinth_version_id",
+        "server_project_id",
+        "content_project_id",
+        "content_version_id",
+        "hosting_server_id",
+        "hosting_instance_ids",
+        "hosting_active_instance_id",
+        "shared_instance_id",
+        "imported_name",
+        "imported_version_number",
+        "imported_filename",
+        "curseforge_project_id",
+        "curseforge_file_id"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_groups",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_groups (\n\tinstance_id TEXT NOT NULL,\n\tgroup_name TEXT NOT NULL,\n\n\tPRIMARY KEY (instance_id, group_name),\n\tFOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE CASCADE\n)",
+      "columns": [
+        "instance_id",
+        "group_name"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_launch_overrides",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_launch_overrides (\n\tinstance_id TEXT NOT NULL,\n\toverrides JSONB NOT NULL,\n\n\tPRIMARY KEY (instance_id),\n\tFOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE CASCADE\n)",
+      "columns": [
+        "instance_id",
+        "overrides"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_content_sets",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_content_sets (\n\tid TEXT NOT NULL,\n\tinstance_id TEXT NOT NULL,\n\n\tname TEXT NOT NULL,\n\tsource_kind TEXT NOT NULL,\n\tstatus TEXT NOT NULL,\n\n\tgame_version TEXT NOT NULL,\n\tprotocol_version INTEGER NULL,\n\tloader TEXT NOT NULL,\n\tloader_version TEXT NULL,\n\n\tcreated INTEGER NOT NULL,\n\tmodified INTEGER NOT NULL, revision INTEGER NOT NULL DEFAULT 0,\n\n\tPRIMARY KEY (id),\n\tFOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE CASCADE\n)",
+      "columns": [
+        "id",
+        "instance_id",
+        "name",
+        "source_kind",
+        "status",
+        "game_version",
+        "protocol_version",
+        "loader",
+        "loader_version",
+        "created",
+        "modified",
+        "revision"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_content_set_remote_refs",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_content_set_remote_refs (\n\tcontent_set_id TEXT NOT NULL,\n\tref_type TEXT NOT NULL,\n\tref_id TEXT NOT NULL,\n\n\tPRIMARY KEY (content_set_id, ref_type),\n\tFOREIGN KEY (content_set_id)\n\t\tREFERENCES instance_content_sets(id)\n\t\tON DELETE CASCADE\n)",
+      "columns": [
+        "content_set_id",
+        "ref_type",
+        "ref_id"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_content_sets",
+          "columns": [
+            {
+              "child": "content_set_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_content_set_sync_state",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_content_set_sync_state (\n\tcontent_set_id TEXT NOT NULL,\n\tprovider TEXT NOT NULL,\n\n\tapplied_update_id TEXT NULL,\n\tlatest_available_update_id TEXT NULL,\n\tchecked_at INTEGER NULL,\n\tstatus TEXT NOT NULL,\n\n\tPRIMARY KEY (content_set_id),\n\tFOREIGN KEY (content_set_id)\n\t\tREFERENCES instance_content_sets(id)\n\t\tON DELETE CASCADE\n)",
+      "columns": [
+        "content_set_id",
+        "provider",
+        "applied_update_id",
+        "latest_available_update_id",
+        "checked_at",
+        "status"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_content_sets",
+          "columns": [
+            {
+              "child": "content_set_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_files",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_files (\n\tid TEXT NOT NULL,\n\tinstance_id TEXT NOT NULL,\n\n\trelative_path TEXT NOT NULL,\n\tfile_name TEXT NOT NULL,\n\tenabled INTEGER NOT NULL,\n\n\tsha1 TEXT NOT NULL,\n\tsize INTEGER NOT NULL,\n\tmissing INTEGER NOT NULL DEFAULT 0,\n\n\tadded_at INTEGER NOT NULL,\n\tmodified_at INTEGER NOT NULL, local_mod_data TEXT NULL, icon_path TEXT NULL,\n\n\tPRIMARY KEY (id),\n\tUNIQUE (instance_id, relative_path),\n\tFOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE CASCADE\n)",
+      "columns": [
+        "id",
+        "instance_id",
+        "relative_path",
+        "file_name",
+        "enabled",
+        "sha1",
+        "size",
+        "missing",
+        "added_at",
+        "modified_at",
+        "local_mod_data",
+        "icon_path"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "join_log",
+      "domain": "records",
+      "sql": "CREATE TABLE join_log (\n\tinstance_id TEXT NOT NULL,\n\thost TEXT NOT NULL,\n\tport INTEGER NOT NULL,\n\tjoin_time INTEGER NOT NULL,\n\n\tPRIMARY KEY (instance_id, host, port))",
+      "columns": [
+        "instance_id",
+        "host",
+        "port",
+        "join_time"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "attached_world_data",
+      "domain": "records",
+      "sql": "CREATE TABLE attached_world_data (\n\tinstance_id TEXT NOT NULL,\n\tworld_type TEXT  NOT NULL,\n\tworld_id TEXT NOT NULL,\n\tdisplay_status TEXT NOT NULL DEFAULT 'normal',\n\tproject_id TEXT NULL,\n\tcontent_kind TEXT NULL,\n\n\tPRIMARY KEY (instance_id, world_type, world_id))",
+      "columns": [
+        "instance_id",
+        "world_type",
+        "world_id",
+        "display_status",
+        "project_id",
+        "content_kind"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "app_metadata",
+      "domain": "main",
+      "sql": "CREATE TABLE app_metadata (\n\tkey TEXT NOT NULL,\n\tvalue TEXT NOT NULL,\n\tupdated_at INTEGER NOT NULL DEFAULT (unixepoch()),\n\n\tPRIMARY KEY (key)\n)",
+      "columns": [
+        "key",
+        "value",
+        "updated_at"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "install_jobs",
+      "domain": "operations",
+      "sql": "CREATE TABLE install_jobs (\n\tid TEXT NOT NULL PRIMARY KEY,\n\tinstance_id TEXT NULL,\n\tkind TEXT NOT NULL,\n\t\n\tstatus TEXT NOT NULL,\n\tstate JSONB NOT NULL,\n\n\tcreated INTEGER NOT NULL,\n\tmodified INTEGER NOT NULL,\n\tfinished INTEGER NULL,\n\n\tdismissed INTEGER NOT NULL DEFAULT 0, provider TEXT NULL, retry_of TEXT NULL, files_total INTEGER NULL, files_completed INTEGER NOT NULL DEFAULT 0, bytes_total INTEGER NULL, bytes_downloaded INTEGER NOT NULL DEFAULT 0, level TEXT NOT NULL DEFAULT 'l3'\n    )",
+      "columns": [
+        "id",
+        "instance_id",
+        "kind",
+        "status",
+        "state",
+        "created",
+        "modified",
+        "finished",
+        "dismissed",
+        "provider",
+        "retry_of",
+        "files_total",
+        "files_completed",
+        "bytes_total",
+        "bytes_downloaded",
+        "level"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "SET NULL",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "offline_minecraft_skins",
+      "domain": "media",
+      "sql": "CREATE TABLE offline_minecraft_skins (\n\tminecraft_user_uuid TEXT NOT NULL,\n\ttexture_key TEXT NOT NULL,\n\tvariant TEXT NOT NULL ,\n\n\tPRIMARY KEY (minecraft_user_uuid)\n)",
+      "columns": [
+        "minecraft_user_uuid",
+        "texture_key",
+        "variant"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "translation_settings",
+      "domain": "configuration",
+      "sql": "CREATE TABLE translation_settings (\n\tid INTEGER NOT NULL CHECK (id = 0),\n\tprovider TEXT NOT NULL DEFAULT 'microsoft',\n\ttarget_language TEXT NOT NULL DEFAULT '',\n\tmode TEXT NOT NULL DEFAULT 'bilingual',\n\tauto_translate INTEGER NOT NULL DEFAULT FALSE,\n\tstyle TEXT NOT NULL DEFAULT 'weakened',\n\topenai_base_url TEXT NOT NULL DEFAULT 'https://api.openai.com/v1',\n\topenai_model TEXT NOT NULL DEFAULT 'gpt-4o-mini',\n\topenai_api_key TEXT NULL,\n\tdeeplx_base_url TEXT NOT NULL DEFAULT 'https://api.deeplx.org/{{apiKey}}/translate',\n\tdeeplx_api_key TEXT NULL, openai_system_prompt TEXT NOT NULL DEFAULT '', ai_provider_id TEXT NOT NULL DEFAULT '', ai_model_id TEXT NOT NULL DEFAULT '', deepl_api_endpoint TEXT NOT NULL DEFAULT 'https://api-free.deepl.com/v2/translate', deepl_api_key TEXT NULL,\n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "provider",
+        "target_language",
+        "mode",
+        "auto_translate",
+        "style",
+        "openai_base_url",
+        "openai_model",
+        "openai_api_key",
+        "deeplx_base_url",
+        "deeplx_api_key",
+        "openai_system_prompt",
+        "ai_provider_id",
+        "ai_model_id",
+        "deepl_api_endpoint",
+        "deepl_api_key"
+      ],
+      "foreign_keys": [],
+      "seeds": [
+        "INSERT OR IGNORE INTO \"translation_settings\" VALUES (0,'google','','bilingual',0,'weakened','https://api.openai.com/v1','gpt-4o-mini',NULL,'https://api.deeplx.org/{{apiKey}}/translate',NULL,'','','','https://api-free.deepl.com/v2/translate',NULL)"
+      ]
+    },
+    {
+      "name": "install_job_items",
+      "domain": "operations",
+      "sql": "CREATE TABLE install_job_items (\n\tid TEXT NOT NULL,\n\tjob_id TEXT NOT NULL,\n\tname TEXT NOT NULL,\n\tproject_id TEXT NULL,\n\tversion_id TEXT NULL,\n\titem_type TEXT NULL,\n\tstatus TEXT NOT NULL,\n\turl TEXT NULL,\n\tbytes_total INTEGER NULL,\n\tbytes_downloaded INTEGER NOT NULL DEFAULT 0,\n\terror TEXT NULL,\n\tmanual_url TEXT NULL,\n\tcreated INTEGER NOT NULL,\n\tmodified INTEGER NOT NULL,\n\tfinished INTEGER NULL, attempt INTEGER NULL, max_attempts INTEGER NULL,\n\tPRIMARY KEY (job_id, id),\n\tFOREIGN KEY (job_id) REFERENCES install_jobs(id) ON DELETE CASCADE\n)",
+      "columns": [
+        "id",
+        "job_id",
+        "name",
+        "project_id",
+        "version_id",
+        "item_type",
+        "status",
+        "url",
+        "bytes_total",
+        "bytes_downloaded",
+        "error",
+        "manual_url",
+        "created",
+        "modified",
+        "finished",
+        "attempt",
+        "max_attempts"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "install_jobs",
+          "columns": [
+            {
+              "child": "job_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "java_versions",
+      "domain": "configuration",
+      "sql": "CREATE TABLE \"java_versions\" (\n    major_version INTEGER NOT NULL,\n    full_version TEXT NOT NULL,\n    architecture TEXT NOT NULL,\n    path TEXT NOT NULL PRIMARY KEY,\n    distribution TEXT\n)",
+      "columns": [
+        "major_version",
+        "full_version",
+        "architecture",
+        "path",
+        "distribution"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "instance_daily_playtime",
+      "domain": "records",
+      "sql": "CREATE TABLE instance_daily_playtime (\n\tplayed_on TEXT NOT NULL,\n\tinstance_id TEXT NOT NULL,\n\tinstance_name TEXT NOT NULL,\n\tplayed_seconds INTEGER NOT NULL DEFAULT 0,\n\tsession_count INTEGER NOT NULL DEFAULT 0,\n\n\tPRIMARY KEY (played_on, instance_id)\n)",
+      "columns": [
+        "played_on",
+        "instance_id",
+        "instance_name",
+        "played_seconds",
+        "session_count"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "instance_content_entries",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_content_entries (\n\tid TEXT NOT NULL,\n\tinstance_id TEXT NOT NULL,\n\tcontent_set_id TEXT NOT NULL,\n\tfile_id TEXT NULL,\n\n\tproject_type TEXT NOT NULL,\n\tsource_kind TEXT NOT NULL,\n\tserver_requirement TEXT NOT NULL,\n\tclient_requirement TEXT NOT NULL,\n\tenabled INTEGER NOT NULL DEFAULT 1,\n\n\tadded_at INTEGER NOT NULL,\n\tmodified_at INTEGER NOT NULL, ownership_kind TEXT NOT NULL DEFAULT 'user_added'\n\t, auto_dependency INTEGER NOT NULL DEFAULT 0\n\tCHECK (auto_dependency IN (0, 1)), dependency_backfilled INTEGER NOT NULL DEFAULT 0\n\tCHECK (dependency_backfilled IN (0, 1)),\n\n\tPRIMARY KEY (id),\n\tFOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE CASCADE,\n\tFOREIGN KEY (content_set_id)\n\t\tREFERENCES instance_content_sets(id)\n\t\tON DELETE CASCADE,\n\tFOREIGN KEY (file_id) REFERENCES instance_files(id) ON DELETE SET NULL\n)",
+      "columns": [
+        "id",
+        "instance_id",
+        "content_set_id",
+        "file_id",
+        "project_type",
+        "source_kind",
+        "server_requirement",
+        "client_requirement",
+        "enabled",
+        "added_at",
+        "modified_at",
+        "ownership_kind",
+        "auto_dependency",
+        "dependency_backfilled"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_files",
+          "columns": [
+            {
+              "child": "file_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "SET NULL",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instance_content_sets",
+          "columns": [
+            {
+              "child": "content_set_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "java_default_versions",
+      "domain": "configuration",
+      "sql": "CREATE TABLE java_default_versions (\n\tmajor_version INTEGER NOT NULL PRIMARY KEY,\n\tpath TEXT NOT NULL,\n\tFOREIGN KEY (major_version, path)\n\t\tREFERENCES java_versions(major_version, path)\n\t\tON DELETE CASCADE\n\t\tON UPDATE CASCADE\n)",
+      "columns": [
+        "major_version",
+        "path"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "java_versions",
+          "columns": [
+            {
+              "child": "major_version",
+              "parent": "major_version"
+            },
+            {
+              "child": "path",
+              "parent": "path"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "CASCADE"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "settings",
+      "domain": "configuration",
+      "sql": "CREATE TABLE \"settings\" (\n\tid INTEGER NOT NULL CHECK (id = 0),\n\tmax_concurrent_downloads INTEGER NOT NULL DEFAULT 10,\n\tmax_concurrent_writes INTEGER NOT NULL DEFAULT 10,\n\ttheme TEXT NOT NULL DEFAULT 'dark',\n\tdefault_page TEXT NOT NULL DEFAULT 'home',\n\tcollapsed_navigation INTEGER NOT NULL DEFAULT TRUE,\n\tadvanced_rendering INTEGER NOT NULL DEFAULT TRUE,\n\tnative_decorations INTEGER NOT NULL DEFAULT FALSE,\n\ttelemetry INTEGER NOT NULL DEFAULT FALSE,\n\tdiscord_rpc INTEGER NOT NULL DEFAULT TRUE,\n\tdeveloper_mode INTEGER NOT NULL DEFAULT FALSE,\n\tonboarded INTEGER NOT NULL DEFAULT FALSE,\n\textra_launch_args JSONB NOT NULL,\n\tcustom_env_vars JSONB NOT NULL,\n\tmc_memory_max INTEGER NOT NULL DEFAULT 2048,\n\tmc_force_fullscreen INTEGER NOT NULL DEFAULT FALSE,\n\tmc_game_resolution_x INTEGER NOT NULL DEFAULT 854,\n\tmc_game_resolution_y INTEGER NOT NULL DEFAULT 480,\n\thide_on_process_start INTEGER NOT NULL DEFAULT FALSE,\n\thook_pre_launch TEXT NULL,\n\thook_wrapper TEXT NULL,\n\thook_post_exit TEXT NULL,\n\tcustom_dir TEXT NULL,\n\tprev_custom_dir TEXT NULL,\n\tmigrated INTEGER NOT NULL DEFAULT FALSE,\n\tpersonalized_ads INTEGER NOT NULL DEFAULT TRUE,\n\ttoggle_sidebar INTEGER NOT NULL DEFAULT FALSE,\n\tfeature_flags JSONB NOT NULL DEFAULT '{}',\n\thide_nametag_skins_page INTEGER NOT NULL DEFAULT 0 CHECK (hide_nametag_skins_page IN (0, 1)),\n\tskipped_update TEXT NULL,\n\tpending_update_toast_for_version TEXT NULL,\n\tauto_download_updates INT NULL,\n\tversion INTEGER NOT NULL DEFAULT 1,\n\tlocale TEXT NOT NULL DEFAULT '',\n\taccent_color TEXT NOT NULL DEFAULT 'pink',\n\tcustom_background_path TEXT NULL,\n\tcustom_background_blur INTEGER NOT NULL DEFAULT 12 CHECK (custom_background_blur BETWEEN 0 AND 40),\n\tcustom_background_opacity INTEGER NOT NULL DEFAULT 65 CHECK (custom_background_opacity BETWEEN 10 AND 100),\n\tuse_minecraft_mirror INTEGER NOT NULL DEFAULT FALSE,\n\tuse_modrinth_mirror INTEGER NOT NULL DEFAULT FALSE,\n\tuse_curseforge_mirror INTEGER NOT NULL DEFAULT TRUE,\n\tauto_concurrent_downloads INTEGER NOT NULL DEFAULT TRUE,\n\tminecraft_metadata_source TEXT NOT NULL DEFAULT 'auto' CHECK (\n\t\tminecraft_metadata_source IN ('auto', 'official_only', 'mirror_preferred', 'official_preferred')\n\t),\n\tminecraft_file_source TEXT NOT NULL DEFAULT 'auto' CHECK (\n\t\tminecraft_file_source IN ('auto', 'official_only', 'mirror_preferred', 'official_preferred')\n\t),\n\tmodrinth_source TEXT NOT NULL DEFAULT 'auto' CHECK (\n\t\tmodrinth_source IN ('auto', 'official_only', 'mirror_preferred', 'official_preferred')\n\t),\n\tcurseforge_source TEXT NOT NULL DEFAULT 'auto' CHECK (\n\t\tcurseforge_source IN ('auto', 'official_only', 'mirror_preferred', 'official_preferred')\n\t),\n\tonboarding_version INTEGER NOT NULL DEFAULT 0,\n\tonboarding_instance_tour_completed INTEGER NOT NULL DEFAULT TRUE,\n\tsidebar_instance_count INTEGER NOT NULL DEFAULT 0,\n\tmc_memory_auto INTEGER NOT NULL DEFAULT FALSE,\n\tmc_memory_optimize INTEGER NOT NULL DEFAULT FALSE,\n\tauto_set_java_high_performance_mode INTEGER NOT NULL DEFAULT TRUE,\n\ttransparent_background INTEGER NOT NULL DEFAULT FALSE,\n\ttransparent_background_opacity INTEGER NOT NULL DEFAULT 55,\n\ttransparent_background_blur INTEGER NOT NULL DEFAULT FALSE,\n\thome_layout TEXT NOT NULL DEFAULT 'standard' CHECK (home_layout IN ('standard', 'minimal')),\n\tminimal_home_instance_id TEXT NULL,\n\tauto_hide_downloads_button INTEGER NOT NULL DEFAULT FALSE, home_widgets JSONB NULL, mojang_auth_source TEXT NOT NULL DEFAULT 'auto' CHECK (\n\tmojang_auth_source IN ('auto', 'official_only', 'mirror_preferred', 'official_preferred')\n), terracotta_public_nodes JSONB NOT NULL DEFAULT '[\"wss://center.node.1tmc.top\"]', telemetry_consent_version INTEGER NOT NULL DEFAULT 0, download_engine TEXT NOT NULL DEFAULT 'xmcl', bypass_curseforge_download_restrictions INTEGER NOT NULL DEFAULT TRUE, proxy_mode TEXT NOT NULL DEFAULT 'system'\n    , proxy_url TEXT NOT NULL DEFAULT '', proxy_username TEXT NOT NULL DEFAULT '', proxy_password TEXT NOT NULL DEFAULT '', enter_lightweight_mode_on_game_launch INTEGER NOT NULL DEFAULT FALSE, close_behavior TEXT NOT NULL DEFAULT 'ask' CHECK (\n\tclose_behavior IN ('ask', 'close', 'lightweight')\n), mc_maximize_window INTEGER NOT NULL DEFAULT FALSE, log_level TEXT NOT NULL DEFAULT 'trace' CHECK (\n\tlog_level IN ('error', 'warn', 'info', 'debug', 'trace')\n), sync_features_across_devices INTEGER NOT NULL DEFAULT FALSE, show_files_tab_in_instances INTEGER NOT NULL DEFAULT TRUE CHECK (show_files_tab_in_instances IN (0, 1)), show_worlds_tab_in_instances INTEGER NOT NULL DEFAULT TRUE CHECK (show_worlds_tab_in_instances IN (0, 1)), show_screenshots_tab_in_instances INTEGER NOT NULL DEFAULT FALSE CHECK (show_screenshots_tab_in_instances IN (0, 1)), show_skin_selector_in_sidebar INTEGER NOT NULL DEFAULT TRUE CHECK (show_skin_selector_in_sidebar IN (0, 1)), ignore_ssl_errors INTEGER NOT NULL DEFAULT FALSE\nCHECK (ignore_ssl_errors IN (0, 1)), home_widget_background_opacity INTEGER NOT NULL DEFAULT 100, hidden_nav_items TEXT NOT NULL DEFAULT '[]', custom_window_title_enabled INTEGER NOT NULL DEFAULT FALSE, default_window_title TEXT NOT NULL DEFAULT 'Minecraft', custom_background_component_opacity INTEGER NOT NULL DEFAULT 100, ui_font TEXT, mono_font TEXT, backup_repository_path TEXT, allow_external_scheme INTEGER NOT NULL DEFAULT TRUE, allow_privileged_scheme INTEGER NOT NULL DEFAULT FALSE, doh_enabled INTEGER NOT NULL DEFAULT TRUE\n    CHECK (doh_enabled IN (0, 1)), doh_server TEXT NOT NULL DEFAULT 'https://doh.pub/dns-query', resource_chinese_filenames INTEGER NOT NULL DEFAULT 1 CHECK (resource_chinese_filenames IN (0, 1)), resource_preserve_filenames INTEGER NOT NULL DEFAULT 1 CHECK (resource_preserve_filenames IN (0, 1)), curseforge_api_key TEXT NOT NULL DEFAULT '', nametag_uses_app_font INTEGER NOT NULL DEFAULT 0 CHECK (nametag_uses_app_font IN (0, 1)), default_game_language TEXT NOT NULL DEFAULT '', oobe_completed_steps TEXT NOT NULL DEFAULT '[]', minecraft_use_console_java INTEGER NOT NULL DEFAULT 0, force_multiconnection_downloads INTEGER NOT NULL DEFAULT FALSE, forced_max_concurrent_downloads INTEGER NOT NULL DEFAULT 72, theme_source TEXT NOT NULL DEFAULT 'builtin', custom_theme_colors TEXT,\n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "max_concurrent_downloads",
+        "max_concurrent_writes",
+        "theme",
+        "default_page",
+        "collapsed_navigation",
+        "advanced_rendering",
+        "native_decorations",
+        "telemetry",
+        "discord_rpc",
+        "developer_mode",
+        "onboarded",
+        "extra_launch_args",
+        "custom_env_vars",
+        "mc_memory_max",
+        "mc_force_fullscreen",
+        "mc_game_resolution_x",
+        "mc_game_resolution_y",
+        "hide_on_process_start",
+        "hook_pre_launch",
+        "hook_wrapper",
+        "hook_post_exit",
+        "custom_dir",
+        "prev_custom_dir",
+        "migrated",
+        "personalized_ads",
+        "toggle_sidebar",
+        "feature_flags",
+        "hide_nametag_skins_page",
+        "skipped_update",
+        "pending_update_toast_for_version",
+        "auto_download_updates",
+        "version",
+        "locale",
+        "accent_color",
+        "custom_background_path",
+        "custom_background_blur",
+        "custom_background_opacity",
+        "use_minecraft_mirror",
+        "use_modrinth_mirror",
+        "use_curseforge_mirror",
+        "auto_concurrent_downloads",
+        "minecraft_metadata_source",
+        "minecraft_file_source",
+        "modrinth_source",
+        "curseforge_source",
+        "onboarding_version",
+        "onboarding_instance_tour_completed",
+        "sidebar_instance_count",
+        "mc_memory_auto",
+        "mc_memory_optimize",
+        "auto_set_java_high_performance_mode",
+        "transparent_background",
+        "transparent_background_opacity",
+        "transparent_background_blur",
+        "home_layout",
+        "minimal_home_instance_id",
+        "auto_hide_downloads_button",
+        "home_widgets",
+        "mojang_auth_source",
+        "terracotta_public_nodes",
+        "telemetry_consent_version",
+        "download_engine",
+        "bypass_curseforge_download_restrictions",
+        "proxy_mode",
+        "proxy_url",
+        "proxy_username",
+        "proxy_password",
+        "enter_lightweight_mode_on_game_launch",
+        "close_behavior",
+        "mc_maximize_window",
+        "log_level",
+        "sync_features_across_devices",
+        "show_files_tab_in_instances",
+        "show_worlds_tab_in_instances",
+        "show_screenshots_tab_in_instances",
+        "show_skin_selector_in_sidebar",
+        "ignore_ssl_errors",
+        "home_widget_background_opacity",
+        "hidden_nav_items",
+        "custom_window_title_enabled",
+        "default_window_title",
+        "custom_background_component_opacity",
+        "ui_font",
+        "mono_font",
+        "backup_repository_path",
+        "allow_external_scheme",
+        "allow_privileged_scheme",
+        "doh_enabled",
+        "doh_server",
+        "resource_chinese_filenames",
+        "resource_preserve_filenames",
+        "curseforge_api_key",
+        "nametag_uses_app_font",
+        "default_game_language",
+        "oobe_completed_steps",
+        "minecraft_use_console_java",
+        "force_multiconnection_downloads",
+        "forced_max_concurrent_downloads",
+        "theme_source",
+        "custom_theme_colors"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "minimal_home_instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "SET NULL",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": [
+        "INSERT OR IGNORE INTO \"settings\" VALUES (0,10,10,'dark','home',1,1,0,0,1,0,0,X'0B',X'0B',2048,0,854,480,0,NULL,NULL,NULL,NULL,NULL,0,0,0,'{}',0,NULL,NULL,NULL,1,'','pink',NULL,12,65,0,1,1,1,'auto','auto','auto','auto',0,0,0,1,0,1,0,55,0,'standard',NULL,0,NULL,'auto','[\"wss://center.node.1tmc.top\"]',0,'legacy',1,'system','','','',0,'ask',0,'info',0,1,1,0,1,0,100,'[]',0,'Minecraft',100,NULL,NULL,NULL,1,0,1,'https://doh.pub/dns-query',1,1,'',0,'','[]',0,1,72,'builtin',NULL)"
+      ]
+    },
+    {
+      "name": "ai_settings",
+      "domain": "configuration",
+      "sql": "CREATE TABLE ai_settings (\n\tid INTEGER NOT NULL CHECK (id = 0),\n\tenabled INTEGER NOT NULL DEFAULT TRUE, legacy_openai_credential_cleanup INTEGER NOT NULL DEFAULT FALSE,\n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "enabled",
+        "legacy_openai_credential_cleanup"
+      ],
+      "foreign_keys": [],
+      "seeds": [
+        "INSERT OR IGNORE INTO \"ai_settings\" VALUES (0,1,0)"
+      ]
+    },
+    {
+      "name": "ai_provider_configs",
+      "domain": "configuration",
+      "sql": "CREATE TABLE ai_provider_configs (\n\tprovider_id TEXT NOT NULL PRIMARY KEY,\n\tcustom_name TEXT NULL,\n\tprotocol TEXT NOT NULL DEFAULT 'openai',\n\tenabled INTEGER NOT NULL DEFAULT FALSE,\n\tendpoint TEXT NOT NULL DEFAULT '',\n\tsettings TEXT NOT NULL DEFAULT '{}'\n)",
+      "columns": [
+        "provider_id",
+        "custom_name",
+        "protocol",
+        "enabled",
+        "endpoint",
+        "settings"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "ai_provider_models",
+      "domain": "configuration",
+      "sql": "CREATE TABLE ai_provider_models (\n\tprovider_id TEXT NOT NULL,\n\tmodel_id TEXT NOT NULL,\n\tdisplay_name TEXT NOT NULL DEFAULT '',\n\tenabled INTEGER NOT NULL DEFAULT TRUE,\n\tsource TEXT NOT NULL DEFAULT 'custom',\n\tPRIMARY KEY (provider_id, model_id)\n)",
+      "columns": [
+        "provider_id",
+        "model_id",
+        "display_name",
+        "enabled",
+        "source"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "instance_config_sync_state",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_config_sync_state (\n\tinstance_id TEXT NOT NULL PRIMARY KEY,\n\tconfig_updated_at INTEGER NOT NULL,\n\tgenerated_at INTEGER NULL,\n\tFOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE CASCADE\n)",
+      "columns": [
+        "instance_id",
+        "config_updated_at",
+        "generated_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "telemetry_identity",
+      "domain": "telemetry",
+      "sql": "CREATE TABLE telemetry_identity (\n\tid INTEGER NOT NULL CHECK (id = 0),\n\tinstallation_id TEXT NOT NULL,\n\tlast_heartbeat_day TEXT NULL,\n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "installation_id",
+        "last_heartbeat_day"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "telemetry_outbox",
+      "domain": "telemetry",
+      "sql": "CREATE TABLE telemetry_outbox (\n\tevent_id TEXT NOT NULL,\n\tevent_type TEXT NOT NULL ,\n\tpayload JSONB NOT NULL,\n\tcreated_at INTEGER NOT NULL,\n\tnext_attempt_at INTEGER NOT NULL,\n\tattempts INTEGER NOT NULL DEFAULT 0,\n\tsize_bytes INTEGER NOT NULL,\n\tdedupe_key TEXT NOT NULL,\n\toccurrence_count INTEGER NOT NULL DEFAULT 1,\n\tPRIMARY KEY (event_id),\n\tUNIQUE (dedupe_key)\n)",
+      "columns": [
+        "event_id",
+        "event_type",
+        "payload",
+        "created_at",
+        "next_attempt_at",
+        "attempts",
+        "size_bytes",
+        "dedupe_key",
+        "occurrence_count"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "instance_loader_components",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_loader_components (\n\tinstance_id TEXT NOT NULL,\n\tkind TEXT NOT NULL ,\n\tversion TEXT NULL,\n\trole TEXT NOT NULL ,\n\tprovider_metadata TEXT NULL\n\t\tCHECK(provider_metadata IS NULL OR json_valid(provider_metadata)),\n\n\tPRIMARY KEY (instance_id, kind),\n\tFOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE CASCADE\n)",
+      "columns": [
+        "instance_id",
+        "kind",
+        "version",
+        "role",
+        "provider_metadata"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_content_update_checks",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_content_update_checks (\n\tcontent_entry_id TEXT NOT NULL,\n\tupdate_channel TEXT NOT NULL,\n\tprovider TEXT NULL,\n\tprovider_project_id TEXT NULL,\n\tprovider_release_id TEXT NULL,\n\tchecked_at INTEGER NOT NULL,\n\n\tPRIMARY KEY (content_entry_id),\n\tFOREIGN KEY (content_entry_id)\n\t\tREFERENCES instance_content_entries(id)\n\t\tON DELETE CASCADE\n)",
+      "columns": [
+        "content_entry_id",
+        "update_channel",
+        "provider",
+        "provider_project_id",
+        "provider_release_id",
+        "checked_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_content_entries",
+          "columns": [
+            {
+              "child": "content_entry_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_pack_members",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_pack_members (\n\tid TEXT NOT NULL,\n\tcontent_set_id TEXT NOT NULL,\n\tcontent_entry_id TEXT NULL,\n\tmember_key TEXT NOT NULL,\n\tproject_type TEXT NOT NULL,\n\texpected_relative_path TEXT NOT NULL,\n\tprovider TEXT NULL,\n\tprovider_project_id TEXT NULL,\n\tprovider_release_id TEXT NULL,\n\trequired INTEGER NOT NULL DEFAULT 1,\n\texpected_sha1 TEXT NULL,\n\texpected_size INTEGER NULL,\n\texpected_fingerprint INTEGER NULL,\n\tmaterialization_state TEXT NOT NULL DEFAULT 'present',\n\toverride_kind TEXT NOT NULL DEFAULT 'none',\n\treconciled INTEGER NOT NULL DEFAULT 1,\n\tcreated_at INTEGER NOT NULL,\n\tmodified_at INTEGER NOT NULL,\n\n\tPRIMARY KEY (id),\n\tUNIQUE (content_set_id, member_key),\n\tFOREIGN KEY (content_set_id)\n\t\tREFERENCES instance_content_sets(id)\n\t\tON DELETE CASCADE,\n\tFOREIGN KEY (content_entry_id)\n\t\tREFERENCES instance_content_entries(id)\n\t\tON DELETE SET NULL,\n\tCHECK (required IN (0, 1)),\n\tCHECK (reconciled IN (0, 1))\n)",
+      "columns": [
+        "id",
+        "content_set_id",
+        "content_entry_id",
+        "member_key",
+        "project_type",
+        "expected_relative_path",
+        "provider",
+        "provider_project_id",
+        "provider_release_id",
+        "required",
+        "expected_sha1",
+        "expected_size",
+        "expected_fingerprint",
+        "materialization_state",
+        "override_kind",
+        "reconciled",
+        "created_at",
+        "modified_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_content_entries",
+          "columns": [
+            {
+              "child": "content_entry_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "SET NULL",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instance_content_sets",
+          "columns": [
+            {
+              "child": "content_set_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_pending_manual_downloads",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_pending_manual_downloads (\n\tid TEXT NOT NULL,\n\tinstance_id TEXT NOT NULL,\n\tpack_member_id TEXT NULL,\n\tcontent_entry_id TEXT NULL,\n\toperation_kind TEXT NOT NULL,\n\toperation_target_id TEXT NULL,\n\tproject_type TEXT NOT NULL,\n\tprovider TEXT NOT NULL,\n\tprovider_project_id TEXT NOT NULL,\n\tprovider_release_id TEXT NOT NULL,\n\tfile_name TEXT NOT NULL,\n\twebsite_url TEXT NULL,\n\ttarget_relative_path TEXT NOT NULL,\n\texpected_sha1 TEXT NULL,\n\texpected_size INTEGER NULL,\n\texpected_fingerprint INTEGER NULL,\n\tstate TEXT NOT NULL DEFAULT 'waiting',\n\tcontext JSONB NOT NULL DEFAULT '{}',\n\tcreated_at INTEGER NOT NULL,\n\tmodified_at INTEGER NOT NULL,\n\n\tPRIMARY KEY (id),\n\tFOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE CASCADE,\n\tFOREIGN KEY (pack_member_id)\n\t\tREFERENCES instance_pack_members(id)\n\t\tON DELETE CASCADE,\n\tFOREIGN KEY (content_entry_id)\n\t\tREFERENCES instance_content_entries(id)\n\t\tON DELETE SET NULL\n)",
+      "columns": [
+        "id",
+        "instance_id",
+        "pack_member_id",
+        "content_entry_id",
+        "operation_kind",
+        "operation_target_id",
+        "project_type",
+        "provider",
+        "provider_project_id",
+        "provider_release_id",
+        "file_name",
+        "website_url",
+        "target_relative_path",
+        "expected_sha1",
+        "expected_size",
+        "expected_fingerprint",
+        "state",
+        "context",
+        "created_at",
+        "modified_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_content_entries",
+          "columns": [
+            {
+              "child": "content_entry_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "SET NULL",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instance_pack_members",
+          "columns": [
+            {
+              "child": "pack_member_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_content_dependencies",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_content_dependencies (\n\tid TEXT NOT NULL,\n\tcontent_set_id TEXT NOT NULL,\n\tparent_entry_id TEXT NOT NULL,\n\tchild_entry_id TEXT NOT NULL,\n\tevidence_provider TEXT NOT NULL,\n\tparent_provider TEXT NOT NULL,\n\tchild_provider TEXT NOT NULL,\n\tdependency_kind TEXT NOT NULL,\n\tparent_project_id TEXT NOT NULL,\n\tparent_release_id TEXT NOT NULL,\n\tchild_project_id TEXT NOT NULL,\n\tchild_release_id TEXT NOT NULL,\n\tcreated_at INTEGER NOT NULL,\n\tmodified_at INTEGER NOT NULL,\n\n\tPRIMARY KEY (id),\n\tUNIQUE (content_set_id, parent_entry_id, child_entry_id, dependency_kind),\n\tFOREIGN KEY (content_set_id)\n\t\tREFERENCES instance_content_sets(id)\n\t\tON DELETE CASCADE,\n\tFOREIGN KEY (parent_entry_id)\n\t\tREFERENCES instance_content_entries(id)\n\t\tON DELETE CASCADE,\n\tFOREIGN KEY (child_entry_id)\n\t\tREFERENCES instance_content_entries(id)\n\t\tON DELETE CASCADE\n)",
+      "columns": [
+        "id",
+        "content_set_id",
+        "parent_entry_id",
+        "child_entry_id",
+        "evidence_provider",
+        "parent_provider",
+        "child_provider",
+        "dependency_kind",
+        "parent_project_id",
+        "parent_release_id",
+        "child_project_id",
+        "child_release_id",
+        "created_at",
+        "modified_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_content_entries",
+          "columns": [
+            {
+              "child": "child_entry_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instance_content_entries",
+          "columns": [
+            {
+              "child": "parent_entry_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instance_content_sets",
+          "columns": [
+            {
+              "child": "content_set_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_content_provider_refs",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_content_provider_refs (\n\tid INTEGER PRIMARY KEY AUTOINCREMENT,\n\tcontent_entry_id TEXT NOT NULL,\n\tprovider TEXT NOT NULL,\n\tprovider_project_id TEXT NOT NULL,\n\tprovider_release_id TEXT NULL,\n\tprovider_file_id TEXT NULL,\n\tis_origin INTEGER NOT NULL DEFAULT 0,\n\n\tFOREIGN KEY (content_entry_id)\n\t\tREFERENCES instance_content_entries(id)\n\t\tON DELETE CASCADE,\n\tCHECK (is_origin IN (0, 1))\n)",
+      "columns": [
+        "id",
+        "content_entry_id",
+        "provider",
+        "provider_project_id",
+        "provider_release_id",
+        "provider_file_id",
+        "is_origin"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_content_entries",
+          "columns": [
+            {
+              "child": "content_entry_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "crash_analysis_ai_settings",
+      "domain": "configuration",
+      "sql": "CREATE TABLE crash_analysis_ai_settings (\n\tid INTEGER NOT NULL CHECK (id = 0),\n\tenabled INTEGER NOT NULL DEFAULT FALSE,\n\tprovider_id TEXT NOT NULL DEFAULT '',\n\tmodel_id TEXT NOT NULL DEFAULT '', ai_source TEXT NOT NULL DEFAULT 'logshare',\n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "enabled",
+        "provider_id",
+        "model_id",
+        "ai_source"
+      ],
+      "foreign_keys": [],
+      "seeds": [
+        "INSERT OR IGNORE INTO \"crash_analysis_ai_settings\" VALUES (0,0,'','','logshare')"
+      ]
+    },
+    {
+      "name": "instance_post_upgrade_notices",
+      "domain": "instances",
+      "sql": "CREATE TABLE instance_post_upgrade_notices (\n    instance_id TEXT PRIMARY KEY NOT NULL REFERENCES instances(id) ON DELETE CASCADE,\n    upgrade_job_id TEXT NOT NULL,\n    target_game_version TEXT NOT NULL,\n    consecutive_clean_launches INTEGER NOT NULL DEFAULT 0,\n    warnings_json TEXT NOT NULL,\n    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    modified TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n)",
+      "columns": [
+        "instance_id",
+        "upgrade_job_id",
+        "target_game_version",
+        "consecutive_clean_launches",
+        "warnings_json",
+        "created",
+        "modified"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "log_share_settings",
+      "domain": "configuration",
+      "sql": "CREATE TABLE log_share_settings (\n\tid INTEGER NOT NULL CHECK (id = 0),\n\tshare_provider TEXT NOT NULL DEFAULT 'logshare',\n\tai_source TEXT NOT NULL DEFAULT 'logshare',\n\tauto_upload INTEGER NOT NULL DEFAULT TRUE,\n\tmulti_file INTEGER NOT NULL DEFAULT TRUE,\n\tmetadata_enabled INTEGER NOT NULL DEFAULT TRUE,\n\tno_storage INTEGER NOT NULL DEFAULT FALSE,\n\tshow_progress INTEGER NOT NULL DEFAULT TRUE,\n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "share_provider",
+        "ai_source",
+        "auto_upload",
+        "multi_file",
+        "metadata_enabled",
+        "no_storage",
+        "show_progress"
+      ],
+      "foreign_keys": [],
+      "seeds": [
+        "INSERT OR IGNORE INTO \"log_share_settings\" VALUES (0,'logshare','logshare',1,1,1,0,1)"
+      ]
+    },
+    {
+      "name": "shared_logs",
+      "domain": "records",
+      "sql": "CREATE TABLE shared_logs (\n\tid TEXT NOT NULL PRIMARY KEY,\n\turl TEXT NOT NULL,\n\traw TEXT NOT NULL,\n\ttoken TEXT NOT NULL,\n\tprovider TEXT NOT NULL DEFAULT 'logshare',\n\tinstance_id TEXT NULL,\n\tinstance_name TEXT NULL,\n\ttruncated INTEGER NOT NULL DEFAULT FALSE,\n\tcreated_at INTEGER NOT NULL\n)",
+      "columns": [
+        "id",
+        "url",
+        "raw",
+        "token",
+        "provider",
+        "instance_id",
+        "instance_name",
+        "truncated",
+        "created_at"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "sync_feature_settings",
+      "domain": "configuration",
+      "sql": "CREATE TABLE sync_feature_settings (\n\tfeature TEXT PRIMARY KEY NOT NULL,\n\tglobally_enabled INTEGER NOT NULL CHECK (globally_enabled IN (0, 1)),\n\tnew_instance_default INTEGER NOT NULL CHECK (new_instance_default IN (0, 1))\n)",
+      "columns": [
+        "feature",
+        "globally_enabled",
+        "new_instance_default"
+      ],
+      "foreign_keys": [],
+      "seeds": [
+        "INSERT OR IGNORE INTO \"sync_feature_settings\" VALUES ('command_history',0,0)",
+        "INSERT OR IGNORE INTO \"sync_feature_settings\" VALUES ('multiplayer_servers',0,0)",
+        "INSERT OR IGNORE INTO \"sync_feature_settings\" VALUES ('creative_hotbars',0,0)",
+        "INSERT OR IGNORE INTO \"sync_feature_settings\" VALUES ('screenshots',0,0)",
+        "INSERT OR IGNORE INTO \"sync_feature_settings\" VALUES ('game_options',0,0)",
+        "INSERT OR IGNORE INTO \"sync_feature_settings\" VALUES ('resource_packs',0,0)",
+        "INSERT OR IGNORE INTO \"sync_feature_settings\" VALUES ('data_packs',0,0)"
+      ]
+    },
+    {
+      "name": "instance_sync_preferences",
+      "domain": "configuration",
+      "sql": "CREATE TABLE instance_sync_preferences (\n\tinstance_id TEXT NOT NULL,\n\tfeature TEXT NOT NULL,\n\tenabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),\n\tPRIMARY KEY (instance_id, feature),\n\tFOREIGN KEY (feature) REFERENCES sync_feature_settings (feature) ON DELETE CASCADE\n)",
+      "columns": [
+        "instance_id",
+        "feature",
+        "enabled"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "sync_feature_settings",
+          "columns": [
+            {
+              "child": "feature",
+              "parent": "feature"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "synced_game_option_state",
+      "domain": "sync",
+      "sql": "CREATE TABLE synced_game_option_state (\n\tsingleton INTEGER PRIMARY KEY NOT NULL CHECK (singleton = 1),\n\trevision INTEGER NOT NULL CHECK (revision >= 0),\n\tcatalog_revision INTEGER NOT NULL CHECK (catalog_revision >= 1)\n)",
+      "columns": [
+        "singleton",
+        "revision",
+        "catalog_revision"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "synced_game_option_values",
+      "domain": "sync",
+      "sql": "CREATE TABLE synced_game_option_values (\n\toption_id TEXT PRIMARY KEY NOT NULL,\n\tkind TEXT NOT NULL ,\n\traw_key TEXT,\n\tcanonical_type TEXT NOT NULL,\n\tcanonical_value_json TEXT,\n\tvalue_codec TEXT NOT NULL,\n\tseeded INTEGER NOT NULL CHECK (seeded IN (0, 1)),\n\trevision INTEGER NOT NULL CHECK (revision >= 0),\n\torigin TEXT NOT NULL ,\n\tsource_game_version TEXT,\n\tsource_instance_id TEXT,\n\tupdated_at INTEGER NOT NULL\n)",
+      "columns": [
+        "option_id",
+        "kind",
+        "raw_key",
+        "canonical_type",
+        "canonical_value_json",
+        "value_codec",
+        "seeded",
+        "revision",
+        "origin",
+        "source_game_version",
+        "source_instance_id",
+        "updated_at"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "synced_game_option_preferences",
+      "domain": "sync",
+      "sql": "CREATE TABLE synced_game_option_preferences (\n\toption_id TEXT PRIMARY KEY NOT NULL,\n\tenabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),\n\tsource TEXT NOT NULL ,\n\trevision INTEGER NOT NULL CHECK (revision >= 0)\n)",
+      "columns": [
+        "option_id",
+        "enabled",
+        "source",
+        "revision"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "instance_game_option_pack_bases",
+      "domain": "sync",
+      "sql": "CREATE TABLE instance_game_option_pack_bases (\n\tinstance_id TEXT PRIMARY KEY NOT NULL,\n\tpack_version_id TEXT,\n\tsource TEXT NOT NULL ,\n\tsha1 TEXT,\n\tencoding TEXT,\n\tdocument BLOB)",
+      "columns": [
+        "instance_id",
+        "pack_version_id",
+        "source",
+        "sha1",
+        "encoding",
+        "document"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_game_option_update_state",
+      "domain": "sync",
+      "sql": "CREATE TABLE instance_game_option_update_state (\n\tinstance_id TEXT PRIMARY KEY NOT NULL,\n\thad_file INTEGER NOT NULL CHECK (had_file IN (0, 1)),\n\tsha1 TEXT,\n\tdocument BLOB)",
+      "columns": [
+        "instance_id",
+        "had_file",
+        "sha1",
+        "document"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "game_option_locale_origins",
+      "domain": "sync",
+      "sql": "CREATE TABLE game_option_locale_origins (\n\tscope TEXT NOT NULL,\n\toption_id TEXT NOT NULL,\n\tsource_instance_id TEXT,\n\tsource_game_version TEXT,\n\tbackfilled INTEGER NOT NULL DEFAULT 0,\n\tobservation_json TEXT,\n\torigin_json TEXT,\n\tPRIMARY KEY (scope, option_id)\n)",
+      "columns": [
+        "scope",
+        "option_id",
+        "source_instance_id",
+        "source_game_version",
+        "backfilled",
+        "observation_json",
+        "origin_json"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "instance_sync_checkpoints",
+      "domain": "sync",
+      "sql": "CREATE TABLE instance_sync_checkpoints (\n\tinstance_id TEXT NOT NULL,\n\tfeature TEXT NOT NULL,\n\tvariant TEXT NOT NULL ,\n\texpected_sha1 TEXT NOT NULL,\n\tmerge_base BLOB,\n\tsource_revision INTEGER NOT NULL CHECK (source_revision >= 0),\n\tstatus TEXT NOT NULL ,\n\tlink_mode TEXT ,\n\tPRIMARY KEY (instance_id, feature, variant))",
+      "columns": [
+        "instance_id",
+        "feature",
+        "variant",
+        "expected_sha1",
+        "merge_base",
+        "source_revision",
+        "status",
+        "link_mode"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_sync_preferences",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "instance_id"
+            },
+            {
+              "child": "feature",
+              "parent": "feature"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "synced_hotbar_state",
+      "domain": "sync",
+      "sql": "CREATE TABLE synced_hotbar_state (\n\tsingleton INTEGER PRIMARY KEY NOT NULL CHECK (singleton = 1),\n\tschema_version INTEGER NOT NULL CHECK (schema_version >= 1),\n\trevision INTEGER NOT NULL CHECK (revision >= 0),\n\tnbt BLOB NOT NULL\n)",
+      "columns": [
+        "singleton",
+        "schema_version",
+        "revision",
+        "nbt"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "synced_server_state",
+      "domain": "sync",
+      "sql": "CREATE TABLE synced_server_state (\n\tsingleton INTEGER PRIMARY KEY NOT NULL CHECK (singleton = 1),\n\trevision INTEGER NOT NULL CHECK (revision >= 0)\n)",
+      "columns": [
+        "singleton",
+        "revision"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "synced_servers",
+      "domain": "sync",
+      "sql": "CREATE TABLE synced_servers (\n\tid TEXT PRIMARY KEY NOT NULL,\n\tposition INTEGER NOT NULL UNIQUE CHECK (position >= 0),\n\tnbt BLOB NOT NULL\n)",
+      "columns": [
+        "id",
+        "position",
+        "nbt"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "instance_server_projection_entries",
+      "domain": "sync",
+      "sql": "CREATE TABLE instance_server_projection_entries (\n\tinstance_id TEXT NOT NULL,\n\towner TEXT NOT NULL ,\n\tserver_id TEXT NOT NULL,\n\tnbt BLOB NOT NULL,\n\tposition INTEGER NOT NULL CHECK (position >= 0),\n\tPRIMARY KEY (instance_id, owner, server_id),\n\tUNIQUE (instance_id, position))",
+      "columns": [
+        "instance_id",
+        "owner",
+        "server_id",
+        "nbt",
+        "position"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_server_pack_state",
+      "domain": "sync",
+      "sql": "CREATE TABLE instance_server_pack_state (\n\tinstance_id TEXT PRIMARY KEY NOT NULL,\n\tversion_id TEXT)",
+      "columns": [
+        "instance_id",
+        "version_id"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "screenshots",
+      "domain": "media",
+      "sql": "CREATE TABLE screenshots (\n\tid TEXT NOT NULL PRIMARY KEY,\n\tinstance_id TEXT NOT NULL,\n\tfile_name TEXT NOT NULL,\n\tcontent_hash TEXT NOT NULL,\n\tfile_size INTEGER NOT NULL,\n\tmodified_at INTEGER NOT NULL,\n\tcreated_at INTEGER NOT NULL, editor_state TEXT,\n\tUNIQUE (instance_id, file_name))",
+      "columns": [
+        "id",
+        "instance_id",
+        "file_name",
+        "content_hash",
+        "file_size",
+        "modified_at",
+        "created_at",
+        "editor_state"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "screenshot_groups",
+      "domain": "media",
+      "sql": "CREATE TABLE screenshot_groups (\n\tid TEXT NOT NULL PRIMARY KEY,\n\tname TEXT NOT NULL,\n\tdisplay_order INTEGER NOT NULL DEFAULT 0,\n\tCHECK (length(trim(name)) > 0)\n)",
+      "columns": [
+        "id",
+        "name",
+        "display_order"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "screenshot_group_memberships",
+      "domain": "media",
+      "sql": "CREATE TABLE screenshot_group_memberships (\n\tscreenshot_id TEXT NOT NULL PRIMARY KEY,\n\tgroup_id TEXT NOT NULL,\n\tFOREIGN KEY (screenshot_id) REFERENCES screenshots(id) ON DELETE CASCADE,\n\tFOREIGN KEY (group_id) REFERENCES screenshot_groups(id) ON DELETE CASCADE\n)",
+      "columns": [
+        "screenshot_id",
+        "group_id"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "screenshot_groups",
+          "columns": [
+            {
+              "child": "group_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "screenshots",
+          "columns": [
+            {
+              "child": "screenshot_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "synced_pack_catalog",
+      "domain": "sync",
+      "sql": "CREATE TABLE synced_pack_catalog (\n\tid TEXT PRIMARY KEY NOT NULL,\n\tproject_type TEXT NOT NULL ,\n\tfile_name TEXT NOT NULL,\n\tsha1 TEXT NOT NULL UNIQUE,\n\tsize INTEGER NOT NULL CHECK (size >= 0),\n\tgame_versions_json TEXT NOT NULL DEFAULT '[]',\n\tenabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),\n\tcreated_at INTEGER NOT NULL,\n\tmodified_at INTEGER NOT NULL\n, selected INTEGER NOT NULL DEFAULT 1 CHECK (selected IN (0, 1)), selection_order INTEGER)",
+      "columns": [
+        "id",
+        "project_type",
+        "file_name",
+        "sha1",
+        "size",
+        "game_versions_json",
+        "enabled",
+        "created_at",
+        "modified_at",
+        "selected",
+        "selection_order"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "synced_pack_instances",
+      "domain": "sync",
+      "sql": "CREATE TABLE synced_pack_instances (\n\tpack_id TEXT NOT NULL,\n\tinstance_id TEXT NOT NULL,\n\texcluded INTEGER NOT NULL DEFAULT 0 CHECK (excluded IN (0, 1)),\n\tmaterialized_path TEXT,\n\tmodified_at INTEGER NOT NULL,\n\tPRIMARY KEY (pack_id, instance_id),\n\tFOREIGN KEY (pack_id) REFERENCES synced_pack_catalog(id) ON DELETE CASCADE)",
+      "columns": [
+        "pack_id",
+        "instance_id",
+        "excluded",
+        "materialized_path",
+        "modified_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "synced_pack_catalog",
+          "columns": [
+            {
+              "child": "pack_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "instance_servers",
+      "domain": "sync",
+      "sql": "CREATE TABLE \"instance_servers\" (\n\tinstance_id TEXT NOT NULL,\n\tid TEXT NOT NULL,\n\tsource TEXT NOT NULL ,\n\texcluded_synced_server_id TEXT,\n\tnbt BLOB NOT NULL,\n\tposition INTEGER NOT NULL CHECK (position >= 0),\n\tPRIMARY KEY (instance_id, id),\n\tUNIQUE (instance_id, position),\n\tFOREIGN KEY (excluded_synced_server_id)\n\t\tREFERENCES synced_servers (id) ON DELETE SET NULL\n)",
+      "columns": [
+        "instance_id",
+        "id",
+        "source",
+        "excluded_synced_server_id",
+        "nbt",
+        "position"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "synced_servers",
+          "columns": [
+            {
+              "child": "excluded_synced_server_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "SET NULL",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "minecraft_users",
+      "domain": "accounts",
+      "sql": "CREATE TABLE \"minecraft_users\" (\n\taccount_id TEXT NOT NULL,\n\tuuid TEXT NOT NULL,\n\tactive INTEGER NOT NULL DEFAULT FALSE,\n\tusername TEXT NOT NULL,\n\taccess_token TEXT NOT NULL,\n\trefresh_token TEXT NOT NULL,\n\texpires INTEGER NOT NULL,\n\taccount_type TEXT NOT NULL DEFAULT 'microsoft'\n\t\t,\n\tyggdrasil_api_root TEXT NOT NULL DEFAULT '',\n\tyggdrasil_server_name TEXT NOT NULL DEFAULT '',\n\tyggdrasil_login TEXT NOT NULL DEFAULT '',\n\tyggdrasil_client_token TEXT NOT NULL DEFAULT '', secrets_externalized INTEGER NOT NULL DEFAULT 0,\n\n\tPRIMARY KEY (account_id)\n)",
+      "columns": [
+        "account_id",
+        "uuid",
+        "active",
+        "username",
+        "access_token",
+        "refresh_token",
+        "expires",
+        "account_type",
+        "yggdrasil_api_root",
+        "yggdrasil_server_name",
+        "yggdrasil_login",
+        "yggdrasil_client_token",
+        "secrets_externalized"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "pending_backup_repository_cleanups",
+      "domain": "operations",
+      "sql": "CREATE TABLE pending_backup_repository_cleanups (\n\tpath TEXT PRIMARY KEY,\n\tcreated_at INTEGER NOT NULL\n)",
+      "columns": [
+        "path",
+        "created_at"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "official_login_proof",
+      "domain": "configuration",
+      "sql": "CREATE TABLE official_login_proof (\n\tid INTEGER PRIMARY KEY CHECK (id = 0),\n\tverified INTEGER NOT NULL CHECK (verified = 1),\n\tversion INTEGER NOT NULL CHECK (version = 1),\n\tmac TEXT NOT NULL\n)",
+      "columns": [
+        "id",
+        "verified",
+        "version",
+        "mac"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "store_blobs",
+      "domain": "storage",
+      "sql": "CREATE TABLE store_blobs (\n\tdigest TEXT PRIMARY KEY,\n\tsize INTEGER NOT NULL CHECK (size >= 0),\n\tstate TEXT NOT NULL ,\n\tcreated_at INTEGER NOT NULL,\n\tlast_used_at INTEGER NOT NULL\n)",
+      "columns": [
+        "digest",
+        "size",
+        "state",
+        "created_at",
+        "last_used_at"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "store_instance_files",
+      "domain": "storage",
+      "sql": "CREATE TABLE store_instance_files (\n\tinstance_id TEXT NOT NULL,\n\trelative_path TEXT NOT NULL,\n\tdigest TEXT NOT NULL,\n\tcreated_at INTEGER NOT NULL,\n\tmodified_at INTEGER NOT NULL,\n\tPRIMARY KEY (instance_id, relative_path),\n\tFOREIGN KEY (digest) REFERENCES store_blobs(digest) ON DELETE RESTRICT\n)",
+      "columns": [
+        "instance_id",
+        "relative_path",
+        "digest",
+        "created_at",
+        "modified_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "store_blobs",
+          "columns": [
+            {
+              "child": "digest",
+              "parent": "digest"
+            }
+          ],
+          "on_delete": "RESTRICT",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "store_retained_refs",
+      "domain": "storage",
+      "sql": "CREATE TABLE store_retained_refs (\n\tdigest TEXT NOT NULL,\n\treason TEXT NOT NULL,\n\tcreated_at INTEGER NOT NULL,\n\tPRIMARY KEY (digest, reason),\n\tFOREIGN KEY (digest) REFERENCES store_blobs(digest) ON DELETE CASCADE\n)",
+      "columns": [
+        "digest",
+        "reason",
+        "created_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "store_blobs",
+          "columns": [
+            {
+              "child": "digest",
+              "parent": "digest"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "store_operations",
+      "domain": "storage",
+      "sql": "CREATE TABLE store_operations (\n\tid TEXT PRIMARY KEY,\n\tdigest TEXT NOT NULL,\n\tinstance_id TEXT,\n\trelative_path TEXT,\n\tstate TEXT NOT NULL ,\n\tcreated_at INTEGER NOT NULL,\n\tupdated_at INTEGER NOT NULL\n)",
+      "columns": [
+        "id",
+        "digest",
+        "instance_id",
+        "relative_path",
+        "state",
+        "created_at",
+        "updated_at"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "resources",
+      "domain": "instances",
+      "sql": "CREATE TABLE resources (\n    id TEXT PRIMARY KEY NOT NULL,\n    redirect_to TEXT REFERENCES resources(id),\n    created_at INTEGER NOT NULL DEFAULT (unixepoch()),\n    CHECK (redirect_to IS NULL OR redirect_to <> id)\n)",
+      "columns": [
+        "id",
+        "redirect_to",
+        "created_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "resources",
+          "columns": [
+            {
+              "child": "redirect_to",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "NO ACTION",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_source_projects",
+      "domain": "instances",
+      "sql": "CREATE TABLE resource_source_projects (\n    source TEXT NOT NULL,\n    project_id TEXT NOT NULL,\n    resource_id TEXT NOT NULL DEFAULT (lower(hex(randomblob(16)))),\n    PRIMARY KEY (source, project_id),\n    FOREIGN KEY (resource_id) REFERENCES resources(id) DEFERRABLE INITIALLY DEFERRED\n)",
+      "columns": [
+        "source",
+        "project_id",
+        "resource_id"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "resources",
+          "columns": [
+            {
+              "child": "resource_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "NO ACTION",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_source_types",
+      "domain": "instances",
+      "sql": "CREATE TABLE resource_source_types (\n    source TEXT NOT NULL,\n    project_id TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    PRIMARY KEY (source, project_id, content_type),\n    FOREIGN KEY (source, project_id) REFERENCES resource_source_projects(source, project_id)\n)",
+      "columns": [
+        "source",
+        "project_id",
+        "content_type"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "resource_source_projects",
+          "columns": [
+            {
+              "child": "source",
+              "parent": "source"
+            },
+            {
+              "child": "project_id",
+              "parent": "project_id"
+            }
+          ],
+          "on_delete": "NO ACTION",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_aliases",
+      "domain": "instances",
+      "sql": "CREATE TABLE resource_aliases (\n    source TEXT NOT NULL,\n    alias TEXT NOT NULL,\n    project_id TEXT NOT NULL,\n    PRIMARY KEY (source, alias, project_id),\n    FOREIGN KEY (source, project_id) REFERENCES resource_source_projects(source, project_id)\n)",
+      "columns": [
+        "source",
+        "alias",
+        "project_id"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "resource_source_projects",
+          "columns": [
+            {
+              "child": "source",
+              "parent": "source"
+            },
+            {
+              "child": "project_id",
+              "parent": "project_id"
+            }
+          ],
+          "on_delete": "NO ACTION",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_identity_evidence",
+      "domain": "instances",
+      "sql": "CREATE TABLE resource_identity_evidence (\n    evidence_id TEXT PRIMARY KEY NOT NULL,\n    resource_id TEXT NOT NULL REFERENCES resources(id),\n    payload TEXT NOT NULL,\n    confirmed_at INTEGER NOT NULL\n)",
+      "columns": [
+        "evidence_id",
+        "resource_id",
+        "payload",
+        "confirmed_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "resources",
+          "columns": [
+            {
+              "child": "resource_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "NO ACTION",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_preferences",
+      "domain": "configuration",
+      "sql": "CREATE TABLE resource_preferences (\n    id INTEGER PRIMARY KEY CHECK (id = 1),\n    preferred_source TEXT NOT NULL\n)",
+      "columns": [
+        "id",
+        "preferred_source"
+      ],
+      "foreign_keys": [],
+      "seeds": [
+        "INSERT OR IGNORE INTO \"resource_preferences\" VALUES (1,'modrinth')"
+      ]
+    },
+    {
+      "name": "resource_favorites",
+      "domain": "instances",
+      "sql": "CREATE TABLE resource_favorites (\n    source TEXT NOT NULL,\n    project_id TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    saved_at INTEGER NOT NULL,\n    PRIMARY KEY (source, project_id),\n    FOREIGN KEY (source, project_id) REFERENCES resource_source_projects(source, project_id)\n)",
+      "columns": [
+        "source",
+        "project_id",
+        "content_type",
+        "saved_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "resource_source_projects",
+          "columns": [
+            {
+              "child": "source",
+              "parent": "source"
+            },
+            {
+              "child": "project_id",
+              "parent": "project_id"
+            }
+          ],
+          "on_delete": "NO ACTION",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_operation_plans",
+      "domain": "operations",
+      "sql": "CREATE TABLE resource_operation_plans (\n    id TEXT PRIMARY KEY NOT NULL,\n    instance_id TEXT NOT NULL,\n    revision INTEGER NOT NULL CHECK (revision > 0),\n    payload TEXT NOT NULL,\n    job_id TEXT UNIQUE REFERENCES install_jobs(id),\n    queued INTEGER NOT NULL DEFAULT 0 CHECK (queued IN (0, 1)),\n    completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1)),\n    created_at INTEGER NOT NULL DEFAULT (unixepoch())\n)",
+      "columns": [
+        "id",
+        "instance_id",
+        "revision",
+        "payload",
+        "job_id",
+        "queued",
+        "completed",
+        "created_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "install_jobs",
+          "columns": [
+            {
+              "child": "job_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "NO ACTION",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_installed_artifacts",
+      "domain": "instances",
+      "sql": "CREATE TABLE resource_installed_artifacts (\n    entry_id TEXT PRIMARY KEY NOT NULL REFERENCES instance_content_entries(id) ON DELETE CASCADE,\n    artifact TEXT NOT NULL,\n    scope TEXT NOT NULL\n)",
+      "columns": [
+        "entry_id",
+        "artifact",
+        "scope"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_content_entries",
+          "columns": [
+            {
+              "child": "entry_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_history",
+      "domain": "instances",
+      "sql": "CREATE TABLE resource_history (\n    id TEXT PRIMARY KEY NOT NULL,\n    instance_id TEXT NOT NULL REFERENCES instances(id) ON DELETE CASCADE,\n    entry_id TEXT NOT NULL,\n    recorded_at INTEGER NOT NULL,\n    payload TEXT NOT NULL,\n    backup_relative_path TEXT,\n    backup_size INTEGER,\n    backup_sha1 TEXT,\n    backup_available INTEGER NOT NULL DEFAULT 0 CHECK (backup_available IN (0, 1))\n)",
+      "columns": [
+        "id",
+        "instance_id",
+        "entry_id",
+        "recorded_at",
+        "payload",
+        "backup_relative_path",
+        "backup_size",
+        "backup_sha1",
+        "backup_available"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_history_cleanup_plans",
+      "domain": "operations",
+      "sql": "CREATE TABLE resource_history_cleanup_plans (\n    id TEXT PRIMARY KEY NOT NULL,\n    instance_id TEXT NOT NULL,\n    revision INTEGER NOT NULL,\n    payload TEXT NOT NULL,\n    consumed INTEGER NOT NULL DEFAULT 0 CHECK (consumed IN (0, 1))\n)",
+      "columns": [
+        "id",
+        "instance_id",
+        "revision",
+        "payload",
+        "consumed"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_execution_journals",
+      "domain": "operations",
+      "sql": "CREATE TABLE resource_execution_journals (\n    plan_id TEXT PRIMARY KEY NOT NULL REFERENCES resource_operation_plans(id) ON DELETE CASCADE,\n    payload TEXT NOT NULL\n)",
+      "columns": [
+        "plan_id",
+        "payload"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "resource_operation_plans",
+          "columns": [
+            {
+              "child": "plan_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_entry_graphs",
+      "domain": "operations",
+      "sql": "CREATE TABLE resource_entry_graphs (\n    entry_id TEXT PRIMARY KEY NOT NULL,\n    nodes TEXT NOT NULL,\n    edges TEXT NOT NULL\n)",
+      "columns": [
+        "entry_id",
+        "nodes",
+        "edges"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_content_entries",
+          "columns": [
+            {
+              "child": "entry_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_pack_unlinks",
+      "domain": "instances",
+      "sql": "CREATE TABLE resource_pack_unlinks (\n    instance_id TEXT PRIMARY KEY NOT NULL REFERENCES instances(id) ON DELETE CASCADE,\n    content_set_id TEXT NOT NULL REFERENCES instance_content_sets(id) ON DELETE CASCADE,\n    unlinked_at INTEGER NOT NULL\n)",
+      "columns": [
+        "instance_id",
+        "content_set_id",
+        "unlinked_at"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_content_sets",
+          "columns": [
+            {
+              "child": "content_set_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "resource_legacy_rollback_journals",
+      "domain": "operations",
+      "sql": "CREATE TABLE resource_legacy_rollback_journals (\n    instance_id TEXT PRIMARY KEY,\n    payload TEXT NOT NULL\n)",
+      "columns": [
+        "instance_id",
+        "payload"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "content_file_operations",
+      "domain": "operations",
+      "sql": "CREATE TABLE content_file_operations (\n    instance_id TEXT PRIMARY KEY,\n    payload TEXT NOT NULL,\n    committed INTEGER NOT NULL DEFAULT 0 CHECK (committed IN (0, 1))\n)",
+      "columns": [
+        "instance_id",
+        "payload",
+        "committed"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instances",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "RESTRICT",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "content_update_jobs",
+      "domain": "operations",
+      "sql": "CREATE TABLE content_update_jobs (\n    plan_id TEXT PRIMARY KEY NOT NULL,\n    job_id TEXT REFERENCES install_jobs(id) ON DELETE SET NULL\n)",
+      "columns": [
+        "plan_id",
+        "job_id"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "install_jobs",
+          "columns": [
+            {
+              "child": "job_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "SET NULL",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "content_file_fingerprints",
+      "domain": "instances",
+      "sql": "CREATE TABLE content_file_fingerprints (\n    instance_id TEXT NOT NULL,\n    file_id TEXT NOT NULL,\n    payload TEXT NOT NULL,\n    PRIMARY KEY (instance_id, file_id),\n    FOREIGN KEY (instance_id, file_id)\n        REFERENCES instance_files(instance_id, id) ON DELETE CASCADE\n)",
+      "columns": [
+        "instance_id",
+        "file_id",
+        "payload"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_files",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "instance_id"
+            },
+            {
+              "child": "file_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "content_refresh_checks",
+      "domain": "instances",
+      "sql": "CREATE TABLE content_refresh_checks (\n    instance_id TEXT NOT NULL,\n    entry_id TEXT NOT NULL,\n    file_id TEXT NOT NULL,\n    payload TEXT NOT NULL,\n    PRIMARY KEY (instance_id, entry_id),\n    FOREIGN KEY (instance_id, entry_id)\n        REFERENCES instance_content_entries(instance_id, id) ON DELETE CASCADE,\n    FOREIGN KEY (instance_id, file_id)\n        REFERENCES instance_files(instance_id, id) ON DELETE CASCADE\n)",
+      "columns": [
+        "instance_id",
+        "entry_id",
+        "file_id",
+        "payload"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_files",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "instance_id"
+            },
+            {
+              "child": "file_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        },
+        {
+          "parent": "instance_content_entries",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "instance_id"
+            },
+            {
+              "child": "entry_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "content_refresh_presentations",
+      "domain": "instances",
+      "sql": "CREATE TABLE content_refresh_presentations (\n    instance_id TEXT NOT NULL,\n    file_id TEXT NOT NULL,\n    payload TEXT NOT NULL,\n    PRIMARY KEY (instance_id, file_id),\n    FOREIGN KEY (instance_id, file_id)\n        REFERENCES instance_files(instance_id, id) ON DELETE CASCADE\n)",
+      "columns": [
+        "instance_id",
+        "file_id",
+        "payload"
+      ],
+      "foreign_keys": [
+        {
+          "parent": "instance_files",
+          "columns": [
+            {
+              "child": "instance_id",
+              "parent": "instance_id"
+            },
+            {
+              "child": "file_id",
+              "parent": "id"
+            }
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "seeds": []
+    },
+    {
+      "name": "scheduler_tags",
+      "domain": "operations",
+      "sql": "CREATE TABLE scheduler_tags (\n    id INTEGER PRIMARY KEY,\n    generation INTEGER NOT NULL,\n    level TEXT NOT NULL ,\n    origin TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n)",
+      "columns": [
+        "id",
+        "generation",
+        "level",
+        "origin",
+        "owner",
+        "created_at"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    },
+    {
+      "name": "scheduler_restart_budget",
+      "domain": "operations",
+      "sql": "CREATE TABLE scheduler_restart_budget (\n    scope TEXT PRIMARY KEY NOT NULL,\n    failures INTEGER NOT NULL DEFAULT 0 CHECK (failures >= 0),\n    first_failure_at INTEGER,\n    revoked INTEGER NOT NULL DEFAULT 0 CHECK (revoked IN (0, 1)),\n    updated_at INTEGER NOT NULL\n)",
+      "columns": [
+        "scope",
+        "failures",
+        "first_failure_at",
+        "revoked",
+        "updated_at"
+      ],
+      "foreign_keys": [],
+      "seeds": []
+    }
+  ],
+  "objects": [
+    {
+      "kind": "trigger",
+      "name": "custom_minecraft_skin_texture_delete_cleanup",
+      "table": "custom_minecraft_skins",
+      "sql": "CREATE TRIGGER custom_minecraft_skin_texture_delete_cleanup\n    AFTER DELETE ON custom_minecraft_skins FOR EACH ROW\n    BEGIN\n        DELETE FROM custom_minecraft_skin_textures WHERE texture_key NOT IN (\n            SELECT texture_key FROM custom_minecraft_skins\n        );\n    END"
+    },
+    {
+      "kind": "index",
+      "name": "custom_minecraft_skins_one_per_texture",
+      "table": "custom_minecraft_skins",
+      "sql": "CREATE UNIQUE INDEX custom_minecraft_skins_one_per_texture\n    ON custom_minecraft_skins (minecraft_user_uuid, texture_key)"
+    },
+    {
+      "kind": "index",
+      "name": "custom_minecraft_skins_user_display_order",
+      "table": "custom_minecraft_skins",
+      "sql": "CREATE INDEX custom_minecraft_skins_user_display_order\n\tON custom_minecraft_skins (minecraft_user_uuid, display_order)"
+    },
+    {
+      "kind": "index",
+      "name": "instances_path",
+      "table": "instances",
+      "sql": "CREATE INDEX instances_path ON instances(path)"
+    },
+    {
+      "kind": "index",
+      "name": "instances_applied_content_set_id",
+      "table": "instances",
+      "sql": "CREATE INDEX instances_applied_content_set_id\n\tON instances(applied_content_set_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_links_link_kind",
+      "table": "instance_links",
+      "sql": "CREATE INDEX instance_links_link_kind ON instance_links(link_kind)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_links_modrinth_project_id",
+      "table": "instance_links",
+      "sql": "CREATE INDEX instance_links_modrinth_project_id\n\tON instance_links(modrinth_project_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_links_server_project_id",
+      "table": "instance_links",
+      "sql": "CREATE INDEX instance_links_server_project_id\n\tON instance_links(server_project_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_links_hosting_server_id",
+      "table": "instance_links",
+      "sql": "CREATE INDEX instance_links_hosting_server_id\n\tON instance_links(hosting_server_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_links_hosting_active_instance_id",
+      "table": "instance_links",
+      "sql": "CREATE INDEX instance_links_hosting_active_instance_id\n\tON instance_links(hosting_active_instance_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_links_shared_instance_id",
+      "table": "instance_links",
+      "sql": "CREATE INDEX instance_links_shared_instance_id\n\tON instance_links(shared_instance_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_groups_group_name",
+      "table": "instance_groups",
+      "sql": "CREATE INDEX instance_groups_group_name ON instance_groups(group_name)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_sets_instance_id",
+      "table": "instance_content_sets",
+      "sql": "CREATE INDEX instance_content_sets_instance_id\n\tON instance_content_sets(instance_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_set_remote_refs_ref",
+      "table": "instance_content_set_remote_refs",
+      "sql": "CREATE INDEX instance_content_set_remote_refs_ref\n\tON instance_content_set_remote_refs(ref_type, ref_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_set_sync_state_provider",
+      "table": "instance_content_set_sync_state",
+      "sql": "CREATE INDEX instance_content_set_sync_state_provider\n\tON instance_content_set_sync_state(provider)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_set_sync_state_latest_available_update_id",
+      "table": "instance_content_set_sync_state",
+      "sql": "CREATE INDEX instance_content_set_sync_state_latest_available_update_id\n\tON instance_content_set_sync_state(latest_available_update_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_files_instance_id",
+      "table": "instance_files",
+      "sql": "CREATE INDEX instance_files_instance_id ON instance_files(instance_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_files_sha1",
+      "table": "instance_files",
+      "sql": "CREATE INDEX instance_files_sha1 ON instance_files(sha1)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_files_missing",
+      "table": "instance_files",
+      "sql": "CREATE INDEX instance_files_missing ON instance_files(missing)"
+    },
+    {
+      "kind": "index",
+      "name": "join_log_instance_id",
+      "table": "join_log",
+      "sql": "CREATE INDEX join_log_instance_id ON join_log(instance_id)"
+    },
+    {
+      "kind": "index",
+      "name": "attached_world_data_instance_id",
+      "table": "attached_world_data",
+      "sql": "CREATE INDEX attached_world_data_instance_id\n\tON attached_world_data(instance_id)"
+    },
+    {
+      "kind": "index",
+      "name": "install_jobs_instance_id",
+      "table": "install_jobs",
+      "sql": "CREATE INDEX install_jobs_instance_id ON install_jobs(instance_id)"
+    },
+    {
+      "kind": "index",
+      "name": "install_jobs_status",
+      "table": "install_jobs",
+      "sql": "CREATE INDEX install_jobs_status ON install_jobs(status)"
+    },
+    {
+      "kind": "index",
+      "name": "install_jobs_finished",
+      "table": "install_jobs",
+      "sql": "CREATE INDEX install_jobs_finished ON install_jobs(finished)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_links_curseforge_project_id",
+      "table": "instance_links",
+      "sql": "CREATE INDEX instance_links_curseforge_project_id\n\tON instance_links(curseforge_project_id)"
+    },
+    {
+      "kind": "index",
+      "name": "install_jobs_provider",
+      "table": "install_jobs",
+      "sql": "CREATE INDEX install_jobs_provider ON install_jobs(provider)"
+    },
+    {
+      "kind": "index",
+      "name": "install_job_items_job_id",
+      "table": "install_job_items",
+      "sql": "CREATE INDEX install_job_items_job_id ON install_job_items(job_id)"
+    },
+    {
+      "kind": "index",
+      "name": "install_job_items_status",
+      "table": "install_job_items",
+      "sql": "CREATE INDEX install_job_items_status ON install_job_items(status)"
+    },
+    {
+      "kind": "index",
+      "name": "idx_java_versions_major_version",
+      "table": "java_versions",
+      "sql": "CREATE INDEX idx_java_versions_major_version ON java_versions(major_version)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_daily_playtime_played_on",
+      "table": "instance_daily_playtime",
+      "sql": "CREATE INDEX instance_daily_playtime_played_on\n\tON instance_daily_playtime(played_on)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_entries_instance_id",
+      "table": "instance_content_entries",
+      "sql": "CREATE INDEX instance_content_entries_instance_id\n\tON instance_content_entries(instance_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_entries_content_set_id",
+      "table": "instance_content_entries",
+      "sql": "CREATE INDEX instance_content_entries_content_set_id\n\tON instance_content_entries(content_set_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_entries_file_id",
+      "table": "instance_content_entries",
+      "sql": "CREATE INDEX instance_content_entries_file_id\n\tON instance_content_entries(file_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_entries_source_kind",
+      "table": "instance_content_entries",
+      "sql": "CREATE INDEX instance_content_entries_source_kind\n\tON instance_content_entries(source_kind)"
+    },
+    {
+      "kind": "index",
+      "name": "java_versions_major_version_path",
+      "table": "java_versions",
+      "sql": "CREATE UNIQUE INDEX java_versions_major_version_path\n\tON java_versions(major_version, path)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_entries_ownership_kind",
+      "table": "instance_content_entries",
+      "sql": "CREATE INDEX instance_content_entries_ownership_kind\n\tON instance_content_entries(content_set_id, ownership_kind)"
+    },
+    {
+      "kind": "index",
+      "name": "telemetry_outbox_retry",
+      "table": "telemetry_outbox",
+      "sql": "CREATE INDEX telemetry_outbox_retry\n\tON telemetry_outbox (next_attempt_at, created_at)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_entries_auto_dependency",
+      "table": "instance_content_entries",
+      "sql": "CREATE INDEX instance_content_entries_auto_dependency\n\tON instance_content_entries(content_set_id, auto_dependency)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_entries_dependency_backfilled",
+      "table": "instance_content_entries",
+      "sql": "CREATE INDEX instance_content_entries_dependency_backfilled\n\tON instance_content_entries(content_set_id, dependency_backfilled)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_loader_components_primary",
+      "table": "instance_loader_components",
+      "sql": "CREATE UNIQUE INDEX instance_loader_components_primary\n\tON instance_loader_components(instance_id)\n\tWHERE role = 'primary'"
+    },
+    {
+      "kind": "index",
+      "name": "instance_loader_components_kind",
+      "table": "instance_loader_components",
+      "sql": "CREATE INDEX instance_loader_components_kind\n\tON instance_loader_components(kind)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_update_checks_release",
+      "table": "instance_content_update_checks",
+      "sql": "CREATE INDEX instance_content_update_checks_release\n\tON instance_content_update_checks(provider, provider_release_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_pack_members_content_set",
+      "table": "instance_pack_members",
+      "sql": "CREATE INDEX instance_pack_members_content_set\n\tON instance_pack_members(content_set_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_pack_members_content_entry",
+      "table": "instance_pack_members",
+      "sql": "CREATE INDEX instance_pack_members_content_entry\n\tON instance_pack_members(content_entry_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_pack_members_provider",
+      "table": "instance_pack_members",
+      "sql": "CREATE INDEX instance_pack_members_provider\n\tON instance_pack_members(provider, provider_project_id, provider_release_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_pack_members_state",
+      "table": "instance_pack_members",
+      "sql": "CREATE INDEX instance_pack_members_state\n\tON instance_pack_members(content_set_id, materialization_state)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_pending_manual_download_identity",
+      "table": "instance_pending_manual_downloads",
+      "sql": "CREATE UNIQUE INDEX instance_pending_manual_download_identity\n\tON instance_pending_manual_downloads(\n\t\tinstance_id, operation_kind, provider, provider_project_id,\n\t\tprovider_release_id\n\t)\n\tWHERE state IN ('waiting', 'matched')"
+    },
+    {
+      "kind": "index",
+      "name": "instance_pending_manual_downloads_instance_state",
+      "table": "instance_pending_manual_downloads",
+      "sql": "CREATE INDEX instance_pending_manual_downloads_instance_state\n\tON instance_pending_manual_downloads(instance_id, state)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_dependencies_child",
+      "table": "instance_content_dependencies",
+      "sql": "CREATE INDEX instance_content_dependencies_child\n\tON instance_content_dependencies(content_set_id, child_entry_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_dependencies_parent",
+      "table": "instance_content_dependencies",
+      "sql": "CREATE INDEX instance_content_dependencies_parent\n\tON instance_content_dependencies(content_set_id, parent_entry_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_dependencies_child_project",
+      "table": "instance_content_dependencies",
+      "sql": "CREATE INDEX instance_content_dependencies_child_project\n\tON instance_content_dependencies(child_provider, child_project_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_provider_refs_project",
+      "table": "instance_content_provider_refs",
+      "sql": "CREATE INDEX instance_content_provider_refs_project\n\tON instance_content_provider_refs(provider, provider_project_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_provider_refs_release",
+      "table": "instance_content_provider_refs",
+      "sql": "CREATE INDEX instance_content_provider_refs_release\n\tON instance_content_provider_refs(provider, provider_release_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_provider_refs_file",
+      "table": "instance_content_provider_refs",
+      "sql": "CREATE INDEX instance_content_provider_refs_file\n\tON instance_content_provider_refs(provider, provider_file_id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_provider_refs_identity",
+      "table": "instance_content_provider_refs",
+      "sql": "CREATE UNIQUE INDEX instance_content_provider_refs_identity\n\tON instance_content_provider_refs(\n\t\tcontent_entry_id,\n\t\tprovider,\n\t\tprovider_project_id,\n\t\tCOALESCE(provider_release_id, ''),\n\t\tCOALESCE(provider_file_id, '')\n\t)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_provider_refs_origin",
+      "table": "instance_content_provider_refs",
+      "sql": "CREATE UNIQUE INDEX instance_content_provider_refs_origin\n\tON instance_content_provider_refs(content_entry_id)\n\tWHERE is_origin = 1"
+    },
+    {
+      "kind": "index",
+      "name": "shared_logs_created_at_idx",
+      "table": "shared_logs",
+      "sql": "CREATE INDEX shared_logs_created_at_idx ON shared_logs (created_at DESC)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_sync_preferences_feature_enabled",
+      "table": "instance_sync_preferences",
+      "sql": "CREATE INDEX instance_sync_preferences_feature_enabled\n\tON instance_sync_preferences (feature, enabled)"
+    },
+    {
+      "kind": "trigger",
+      "name": "record_game_option_locale_origin",
+      "table": "synced_game_option_values",
+      "sql": "CREATE TRIGGER record_game_option_locale_origin\nAFTER INSERT ON synced_game_option_values\nBEGIN\n\tINSERT INTO game_option_locale_origins\n\t\t(scope, option_id, source_instance_id, source_game_version)\n\tVALUES ('', NEW.option_id, NEW.source_instance_id, NEW.source_game_version)\n\tON CONFLICT(scope, option_id) DO NOTHING;\nEND"
+    },
+    {
+      "kind": "index",
+      "name": "screenshots_instance_id",
+      "table": "screenshots",
+      "sql": "CREATE INDEX screenshots_instance_id ON screenshots(instance_id)"
+    },
+    {
+      "kind": "index",
+      "name": "screenshots_instance_hash",
+      "table": "screenshots",
+      "sql": "CREATE INDEX screenshots_instance_hash ON screenshots(instance_id, content_hash, file_size)"
+    },
+    {
+      "kind": "index",
+      "name": "screenshot_groups_display_order",
+      "table": "screenshot_groups",
+      "sql": "CREATE INDEX screenshot_groups_display_order ON screenshot_groups(display_order)"
+    },
+    {
+      "kind": "index",
+      "name": "screenshot_group_memberships_group_id",
+      "table": "screenshot_group_memberships",
+      "sql": "CREATE INDEX screenshot_group_memberships_group_id ON screenshot_group_memberships(group_id)"
+    },
+    {
+      "kind": "index",
+      "name": "synced_pack_catalog_type",
+      "table": "synced_pack_catalog",
+      "sql": "CREATE INDEX synced_pack_catalog_type ON synced_pack_catalog(project_type, modified_at)"
+    },
+    {
+      "kind": "index",
+      "name": "synced_pack_instances_instance",
+      "table": "synced_pack_instances",
+      "sql": "CREATE INDEX synced_pack_instances_instance ON synced_pack_instances(instance_id, excluded)"
+    },
+    {
+      "kind": "index",
+      "name": "minecraft_users_uuid",
+      "table": "minecraft_users",
+      "sql": "CREATE INDEX minecraft_users_uuid ON minecraft_users(uuid)"
+    },
+    {
+      "kind": "trigger",
+      "name": "custom_minecraft_skins_user_uuid_insert_check",
+      "table": "custom_minecraft_skins",
+      "sql": "CREATE TRIGGER custom_minecraft_skins_user_uuid_insert_check\n\tBEFORE INSERT ON custom_minecraft_skins FOR EACH ROW\n\tBEGIN\n\t\tSELECT CASE WHEN NOT EXISTS (\n\t\t\tSELECT 1 FROM minecraft_users WHERE uuid = NEW.minecraft_user_uuid\n\t\t) THEN RAISE(ABORT, 'Cannot add a custom skin for an unknown Minecraft user UUID') END;\n\tEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "custom_minecraft_skins_user_uuid_update_check",
+      "table": "custom_minecraft_skins",
+      "sql": "CREATE TRIGGER custom_minecraft_skins_user_uuid_update_check\n\tBEFORE UPDATE ON custom_minecraft_skins FOR EACH ROW\n\tBEGIN\n\t\tSELECT CASE WHEN NOT EXISTS (\n\t\t\tSELECT 1 FROM minecraft_users WHERE uuid = NEW.minecraft_user_uuid\n\t\t) THEN RAISE(ABORT, 'Cannot change a custom skin to refer to an unknown Minecraft user UUID') END;\n\tEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "custom_minecraft_skins_user_uuid_update_cascade",
+      "table": "minecraft_users",
+      "sql": "CREATE TRIGGER custom_minecraft_skins_user_uuid_update_cascade\n\tAFTER UPDATE OF uuid ON minecraft_users FOR EACH ROW\n\tBEGIN\n\t\tUPDATE custom_minecraft_skins\n\t\tSET minecraft_user_uuid = NEW.uuid\n\t\tWHERE minecraft_user_uuid = OLD.uuid;\n\tEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "offline_minecraft_skins_user_uuid_insert_check",
+      "table": "offline_minecraft_skins",
+      "sql": "CREATE TRIGGER offline_minecraft_skins_user_uuid_insert_check\n\tBEFORE INSERT ON offline_minecraft_skins FOR EACH ROW\n\tBEGIN\n\t\tSELECT CASE WHEN NOT EXISTS (\n\t\t\tSELECT 1 FROM minecraft_users WHERE uuid = NEW.minecraft_user_uuid\n\t\t) THEN RAISE(ABORT, 'Cannot add an offline skin for an unknown Minecraft user UUID') END;\n\tEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "offline_minecraft_skins_user_uuid_update_check",
+      "table": "offline_minecraft_skins",
+      "sql": "CREATE TRIGGER offline_minecraft_skins_user_uuid_update_check\n\tBEFORE UPDATE ON offline_minecraft_skins FOR EACH ROW\n\tBEGIN\n\t\tSELECT CASE WHEN NOT EXISTS (\n\t\t\tSELECT 1 FROM minecraft_users WHERE uuid = NEW.minecraft_user_uuid\n\t\t) THEN RAISE(ABORT, 'Cannot change an offline skin to refer to an unknown Minecraft user UUID') END;\n\tEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "offline_minecraft_skins_user_uuid_update_cascade",
+      "table": "minecraft_users",
+      "sql": "CREATE TRIGGER offline_minecraft_skins_user_uuid_update_cascade\n\tAFTER UPDATE OF uuid ON minecraft_users FOR EACH ROW\n\tBEGIN\n\t\tUPDATE offline_minecraft_skins\n\t\tSET minecraft_user_uuid = NEW.uuid\n\t\tWHERE minecraft_user_uuid = OLD.uuid;\n\tEND"
+    },
+    {
+      "kind": "index",
+      "name": "store_blobs_retention",
+      "table": "store_blobs",
+      "sql": "CREATE INDEX store_blobs_retention ON store_blobs(state, last_used_at)"
+    },
+    {
+      "kind": "index",
+      "name": "store_instance_files_digest",
+      "table": "store_instance_files",
+      "sql": "CREATE INDEX store_instance_files_digest ON store_instance_files(digest)"
+    },
+    {
+      "kind": "index",
+      "name": "store_operations_state",
+      "table": "store_operations",
+      "sql": "CREATE INDEX store_operations_state ON store_operations(state, updated_at)"
+    },
+    {
+      "kind": "index",
+      "name": "resource_source_projects_resource",
+      "table": "resource_source_projects",
+      "sql": "CREATE INDEX resource_source_projects_resource ON resource_source_projects(resource_id)"
+    },
+    {
+      "kind": "view",
+      "name": "resource_instance_pack_projects",
+      "table": "resource_instance_pack_projects",
+      "sql": "CREATE VIEW resource_instance_pack_projects AS\nSELECT instance_id, 'modrinth' AS source, modrinth_project_id AS project_id, modrinth_version_id AS release_id\nFROM instance_links WHERE link_kind = 'modrinth_modpack'\nUNION ALL\nSELECT instance_id, 'modrinth', content_project_id, content_version_id\nFROM instance_links WHERE link_kind = 'server_project_modpack'\nUNION ALL\nSELECT instance_id, 'curseforge', CAST(curseforge_project_id AS TEXT), CAST(curseforge_file_id AS TEXT)\nFROM instance_links WHERE link_kind = 'curseforge_modpack'"
+    },
+    {
+      "kind": "view",
+      "name": "resource_entry_links",
+      "table": "resource_entry_links",
+      "sql": "CREATE VIEW resource_entry_links AS\nSELECT ref.id AS reference_id, ref.content_entry_id AS entry_id, ref.is_origin,\n    project.resource_id, ref.provider AS source, ref.provider_project_id AS project_id,\n    ref.provider_release_id AS release_id, ref.provider_file_id AS artifact_id\nFROM instance_content_provider_refs ref\nJOIN resource_source_projects project\n    ON project.source = ref.provider AND project.project_id = ref.provider_project_id"
+    },
+    {
+      "kind": "view",
+      "name": "resource_pack_links",
+      "table": "resource_pack_links",
+      "sql": "CREATE VIEW resource_pack_links AS\nSELECT member.id AS member_id, project.resource_id\nFROM instance_pack_members member\nJOIN resource_source_projects project\n    ON project.source = member.provider AND project.project_id = member.provider_project_id"
+    },
+    {
+      "kind": "view",
+      "name": "resource_instance_pack_links",
+      "table": "resource_instance_pack_links",
+      "sql": "CREATE VIEW resource_instance_pack_links AS\nSELECT pack.instance_id, project.resource_id\nFROM resource_instance_pack_projects pack\nJOIN resource_source_projects project ON project.source = pack.source AND project.project_id = pack.project_id"
+    },
+    {
+      "kind": "trigger",
+      "name": "resource_instance_content_provider_refs_insert",
+      "table": "instance_content_provider_refs",
+      "sql": "CREATE TRIGGER resource_instance_content_provider_refs_insert\nAFTER INSERT ON instance_content_provider_refs\nBEGIN\n    INSERT INTO resource_source_projects(source, project_id)\n    SELECT DISTINCT legacy.source, legacy.project_id FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_projects known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id);\n    INSERT INTO resources(id)\n    SELECT project.resource_id FROM resource_source_projects project\n    WHERE project.source = NEW.provider AND project.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resources known WHERE known.id = project.resource_id);\n    INSERT INTO resource_source_types(source, project_id, content_type)\n    SELECT legacy.source, legacy.project_id, legacy.content_type FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_types known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id AND known.content_type = legacy.content_type);\nEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "resource_instance_content_provider_refs_update",
+      "table": "instance_content_provider_refs",
+      "sql": "CREATE TRIGGER resource_instance_content_provider_refs_update\nAFTER UPDATE ON instance_content_provider_refs\nBEGIN\n    INSERT INTO resource_source_projects(source, project_id)\n    SELECT DISTINCT legacy.source, legacy.project_id FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_projects known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id);\n    INSERT INTO resources(id)\n    SELECT project.resource_id FROM resource_source_projects project\n    WHERE project.source = NEW.provider AND project.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resources known WHERE known.id = project.resource_id);\n    INSERT INTO resource_source_types(source, project_id, content_type)\n    SELECT legacy.source, legacy.project_id, legacy.content_type FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_types known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id AND known.content_type = legacy.content_type);\nEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "resource_instance_pack_members_insert",
+      "table": "instance_pack_members",
+      "sql": "CREATE TRIGGER resource_instance_pack_members_insert\nAFTER INSERT ON instance_pack_members\nBEGIN\n    INSERT INTO resource_source_projects(source, project_id)\n    SELECT DISTINCT legacy.source, legacy.project_id FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_projects known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id);\n    INSERT INTO resources(id)\n    SELECT project.resource_id FROM resource_source_projects project\n    WHERE project.source = NEW.provider AND project.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resources known WHERE known.id = project.resource_id);\n    INSERT INTO resource_source_types(source, project_id, content_type)\n    SELECT legacy.source, legacy.project_id, legacy.content_type FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_types known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id AND known.content_type = legacy.content_type);\nEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "resource_instance_pack_members_update",
+      "table": "instance_pack_members",
+      "sql": "CREATE TRIGGER resource_instance_pack_members_update\nAFTER UPDATE ON instance_pack_members\nBEGIN\n    INSERT INTO resource_source_projects(source, project_id)\n    SELECT DISTINCT legacy.source, legacy.project_id FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_projects known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id);\n    INSERT INTO resources(id)\n    SELECT project.resource_id FROM resource_source_projects project\n    WHERE project.source = NEW.provider AND project.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resources known WHERE known.id = project.resource_id);\n    INSERT INTO resource_source_types(source, project_id, content_type)\n    SELECT legacy.source, legacy.project_id, legacy.content_type FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_types known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id AND known.content_type = legacy.content_type);\nEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "resource_instance_pending_manual_downloads_insert",
+      "table": "instance_pending_manual_downloads",
+      "sql": "CREATE TRIGGER resource_instance_pending_manual_downloads_insert\nAFTER INSERT ON instance_pending_manual_downloads\nBEGIN\n    INSERT INTO resource_source_projects(source, project_id)\n    SELECT DISTINCT legacy.source, legacy.project_id FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_projects known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id);\n    INSERT INTO resources(id)\n    SELECT project.resource_id FROM resource_source_projects project\n    WHERE project.source = NEW.provider AND project.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resources known WHERE known.id = project.resource_id);\n    INSERT INTO resource_source_types(source, project_id, content_type)\n    SELECT legacy.source, legacy.project_id, legacy.content_type FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_types known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id AND known.content_type = legacy.content_type);\nEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "resource_instance_pending_manual_downloads_update",
+      "table": "instance_pending_manual_downloads",
+      "sql": "CREATE TRIGGER resource_instance_pending_manual_downloads_update\nAFTER UPDATE ON instance_pending_manual_downloads\nBEGIN\n    INSERT INTO resource_source_projects(source, project_id)\n    SELECT DISTINCT legacy.source, legacy.project_id FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_projects known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id);\n    INSERT INTO resources(id)\n    SELECT project.resource_id FROM resource_source_projects project\n    WHERE project.source = NEW.provider AND project.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resources known WHERE known.id = project.resource_id);\n    INSERT INTO resource_source_types(source, project_id, content_type)\n    SELECT legacy.source, legacy.project_id, legacy.content_type FROM resource_legacy_projects legacy\n    WHERE legacy.source = NEW.provider AND legacy.project_id = NEW.provider_project_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_types known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id AND known.content_type = legacy.content_type);\nEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "resource_instance_links_insert",
+      "table": "instance_links",
+      "sql": "CREATE TRIGGER resource_instance_links_insert\nAFTER INSERT ON instance_links\nBEGIN\n    INSERT INTO resource_source_projects(source, project_id)\n    SELECT DISTINCT legacy.source, legacy.project_id FROM resource_legacy_projects legacy\n    JOIN resource_instance_pack_projects pack ON pack.source = legacy.source AND pack.project_id = legacy.project_id\n    WHERE pack.instance_id = NEW.instance_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_projects known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id);\n    INSERT INTO resources(id)\n    SELECT project.resource_id FROM resource_source_projects project\n    JOIN resource_instance_pack_projects pack ON pack.source = project.source AND pack.project_id = project.project_id\n    WHERE pack.instance_id = NEW.instance_id\n        AND NOT EXISTS (SELECT 1 FROM resources known WHERE known.id = project.resource_id);\n    INSERT INTO resource_source_types(source, project_id, content_type)\n    SELECT legacy.source, legacy.project_id, legacy.content_type FROM resource_legacy_projects legacy\n    JOIN resource_instance_pack_projects pack ON pack.source = legacy.source AND pack.project_id = legacy.project_id\n    WHERE pack.instance_id = NEW.instance_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_types known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id AND known.content_type = legacy.content_type);\nEND"
+    },
+    {
+      "kind": "trigger",
+      "name": "resource_instance_links_update",
+      "table": "instance_links",
+      "sql": "CREATE TRIGGER resource_instance_links_update\nAFTER UPDATE ON instance_links\nBEGIN\n    INSERT INTO resource_source_projects(source, project_id)\n    SELECT DISTINCT legacy.source, legacy.project_id FROM resource_legacy_projects legacy\n    JOIN resource_instance_pack_projects pack ON pack.source = legacy.source AND pack.project_id = legacy.project_id\n    WHERE pack.instance_id = NEW.instance_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_projects known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id);\n    INSERT INTO resources(id)\n    SELECT project.resource_id FROM resource_source_projects project\n    JOIN resource_instance_pack_projects pack ON pack.source = project.source AND pack.project_id = project.project_id\n    WHERE pack.instance_id = NEW.instance_id\n        AND NOT EXISTS (SELECT 1 FROM resources known WHERE known.id = project.resource_id);\n    INSERT INTO resource_source_types(source, project_id, content_type)\n    SELECT legacy.source, legacy.project_id, legacy.content_type FROM resource_legacy_projects legacy\n    JOIN resource_instance_pack_projects pack ON pack.source = legacy.source AND pack.project_id = legacy.project_id\n    WHERE pack.instance_id = NEW.instance_id\n        AND NOT EXISTS (SELECT 1 FROM resource_source_types known\n            WHERE known.source = legacy.source AND known.project_id = legacy.project_id AND known.content_type = legacy.content_type);\nEND"
+    },
+    {
+      "kind": "index",
+      "name": "resource_history_entry",
+      "table": "resource_history",
+      "sql": "CREATE INDEX resource_history_entry ON resource_history(instance_id, entry_id, recorded_at DESC)"
+    },
+    {
+      "kind": "trigger",
+      "name": "resource_install_job_delete",
+      "table": "install_jobs",
+      "sql": "CREATE TRIGGER resource_install_job_delete\nBEFORE DELETE ON install_jobs\nBEGIN\n    UPDATE resource_operation_plans SET job_id = NULL WHERE job_id = OLD.id;\nEND"
+    },
+    {
+      "kind": "index",
+      "name": "resource_pending_download_project",
+      "table": "instance_pending_manual_downloads",
+      "sql": "CREATE INDEX resource_pending_download_project\nON instance_pending_manual_downloads(provider, provider_project_id, project_type)"
+    },
+    {
+      "kind": "index",
+      "name": "resource_link_modrinth_project",
+      "table": "instance_links",
+      "sql": "CREATE INDEX resource_link_modrinth_project\nON instance_links(link_kind, modrinth_project_id)"
+    },
+    {
+      "kind": "index",
+      "name": "resource_link_content_project",
+      "table": "instance_links",
+      "sql": "CREATE INDEX resource_link_content_project\nON instance_links(link_kind, content_project_id)"
+    },
+    {
+      "kind": "index",
+      "name": "resource_link_curseforge_project",
+      "table": "instance_links",
+      "sql": "CREATE INDEX resource_link_curseforge_project\nON instance_links(link_kind, CAST(curseforge_project_id AS TEXT))"
+    },
+    {
+      "kind": "index",
+      "name": "instance_files_instance_identity",
+      "table": "instance_files",
+      "sql": "CREATE UNIQUE INDEX instance_files_instance_identity\n    ON instance_files(instance_id, id)"
+    },
+    {
+      "kind": "index",
+      "name": "instance_content_entries_instance_identity",
+      "table": "instance_content_entries",
+      "sql": "CREATE UNIQUE INDEX instance_content_entries_instance_identity\n    ON instance_content_entries(instance_id, id)"
+    },
+    {
+      "kind": "index",
+      "name": "content_refresh_checks_file",
+      "table": "content_refresh_checks",
+      "sql": "CREATE INDEX content_refresh_checks_file\n    ON content_refresh_checks(instance_id, file_id)"
+    },
+    {
+      "kind": "view",
+      "name": "resource_legacy_projects",
+      "table": "resource_legacy_projects",
+      "sql": "CREATE VIEW resource_legacy_projects AS\nSELECT DISTINCT source, project_id, content_type FROM (\n    SELECT ref.provider AS source, ref.provider_project_id AS project_id, entry.project_type AS content_type\n    FROM instance_content_provider_refs ref\n    JOIN instance_content_entries entry ON entry.id = ref.content_entry_id\n    UNION ALL\n    SELECT provider, provider_project_id, project_type FROM instance_pack_members\n    UNION ALL\n    SELECT provider, provider_project_id, project_type FROM instance_pending_manual_downloads\n    UNION ALL\n    SELECT source, project_id, 'modpack' FROM resource_instance_pack_projects\n)\nWHERE\n    (source = 'modrinth' AND length(project_id) = 8 AND project_id NOT GLOB '*[^a-zA-Z0-9]*')\n    OR (source = 'curseforge' AND project_id NOT GLOB '*[^0-9]*'\n        AND CAST(project_id AS INTEGER) BETWEEN 1 AND 4294967295\n        AND CAST(CAST(project_id AS INTEGER) AS TEXT) = project_id)\n    OR (source = 'mcarchive' AND length(project_id) = 36\n        AND substr(project_id, 9, 1) = '-' AND substr(project_id, 14, 1) = '-'\n        AND substr(project_id, 19, 1) = '-' AND substr(project_id, 24, 1) = '-'\n        AND length(replace(project_id, '-', '')) = 32\n        AND replace(project_id, '-', '') NOT GLOB '*[^a-fA-F0-9]*')"
+    },
+    {
+      "kind": "view",
+      "name": "resource_favorite_links",
+      "table": "resource_favorite_links",
+      "sql": "CREATE VIEW resource_favorite_links AS\nSELECT favorite.source AS source, favorite.project_id, project.resource_id,\n    favorite.content_type, favorite.saved_at\nFROM resource_favorites favorite\nJOIN resource_source_projects project\n    ON project.source = favorite.source AND project.project_id = favorite.project_id"
+    },
+    {
+      "kind": "index",
+      "name": "scheduler_tags_owner",
+      "table": "scheduler_tags",
+      "sql": "CREATE INDEX scheduler_tags_owner ON scheduler_tags (owner)"
+    }
+  ]
+}

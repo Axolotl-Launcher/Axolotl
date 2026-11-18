@@ -496,7 +496,7 @@ async fn confirmed_merges_keep_old_ids_alias_ambiguity_favorites_and_cache_indep
         .fetch_one(&pool)
         .await
         .unwrap(),
-        1
+        0
     );
     assert_eq!(store.resolve(&left_id).await.unwrap(), Some(winner.clone()));
     assert_eq!(
@@ -571,7 +571,7 @@ async fn confirmed_merges_keep_old_ids_alias_ambiguity_favorites_and_cache_indep
         .fetch_one(&pool)
         .await
         .unwrap(),
-        2
+        0
     );
     assert!(
         sqlx::query("PRAGMA foreign_key_check")

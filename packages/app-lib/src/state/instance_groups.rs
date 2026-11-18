@@ -14,10 +14,11 @@ use crate::state::instances::adapters::sqlite::instance_groups as legacy_groups;
 use crate::state::instances::adapters::sqlite::instance_groups::LegacyGroups;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+#[cfg(test)]
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{OnceLock, RwLock};
-use tracing::{info, warn};
+use tracing::warn;
 
 pub const INSTANCE_GROUPS_FILE_NAME: &str = "instance_groups.json";
 
@@ -27,7 +28,7 @@ pub const INSTANCE_GROUPS_SCHEMA_VERSION: u32 = 1;
 pub const FAVORITES_GROUP_ID: &str = "group:favorites";
 const FAVORITES_GROUP_NAME: &str = "Pinned";
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GroupDefinition {
     pub id: String,
     pub name: String,
@@ -36,7 +37,7 @@ pub struct GroupDefinition {
 /// On-disk shape. The order of `groups` *is* the display order, so no
 /// `display_order` field is needed: the public API only ever communicates
 /// ordering through the order of `list()` and `set_order()`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InstanceGroupsFile {
     #[serde(default)]
     pub schema_version: u32,
@@ -118,7 +119,9 @@ impl InstanceGroupsFile {
     }
 }
 
-static STORE: OnceLock<RwLock<InstanceGroupsFile>> = OnceLock::new();
+static FILE_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+static STORE: OnceLock<RwLock<Option<InstanceGroupsFile>>> = OnceLock::new();
 
 fn file_path() -> Option<PathBuf> {
     let state = State::get_if_initialized()?;
@@ -126,68 +129,94 @@ fn file_path() -> Option<PathBuf> {
         state
             .directories
             .settings_dir
-            .join(INSTANCE_GROUPS_FILE_NAME),
+            .join(crate::state::layout::INSTANCE_GROUPS),
     )
 }
 
-/// Reads the store from disk, or `None` when it has never been written.
-fn read_from_disk() -> Option<InstanceGroupsFile> {
-    let path = file_path()?;
-    if !path.exists() {
-        return None;
-    }
-    match fs::read_to_string(&path)
-        .map_err(|e| e.to_string())
-        .and_then(|content| {
-            serde_json::from_str::<InstanceGroupsFile>(&content)
-                .map_err(|e| e.to_string())
-        }) {
-        Ok(mut file) => {
-            file.normalize();
-            Some(file)
-        }
+fn read_from_disk(path: &Path) -> crate::Result<Option<InstanceGroupsFile>> {
+    let file = crate::state::persistence::read_group_file::<InstanceGroupsFile>(
+        path,
+        INSTANCE_GROUPS_SCHEMA_VERSION,
+    )?;
+    Ok(file.map(|mut file| {
+        file.normalize();
+        file
+    }))
+}
+
+fn load_for_display(path: &Path) -> Option<InstanceGroupsFile> {
+    match read_from_disk(path) {
+        Ok(file) => Some(file.unwrap_or_default()),
         Err(error) => {
-            // A corrupt file must not wipe the user's groups silently on the
-            // next write, so bail out to an empty store without touching disk.
-            warn!("Failed to read {INSTANCE_GROUPS_FILE_NAME}: {error}");
+            warn!(%error, file = INSTANCE_GROUPS_FILE_NAME, "Could not load groups");
             None
         }
     }
 }
 
-fn write_to_disk(file: &InstanceGroupsFile) -> crate::Result<()> {
-    let state = State::get_if_initialized().ok_or_else(|| {
-        crate::ErrorKind::InputError(
-            "Instance group store is not initialized".to_string(),
-        )
-    })?;
-    let path = state
-        .directories
-        .settings_dir
-        .join(INSTANCE_GROUPS_FILE_NAME);
-    fs::write(path, serde_json::to_string_pretty(file)?)?;
-    Ok(())
+/// Freeze the on-disk authority under the same lock used by every writer.
+/// Preserve the original bytes, including fields from newer readers.
+pub(crate) fn snapshot(
+    root: &std::path::Path,
+) -> crate::Result<Option<Vec<u8>>> {
+    let _guard = FILE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let path = root.join(crate::state::layout::INSTANCE_GROUPS);
+    match crate::state::persistence::document::snapshot_json(&path)? {
+        Some(bytes) => Ok(Some(bytes)),
+        None => crate::state::persistence::document::snapshot_json(&root.join(
+            format!("{}.previous", crate::state::layout::INSTANCE_GROUPS),
+        )),
+    }
 }
 
-fn store() -> &'static RwLock<InstanceGroupsFile> {
-    STORE.get_or_init(|| RwLock::new(read_from_disk().unwrap_or_default()))
+fn store(path: &Path) -> &'static RwLock<Option<InstanceGroupsFile>> {
+    STORE.get_or_init(|| RwLock::new(load_for_display(path)))
 }
 
 fn with_read<T>(f: impl FnOnce(&InstanceGroupsFile) -> T) -> T {
-    let guard = store().read().unwrap_or_else(|e| e.into_inner());
-    f(&guard)
+    if let Some(path) = file_path() {
+        let guard = store(&path).read().unwrap_or_else(|e| e.into_inner());
+        if let Some(file) = guard.as_ref() {
+            return f(file);
+        }
+    }
+    f(&InstanceGroupsFile::default())
 }
 
-/// Mutates the store and persists the whole file. `f` returns the instance ids
-/// whose membership changed, so callers can emit the change event.
-fn with_write<T>(f: impl FnOnce(&mut InstanceGroupsFile) -> T) -> T {
-    let mut guard = store().write().unwrap_or_else(|e| e.into_inner());
-    let result = f(&mut guard);
-    guard.normalize();
-    if let Err(error) = write_to_disk(&guard) {
-        warn!("Failed to save {INSTANCE_GROUPS_FILE_NAME}: {error}");
-    }
-    result
+fn with_write<T>(
+    f: impl FnOnce(&mut InstanceGroupsFile) -> T,
+) -> crate::Result<T> {
+    try_with_write(|file| Ok(f(file)))
+}
+
+fn try_with_write<T>(
+    f: impl FnOnce(&mut InstanceGroupsFile) -> crate::Result<T>,
+) -> crate::Result<T> {
+    crate::state::store::recovery_mode::ensure_state_writable()?;
+    let path = file_path();
+    let uninitialized = RwLock::new(None);
+    let cache = match &path {
+        Some(path) => store(path),
+        None => &uninitialized,
+    };
+    write_group_file(cache, path.as_deref(), f)
+}
+
+fn write_group_file<T>(
+    cache: &RwLock<Option<InstanceGroupsFile>>,
+    path: Option<&Path>,
+    f: impl FnOnce(&mut InstanceGroupsFile) -> crate::Result<T>,
+) -> crate::Result<T> {
+    crate::state::persistence::edit_group_file(
+        cache,
+        &FILE_ACCESS,
+        path,
+        read_from_disk,
+        InstanceGroupsFile::normalize,
+        f,
+    )
 }
 
 // ── Reads ───────────────────────────────────────────────────────────────────
@@ -226,7 +255,7 @@ fn instances_in_group(
 
 /// Adds a group at the top of the list, matching the previous SQL behavior
 /// where new groups got the lowest `display_order`. Favorites stays first.
-pub fn create(id: &str, name: &str) {
+pub fn create(id: &str, name: &str) -> crate::Result<()> {
     with_write(|file| {
         let definition = GroupDefinition {
             id: id.to_string(),
@@ -234,12 +263,12 @@ pub fn create(id: &str, name: &str) {
         };
         // `normalize` moves favorites back to index 0 afterwards.
         file.groups.insert(0, definition);
-    });
+    })
 }
 
 /// Renames a group, returning the affected instance ids, or `None` when the
 /// group does not exist.
-pub fn rename(id: &str, name: &str) -> Option<Vec<String>> {
+pub fn rename(id: &str, name: &str) -> crate::Result<Option<Vec<String>>> {
     with_write(|file| {
         let group = file.groups.iter_mut().find(|group| group.id == id)?;
         group.name = name.to_string();
@@ -249,7 +278,7 @@ pub fn rename(id: &str, name: &str) -> Option<Vec<String>> {
 
 /// Deletes a group and strips it from every instance, returning the affected
 /// instance ids, or `None` when the group does not exist.
-pub fn delete(id: &str) -> Option<Vec<String>> {
+pub fn delete(id: &str) -> crate::Result<Option<Vec<String>>> {
     with_write(|file| {
         let index = file.groups.iter().position(|group| group.id == id)?;
         let affected = instances_in_group(file, id);
@@ -262,8 +291,8 @@ pub fn delete(id: &str) -> Option<Vec<String>> {
 /// Reorders groups to match `group_ids`. Groups missing from the argument keep
 /// their relative order at the end, so a stale frontend list can never drop a
 /// group. Favorites is pinned first regardless.
-pub fn set_order(group_ids: &[String]) {
-    with_write(|file| reorder_groups(&mut file.groups, group_ids));
+pub fn set_order(group_ids: &[String]) -> crate::Result<()> {
+    with_write(|file| reorder_groups(&mut file.groups, group_ids))
 }
 
 /// Reorders `groups` to match `group_ids`. Groups the argument omits keep their
@@ -287,8 +316,26 @@ fn reorder_groups(groups: &mut Vec<GroupDefinition>, group_ids: &[String]) {
 }
 
 /// Replaces the group list of each given instance wholesale.
-pub fn set_memberships(updates: &[(String, Vec<String>)]) {
-    with_write(|file| {
+pub fn set_memberships(updates: &[(String, Vec<String>)]) -> crate::Result<()> {
+    replace_memberships(updates, false)
+}
+
+pub(crate) fn set_memberships_checked(
+    updates: &[(String, Vec<String>)],
+) -> crate::Result<()> {
+    replace_memberships(updates, true)
+}
+
+fn replace_memberships(
+    updates: &[(String, Vec<String>)],
+    validate: bool,
+) -> crate::Result<()> {
+    try_with_write(|file| {
+        if validate {
+            for id in updates.iter().flat_map(|(_, ids)| ids) {
+                require_group(file, id)?;
+            }
+        }
         for (instance_id, group_ids) in updates {
             if group_ids.is_empty() {
                 file.memberships.remove(instance_id);
@@ -297,12 +344,26 @@ pub fn set_memberships(updates: &[(String, Vec<String>)]) {
                     .insert(instance_id.clone(), group_ids.clone());
             }
         }
-    });
+        Ok(())
+    })
+}
+
+fn require_group(file: &InstanceGroupsFile, id: &str) -> crate::Result<()> {
+    if !file.has_group(id) {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Unknown instance group {id}"
+        ))
+        .into());
+    }
+    Ok(())
 }
 
 /// Replaces the group list of a single instance.
-pub fn set_instance_groups(instance_id: &str, group_ids: &[String]) {
-    set_memberships(&[(instance_id.to_string(), group_ids.to_vec())]);
+pub fn set_instance_groups(
+    instance_id: &str,
+    group_ids: &[String],
+) -> crate::Result<()> {
+    set_memberships(&[(instance_id.to_string(), group_ids.to_vec())])
 }
 
 /// Applies relationship changes under the store's write lock, preserving all
@@ -310,30 +371,22 @@ pub fn set_instance_groups(instance_id: &str, group_ids: &[String]) {
 pub fn update_memberships(
     updates: &[(String, Vec<String>, Vec<String>)],
 ) -> crate::Result<()> {
-    let mut guard = store().write().unwrap_or_else(|e| e.into_inner());
-    let mut file = guard.clone();
-    for (_, added, removed) in updates {
-        for id in added.iter().chain(removed) {
-            if !file.has_group(id) {
-                return Err(crate::ErrorKind::InputError(format!(
-                    "Unknown instance group {id}"
-                ))
-                .into());
+    try_with_write(|file| {
+        for (_, added, removed) in updates {
+            for id in added.iter().chain(removed) {
+                require_group(file, id)?;
             }
         }
-    }
-    for (instance_id, added, removed) in updates {
-        file.update_membership(instance_id, added, removed);
-    }
-    file.normalize();
-    write_to_disk(&file)?;
-    *guard = file;
-    Ok(())
+        for (instance_id, added, removed) in updates {
+            file.update_membership(instance_id, added, removed);
+        }
+        Ok(())
+    })
 }
 
 /// Looks a group up by name, creating it if absent, and returns its id.
 /// Used by the legacy launcher import, which only knows group names.
-pub fn find_or_create_by_name(name: &str) -> String {
+pub fn find_or_create_by_name(name: &str) -> crate::Result<String> {
     with_write(|file| {
         if let Some(group) = file.groups.iter().find(|group| group.name == name)
         {
@@ -349,30 +402,33 @@ pub fn find_or_create_by_name(name: &str) -> String {
 }
 
 /// Adds one group to an instance, keeping its existing groups.
-pub fn add_instance_to_group(instance_id: &str, group_id: &str) {
+pub fn add_instance_to_group(
+    instance_id: &str,
+    group_id: &str,
+) -> crate::Result<()> {
     with_write(|file| {
         file.update_membership(instance_id, &[group_id.to_string()], &[]);
-    });
+    })
 }
 
 /// Drops an instance's membership entry, e.g. after the instance is deleted.
-pub fn forget_instance(instance_id: &str) {
+pub fn forget_instance(instance_id: &str) -> crate::Result<()> {
     with_write(|file| {
         file.memberships.remove(instance_id);
-    });
+    })
 }
 
 /// Re-keys an instance's membership, e.g. when a `local:` id changes because the
 /// instance directory moved.
-pub fn rename_instance(old_id: &str, new_id: &str) {
+pub fn rename_instance(old_id: &str, new_id: &str) -> crate::Result<()> {
     if old_id == new_id {
-        return;
+        return Ok(());
     }
     with_write(|file| {
         if let Some(group_ids) = file.memberships.remove(old_id) {
             file.memberships.insert(new_id.to_string(), group_ids);
         }
-    });
+    })
 }
 
 // ── One-time import ─────────────────────────────────────────────────────────
@@ -433,6 +489,30 @@ async fn import_sql_groups(
     Ok(file)
 }
 
+/// Import a preserved legacy image before the compact core stops exposing its
+/// grouping tables. Existing documents always take precedence.
+pub(crate) async fn import_from_pool(
+    pool: &sqlx::SqlitePool,
+    root: &std::path::Path,
+) -> crate::Result<()> {
+    let path = root.join(crate::state::layout::INSTANCE_GROUPS);
+    for candidate in [&path, &path.with_extension("json.previous")] {
+        match tokio::fs::symlink_metadata(candidate).await {
+            Ok(_) => return Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    let file = import_sql_groups(pool).await?;
+    // Startup publishes atomically before runtime writers are available, so a
+    // snapshot sees either absence or a complete file without holding STORE.
+    crate::state::persistence::document::write_json(
+        &path,
+        serde_json::to_vec_pretty(&file)?,
+    )
+    .await
+}
+
 /// Creates `instance_groups.json` from the pre-existing SQLite tables and
 /// instance sidecars, the first time the app runs after this change.
 ///
@@ -443,30 +523,10 @@ pub async fn ensure_imported(state: &State) -> crate::Result<()> {
     let Some(path) = file_path() else {
         return Ok(());
     };
-    if path.exists() {
-        // Populate the in-memory cache eagerly so the first synchronous read
-        // does not race with a write.
-        let _ = list();
-        return Ok(());
-    }
-
-    let file = import_sql_groups(&state.pool).await?;
-    let group_count = file.groups.len();
-    let instance_count = file.memberships.len();
-
-    // Seed the cache with the imported data instead of letting `store()` read
-    // the file we are about to write.
-    {
-        let lock = store();
-        let mut guard = lock.write().unwrap_or_else(|e| e.into_inner());
-        *guard = file;
-        write_to_disk(&guard)?;
-    }
-
-    info!(
-        "Imported {group_count} instance groups covering {instance_count} instances into {INSTANCE_GROUPS_FILE_NAME}"
-    );
-
+    import_from_pool(&state.pool, &state.directories.settings_dir).await?;
+    let mut cached = store(&path).write().unwrap_or_else(|e| e.into_inner());
+    let _file_guard = FILE_ACCESS.lock().unwrap_or_else(|e| e.into_inner());
+    *cached = load_for_display(&path);
     Ok(())
 }
 
@@ -474,6 +534,19 @@ pub async fn ensure_imported(state: &State) -> crate::Result<()> {
 mod tests {
     use super::*;
     use sqlx::sqlite::SqlitePoolOptions;
+
+    #[test]
+    fn unchanged_membership_needs_no_publication_but_real_changes_need_a_store()
+    {
+        assert!(State::get_if_initialized().is_none());
+        let before = with_read(Clone::clone);
+        forget_instance("ungrouped-instance").unwrap();
+        update_memberships(&[("ungrouped-instance".into(), vec![], vec![])])
+            .unwrap();
+        assert_eq!(with_read(Clone::clone), before);
+        assert!(create("new-group", "Needs persistence").is_err());
+        assert_eq!(with_read(Clone::clone), before);
+    }
 
     fn file_with_groups(ids: &[&str]) -> InstanceGroupsFile {
         InstanceGroupsFile {
@@ -487,6 +560,80 @@ mod tests {
                 .collect(),
             memberships: HashMap::new(),
         }
+    }
+
+    #[test]
+    fn truncated_group_document_stays_read_only_until_repaired() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(crate::state::layout::INSTANCE_GROUPS);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let truncated = br#"{"schema_version":1,"groups":[{"id":"keep""#;
+        fs::write(&path, truncated).unwrap();
+        let cache = RwLock::new(load_for_display(&path));
+        let result = write_group_file(&cache, Some(&path), |file| {
+            file.groups.push(GroupDefinition {
+                id: "new".into(),
+                name: "New group".into(),
+            });
+            Ok(())
+        });
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("editing is disabled")
+        );
+        assert!(cache.read().unwrap().is_none());
+        assert_eq!(fs::read(&path).unwrap(), truncated);
+
+        fs::write(
+            &path,
+            serde_json::to_vec(&file_with_groups(&["keep"])).unwrap(),
+        )
+        .unwrap();
+        write_group_file(&cache, Some(&path), |file| {
+            file.update_membership("instance", &["keep".into()], &[]);
+            Ok(())
+        })
+        .unwrap();
+        let file = read_from_disk(&path).unwrap().unwrap();
+        assert_eq!(file.memberships["instance"], ["keep"]);
+    }
+
+    #[test]
+    fn snapshot_waits_for_the_complete_standalone_write() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(crate::state::layout::INSTANCE_GROUPS);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let guard = FILE_ACCESS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        fs::write(&path, b"{").unwrap();
+        let (sent, received) = std::sync::mpsc::channel();
+        let (started, start) = std::sync::mpsc::channel();
+        let directory = root.path().to_owned();
+        let reader = std::thread::spawn(move || {
+            started.send(()).unwrap();
+            sent.send(snapshot(&directory).unwrap()).unwrap();
+        });
+        start.recv().unwrap();
+        assert!(
+            received
+                .recv_timeout(std::time::Duration::from_millis(50))
+                .is_err()
+        );
+        fs::write(&path, br#"{"schema_version":99,"future":"retained"}"#)
+            .unwrap();
+        drop(guard);
+        let bytes = received
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&bytes).unwrap()["future"],
+            "retained"
+        );
+        reader.join().unwrap();
     }
 
     #[test]

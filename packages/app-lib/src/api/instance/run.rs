@@ -82,9 +82,14 @@ async fn run_with_extra_launch_args_inner(
         )
         .into());
     }
+    let state = State::get().await?;
+    crate::state::recovery::coordinator::before_launch(
+        std::sync::Arc::clone(&state),
+        instance_id,
+    )
+    .await;
     let _maintenance_guard =
         crate::api::instance::lock_instance_maintenance(instance_id).await;
-    let state = State::get().await?;
     let launch_preparation_timeout =
         crate::state::instances::commands::get_instance_launch_context(
             instance_id,
@@ -151,8 +156,10 @@ async fn run_credentials(
     launch_preparation_timeout: u64,
 ) -> crate::Result<(ProcessMetadata, Option<GcLaunchReport>)> {
     let state = State::get().await?;
-    if let Err(error) =
-        crate::api::instance::sync_game_options_before_launch(instance_id).await
+    if crate::state::store::recovery_mode::root(&state.pool).is_none()
+        && let Err(error) =
+            crate::api::instance::sync_game_options_before_launch(instance_id)
+                .await
     {
         tracing::warn!(
             "Failed to reconcile game options before launching {instance_id}: {error}"
@@ -172,6 +179,7 @@ async fn run_credentials(
         })?;
 
     if offline_mode
+        && !crate::state::recovery::coordinator::fail_ok(instance_id)
         && context.instance.install_stage != InstanceInstallStage::Installed
     {
         return Err(crate::ErrorKind::LauncherError(
@@ -281,11 +289,13 @@ async fn run_credentials(
         mc_set_options.push(("fullscreen".to_string(), "true".to_string()));
     }
 
-    crate::api::instance::apply_game_options_launcher_overrides(
-        instance_id,
-        &mc_set_options,
-    )
-    .await?;
+    if crate::state::store::recovery_mode::root(&state.pool).is_none() {
+        crate::api::instance::apply_game_options_launcher_overrides(
+            instance_id,
+            &mc_set_options,
+        )
+        .await?;
+    }
 
     if offline_mode {
         crate::minecraft_skins::flush_pending_skin_change_for_profile(

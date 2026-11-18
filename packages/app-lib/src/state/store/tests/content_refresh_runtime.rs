@@ -229,10 +229,9 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         .await
         .unwrap();
     finished(&state).await;
-    let successful =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let successful = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     let records = content_snapshot::get(&state.data, "instance")
         .await
         .unwrap();
@@ -252,7 +251,7 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         relative_path: "resourcepacks/recovered.zip".into(),
     };
     ContentRefreshScanFailures::upsert(
-        &state.derived,
+        state.resource_cache(),
         &key,
         &ScanFailureRecord {
             attempted_at: chrono::Utc::now().timestamp(),
@@ -268,7 +267,7 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         .unwrap();
     finished(&state).await;
     assert!(
-        ContentRefreshScanFailures::failed(&state.derived, "instance")
+        ContentRefreshScanFailures::failed(state.resource_cache(), "instance")
             .await
             .unwrap()
             .iter()
@@ -293,16 +292,15 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         .unwrap();
     finished(&state).await;
     assert!(
-        !ContentRefreshScanFailures::failed(&state.derived, "instance")
+        !ContentRefreshScanFailures::failed(state.resource_cache(), "instance")
             .await
             .unwrap()
             .iter()
             .any(|(stored, _)| stored == &key)
     );
-    let after =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let after = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert_eq!(after.len(), successful.len() + 1);
     for (key, record) in successful {
         assert_eq!(
@@ -450,10 +448,9 @@ async fn exact_saved_provider_references_skip_unnecessary_hash_identification()
         .await
         .unwrap();
     finished(&state).await;
-    let checks =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let checks = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert_eq!(checks.len(), 2);
     assert!(
         checks
@@ -578,10 +575,9 @@ async fn all_refresh_content_kinds_recover_candidates_and_reuse_hashes() {
                 .unwrap()
                 .background_failed
         );
-        let checks =
-            ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-                .await
-                .unwrap();
+        let checks = ContentRefreshChecks::get_scoped(&state.data, "instance")
+            .await
+            .unwrap();
         assert_eq!(checks.len(), 2);
         assert_eq!(
             state
@@ -687,12 +683,13 @@ async fn failed_database_commit_never_publishes_and_retry_revisits_only_unsaved_
         presentation: None,
         artifact: None,
     };
-    sqlx::query("CREATE TRIGGER reject_refresh_result BEFORE INSERT ON content_refresh_checks BEGIN SELECT RAISE(FAIL, 'simulated write failure'); END").execute(&state.pool).await.unwrap();
+    sqlx::query("CREATE TRIGGER reject_refresh_result BEFORE INSERT ON content_evidence WHEN NEW.kind='check' BEGIN SELECT RAISE(FAIL, 'simulated write failure'); END").execute(state.resource_cache().pool().unwrap()).await.unwrap();
     let mut events = state.content_refresh.subscribe();
+    let generation = state.resource_cache().generation().await;
     assert!(
         state
             .content_refresh
-            .save(&state, "instance", &task.id, vec![write])
+            .save(&state, "instance", &task.id, vec![write], generation)
             .await
             .is_err()
     );
@@ -719,7 +716,7 @@ async fn failed_database_commit_never_publishes_and_retry_revisits_only_unsaved_
             .contains("fast")
     );
     sqlx::query("DROP TRIGGER reject_refresh_result")
-        .execute(&state.pool)
+        .execute(state.resource_cache().pool().unwrap())
         .await
         .unwrap();
     state
@@ -877,10 +874,9 @@ async fn fast_results_are_saved_before_slow_work_finishes_and_survive_unsubscrib
     provider.hold_slow.store(false, Ordering::SeqCst);
     provider.slow.notify_waiters();
     finished(&state).await;
-    let saved =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let saved = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert_eq!(saved.len(), 2);
     assert!(saved.iter().all(|(_, check)| {
         check.last_success.as_ref().unwrap().candidate.is_some()
@@ -974,10 +970,9 @@ async fn repeat_requests_join_and_force_remote_bypasses_recent_success_without_r
         .unwrap();
     finished(&state).await;
     assert!(provider.queries.load(Ordering::SeqCst) > before);
-    let saved =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let saved = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert!(
         saved
             .iter()
@@ -995,6 +990,7 @@ async fn conditional_result_writes_reject_changed_files_and_changed_target() {
         .await
         .unwrap();
     let mut context = RefreshCheckContext {
+        content_revision: Some(records.content_set.revision),
         location_key: location_key(&records.instance),
         content_root: "root".into(),
         sha1: sha1_smol::Sha1::from(b"old").hexdigest(),
@@ -1022,8 +1018,9 @@ async fn conditional_result_writes_reject_changed_files_and_changed_target() {
         presentation: None,
         artifact: None,
     };
+    let generation = state.resource_cache().generation().await;
     assert_eq!(
-        set_results(&state.data, "instance", vec![write.clone()])
+        set_results(&state.data, "instance", vec![write.clone()], generation)
             .await
             .unwrap()
             .len(),
@@ -1035,7 +1032,7 @@ async fn conditional_result_writes_reject_changed_files_and_changed_target() {
         ..write.clone()
     };
     assert!(
-        set_results(&state.data, "instance", vec![invalid])
+        set_results(&state.data, "instance", vec![invalid], generation)
             .await
             .unwrap()
             .is_empty()
@@ -1046,7 +1043,7 @@ async fn conditional_result_writes_reject_changed_files_and_changed_target() {
         .await
         .unwrap();
     assert!(
-        set_results(&state.data, "instance", vec![write])
+        set_results(&state.data, "instance", vec![write], generation)
             .await
             .unwrap()
             .is_empty()
@@ -1082,10 +1079,9 @@ async fn shutdown_cancels_the_active_check_and_preserves_already_saved_results()
             .unwrap()
             .running
     );
-    let saved =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let saved = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert!(saved.iter().any(|(key, check)| key.entry_id == "fast"
         && check.last_success.as_ref().unwrap().candidate.is_some()));
     assert!(!saved.iter().any(|(key, _)| key.entry_id == "slow"));
@@ -1131,10 +1127,9 @@ async fn a_disk_edit_during_network_work_cannot_publish_a_candidate_for_the_old_
     provider.hold_slow.store(false, Ordering::SeqCst);
     provider.slow.notify_waiters();
     finished(&state).await;
-    let saved =
-        ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
-            .await
-            .unwrap();
+    let saved = ContentRefreshChecks::get_scoped(&state.data, "instance")
+        .await
+        .unwrap();
     assert!(!saved.iter().any(|(key, _)| key.entry_id == "slow"));
     state.content_refresh.shutdown().await;
     state.pool.close().await;
@@ -1278,7 +1273,7 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
     let (_temp, state, _) = fixture().await;
     let records = content_snapshot::get_with_saved_pack(
         &state.data,
-        &state.derived,
+        state.resource_cache(),
         "instance",
     )
     .await
@@ -1314,12 +1309,12 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
         110,
         &Err(crate::ErrorKind::InputError("offline".into()).into()),
     );
-    ContentRefreshPacks::upsert(&state.derived, &key, &failed)
+    ContentRefreshPacks::upsert(state.resource_cache(), &key, &failed)
         .await
         .unwrap();
     let restored = content_snapshot::get_with_saved_pack(
         &state.data,
-        &state.derived,
+        state.resource_cache(),
         "instance",
     )
     .await
@@ -1346,10 +1341,10 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
     ));
     let recovered =
         pack_attempt(Some(restored), location, link, 120, &Ok(None));
-    ContentRefreshPacks::upsert(&state.derived, &key, &recovered)
+    ContentRefreshPacks::upsert(state.resource_cache(), &key, &recovered)
         .await
         .unwrap();
-    let restored = ContentRefreshPacks::saved(&state.derived, &key)
+    let restored = ContentRefreshPacks::saved(state.resource_cache(), &key)
         .await
         .unwrap()
         .unwrap();

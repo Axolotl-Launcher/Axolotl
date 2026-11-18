@@ -750,10 +750,10 @@ pub(super) fn sort_content_items(items: &mut [ContentItem]) {
 
 pub(super) async fn get_cached_modpack_identifiers(
     version_id: &str,
-    handle: &Handle,
+    cache: &crate::resources::cache::ResourceCache,
 ) -> crate::Result<Option<ModpackIdentifiers>> {
     let Some(cached) =
-        CachedEntry::get_modpack_files(version_id, handle).await?
+        CachedEntry::get_modpack_files(version_id, cache).await?
     else {
         return Ok(None);
     };
@@ -775,8 +775,10 @@ pub(super) async fn get_modpack_identifiers(
     fetch_semaphore: &FetchSemaphore,
 ) -> crate::Result<ModpackIdentifiers> {
     let _cache_usage = crate::storage::usage::lease().await?;
+    let cache = state.resource_cache();
+    let cache_generation = cache.generation().await;
     if let Some(cached) =
-        CachedEntry::get_modpack_files(version_id, &state.cache_handle())
+        CachedEntry::get_modpack_files(version_id, state.resource_cache())
             .await?
     {
         if !cached.project_ids.is_empty() {
@@ -805,6 +807,8 @@ pub(super) async fn get_modpack_identifiers(
             .into_iter()
             .collect::<Vec<_>>();
         CachedEntry::cache_modpack_files(
+            cache,
+            cache_generation,
             version_id,
             cached.file_hashes.clone(),
             project_ids.clone(),
@@ -939,6 +943,8 @@ pub(super) async fn get_modpack_identifiers(
     }
 
     CachedEntry::cache_modpack_files(
+        cache,
+        cache_generation,
         version_id,
         hashes.clone(),
         project_ids.clone(),

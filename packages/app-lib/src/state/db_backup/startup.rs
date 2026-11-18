@@ -163,7 +163,12 @@ mod tests {
 
     async fn fixture() -> (tempfile::TempDir, PathBuf) {
         let directory = tempfile::tempdir().unwrap();
-        let database = directory.path().join("app.db");
+        // Keep legacy backup lookup inside this test's directory, even when
+        // other tests have produced backups under the shared system temp root.
+        let database = directory.path().join("release").join("app.db");
+        tokio::fs::create_dir_all(database.parent().unwrap())
+            .await
+            .unwrap();
         let mut connection = SqliteConnectOptions::new()
             .filename(&database)
             .create_if_missing(true)

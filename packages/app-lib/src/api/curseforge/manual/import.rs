@@ -286,7 +286,12 @@ pub(super) async fn install_manual_download(
             )
         })?;
         let _instance_lock = state.lock_instance_content(instance_id).await;
-        let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let (mut tx, tx_diagnostics) =
+            crate::state::store::lock_diagnostics::begin(
+                &state.pool,
+                "BEGIN IMMEDIATE",
+            )
+            .await?;
         crate::state::instances::adapters::sqlite::pack_members::complete_pending_manual_download(
             instance_id,
             &download.project_id.to_string(),
@@ -300,7 +305,8 @@ pub(super) async fn install_manual_download(
             &mut tx,
         )
         .await?;
-        tx.commit().await?;
+        tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+        tx_diagnostics.complete("committed");
         let relative_path = source_path.to_string_lossy().to_string();
         tracing::info!(
             instance_id,
@@ -458,7 +464,12 @@ pub(crate) async fn mark_pack_member_version_override(
             "Instance has no applied content set".to_string(),
         )
     })?;
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     let updated = crate::state::instances::adapters::sqlite::pack_members::mark_path_version_override_in_transaction(
         &content_set.id,
         relative_path,
@@ -473,6 +484,7 @@ pub(crate) async fn mark_pack_member_version_override(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }

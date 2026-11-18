@@ -8,7 +8,9 @@ use super::Collection;
 pub(crate) struct SyncedGameOptionPreferences;
 
 /// Where a preference came from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) enum GameOptionPreferenceSource {
     CatalogDefault,
     DiscoveryDefault,
@@ -35,7 +37,7 @@ impl GameOptionPreferenceSource {
 }
 
 /// What a preference carries.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct GameOptionPreferenceRecord {
     pub enabled: bool,
     pub source: GameOptionPreferenceSource,
@@ -187,3 +189,21 @@ fn to_source(source: &str) -> Option<GameOptionPreferenceSource> {
         None
     })
 }
+
+impl crate::state::sync_state::collection::Collection
+    for SyncedGameOptionPreferences
+{
+    type Key = String;
+    type Scope = String;
+    type Record = GameOptionPreferenceRecord;
+    const NAME: &'static str = "synced_game_option_preferences";
+    fn in_scope(scope: &Self::Scope, key: &Self::Key) -> bool {
+        scope == key
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    SyncedGameOptionPreferences,
+    String,
+    String,
+    GameOptionPreferenceRecord
+);

@@ -412,14 +412,20 @@ async fn installed_compatibility_uses_cached_exact_bytes_without_network_or_name
     assert!(declarations[1].is_none());
     assert!(declarations[2].is_none());
     assert_eq!(provider.calls(), 0);
-    let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
-    for schema in [
-        "CREATE TABLE instance_content_entries(id TEXT, file_id TEXT, instance_id TEXT)",
-        "CREATE TABLE instance_files(id TEXT, sha1 TEXT, size INTEGER, local_mod_data TEXT, missing INTEGER)",
-        "CREATE TABLE resource_installed_artifacts(entry_id TEXT, artifact TEXT)",
-    ] {
-        sqlx::query(schema).execute(&pool).await.unwrap();
-    }
+    let core_root = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(core_root.path())
+        .await
+        .unwrap();
+    sqlx::raw_sql(
+        "INSERT INTO instances(id,path,name,install_stage,launcher_feature_version,created,modified)
+            VALUES('instance','profile','Compatibility','installed','none',0,0);
+         INSERT INTO instance_content_sets(id,instance_id,name,source_kind,status,game_version,loader,created,modified)
+            VALUES('set','instance','Main','local','available','1.21.1','neoforge',0,0);
+         UPDATE instances SET applied_content_set_id='set' WHERE id='instance';",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     let local = json!({"metadata_version": 2, "mod_id": "example", "minecraft_version": "[1.21,1.21.1)", "loader": "neoforge"}).to_string();
     let sha1 = artifact
         .integrity
@@ -430,27 +436,32 @@ async fn installed_compatibility_uses_cached_exact_bytes_without_network_or_name
         .value
         .clone();
     let mut items = Vec::new();
+    let mut parsed = Vec::new();
     for (id, hash, local) in [
         ("missing", sha1.clone(), None),
         ("incorrect", sha1, Some(local.clone())),
         ("modified", "f".repeat(40), Some(local)),
     ] {
-        sqlx::query(
-            "INSERT INTO instance_content_entries VALUES (?, ?, 'instance')",
-        )
+        sqlx::query("INSERT INTO instance_files(id,instance_id,relative_path,file_name,enabled,sha1,size,missing,added_at,modified_at)
+            VALUES(?,'instance',?,?,1,?,?,0,0,0)")
         .bind(id)
-        .bind(id)
+        .bind(format!("mods/{id}.jar"))
+        .bind(format!("{id}.jar"))
+        .bind(hash)
+        .bind(artifact.integrity.size.unwrap() as i64)
         .execute(&pool)
         .await
         .unwrap();
-        sqlx::query("INSERT INTO instance_files VALUES (?, ?, ?, ?, 0)")
+        sqlx::query("INSERT INTO instance_content_entries(id,instance_id,content_set_id,file_id,project_type,source_kind,ownership_kind,server_requirement,client_requirement,added_at,modified_at)
+            VALUES(?,'instance','set',?,'mod','local','user_added','optional','optional',0,0)")
             .bind(id)
-            .bind(hash)
-            .bind(artifact.integrity.size.unwrap() as i64)
-            .bind(local)
+            .bind(id)
             .execute(&pool)
             .await
             .unwrap();
+        if let Some(metadata) = local {
+            parsed.push((id, metadata));
+        }
         items.push(crate::state::InstanceContentSnapshotItem {
             resource_update: None,
             artifact_ref: None,
@@ -475,6 +486,24 @@ async fn installed_compatibility_uses_cached_exact_bytes_without_network_or_name
             dependency: None,
         });
     }
+    let handle = crate::state::store::Handle::new(pool.clone());
+    let guards =
+        crate::state::store::content_evidence::current(&handle, "instance")
+            .await
+            .unwrap();
+    for (id, metadata) in parsed {
+        crate::state::store::content_evidence::write(
+            &handle,
+            "parsed",
+            id,
+            &guards[id],
+            &crate::state::store::content_evidence::Parsed {
+                metadata: Some(metadata),
+                icon: None,
+            },
+        )
+        .await;
+    }
     super::installed::attach_compatibility(
         &pool,
         "instance",
@@ -497,6 +526,7 @@ async fn installed_compatibility_uses_cached_exact_bytes_without_network_or_name
         items[2].compatibility.as_ref().unwrap().game_version,
         CompatibilityState::Incompatible
     );
+    assert_eq!(provider.calls(), 0);
     pool.close().await;
     let mut attachment = release.clone();
     for artifact in &mut attachment.artifacts {
@@ -709,6 +739,90 @@ async fn changelog_curseforge_uses_release_html_and_rejects_other_projects() {
 }
 
 #[tokio::test]
+async fn state_resource_service_starts_without_importing_legacy_metadata() {
+    let temporary = tempfile::tempdir().unwrap();
+    let core = crate::state::store::databases::open(temporary.path())
+        .await
+        .unwrap();
+    let has_cache: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='cache')",
+    )
+    .fetch_one(&core)
+    .await
+    .unwrap();
+    assert!(
+        !has_cache,
+        "the current core deliberately has no cache table"
+    );
+    let directories = crate::state::DirectoryInfo {
+        settings_dir: temporary.path().into(),
+        config_dir: temporary.path().into(),
+        app_identifier: "resource-cache-import-test".into(),
+    };
+    let state = crate::state::test_state(directories, core).await.unwrap();
+    let project = json!({
+        "id": "abcdefgh", "slug": "locator", "project_type": "mod", "title": "Legacy",
+        "description": "Summary", "body": "Preserved derived description"
+    });
+    sqlx::query("INSERT INTO cache(id,data_type,data,expires) VALUES('abcdefgh','project',?,?)")
+        .bind(project.to_string())
+        .bind(chrono::Utc::now().timestamp() + 100 * 365 * 24 * 60 * 60)
+        .execute(state.cache_pool()).await.unwrap();
+    let service = state.resources().await.unwrap();
+    let query = ProviderQuery::Description {
+        id: SourceProjectId::new("abcdefgh").unwrap(),
+        slug: None,
+    };
+    let source = SourceId::modrinth();
+    let key = CacheKey::new(
+        service.source_namespace(&source).unwrap(),
+        source,
+        &query.cache_identity(),
+    )
+    .unwrap();
+    assert!(service.cache().get(&key).await.is_none());
+    assert!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM cache WHERE id='abcdefgh' AND data_type='project'"
+        )
+        .fetch_one(state.cache_pool())
+        .await
+        .unwrap() == 1
+    );
+    service.cache().close().await;
+    state.cache_pool().close().await;
+    state.pool.close().await;
+}
+
+#[tokio::test]
+async fn completed_legacy_resource_cache_import_does_not_reopen_the_source() {
+    let source = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    sqlx::query(
+        "CREATE TABLE cache(id TEXT,data_type TEXT,data TEXT,expires INTEGER)",
+    )
+    .execute(&source)
+    .await
+    .unwrap();
+    let (_directory, cache) = cache().await;
+    cache.import_legacy(&source).await.unwrap();
+    sqlx::query("DROP TABLE cache")
+        .execute(&source)
+        .await
+        .unwrap();
+    cache
+        .import_legacy(&source)
+        .await
+        .expect("a completed cache receipt must precede any source query");
+    assert_eq!(cache.info().await.unwrap().entry_count, 0);
+    cache.close().await;
+    source.close().await;
+}
+
+#[tokio::test]
 async fn legacy_cache_import_is_offline_resumable_conservative_and_clear_safe()
 {
     let main = sqlx::sqlite::SqlitePoolOptions::new()
@@ -913,7 +1027,11 @@ fn project_query(id: &str) -> ProviderQuery {
     }
 }
 
-fn project_value(source: SourceId, id: &str, title: &str) -> ProviderValue {
+pub(super) fn project_value(
+    source: SourceId,
+    id: &str,
+    title: &str,
+) -> ProviderValue {
     ProviderValue::Project(ProjectDocument {
         owner: None,
         protocol: None,
@@ -1112,7 +1230,7 @@ async fn cache_survives_close_and_reopen_with_a_separate_wal_database() {
         .await
         .unwrap();
     assert_eq!(mode, "wal");
-    assert_eq!(reopened.info().await.unwrap().schema_version, 2);
+    assert_eq!(reopened.info().await.unwrap().schema_version, 3);
     probe.close().await;
     reopened.close().await;
 }
@@ -1953,21 +2071,77 @@ fn probes_have_bounded_history_and_md5_is_not_identity_evidence() {
 }
 
 #[test]
-fn cache_paths_are_channel_scoped_and_reject_path_traversal() {
+fn cache_path_is_shared_and_independent_of_the_content_root() {
     let directories = crate::state::DirectoryInfo {
         settings_dir: "settings".into(),
         config_dir: "custom".into(),
         app_identifier: "test".into(),
     };
     assert_eq!(
-        directories.resource_cache_db("beta").unwrap(),
-        std::path::Path::new("custom/caches/resources/beta/resource-cache.db")
+        directories.resource_cache_db(),
+        std::path::Path::new("settings/cache/resources.db")
     );
     assert_ne!(
-        directories.resource_cache_db("beta").unwrap(),
-        directories.resource_cache_db("release").unwrap()
+        directories.resource_cache_db(),
+        directories.databases_dir().join("resources.db")
     );
-    assert!(directories.resource_cache_db("../outside").is_err());
+}
+
+#[tokio::test]
+async fn resource_cache_reopens_with_matching_environment_but_isolates_other_endpoints()
+ {
+    struct Environment(&'static str);
+
+    #[async_trait]
+    impl ProtocolTransport for Environment {
+        fn cache_namespace(&self, _: &SourceId) -> String {
+            modrinth_cache_scope(self.0)
+        }
+
+        async fn request(
+            &self,
+            _: &SourceId,
+            _: ProtocolRequest,
+        ) -> ResourceResult<Value> {
+            panic!("the cache test must not request the network");
+        }
+    }
+
+    let temp = tempfile::tempdir().unwrap();
+    let directories = crate::state::DirectoryInfo {
+        settings_dir: temp.path().into(),
+        config_dir: temp.path().join("content"),
+        app_identifier: "test".into(),
+    };
+    let key = |endpoint| {
+        let provider = ModrinthProvider::new(Arc::new(Environment(endpoint)));
+        CacheKey::new(
+            provider.namespace(),
+            SourceId::modrinth(),
+            &project_query("project"),
+        )
+        .unwrap()
+    };
+    let release = ResourceCache::open(directories.resource_cache_db()).await;
+    let cached = project_value(SourceId::modrinth(), "project", "example");
+    release
+        .put(
+            &key("https://catalog.example/v2"),
+            &cached,
+            60,
+            release.generation().await,
+            chrono::Utc::now().timestamp_micros(),
+        )
+        .await;
+    release.close().await;
+
+    let beta = ResourceCache::open(directories.resource_cache_db()).await;
+    assert_eq!(
+        beta.get(&key("https://catalog.example/v2/")).await,
+        Some(cached)
+    );
+    assert!(beta.get(&key("https://other.example/v2")).await.is_none());
+    beta.close().await;
 }
 
 fn target() -> ipc::ResourceTarget {
@@ -3350,13 +3524,12 @@ async fn curated_project_confirmation_rejects_different_mcmod_subvariants() {
     assert_eq!(store.lookup(&full.project).await.unwrap(), Some(id.clone()));
     assert_eq!(store.lookup(&counterpart.project).await.unwrap(), Some(id));
     assert!(store.lookup(&lite.project).await.unwrap().is_none());
-    let evidence: String =
-        sqlx::query_scalar("SELECT payload FROM resource_identity_evidence")
+    let evidence: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM resource_identity_evidence")
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert!(evidence.contains("mcmod-source-pair"));
-    assert!(!evidence.contains("leftArtifact"));
+    assert_eq!(evidence, 0);
     pool.close().await;
 }
 

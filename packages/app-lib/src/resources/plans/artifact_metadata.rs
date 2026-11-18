@@ -31,13 +31,14 @@ impl ArtifactMetadataReader for RuntimeArtifactMetadataReader {
             .find(|hash| hash.algorithm == HashAlgorithm::Sha1)
             && let Some(size) = artifact.integrity.size
         {
-            let cached = crate::state::instances::adapters::sqlite::files::get_local_mod_data_for_artifact(
-                &sha1.value,
-                size as i64,
-                &state.pool,
-            )
-            .await
-            .map_err(|error| ResourceError::Database(error.to_string()))?;
+            let cached =
+                crate::state::store::content_evidence::parsed_for_artifact(
+                    &state.pool,
+                    &sha1.value,
+                    size as i64,
+                )
+                .await
+                .map_err(|error| ResourceError::Database(error.to_string()))?;
             for json in cached {
                 if let Ok(metadata) = serde_json::from_str(&json) {
                     return Ok(Some(metadata));

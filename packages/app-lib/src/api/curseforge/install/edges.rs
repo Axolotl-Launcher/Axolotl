@@ -24,7 +24,12 @@ pub(crate) async fn persist_resolution_plan_dependency_edges(
         state,
     )
     .await?;
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     for edge in &plan.edges {
         if !installed.contains(&edge.parent) || !installed.contains(&edge.child)
         {
@@ -80,7 +85,8 @@ pub(crate) async fn persist_resolution_plan_dependency_edges(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     drop(database_permit);
     Ok(())
 }
@@ -101,7 +107,12 @@ pub(crate) async fn persist_curseforge_dependency_edges(
         state,
     )
     .await?;
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     for candidate in candidates {
         let Some(parent_entry) =
             crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_provider_ref(
@@ -155,7 +166,8 @@ pub(crate) async fn persist_curseforge_dependency_edges(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     drop(database_permit);
     Ok(())
 }
@@ -176,7 +188,12 @@ pub(crate) async fn persist_modrinth_fallback_dependency_edges(
         state,
     )
     .await?;
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
 
     for (fallback, installed_versions) in fallbacks {
         for dependency in &fallback.plan.dependencies {
@@ -271,7 +288,8 @@ pub(crate) async fn persist_modrinth_fallback_dependency_edges(
             .await?;
         }
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     drop(database_permit);
     Ok(())
 }

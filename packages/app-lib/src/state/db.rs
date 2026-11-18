@@ -1,4 +1,5 @@
 use crate::state::DirectoryInfo;
+#[cfg(test)]
 use fs4::tokio::AsyncFileExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha384};
@@ -17,11 +18,19 @@ static MIGRATOR: Migrator = sqlx::migrate!();
 
 const UPDATE_CHANNEL_STATE_FILE: &str = "update-channel.json";
 const LEGACY_APP_DB_FILE: &str = "app.db";
+
+pub(crate) async fn acquire_domain_ownership(
+    path: &Path,
+) -> crate::Result<Arc<dyn std::any::Any + Send + Sync>> {
+    Ok(Arc::new(files::Ownership::acquire(path).await?))
+}
 // Records an in-flight channel database reconciliation inside the target
 // channel directory; see reconcile_default_channel_database.
+#[cfg(test)]
 const CHANNEL_RECONCILE_MARKER_FILE: &str = ".channel-reconcile";
 // Serializes concurrent channel database reconciliations across processes
 // (see reconcile_default_channel_database).
+#[cfg(test)]
 const CHANNEL_RECONCILE_LOCK_FILE: &str = ".channel-reconcile.lock";
 
 const INITIAL_MIGRATION_VERSION: i64 = 20240711194701;
@@ -97,172 +106,146 @@ pub(crate) async fn connect(
             "Could not find valid config dir".to_string(),
         ))?;
 
-    crate::util::io::create_dir_all(&settings_dir).await?;
+    connect_at(&settings_dir).await
+}
 
-    migrate_legacy_release_database(&settings_dir).await?;
-    reconcile_default_channel_database(&settings_dir).await?;
-    let db_path = app_db_path(&settings_dir).await?;
-    let db_dir = db_path.parent().ok_or_else(|| {
-        crate::ErrorKind::FSError(format!(
-            "App database path {} has no parent directory",
-            db_path.display()
-        ))
-    })?;
-    crate::util::io::create_dir_all(db_dir).await?;
+async fn connect_at(settings_dir: &Path) -> crate::Result<Pool<Sqlite>> {
+    crate::util::io::create_dir_all(settings_dir).await?;
+    let existed = super::store::databases::exists(settings_dir);
+    let progress = if !existed && has_legacy_storage(settings_dir) {
+        Some(crate::event::migration::MigrationProgress::new().await)
+    } else {
+        None
+    };
+    // Only failure to open the current core may enter read-only recovery.
+    // A failed takeover must remain visible and retryable at the next start.
+    let persistence = super::persistence::Persistence::new(settings_dir);
+    let pool = super::store::databases::open(persistence.root()).await?;
+    complete_startup_import(&pool, settings_dir, existed, progress)
+        .await
+        .map_err(|error| crate::ErrorKind::InputError(format!(
+            "Launcher data migration did not complete; original data is retained. {error}"
+        )))?;
+    Ok(pool)
+}
 
-    let new_install = !db_path.try_exists()?;
-    let pool = connect_app_db(&db_path).await?;
+fn has_legacy_storage(settings_dir: &Path) -> bool {
+    ["app.db", "release/app.db", "beta/app.db"]
+        .iter()
+        .any(|path| settings_dir.join(path).is_file())
+}
+
+async fn legacy_source(root: &Path) -> crate::Result<Option<PathBuf>> {
+    let release = root.join("release/app.db");
+    let beta = root.join("beta/app.db");
+    match (
+        tokio::fs::try_exists(&release).await?,
+        tokio::fs::try_exists(&beta).await?,
+    ) {
+        (true, true) => {
+            let channel = resolve_update_channel(root).await?;
+            tracing::warn!(
+                channel,
+                "Importing the selected legacy channel; alternate legacy database preserved"
+            );
+            Ok(Some(if channel == "beta" { beta } else { release }))
+        }
+        (true, false) => Ok(Some(release)),
+        (false, true) => Ok(Some(beta)),
+        (false, false) => {
+            let original = root.join(LEGACY_APP_DB_FILE);
+            Ok(tokio::fs::try_exists(&original).await?.then_some(original))
+        }
+    }
+}
+
+async fn complete_startup_import(
+    pool: &Pool<Sqlite>,
+    settings_dir: &Path,
+    existed: bool,
+    mut progress: Option<crate::event::migration::MigrationProgress>,
+) -> crate::Result<()> {
+    use crate::event::migration::MigrationProgress;
+    let imported: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.database_imports WHERE source = 'app.db' AND completed = 1)")
+        .fetch_one(pool).await?;
+    // Consult every receipt before opening any old source, including an
+    // installation whose core was imported by an earlier experimental build.
+    if imported
+        && !super::store::recovery_documents::legacy_import_pending(pool)
+            .await?
+    {
+        return Ok(());
+    }
+    if progress.is_none() && has_legacy_storage(settings_dir) {
+        progress = Some(MigrationProgress::new().await);
+    }
+    let mut new_install = false;
+    if !imported {
+        let retained = settings_dir.join(super::layout::IMPORT_SNAPSHOT);
+        let source_path = if tokio::fs::try_exists(&retained).await? {
+            Some(retained)
+        } else {
+            legacy_source(settings_dir).await?
+        };
+        new_install = source_path.is_none() && !existed;
+        let temporary = tempfile::tempdir()?;
+        let snapshot = super::db_backup::sqlite_native_path(
+            &temporary.path().join("app.db"),
+        )
+        .await?
+        .into_owned();
+        if let Some(db_path) = source_path {
+            let mut source =
+                super::db_backup::open_read_only_db(&db_path).await?;
+            super::db_backup::create_verified_sqlite_snapshot(
+                &mut source,
+                &snapshot,
+            )
+            .await?;
+            source.close().await?;
+        }
+        if let Some(progress) = &mut progress {
+            progress.update("core", 0, 0, 0.1);
+        }
+        // This private working copy was just verified (or is brand new).
+        // Legacy startup recovery and backups would search the temp parent
+        // for unrelated databases and keep a redundant, unscrubbed copy.
+        let ownership = Arc::new(files::Ownership::acquire(&snapshot).await?);
+        let legacy = open_migrated_app_db(&snapshot, ownership).await?;
+        legacy.close().await;
+        super::store::legacy_documents::initialize_from_snapshot(
+            settings_dir,
+            &snapshot,
+        )
+        .await?;
+        super::store::databases::import(pool, &snapshot, settings_dir).await?;
+        super::store::sync_documents::initialize(
+            settings_dir,
+            Some(snapshot.clone()),
+        )
+        .await;
+    }
     if new_install {
         let documents = super::documents::Documents::at(
             settings_dir.join(super::documents::DIR_NAME),
-            &pool,
+            pool,
         )
         .with_config_root(super::documents::config_root());
         super::documents::translation::initialize_new_install(&documents)
             .await?;
     }
-    Ok(pool)
-}
-
-pub async fn copy_release_database_to_beta(
-    app_identifier: &str,
-) -> crate::Result<()> {
-    let settings_dir = DirectoryInfo::initial_settings_dir_path(app_identifier)
-        .ok_or(crate::ErrorKind::FSError(
-            "Could not find valid config dir".to_string(),
-        ))?;
-    let release_path = settings_dir.join("release").join(LEGACY_APP_DB_FILE);
-    if !release_path.try_exists()? {
-        return Err(crate::ErrorKind::FSError(
-            "The Release database does not exist".to_string(),
-        )
-        .into());
+    // This is an uncapped first takeover, not the bounded interpretation of
+    // daily recovery records. State and its consumers are not published yet.
+    super::store::recovery_documents::import_legacy_with_progress(
+        pool,
+        settings_dir,
+        progress.as_mut(),
+    )
+    .await?;
+    if let Some(progress) = &mut progress {
+        progress.finish();
     }
-
-    let beta_dir = settings_dir.join("beta");
-    crate::util::io::create_dir_all(&beta_dir).await?;
-    let beta_path = beta_dir.join(LEGACY_APP_DB_FILE);
-    if beta_path.try_exists()? {
-        return Err(crate::ErrorKind::FSError(
-            "The Beta database already exists".to_string(),
-        )
-        .into());
-    }
-
-    copy_channel_database(&release_path, &beta_path, false).await?;
-
-    tracing::info!(
-        source = %release_path.display(),
-        destination = %beta_path.display(),
-        "Copied the Release database into the Beta update channel"
-    );
     Ok(())
-}
-
-pub async fn beta_database_exists(app_identifier: &str) -> crate::Result<bool> {
-    let settings_dir = DirectoryInfo::initial_settings_dir_path(app_identifier)
-        .ok_or(crate::ErrorKind::FSError(
-            "Could not find valid config dir".to_string(),
-        ))?;
-    Ok(settings_dir
-        .join("beta")
-        .join(LEGACY_APP_DB_FILE)
-        .try_exists()?)
-}
-
-pub async fn current_app_database_path(
-    app_identifier: &str,
-) -> crate::Result<PathBuf> {
-    let settings_dir = DirectoryInfo::initial_settings_dir_path(app_identifier)
-        .ok_or(crate::ErrorKind::FSError(
-            "Could not find valid config dir".to_string(),
-        ))?;
-    app_db_path(&settings_dir).await
-}
-
-pub async fn copy_database_between_channels(
-    app_identifier: &str,
-    source_channel: &str,
-    target_channel: &str,
-) -> crate::Result<()> {
-    if !matches!(source_channel, "release" | "beta")
-        || !matches!(target_channel, "release" | "beta")
-        || source_channel == target_channel
-    {
-        return Err(crate::ErrorKind::InputError(
-            "Database channels must be different Release or Beta channels"
-                .to_string(),
-        )
-        .into());
-    }
-
-    let settings_dir = DirectoryInfo::initial_settings_dir_path(app_identifier)
-        .ok_or(crate::ErrorKind::FSError(
-            "Could not find valid config dir".to_string(),
-        ))?;
-    let active_channel = resolve_update_channel(&settings_dir).await?;
-    if target_channel == active_channel {
-        return Err(crate::ErrorKind::InputError(
-            "The active database cannot be overwritten while Axolotl is running".to_string(),
-        )
-        .into());
-    }
-
-    let source_path =
-        settings_dir.join(source_channel).join(LEGACY_APP_DB_FILE);
-    let target_dir = settings_dir.join(target_channel);
-    let target_path = target_dir.join(LEGACY_APP_DB_FILE);
-    if !source_path.try_exists()? {
-        return Err(crate::ErrorKind::FSError(format!(
-            "The {source_channel} database does not exist"
-        ))
-        .into());
-    }
-
-    copy_channel_database(&source_path, &target_path, true).await?;
-    tracing::info!(
-        source = %source_path.display(),
-        destination = %target_path.display(),
-        "Overwrote the inactive update channel database"
-    );
-    Ok(())
-}
-
-async fn copy_channel_database(
-    source: &Path,
-    target: &Path,
-    overwrite: bool,
-) -> crate::Result<()> {
-    let _ownership = files::Ownership::acquire(target).await?;
-    files::recover(target).await?;
-    if !overwrite && target.try_exists()? {
-        return Err(crate::ErrorKind::InputError(
-            "The target database already exists".into(),
-        )
-        .into());
-    }
-    let staged = files::sidecar(
-        target,
-        &format!(".snapshot-{}.tmp", uuid::Uuid::new_v4()),
-    );
-    let result = async {
-        let mut connection =
-            super::db_backup::open_read_only_db(source).await?;
-        let snapshot = super::db_backup::create_verified_sqlite_snapshot(
-            &mut connection,
-            &staged,
-        )
-        .await;
-        connection.close().await?;
-        snapshot?;
-        files::replace(target, &staged).await?;
-        Ok::<(), crate::Error>(())
-    }
-    .await;
-    if result.is_err() {
-        let _ = tokio::fs::remove_file(staged).await;
-    }
-    result
 }
 
 pub(super) async fn replace_database_files(
@@ -280,10 +263,31 @@ pub async fn backup_current_app_db_for_update(
         .ok_or(crate::ErrorKind::FSError(
             "Could not find valid config dir".to_string(),
         ))?;
-    let db_path = app_db_path(&settings_dir).await?;
+    if super::store::databases::exists(&settings_dir) {
+        let state = super::State::get_if_initialized().ok_or_else(|| {
+            crate::ErrorKind::FSError(
+                "Open the launcher before backing up its database domains"
+                    .into(),
+            )
+        })?;
+        if state.directories.settings_dir != settings_dir {
+            return Err(crate::ErrorKind::InputError("The requested database belongs to another launcher data directory".into()).into());
+        }
+        return super::store::databases::backup(&state.pool, &settings_dir)
+            .await;
+    }
+    if super::store::databases::has_installation(&settings_dir).await? {
+        return Err(crate::ErrorKind::FSError(
+            "Current database files are unavailable; restore the complete storage snapshot".into(),
+        ).into());
+    }
+    let db_path = legacy_source(&settings_dir).await?.ok_or_else(|| {
+        crate::ErrorKind::FSError("No legacy database is available".into())
+    })?;
     super::db_backup::backup_app_db_for_update(&db_path, target_version).await
 }
 
+#[cfg(test)]
 async fn app_db_path(settings_dir: &Path) -> crate::Result<PathBuf> {
     let channel = resolve_update_channel(settings_dir).await?;
     Ok(settings_dir.join(channel).join(LEGACY_APP_DB_FILE))
@@ -395,12 +399,14 @@ pub fn default_update_channel() -> &'static str {
 
 /// Pin the initial database channel instead of deriving it again after every
 /// program update. An explicit channel change still selects the other database.
+#[cfg(test)]
 async fn reconcile_default_channel_database(
     settings_dir: &Path,
 ) -> crate::Result<()> {
     initialize_update_channel(settings_dir, default_update_channel()).await
 }
 
+#[cfg(test)]
 async fn initialize_update_channel(
     settings_dir: &Path,
     build_channel: &str,
@@ -482,6 +488,7 @@ async fn initialize_update_channel(
 }
 
 /// Finish an interrupted move recorded by a pre-existing reconciliation marker.
+#[cfg(test)]
 async fn resume_channel_database_reconciliation(
     settings_dir: &Path,
     channel: &str,
@@ -552,6 +559,7 @@ async fn resume_channel_database_reconciliation(
     Ok(())
 }
 
+#[cfg(test)]
 async fn migrate_legacy_release_database(
     settings_dir: &Path,
 ) -> crate::Result<()> {
@@ -619,6 +627,7 @@ fn sidecar_path(path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
+#[cfg(test)]
 async fn connect_app_db(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
     let ownership = Arc::new(files::Ownership::acquire(db_path).await?);
     files::recover(db_path).await?;

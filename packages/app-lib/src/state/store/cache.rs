@@ -216,6 +216,13 @@ pub(crate) async fn write_many(
     Ok(())
 }
 
+pub(crate) async fn atom_write_many(
+    unit: &mut super::Atom,
+    rows: &str,
+) -> crate::Result<()> {
+    write_many(unit.connection(), rows).await
+}
+
 /// Writes one row, after taking the alias from whichever row of the same type
 /// held it: an alias names one row of a type, so the row that held it is
 /// replaced rather than reported as a conflict.

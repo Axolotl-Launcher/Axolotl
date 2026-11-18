@@ -401,13 +401,14 @@ async fn preserves_accounts_with_the_same_uuid_across_account_types() {
         refresh_token: String::new(),
         ..account_record(uuid, AccountType::Yggdrasil)
     };
-    MinecraftUsers::set(
-        &handle,
-        &format!("yggdrasil:https://example.invalid:{}", user_key(uuid)),
-        Some(&third_party),
-    )
-    .await
-    .unwrap();
+    handle
+        .accounts()
+        .set(
+            &format!("yggdrasil:https://example.invalid:{}", user_key(uuid)),
+            &third_party,
+        )
+        .await
+        .unwrap();
 
     let offline = Credentials::offline_with_uuid("OfflineUser", uuid).unwrap();
     offline.upsert(&handle).await.unwrap();
@@ -433,13 +434,11 @@ async fn selects_offline_account_when_online_account_is_active() {
         refresh_token: "expired-refresh-token".to_string(),
         ..account_record(Uuid::new_v4(), AccountType::Microsoft)
     };
-    MinecraftUsers::set(
-        &handle,
-        &"microsoft:test-account".to_string(),
-        Some(&online),
-    )
-    .await
-    .unwrap();
+    handle
+        .accounts()
+        .set(&"microsoft:test-account".to_string(), &online)
+        .await
+        .unwrap();
 
     let selected = Credentials::get_offline_credential(&handle)
         .await
@@ -452,7 +451,7 @@ async fn selects_offline_account_when_online_account_is_active() {
 
 #[tokio::test]
 async fn persists_offline_skin_selection_per_account() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     let credentials = Credentials::offline("SkinTester").unwrap();
     credentials.upsert(&handle).await.unwrap();
     let minecraft_user_id = credentials.offline_profile.id;
@@ -490,7 +489,7 @@ async fn persists_offline_skin_selection_per_account() {
 
 #[tokio::test]
 async fn saved_skins_keep_the_order_they_are_added_and_reordered_in() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     let credentials = Credentials::offline("SkinTester").unwrap();
     credentials.upsert(&handle).await.unwrap();
     let minecraft_user_id = credentials.offline_profile.id;
@@ -548,7 +547,7 @@ async fn saved_skin_keys(
 
 #[tokio::test]
 async fn a_saved_skin_reports_a_texture_it_cannot_read() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     let credentials = Credentials::offline("SkinTester").unwrap();
     credentials.upsert(&handle).await.unwrap();
     let minecraft_user_id = credentials.offline_profile.id;
@@ -574,7 +573,10 @@ async fn a_saved_skin_reports_a_texture_it_cannot_read() {
 
     assert_eq!(saved.texture_blob(&handle).await.unwrap(), b"png".to_vec());
 
-    CustomMinecraftSkinTextures::set(&handle, &"texture".to_string(), None)
+    let media = crate::state::media::Media::new(&handle.persistence());
+    let manifest = media.read().await.unwrap();
+    let digest = manifest["textures"]["texture"]["sha256"].as_str().unwrap();
+    tokio::fs::remove_file(media.texture_path(digest).unwrap())
         .await
         .unwrap();
 

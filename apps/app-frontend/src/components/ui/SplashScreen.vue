@@ -1,8 +1,8 @@
 <template>
     <Transition name="splash-fade" @after-leave="onAfterLeave">
-        <div v-if="!doneLoading" class="fixed inset-0 z-[10000] dark">
+        <div v-if="!doneLoading" class="dark fixed inset-0 z-[10000]">
             <div
-                class="absolute h-screen w-full flex flex-col justify-center items-center gap-4 z-[9998]"
+                class="absolute z-[9998] flex h-screen w-full flex-col items-center justify-center gap-4"
                 data-tauri-drag-region
             >
                 <img class="app-logo" src="@/assets/axolotl.png" alt="Axolotl Launcher" />
@@ -12,23 +12,28 @@
                     :max="100"
                 />
                 <span v-if="message">{{ message }}</span>
+                <span v-if="migrationDetail" class="text-sm">{{ migrationDetail }}</span>
+                <span v-if="migrationCount" class="text-sm tabular-nums">{{ migrationCount }}</span>
             </div>
             <div class="gradient-bg" data-tauri-drag-region></div>
             <div class="cube-bg"></div>
-            <div class="absolute top-0 left-0 w-full h-full bg-bg z-[9995]"></div>
+            <div class="bg-bg absolute left-0 top-0 z-[9995] h-full w-full"></div>
         </div>
     </Transition>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { defineMessages, injectLoadingState, ProgressBar, useVIntl } from '@modrinth/ui'
-import { ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 
-import { loading_listener } from '@/helpers/events.js'
+import type { StartupLoadingProgress } from '@/helpers/startup-progress'
+
+const props = defineProps<{ startupProgress?: StartupLoadingProgress | null }>()
+const emit = defineEmits<{ finished: [] }>()
 
 const doneLoading = ref(false)
 const loadingProgress = ref(0)
-const message = ref()
+let finishTimer: ReturnType<typeof setTimeout> | undefined
 
 const MIN_DISPLAY_MS = 500
 const mountedAt = Date.now()
@@ -45,55 +50,105 @@ const messages = defineMessages({
         id: 'app.splash.checking-for-updates',
         defaultMessage: 'Checking for updates...',
     },
+    migratingData: {
+        id: 'app.splash.migrating-data',
+        defaultMessage: 'Migrating launcher data...',
+    },
+    preparingMigration: {
+        id: 'app.splash.migration.preparing',
+        defaultMessage: 'Preparing migration...',
+    },
+    migratingCore: {
+        id: 'app.splash.migration.core',
+        defaultMessage: 'Migrating launcher records...',
+    },
+    migratingRecovery: {
+        id: 'app.splash.migration.recovery',
+        defaultMessage: 'Migrating recovery records...',
+    },
+    finishingMigration: {
+        id: 'app.splash.migration.finishing',
+        defaultMessage: 'Finishing migration...',
+    },
+})
+
+const migrating = computed(() => props.startupProgress?.event.type === 'database_migration')
+const migrationPending = computed(() => migrating.value && props.startupProgress?.fraction !== null)
+const message = computed(() => {
+    switch (props.startupProgress?.event.type) {
+        case 'database_migration':
+            return formatMessage(messages.migratingData)
+        case 'directory_move':
+            return formatMessage(messages.updatingAppDirectory)
+        case 'checking_for_updates':
+            return formatMessage(messages.checkingForUpdates)
+        default:
+            return null
+    }
+})
+const migrationDetail = computed(() => {
+    if (!migrating.value) return null
+    switch (props.startupProgress?.event.stage) {
+        case 'preparing':
+            return formatMessage(messages.preparingMigration)
+        case 'core':
+            return formatMessage(messages.migratingCore)
+        case 'recovery':
+            return formatMessage(messages.migratingRecovery)
+        case 'finishing':
+            return formatMessage(messages.finishingMigration)
+        default:
+            return null
+    }
+})
+const migrationCount = computed(() => {
+    const event = props.startupProgress?.event
+    if (!migrating.value || !event?.total || event.completed == null) return null
+    return `${event.completed} / ${event.total}`
 })
 
 function onAfterLeave() {
     loading.setEnabled(true)
+    emit('finished')
 }
 
 watch(
-    [loading.barEnabled, loading.pending],
-    ([barEnabled, pending]) => {
+    () => props.startupProgress,
+    (progress) => {
+        if (!progress) return
+        loadingProgress.value = Math.max(0, Math.min(100, 100 * (progress.fraction ?? 1)))
+    },
+    { immediate: true },
+)
+
+watch(
+    [loading.barEnabled, loading.pending, migrationPending],
+    ([barEnabled, pending, migratingData]) => {
+        clearTimeout(finishTimer)
         if (barEnabled) {
             return
         }
 
-        if (pending) {
-            loadingProgress.value = 0
-            fakeLoadingIncrease()
+        if (pending || migratingData) {
             return
         }
 
         const elapsed = Date.now() - mountedAt
         const delay = Math.max(0, MIN_DISPLAY_MS - elapsed)
 
-        setTimeout(() => {
-            if (loading.pending.value) {
+        finishTimer = setTimeout(() => {
+            if (loading.pending.value || migrationPending.value) {
                 return
             }
+            loadingProgress.value = 100
             doneLoading.value = true
         }, delay)
     },
     { immediate: true },
 )
 
-function fakeLoadingIncrease() {
-    if (loadingProgress.value < 95) {
-        setTimeout(() => {
-            loadingProgress.value += 2
-            fakeLoadingIncrease()
-        }, 5)
-    }
-}
-
-loading_listener(async (e) => {
-    if (e.event.type === 'directory_move') {
-        loadingProgress.value = 100 * (e.fraction ?? 1)
-        message.value = formatMessage(messages.updatingAppDirectory)
-    } else if (e.event.type === 'checking_for_updates') {
-        loadingProgress.value = 100 * (e.fraction ?? 1)
-        message.value = formatMessage(messages.checkingForUpdates)
-    }
+onUnmounted(() => {
+    clearTimeout(finishTimer)
 })
 </script>
 

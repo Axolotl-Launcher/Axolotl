@@ -191,7 +191,84 @@ pub(crate) struct OwnedColumns {
 }
 
 impl Settings {
-    /// Repairs the channel's stored reference before settings are loaded, without publishing it to shared documents.
+    /// Transform only a disposable legacy source, without invoking document
+    /// publication or consulting the process-wide document root.
+    pub(crate) async fn migrate_import_row(
+        handle: &super::Handle,
+        current: usize,
+    ) -> crate::Result<()> {
+        let mut transaction =
+            handle.pool().begin_with("BEGIN IMMEDIATE").await?;
+        let record = <Self as Collection>::read(&mut transaction, &Singleton)
+            .await?
+            .ok_or_else(missing_row)?;
+        let mut settings = crate::state::Settings::from_record(record);
+        while settings.version < current {
+            settings.perform_migration()?;
+        }
+        <Self as Collection>::write(
+            &mut transaction,
+            &Singleton,
+            Some(&settings.to_record()?),
+        )
+        .await?;
+        transaction.commit().await?;
+        Ok(())
+    }
+    pub(crate) async fn get(
+        handle: &super::Handle,
+        key: &Singleton,
+    ) -> crate::Result<Option<SettingsRecord>> {
+        if !super::configuration_documents::runtime(handle.pool()) {
+            return <Self as Collection>::get(handle, key).await;
+        }
+        let documents = handle.settings_documents().expect("runtime documents");
+        Ok(Some(
+            crate::state::documents::settings::read(&documents, handle)
+                .await?
+                .to_record()?,
+        ))
+    }
+    pub(crate) async fn atom_get(
+        unit: &mut super::Atom,
+        key: &Singleton,
+    ) -> crate::Result<Option<SettingsRecord>> {
+        if !super::configuration_documents::runtime(unit.handle.pool()) {
+            return <Self as Collection>::atom_get(unit, key).await;
+        }
+        if let Some(record) = &unit.configuration().await?.settings {
+            return Ok(Some(record.clone()));
+        }
+        Self::get(&unit.handle, key).await
+    }
+    pub(crate) async fn atom_set(
+        unit: &mut super::Atom,
+        key: &Singleton,
+        record: Option<&SettingsRecord>,
+    ) -> crate::Result<()> {
+        if !super::configuration_documents::runtime(unit.handle.pool()) {
+            return <Self as Collection>::atom_set(unit, key, record).await;
+        }
+        let record = record.ok_or_else(|| {
+            crate::ErrorKind::InputError(
+                "Launcher settings cannot be deleted".into(),
+            )
+        })?;
+        unit.configuration().await?.settings = Some(record.clone());
+        unit.invalidate_settings_after_commit();
+        Ok(())
+    }
+    pub(crate) async fn set(
+        handle: &super::Handle,
+        key: &Singleton,
+        record: Option<&SettingsRecord>,
+    ) -> crate::Result<()> {
+        let mut unit = super::atom(handle).await?;
+        Self::atom_set(&mut unit, key, record).await?;
+        unit.commit().await
+    }
+
+    /// Repairs a dangling selection on the disposable legacy import snapshot.
     pub(crate) async fn repair_dangling_home_instance(
         pool: &SqlitePool,
     ) -> crate::Result<bool> {
@@ -218,11 +295,11 @@ impl Settings {
         unit: &mut super::Atom,
         change: impl FnOnce(&mut SettingsRecord),
     ) -> crate::Result<()> {
-        let mut record = <Self as Collection>::atom_get(unit, &Singleton)
+        let mut record = Self::atom_get(unit, &Singleton)
             .await?
             .ok_or_else(missing_row)?;
         change(&mut record);
-        <Self as Collection>::atom_set(unit, &Singleton, Some(&record)).await?;
+        Self::atom_set(unit, &Singleton, Some(&record)).await?;
         // The row a settings read composes with the documents has changed, and
         // `update`/`save_in` are not the only writer of it. Registered rather
         // than said here, so the invalidation lands when the caller's unit
@@ -236,6 +313,38 @@ impl Settings {
     pub(crate) async fn owned_columns(
         handle: &super::Handle,
     ) -> crate::Result<OwnedColumns> {
+        if super::configuration_documents::runtime(handle.pool()) {
+            let proxy =
+                super::configuration_documents::composed(handle, "proxy")
+                    .await?;
+            let providers = super::configuration_documents::composed(
+                handle,
+                "content_providers",
+            )
+            .await?;
+            let string = |key: &str| {
+                proxy
+                    .get(key)
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_owned()
+            };
+            return Ok(OwnedColumns {
+                proxy_mode: proxy
+                    .get("mode")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("system")
+                    .into(),
+                proxy_url: string("url"),
+                proxy_username: string("username"),
+                proxy_password: string("password"),
+                curseforge_api_key: providers
+                    .get("curseforge_api_key")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .into(),
+            });
+        }
         let mut connection = handle.connection().await?;
         read_owned_columns(&mut connection)
             .await?
@@ -248,6 +357,59 @@ impl Settings {
         unit: &mut super::Atom,
         change: impl FnOnce(&mut OwnedColumns),
     ) -> crate::Result<()> {
+        if super::configuration_documents::runtime(unit.handle.pool()) {
+            unit.configuration().await?;
+            let mut columns = Self::owned_columns(&unit.handle).await?;
+            let pending = unit.configuration().await?;
+            let proxy = super::configuration_documents::payload(
+                pending.document("proxy").await?,
+            )?;
+            for (name, target) in [
+                ("mode", &mut columns.proxy_mode),
+                ("url", &mut columns.proxy_url),
+                ("username", &mut columns.proxy_username),
+                ("password", &mut columns.proxy_password),
+            ] {
+                if let Some(value) =
+                    proxy.get(name).and_then(serde_json::Value::as_str)
+                {
+                    *target = value.into();
+                }
+            }
+            if let Some(value) = super::configuration_documents::payload(
+                pending.document("content_providers").await?,
+            )?
+            .get("curseforge_api_key")
+            .and_then(serde_json::Value::as_str)
+            {
+                columns.curseforge_api_key = value.into();
+            }
+            let previous = columns.clone();
+            change(&mut columns);
+            let proxy = super::configuration_documents::payload(
+                pending.document("proxy").await?,
+            )?;
+            for (name, value, old) in [
+                ("mode", columns.proxy_mode, previous.proxy_mode),
+                ("url", columns.proxy_url, previous.proxy_url),
+                ("username", columns.proxy_username, previous.proxy_username),
+                ("password", columns.proxy_password, previous.proxy_password),
+            ] {
+                if value != old {
+                    proxy.insert(name.into(), serde_json::json!(value));
+                }
+            }
+            if columns.curseforge_api_key != previous.curseforge_api_key {
+                super::configuration_documents::payload(
+                    pending.document("content_providers").await?,
+                )?
+                .insert(
+                    "curseforge_api_key".into(),
+                    serde_json::json!(columns.curseforge_api_key),
+                );
+            }
+            return Ok(());
+        }
         let mut columns = read_owned_columns(unit.connection())
             .await?
             .ok_or_else(missing_row)?;

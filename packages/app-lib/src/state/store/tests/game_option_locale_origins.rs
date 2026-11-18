@@ -1,7 +1,6 @@
 //! What the locale origins collection promises.
 
 use super::support;
-use crate::state::store::Collection as _;
 use crate::state::store::game_option_locale_origins::{
     GameOptionLocaleOrigins, LocaleOriginKey, LocaleOriginRecord,
 };
@@ -25,7 +24,7 @@ fn observed() -> LocaleOriginRecord {
 
 #[tokio::test]
 async fn an_origin_round_trips_and_clears() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     GameOptionLocaleOrigins::set(
         &handle,
         &key("", "external:key_one"),
@@ -54,7 +53,7 @@ async fn an_origin_round_trips_and_clears() {
 
 #[tokio::test]
 async fn a_scope_reads_and_clears_only_its_own_origins() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     for (scope, option_id) in [
         ("", "external:key_one"),
         ("one", "external:key_two"),
@@ -90,7 +89,7 @@ async fn a_scope_reads_and_clears_only_its_own_origins() {
 
 #[tokio::test]
 async fn a_replacement_writes_exactly_what_it_was_given() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     GameOptionLocaleOrigins::set(
         &handle,
         &key("", "external:key_one"),
@@ -123,7 +122,7 @@ async fn a_replacement_writes_exactly_what_it_was_given() {
 
 #[tokio::test]
 async fn a_scoped_replacement_refuses_a_key_outside_its_scope() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     let error = GameOptionLocaleOrigins::set_scoped(
         &handle,
         &"one".to_string(),

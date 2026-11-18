@@ -1,5 +1,6 @@
 //! An independently versioned SQLx pool. No joins or transactions use app.db.
 
+#[cfg(test)]
 mod legacy;
 
 use chrono::Utc;
@@ -30,6 +31,8 @@ use crate::state::store::resource_cache_state::{
 use crate::state::store::resource_legacy_import::{
     ResourceLegacyImport, ResourceLegacyImportRecord, Singleton as Checkpoint,
 };
+
+pub(crate) const FILE_NAME: &str = "resources.db";
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct CacheKey {
@@ -95,6 +98,26 @@ impl ResourceCache {
         tokio::fs::create_dir_all(parent)
             .await
             .map_err(cache_error)?;
+        if tokio::fs::symlink_metadata(parent)
+            .await
+            .map_err(cache_error)?
+            .file_type()
+            .is_symlink()
+        {
+            return Err(ResourceError::Cache(
+                "cache directory is a link".into(),
+            ));
+        }
+        match tokio::fs::symlink_metadata(path).await {
+            Ok(metadata) if !metadata.is_file() => {
+                return Err(ResourceError::Cache(
+                    "cache path is not a regular file".into(),
+                ));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(cache_error(error)),
+        }
         let lock = tokio::fs::OpenOptions::new()
             .create(true)
             .truncate(false)
@@ -185,6 +208,40 @@ impl ResourceCache {
     /// The same database, reached the way every caller reaches its records.
     fn data(&self) -> Option<Handle> {
         self.pool.as_ref().map(|pool| Handle::new(pool.clone()))
+    }
+
+    pub(crate) fn pool(&self) -> Option<&SqlitePool> {
+        self.pool.as_ref()
+    }
+
+    pub(crate) async fn with_projection<T: Default>(
+        &self,
+        read: impl AsyncFnOnce(&Handle) -> crate::Result<T>,
+    ) -> crate::Result<T> {
+        let _guard = self.gate.read().await;
+        match self.data() {
+            Some(data) => read(&data).await,
+            None => Ok(T::default()),
+        }
+    }
+
+    pub(crate) async fn update_projection<T: Default>(
+        &self,
+        generation: i64,
+        write: impl AsyncFnOnce(&mut crate::state::store::Atom) -> crate::Result<T>,
+    ) -> crate::Result<T> {
+        let _guard = self.gate.read().await;
+        let Some(data) = self.data() else {
+            return Ok(T::default());
+        };
+        let mut unit = atom(&data).await?;
+        let state = ResourceCacheState::atom_get(&mut unit, &()).await?;
+        if state.is_none_or(|state| state.generation != generation) {
+            return Ok(T::default());
+        }
+        let result = write(&mut unit).await?;
+        unit.commit().await?;
+        Ok(result)
     }
 
     pub(crate) async fn generation(&self) -> i64 {
@@ -367,6 +424,11 @@ impl ResourceCache {
         ResourceArtifactEvidence::atom_set_all(&mut unit, &[])
             .await
             .map_err(cache_error)?;
+        crate::state::store::resource_cache_schema::clear_projections(
+            &mut unit,
+        )
+        .await
+        .map_err(cache_error)?;
         unit.commit().await.map_err(cache_error)
     }
 
@@ -483,12 +545,13 @@ impl ResourceCache {
         serde_json::from_str(&record.payload).ok()
     }
 
-    pub(crate) async fn invalidate_evidence(&self, key: &str) {
-        let _guard = self.gate.read().await;
-        if let Some(data) = self.data() {
-            let _ = ResourceArtifactEvidence::set(&data, &key.to_owned(), None)
-                .await;
-        }
+    pub(crate) async fn invalidate_evidence(&self, key: &str, generation: i64) {
+        let _ = self
+            .update_projection(generation, async |unit| {
+                ResourceArtifactEvidence::atom_set(unit, &key.to_owned(), None)
+                    .await
+            })
+            .await;
     }
 }
 

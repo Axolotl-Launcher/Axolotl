@@ -25,7 +25,11 @@ pub(crate) async fn get_files(
     handle: &Handle,
     instance_id: &str,
 ) -> crate::Result<Vec<InstanceFile>> {
-    sqlite::files::get_instance_files(instance_id, handle.pool()).await
+    let mut files =
+        sqlite::files::get_instance_files(instance_id, handle.pool()).await?;
+    super::content_evidence::hydrate_files(handle, instance_id, &mut files)
+        .await?;
+    Ok(files)
 }
 
 pub(crate) async fn get_entry_file_ids(
@@ -43,6 +47,7 @@ pub(crate) async fn get_entry_file_ids(
 }
 
 pub(crate) struct ScannedFiles<'a> {
+    pub cache_generation: i64,
     pub complete: bool,
     pub create_entries: bool,
     pub instance_id: &'a str,
@@ -65,6 +70,7 @@ where
     Fut: std::future::Future<Output = bool>,
 {
     let ScannedFiles {
+        cache_generation,
         complete,
         create_entries,
         instance_id,
@@ -76,8 +82,17 @@ where
         refreshed_metadata_file_ids,
         fingerprints,
     } = scan;
-    let mut tx = handle.pool().begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            handle.pool(),
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     sqlite::write_guards::ensure_instance_exists(instance_id, &mut tx).await?;
+    let previous_guards =
+        super::content_evidence::guards(&mut tx, instance_id).await?;
+    let previous_entries =
+        super::content_evidence::entry_files(&mut tx, instance_id).await?;
     if complete {
         sqlite::files::mark_instance_files_missing(instance_id, &mut tx)
             .await?;
@@ -124,7 +139,7 @@ where
     // constraint on `instance_files.id` (code 1555).
     let mut synced_files: Vec<InstanceFile> = Vec::with_capacity(files.len());
     for file in files {
-        let synced = if let Some(tracked_file_id) =
+        let mut synced = if let Some(tracked_file_id) =
             merges.get(&file.relative_path)
         {
             sqlite::files::adopt_untracked_file_in_transaction(
@@ -146,8 +161,8 @@ where
                 file.enabled,
                 &file.sha1,
                 file.size,
-                file.local_mod_data.as_deref(),
-                file.icon_path.as_deref(),
+                None,
+                None,
                 &mut tx,
             )
             .await?
@@ -158,6 +173,8 @@ where
         } else {
             upsert_scanned_file(instance_id, file, &mut tx).await?
         };
+        synced.local_mod_data = file.local_mod_data.clone();
+        synced.icon_path = file.icon_path.clone();
         synced_files.push(synced);
     }
 
@@ -200,42 +217,63 @@ where
     }
 
     if !still_current().await {
-        tx.rollback().await?;
+        tx_diagnostics
+            .observe("rollback_wait", tx.rollback())
+            .await?;
+        tx_diagnostics.complete("rolled_back");
         return Ok(None);
     }
+    let accepted_guards =
+        super::content_evidence::guards(&mut tx, instance_id).await?;
+    let accepted_entries =
+        super::content_evidence::entry_files(&mut tx, instance_id).await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
+    super::content_evidence::rebase_scanned_evidence(
+        handle,
+        instance_id,
+        &previous_guards,
+        &accepted_guards,
+        &previous_entries,
+        &accepted_entries,
+        cache_generation,
+    )
+    .await;
+    let mut evidence = Vec::new();
     for file in &synced_files {
-        if let Some(record) = fingerprints.get(&file.relative_path)
-            && record.sha1().eq_ignore_ascii_case(&file.sha1)
-            && record.size == file.size
-        {
-            super::content_file_fingerprints::ContentFileFingerprints::write(
-                &mut tx,
-                &super::content_file_fingerprints::FingerprintKey {
-                    instance_id: instance_id.into(),
-                    file_id: file.id.clone(),
-                },
-                Some(record),
-            )
-            .await?;
+        let Some(guard) = accepted_guards.get(&file.id) else {
+            continue;
+        };
+        if let Some(record) = fingerprints.get(&file.relative_path) {
+            if record.sha1().eq_ignore_ascii_case(&file.sha1)
+                && record.size == file.size
+            {
+                evidence.push(super::content_evidence::Write {
+                    kind: "fingerprint",
+                    id: file.id.clone(),
+                    guard: guard.clone(),
+                    payload: serde_json::to_string(record)?,
+                });
+            }
         }
+        let parsed = super::content_evidence::Parsed {
+            metadata: file.local_mod_data.clone(),
+            icon: file.icon_path.clone(),
+        };
+        evidence.push(super::content_evidence::Write {
+            kind: "parsed",
+            id: file.id.clone(),
+            guard: guard.clone(),
+            payload: serde_json::to_string(&parsed)?,
+        });
     }
-    if complete {
-        for table in [
-            "content_file_fingerprints",
-            "content_refresh_checks",
-            "content_refresh_presentations",
-        ] {
-            let query = format!(
-                "DELETE FROM {table} WHERE instance_id = ? AND file_id IN (SELECT id FROM instance_files WHERE instance_id = ? AND missing = 1)"
-            );
-            sqlx::query(sqlx::AssertSqlSafe(query))
-                .bind(instance_id)
-                .bind(instance_id)
-                .execute(&mut *tx)
-                .await?;
-        }
-    }
-    tx.commit().await?;
+    super::content_evidence::write_batch(
+        handle,
+        instance_id,
+        evidence,
+        cache_generation,
+    )
+    .await;
     Ok(Some(synced_files))
 }
 
@@ -253,8 +291,8 @@ async fn upsert_scanned_file(
             sha1: &file.sha1,
             size: file.size,
             missing: false,
-            local_mod_data: file.local_mod_data.as_deref(),
-            icon_path: file.icon_path.as_deref(),
+            local_mod_data: None,
+            icon_path: None,
         },
         tx,
     )
@@ -268,7 +306,12 @@ pub(crate) async fn set_discovered_entries(
     use crate::state::{
         ContentOwnershipKind, ContentRequirement, ContentSourceKind,
     };
-    let mut tx = handle.pool().begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            handle.pool(),
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     let content_set =
         sqlite::content_sets::get_applied_content_set(instance_id, &mut *tx)
             .await?
@@ -322,6 +365,7 @@ pub(crate) async fn set_discovered_entries(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }

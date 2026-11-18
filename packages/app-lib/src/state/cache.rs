@@ -1,12 +1,10 @@
 use crate::api::curseforge::CurseForgeProject;
-use crate::state::store::cache::{Cache, CacheKey, CacheRecord};
+use crate::state::store::cache::{Cache, CacheKey};
 use crate::state::store::{Collection as _, Handle};
 use crate::state::{
     CurseForgeProjectId, ModrinthProjectId, ModrinthVersionId, ProjectType,
 };
-use crate::util::fetch::{
-    FetchSemaphore, fetch_json, fetch_json_nonempty, sha1_async,
-};
+use crate::util::fetch::{FetchSemaphore, fetch_json, fetch_json_nonempty};
 use chrono::{DateTime, Utc};
 use dashmap::DashSet;
 use reqwest::Method;
@@ -18,6 +16,9 @@ use std::env;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::path::PathBuf;
+use std::sync::Arc;
+
+use crate::resources::cache::ResourceCache;
 
 // 1 day
 const DEFAULT_ID: &str = "0";
@@ -80,6 +81,17 @@ pub enum CacheValueType {
 }
 
 impl CacheValueType {
+    pub(crate) fn uses_resource_projection(self) -> bool {
+        matches!(
+            self,
+            Self::User
+                | Self::Team
+                | Self::Organization
+                | Self::Categories
+                | Self::FileHash
+        )
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             CacheValueType::Project => "project",
@@ -196,6 +208,17 @@ impl CacheValueType {
             | CacheValueType::ProjectVersions => None,
         }
     }
+}
+
+fn resource_projection_type(kind: CacheValueType) -> String {
+    let endpoint = match kind {
+        CacheValueType::Team | CacheValueType::Organization => {
+            env!("MODRINTH_API_URL_V3")
+        }
+        _ => env!("MODRINTH_API_URL"),
+    };
+    let scope = crate::resources::providers::modrinth_cache_scope(endpoint);
+    format!("modrinth-v1:{scope}:{}", kind.as_str())
 }
 
 #[cfg(test)]
@@ -1304,18 +1327,15 @@ impl CachedEntry {
             .collect())
     }
 
-    pub(crate) async fn get_version_many_for_state(
+    pub(crate) async fn get_version_many_with_service(
         ids: &[ModrinthVersionId],
-        state: &crate::State,
+        service: &std::sync::Arc<crate::resources::ResourceService>,
     ) -> crate::Result<Vec<Version>> {
-        use crate::resources::protocol;
-
-        let service = state.resources().await.map_err(protocol::error)?;
         let keys = ids
             .iter()
             .map(ModrinthVersionId::as_str)
             .collect::<Vec<_>>();
-        let entries = protocol::many(
+        let entries = crate::resources::protocol::many(
             service,
             CacheValueType::Version,
             &keys,
@@ -1886,6 +1906,60 @@ impl_cache_method_singular!(
 );
 
 impl CachedEntry {
+    fn resource_cache_for(
+        pool: &SqlitePool,
+        kind: CacheValueType,
+    ) -> Option<Arc<ResourceCache>> {
+        if !kind.uses_resource_projection() {
+            return None;
+        }
+        let state = crate::State::get_if_initialized()?;
+        Arc::ptr_eq(
+            &pool.connect_options(),
+            &state.cache_pool().connect_options(),
+        )
+        .then(|| state.resource_cache().clone())
+    }
+
+    async fn persist_selected_cache_best_effort(
+        kind: CacheValueType,
+        entries: &[Self],
+        pool: &SqlitePool,
+        refresh_source: CacheRefreshSource,
+        projection: Option<&(Arc<ResourceCache>, i64)>,
+    ) {
+        if entries.is_empty() {
+            return;
+        }
+        if let Some((cache, generation)) = projection {
+            let write = async {
+                let rows = Self::batch_json(entries, true)?;
+                cache
+                    .update_projection(*generation, async |unit| {
+                        crate::state::store::cache::atom_write_many(unit, &rows)
+                            .await
+                    })
+                    .await
+            };
+            if let Err(error) = write.await {
+                Self::log_cache_write_failure(
+                    kind,
+                    entries.len(),
+                    refresh_source,
+                    &error,
+                );
+            }
+        } else {
+            Self::persist_fetched_cache_best_effort(
+                kind,
+                entries,
+                pool,
+                refresh_source,
+            )
+            .await;
+        }
+    }
+
     async fn persist_fetched_cache_best_effort(
         type_: CacheValueType,
         entries: &[Self],
@@ -1963,28 +2037,6 @@ impl CachedEntry {
         );
     }
 
-    /// The row this entry is stored as.
-    fn stored(&self) -> crate::Result<(CacheKey, CacheRecord)> {
-        let data = match self.data.as_ref() {
-            Some(value) => {
-                Some(serde_json::to_string(&value.to_json_value()?)?)
-            }
-            None => None,
-        };
-
-        Ok((
-            CacheKey {
-                data_type: self.type_.as_str().to_string(),
-                id: self.id.clone(),
-            },
-            CacheRecord {
-                alias: self.alias.clone(),
-                data,
-                expires: self.expires,
-            },
-        ))
-    }
-
     #[tracing::instrument(skip_all, level = "info")]
     pub async fn get(
         type_: CacheValueType,
@@ -2033,6 +2085,17 @@ impl CachedEntry {
             .await;
         }
 
+        let projection = match Self::resource_cache_for(pool, type_) {
+            Some(cache) => {
+                let generation = cache.generation().await;
+                Some((cache, generation))
+            }
+            None => None,
+        };
+        let selected_pool = match &projection {
+            Some((cache, _)) => cache.pool(),
+            None => Some(pool),
+        };
         let cache_behaviour = cache_behaviour.unwrap_or_default();
 
         let remaining_keys = DashSet::new();
@@ -2045,8 +2108,16 @@ impl CachedEntry {
         let background_refresh_keys = DashSet::new();
         let mut cache_read_error: Option<crate::Error> = None;
 
-        if cache_behaviour != CacheBehaviour::Bypass {
-            let type_str = type_.as_str();
+        if cache_behaviour != CacheBehaviour::Bypass
+            && let Some(pool) = selected_pool
+        {
+            let scoped_type;
+            let type_str: &str = if projection.is_some() {
+                scoped_type = resource_projection_type(type_);
+                &scoped_type
+            } else {
+                type_.as_str()
+            };
             let serialized_keys = serde_json::to_string(&keys)?;
             let alias_keys = if type_.case_sensitive_alias().unwrap_or(true) {
                 serialized_keys.clone()
@@ -2148,7 +2219,11 @@ impl CachedEntry {
                     return_vals.push(Self {
                         id: row.id,
                         alias: row.alias,
-                        type_: CacheValueType::from_string(&row.data_type),
+                        type_: if projection.is_some() {
+                            type_
+                        } else {
+                            CacheValueType::from_string(&row.data_type)
+                        },
                         data: Some(data),
                         expires: row.expires,
                     });
@@ -2218,11 +2293,12 @@ impl CachedEntry {
                     let entries =
                         values.iter().map(|x| x.0.clone()).collect::<Vec<_>>();
 
-                    Self::persist_fetched_cache_best_effort(
+                    Self::persist_selected_cache_best_effort(
                         type_,
                         &entries,
                         pool,
                         CacheRefreshSource::Foreground,
+                        projection.as_ref(),
                     )
                     .await;
 
@@ -2268,11 +2344,12 @@ impl CachedEntry {
                     .map(|x| x.0)
                     .collect::<Vec<_>>();
 
-                    Self::persist_fetched_cache_best_effort(
+                    Self::persist_selected_cache_best_effort(
                         type_,
                         &values,
                         state.cache_pool(),
                         CacheRefreshSource::Background,
+                        projection.as_ref(),
                     )
                     .await;
 
@@ -2908,11 +2985,25 @@ impl CachedEntry {
     /// Writes entries outside any open unit. A cache is derived data, so a
     /// failure here is logged rather than carried to a caller whose own
     /// transaction has already committed.
-    pub(crate) async fn store_best_effort(items: &[Self], pool: &SqlitePool) {
+    pub(crate) async fn store_install_hashes(
+        cache: &ResourceCache,
+        generation: i64,
+        items: &[Self],
+    ) {
         if items.is_empty() {
             return;
         }
-        if let Err(error) = Self::upsert_many(items, pool).await {
+        let result = async {
+            let rows = Self::batch_json(items, true)?;
+            cache
+                .update_projection(generation, async |unit| {
+                    crate::state::store::cache::atom_write_many(unit, &rows)
+                        .await
+                })
+                .await
+        }
+        .await;
+        if let Err(error) = result {
             tracing::warn!(
                 error = %error,
                 entry_count = items.len(),
@@ -2924,22 +3015,27 @@ impl CachedEntry {
     /// Drops entries outside any open unit. A hash entry is dropped before the
     /// write that replaces it commits, so a run stopping between the two reads
     /// a miss instead of the metadata of the file it replaced.
-    pub(crate) async fn forget_best_effort(items: &[Self], pool: &SqlitePool) {
+    pub(crate) async fn invalidate_install_hashes(
+        cache: &ResourceCache,
+        items: &[Self],
+    ) {
         if items.is_empty() {
             return;
         }
-        let handle = Handle::new(pool.clone());
-        for item in items {
-            let key = CacheKey {
-                data_type: item.type_.as_str().to_string(),
-                id: item.id.clone(),
-            };
-            if let Err(error) = Cache::set(&handle, &key, None).await {
-                tracing::warn!(
-                    error = %error,
-                    "Failed to drop a cache entry; continuing without it"
-                );
-            }
+        let result = cache
+            .update_projection(cache.generation().await, async |unit| {
+                for item in items {
+                    let key = CacheKey {
+                        data_type: resource_projection_type(item.type_),
+                        id: item.id.clone(),
+                    };
+                    Cache::atom_set(unit, &key, None).await?;
+                }
+                Ok(())
+            })
+            .await;
+        if let Err(error) = result {
+            tracing::warn!(%error, "Install hash invalidation failed");
         }
     }
 
@@ -2950,7 +3046,12 @@ impl CachedEntry {
         if items.is_empty() {
             return Ok(());
         }
+        let items = Self::batch_json(items, false)?;
+        let mut conn = pool.acquire().await?;
+        crate::state::store::cache::write_many(&mut conn, &items).await
+    }
 
+    fn batch_json(items: &[Self], projected: bool) -> crate::Result<String> {
         let mut last_id_positions = HashMap::new();
         let mut last_alias_positions = HashMap::new();
 
@@ -2988,17 +3089,18 @@ impl CachedEntry {
 
                 Ok(serde_json::json!({
                     "id": item.id,
-                    "data_type": item.type_.as_str(),
+                    "data_type": if projected {
+                        resource_projection_type(item.type_)
+                    } else {
+                        item.type_.as_str().to_string()
+                    },
                     "alias": item.alias,
                     "data": data,
                     "expires": item.expires,
                 }))
             })
             .collect::<crate::Result<Vec<_>>>()?;
-        let items = serde_json::to_string(&items)?;
-
-        let mut conn = pool.acquire().await?;
-        crate::state::store::cache::write_many(&mut conn, &items).await
+        Ok(serde_json::to_string(&items)?)
     }
 
     pub async fn purge_cache_types(
@@ -3020,36 +3122,41 @@ impl CachedEntry {
         Ok(())
     }
 
-    pub async fn cache_modpack_files(
+    pub(crate) async fn cache_modpack_files(
+        cache: &ResourceCache,
+        generation: i64,
         version_id: &str,
         file_hashes: Vec<String>,
         project_ids: Vec<String>,
     ) -> crate::Result<()> {
-        let state = crate::State::get().await?;
-        let service = state
-            .resources()
-            .await
-            .map_err(crate::resources::protocol::error)?;
-        crate::resources::packs::save_index(
-            service.cache(),
+        crate::resources::packs::save_index_at(
+            cache,
             &CachedModpackFiles {
                 version_id: version_id.into(),
                 file_hashes,
                 project_ids,
             },
+            generation,
         )
         .await
         .map_err(crate::resources::protocol::error)
     }
 
     pub(crate) async fn cache_modpack_files_best_effort(
+        cache: &ResourceCache,
+        generation: i64,
         version_id: &str,
         file_hashes: Vec<String>,
         project_ids: Vec<String>,
     ) {
-        if let Err(error) =
-            Self::cache_modpack_files(version_id, file_hashes, project_ids)
-                .await
+        if let Err(error) = Self::cache_modpack_files(
+            cache,
+            generation,
+            version_id,
+            file_hashes,
+            project_ids,
+        )
+        .await
         {
             tracing::warn!(%error, "Pack index cache write failed");
         }
@@ -3057,43 +3164,9 @@ impl CachedEntry {
 
     pub(crate) async fn get_modpack_files(
         version_id: &str,
-        handle: &Handle,
+        cache: &ResourceCache,
     ) -> crate::Result<Option<CachedModpackFiles>> {
-        let state = crate::State::get().await?;
-        let service = state
-            .resources()
-            .await
-            .map_err(crate::resources::protocol::error)?;
-        if let Some(index) =
-            crate::resources::packs::index(service.cache(), version_id).await
-        {
-            return Ok(Some(index));
-        }
-        if service.cache().generation().await > 0 {
-            return Ok(None);
-        }
-        let data = Cache::get(
-            handle,
-            &CacheKey {
-                data_type: CacheValueType::ModpackFiles.as_str().to_string(),
-                id: version_id.to_string(),
-            },
-        )
-        .await?
-        .and_then(|row| row.data);
-        let index = data
-            .and_then(|data| {
-                serde_json::from_str::<CachedModpackFiles>(&data).ok()
-            })
-            .filter(|index| {
-                index.version_id == version_id
-                    && crate::resources::packs::valid_index(index)
-            });
-        if let Some(index) = &index {
-            let _ = crate::resources::packs::save_index(service.cache(), index)
-                .await;
-        }
-        Ok(index)
+        Ok(crate::resources::packs::index(cache, version_id).await)
     }
 
     /// Get versions for a project (without changelogs for fast loading)
@@ -3123,69 +3196,6 @@ impl CachedEntry {
 
         Ok(None)
     }
-}
-
-pub(crate) async fn cache_file_hash(
-    bytes: bytes::Bytes,
-    instance_path: &str,
-    path: &str,
-    known_hash: Option<&str>,
-    project_type: Option<ProjectType>,
-    known_modrinth_file: Option<KnownModrinthFile<'_>>,
-    handle: &Handle,
-) -> crate::Result<()> {
-    let size = bytes.len();
-
-    let hash = if let Some(known_hash) = known_hash {
-        known_hash.to_string()
-    } else {
-        sha1_async(bytes).await?
-    };
-
-    cache_file_hash_metadata(
-        instance_path,
-        path,
-        size as u64,
-        hash,
-        project_type,
-        known_modrinth_file,
-        handle,
-    )
-    .await
-}
-
-pub(crate) async fn cache_file_hash_metadata(
-    instance_path: &str,
-    path: &str,
-    size: u64,
-    hash: String,
-    project_type: Option<ProjectType>,
-    known_modrinth_file: Option<KnownModrinthFile<'_>>,
-    handle: &Handle,
-) -> crate::Result<()> {
-    let (project_id, version_id) =
-        known_modrinth_file.map_or((None, None), |metadata| {
-            (
-                Some(metadata.project_id.to_string()),
-                Some(metadata.version_id.to_string()),
-            )
-        });
-
-    // Streamed extraction already computed these values, so avoid buffering the file just to cache them.
-    let (key, record) = CacheValue::FileHash(CachedFileHash {
-        path: format!("{instance_path}/{path}"),
-        size,
-        hash,
-        project_type,
-        project_id,
-        version_id,
-    })
-    .get_entry()
-    .stored()?;
-
-    Cache::set(handle, &key, Some(&record)).await?;
-
-    Ok(())
 }
 
 #[cfg(test)]

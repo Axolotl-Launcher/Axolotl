@@ -48,7 +48,7 @@ fn file_modified_date(
                 record.modified.nanos,
             )
         })
-        .unwrap_or(file.added_at)
+        .unwrap_or(file.modified_at)
         .to_rfc3339()
 }
 
@@ -460,15 +460,21 @@ where
 
             let _instance_lock =
                 state.lock_instance_content(&instance_id).await;
-            let mut tx = match state.pool.begin_with("BEGIN IMMEDIATE").await {
-                Ok(tx) => tx,
-                Err(error) => {
-                    tracing::warn!(
-                        "Content dependency revision update failed: {error}"
-                    );
-                    return;
-                }
-            };
+            let (mut tx, tx_diagnostics) =
+                match crate::state::store::lock_diagnostics::begin(
+                    &state.pool,
+                    "BEGIN IMMEDIATE",
+                )
+                .await
+                {
+                    Ok(tx) => tx,
+                    Err(error) => {
+                        tracing::warn!(
+                            "Content dependency revision update failed: {error}"
+                        );
+                        return;
+                    }
+                };
             let current = match content_sets::get_applied_content_set_revision(
                 &instance_id,
                 &mut *tx,
@@ -513,12 +519,15 @@ where
                         return;
                     }
                 };
-            if let Err(error) = tx.commit().await {
+            if let Err(error) =
+                tx_diagnostics.observe("commit_wait", tx.commit()).await
+            {
                 tracing::warn!(
                     "Content dependency revision commit failed: {error}"
                 );
                 return;
             }
+            tx_diagnostics.complete("committed");
             if let Err(error) = crate::event::emit::emit_instance(
                 &instance_id,
                 crate::event::InstancePayloadType::ContentChanged { revision },
@@ -697,7 +706,12 @@ pub(crate) async fn reconcile_curseforge_members(
     use chrono::Utc;
 
     let _instance_lock = state.lock_instance_content(instance_id).await;
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     let candidates = pack_members::get_curseforge_reconciliation_candidates(
         content_set_id,
         &mut *tx,
@@ -879,7 +893,8 @@ pub(crate) async fn reconcile_curseforge_members(
         &mut tx,
     )
     .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 
@@ -967,7 +982,12 @@ async fn reconcile_curseforge_manual_downloads(
     }
 
     let _instance_lock = state.lock_instance_content(instance_id).await;
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     let members =
         pack_members::get_curseforge_member_rows(content_set_id, &mut *tx)
             .await?
@@ -1069,7 +1089,8 @@ async fn reconcile_curseforge_manual_downloads(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 

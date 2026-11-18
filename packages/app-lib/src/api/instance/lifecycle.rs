@@ -41,7 +41,10 @@ pub(crate) async fn create(
         emit_instance(&instance.id, InstancePayloadType::Created).await?;
 
         crate::state::get_instance(&instance.id, &state.pool)
-            .await?
+            .await
+            .map_err(|error| {
+                error.with_context("Creating instance: load committed metadata")
+            })?
             .ok_or_else(|| {
                 crate::ErrorKind::InputError(
                     "Created instance could not be loaded".to_string(),
@@ -145,6 +148,7 @@ pub async fn edit_icon(
     icon_path: Option<&Path>,
 ) -> crate::Result<()> {
     let state = State::get().await?;
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let instance =
         instance_rows::get_instance_display_info(instance_id, &state.pool)
             .await?

@@ -23,126 +23,198 @@ use crate::state::instances::adapters::sqlite::{
 use crate::state::instances::commands::materialization_path_key;
 
 pub async fn recover_interrupted_jobs(state: &State) -> crate::Result<()> {
-    crate::state::instances::commands::recover_legacy_rollbacks(state).await?;
+    if let Err(error) =
+        crate::state::instances::commands::recover_legacy_rollbacks(state).await
+    {
+        tracing::warn!(%error,"Some legacy recovery records remain pending");
+    }
     let jobs = store::list_interrupted_candidates(state).await?;
 
-    for mut job in jobs {
-        if crate::resources::plans::frozen_request_completed(
-            &job.state.request,
-            &state.data,
-        )
+    recover_jobs(jobs, state).await
+}
+
+pub(crate) async fn recover_interrupted_jobs_for_instance(
+    state: &State,
+    instance_id: &str,
+) -> crate::Result<()> {
+    let jobs = store::list_interrupted_candidates(state)
         .await?
-        {
-            if let Err(error) = apply_cleanup(&mut job.state, state).await {
-                tracing::warn!(job_id = %job.id, %error, "Committed resource task staging cleanup deferred");
+        .into_iter()
+        .filter(|job| {
+            job.instance_id.as_deref() == Some(instance_id)
+                || job.state.source_instance_id().as_deref()
+                    == Some(instance_id)
+        })
+        .collect();
+    recover_jobs(jobs, state).await
+}
+
+async fn recover_jobs(
+    jobs: Vec<store::InstallJobRecord>,
+    state: &State,
+) -> crate::Result<()> {
+    for job in jobs {
+        let mut owners = job
+            .instance_id
+            .clone()
+            .into_iter()
+            .chain(job.state.source_instance_id())
+            .collect::<Vec<_>>();
+        owners.sort();
+        owners.dedup();
+        let deleted_target = match &job.state.cleanup {
+            InstallCleanup::DeleteNewInstance { instance_id } => {
+                instance_id.as_deref()
             }
-            job.state.progress.phase = InstallPhaseId::Finalizing;
-            job.state.progress.progress = None;
-            job.state.progress.details = InstallPhaseDetails::Empty;
-            job.state.progress.parallel = None;
-            job.state.error = None;
-            job.state.rollback_error = None;
-            job.state.context = None;
-            job.state.pause_reason = None;
-            job.state.missing_content = None;
-            job.state.rollback = None;
-            job.state.record_event(InstallJobEventKind::JobSucceeded {
-                instance_id: Some(job.instance_id.clone().ok_or_else(
-                    || {
-                        crate::ErrorKind::InputError(
-                            "committed resource job has no instance".into(),
-                        )
-                    },
-                )?),
-            });
-            if let Some(record) =
-                store::complete_running_job(job.id, &job.state, state).await?
-            {
-                emit_install_job(&record.snapshot()).await?;
-                continue;
-            }
+            _ => None,
+        };
+        let mut maintenance = Vec::new();
+        for owner in owners.iter().filter(|_| deleted_target.is_none()) {
+            maintenance.push(
+                crate::api::instance::lock_instance_maintenance(owner).await,
+            );
         }
-        if job.state.display.is_none() {
-            job.state.display = display_from_request(&job.state);
+        let mut running = false;
+        for owner in &owners {
+            running |= crate::state::instance_has_running_process(owner, state)
+                .await?;
         }
-        if job.status != InstallJobStatus::Canceling
-            && job.state.retry_from_checkpoint
-            && job.state.is_new_pack_checkpoint()
-        {
-            let phase = job.state.progress.phase;
-            job.state.error = Some(InstallErrorView::from_message(
-                "app_closed",
-                phase,
-                "Installation was interrupted. Retry to continue with the downloaded files.",
-            ));
-            job.state.record_event(InstallJobEventKind::Interrupted {
-                reason: InstallInterruptReason::AppClosed,
-                phase,
-            });
-            job.state.progress.parallel = None;
-            let record = store::update_status(
-                job.id,
-                InstallJobStatus::Failed,
-                &job.state,
-                state,
-            )
-            .await?;
-            emit_install_job(&record.snapshot()).await?;
+        if running {
             continue;
         }
-        let interrupted_phase = job.state.progress.phase;
-        job.state.record_event(InstallJobEventKind::Interrupted {
-            reason: InstallInterruptReason::AppClosed,
-            phase: interrupted_phase,
-        });
-        job.state.progress.phase = InstallPhaseId::RollingBack;
+        let Some(current) = store::get(job.id, state).await? else {
+            continue;
+        };
+        if current.modified != job.modified
+            || current.status != job.status
+            || serde_json::to_value(&current.state)?
+                != serde_json::to_value(&job.state)?
+        {
+            continue;
+        }
+        if let Err(error) = recover_job(job, state).await {
+            tracing::warn!(%error,"One interrupted operation remains unavailable; other instances continue");
+        }
+    }
+    Ok(())
+}
+
+async fn recover_job(
+    mut job: store::InstallJobRecord,
+    state: &State,
+) -> crate::Result<()> {
+    if crate::resources::plans::frozen_request_completed(
+        &job.state.request,
+        &state.data,
+    )
+    .await?
+    {
+        if let Err(error) = apply_cleanup(&mut job.state, state).await {
+            tracing::warn!(job_id = %job.id, %error, "Committed resource task staging cleanup deferred");
+        }
+        job.state.progress.phase = InstallPhaseId::Finalizing;
         job.state.progress.progress = None;
         job.state.progress.details = InstallPhaseDetails::Empty;
         job.state.progress.parallel = None;
+        job.state.error = None;
+        job.state.rollback_error = None;
+        job.state.context = None;
+        job.state.pause_reason = None;
+        job.state.missing_content = None;
+        job.state.rollback = None;
+        job.state.record_event(InstallJobEventKind::JobSucceeded {
+            instance_id: Some(job.instance_id.clone().ok_or_else(|| {
+                crate::ErrorKind::InputError(
+                    "committed resource job has no instance".into(),
+                )
+            })?),
+        });
+        if let Some(record) =
+            store::complete_running_job(job.id, &job.state, state).await?
+        {
+            emit_install_job(&record.snapshot()).await?;
+            return Ok(());
+        }
+    }
+    if job.state.display.is_none() {
+        job.state.display = display_from_request(&job.state);
+    }
+    if job.status != InstallJobStatus::Canceling
+        && job.state.retry_from_checkpoint
+        && job.state.is_new_pack_checkpoint()
+    {
+        let phase = job.state.progress.phase;
         job.state.error = Some(InstallErrorView::from_message(
             "app_closed",
-            interrupted_phase,
-            "App closed while install was running",
+            phase,
+            "Installation was interrupted. Retry to continue with the downloaded files.",
         ));
-
-        job.state
-            .record_event(InstallJobEventKind::RollbackStarted {
-                cleanup: job.state.cleanup.clone(),
-            });
-        let cleanup_succeeded = match apply_cleanup(&mut job.state, state).await
-        {
-            Err(error) => {
-                tracing::error!(
-                    "Error cleaning up interrupted install job {}: {error}",
-                    job.id
-                );
-                job.state.rollback_error = Some(InstallErrorView::from_error(
-                    "rollback_error",
-                    InstallPhaseId::RollingBack,
-                    &error,
-                    None,
-                ));
-                job.state.record_event(InstallJobEventKind::RollbackFailed {
-                    message: error.to_string(),
-                });
-                false
-            }
-            Ok(()) => true,
-        };
-        finalize_rollback_state(&mut job.state, cleanup_succeeded);
-        if cleanup_succeeded {
-            clear_deleted_new_instance_id(&mut job.state);
-        }
-
+        job.state.record_event(InstallJobEventKind::Interrupted {
+            reason: InstallInterruptReason::AppClosed,
+            phase,
+        });
+        job.state.progress.parallel = None;
         let record = store::update_status(
             job.id,
-            InstallJobStatus::Interrupted,
+            InstallJobStatus::Failed,
             &job.state,
             state,
         )
         .await?;
         emit_install_job(&record.snapshot()).await?;
+        return Ok(());
     }
+    let interrupted_phase = job.state.progress.phase;
+    job.state.record_event(InstallJobEventKind::Interrupted {
+        reason: InstallInterruptReason::AppClosed,
+        phase: interrupted_phase,
+    });
+    job.state.progress.phase = InstallPhaseId::RollingBack;
+    job.state.progress.progress = None;
+    job.state.progress.details = InstallPhaseDetails::Empty;
+    job.state.progress.parallel = None;
+    job.state.error = Some(InstallErrorView::from_message(
+        "app_closed",
+        interrupted_phase,
+        "App closed while install was running",
+    ));
+
+    job.state
+        .record_event(InstallJobEventKind::RollbackStarted {
+            cleanup: job.state.cleanup.clone(),
+        });
+    let cleanup_succeeded = match apply_cleanup(&mut job.state, state).await {
+        Err(error) => {
+            tracing::error!(
+                "Error cleaning up interrupted install job {}: {error}",
+                job.id
+            );
+            job.state.rollback_error = Some(InstallErrorView::from_error(
+                "rollback_error",
+                InstallPhaseId::RollingBack,
+                &error,
+                None,
+            ));
+            job.state.record_event(InstallJobEventKind::RollbackFailed {
+                message: error.to_string(),
+            });
+            false
+        }
+        Ok(()) => true,
+    };
+    finalize_rollback_state(&mut job.state, cleanup_succeeded);
+    if cleanup_succeeded {
+        clear_deleted_new_instance_id(&mut job.state);
+    }
+
+    let record = store::update_status(
+        job.id,
+        InstallJobStatus::Interrupted,
+        &job.state,
+        state,
+    )
+    .await?;
+    emit_install_job(&record.snapshot()).await?;
 
     Ok(())
 }
@@ -914,7 +986,12 @@ async fn remove_snapshotted_db_state(
         .filter_map(|file| file.instance_file.as_ref())
         .map(|file| file.id.clone())
         .collect::<Vec<_>>();
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     pack_members::delete_pack_members_for_set_in_transaction(
         content_set_id,
         &mut tx,
@@ -944,7 +1021,8 @@ async fn remove_snapshotted_db_state(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 
@@ -1147,7 +1225,12 @@ async fn restore_snapshotted_db_state(
         .filter_map(|entry| entry.file_id.clone())
         .collect::<Vec<_>>();
 
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     pack_members::delete_pack_members_for_set_in_transaction(
         content_set_id,
         &mut tx,
@@ -1224,7 +1307,8 @@ async fn restore_snapshotted_db_state(
         pack_members::upsert_pack_member_in_transaction(member, &mut tx)
             .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 

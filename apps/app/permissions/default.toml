@@ -7,13 +7,9 @@ description = "Allows the main launcher webview to use every application command
 permissions = [
   "allow-initialize-state",
   "allow-get-update-channel",
-  "allow-get-current-app-database-path",
   "allow-set-update-channel",
   "allow-get-update-preferences",
   "allow-set-update-preferences",
-  "allow-copy-release-database-to-beta",
-  "allow-copy-database-between-channels",
-  "allow-beta-database-exists",
   "allow-backup-app-db-for-update",
   "allow-set-discord-activity",
   "allow-is-dev",

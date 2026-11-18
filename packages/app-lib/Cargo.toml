@@ -177,6 +177,7 @@ jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
 opentelemetry_sdk = { workspace = true, features = ["testing"] }
 rcgen = { version = "0.14.7", default-features = false, features = ["ring"] }
 rsa = "0.9.10"
+tokio = { workspace = true, features = ["test-util"] }
 
 [build-dependencies]
 dotenvy = { workspace = true }

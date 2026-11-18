@@ -138,7 +138,7 @@ impl SyncFeatureSettings {
         enabled: bool,
     ) -> crate::Result<()> {
         let mut unit = super::atom(handle).await?;
-        <Self as Collection>::atom_set(
+        Self::atom_set(
             &mut unit,
             &FeatureSettingsKey {
                 feature: feature.to_string(),
@@ -149,12 +149,12 @@ impl SyncFeatureSettings {
             }),
         )
         .await?;
-        super::instance_sync_preferences::set_feature_for_every_instance(
-            unit.connection(),
-            feature,
-            enabled,
-        )
-        .await?;
+        let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM instances")
+            .fetch_all(unit.connection())
+            .await?;
+        for instance_id in ids {
+            super::instance_sync_preferences::InstanceSyncPreferences::atom_set(&mut unit,&super::instance_sync_preferences::InstancePreferenceKey{instance_id,feature:feature.into()},Some(&super::instance_sync_preferences::InstancePreferenceRecord{enabled})).await?;
+        }
         unit.commit().await
     }
 
@@ -197,3 +197,93 @@ async fn write_row(
 
     Ok(())
 }
+
+impl super::configuration_documents::Preference for SyncFeatureSettings {
+    fn rows(
+        data: &serde_json::Map<String, serde_json::Value>,
+    ) -> crate::Result<Vec<(FeatureSettingsKey, FeatureSettingsRecord)>> {
+        let mut result = Vec::new();
+        if let Some(features) =
+            data.get("features").and_then(serde_json::Value::as_object)
+        {
+            for (feature, value) in features {
+                if let (Some(globally_enabled), Some(new_instance_default)) = (
+                    value["globally_enabled"].as_bool(),
+                    value["new_instance_default"].as_bool(),
+                ) {
+                    result.push((
+                        FeatureSettingsKey {
+                            feature: feature.clone(),
+                        },
+                        FeatureSettingsRecord {
+                            globally_enabled,
+                            new_instance_default,
+                        },
+                    ));
+                }
+            }
+        }
+        for feature in [
+            "game_options",
+            "command_history",
+            "multiplayer_servers",
+            "creative_hotbars",
+            "screenshots",
+            "resource_packs",
+            "data_packs",
+        ] {
+            if !result.iter().any(|(key, _)| key.feature == feature) {
+                result.push((
+                    FeatureSettingsKey {
+                        feature: feature.into(),
+                    },
+                    FeatureSettingsRecord {
+                        globally_enabled: false,
+                        new_instance_default: false,
+                    },
+                ));
+            }
+        }
+        Ok(result)
+    }
+    fn put(
+        data: &mut serde_json::Map<String, serde_json::Value>,
+        key: &FeatureSettingsKey,
+        record: Option<&FeatureSettingsRecord>,
+    ) -> crate::Result<()> {
+        let features = super::configuration_documents::map(data, "features")?;
+        let entry =
+            super::configuration_documents::map(features, &key.feature)?;
+        for name in ["globally_enabled", "new_instance_default"] {
+            if entry.get(name).is_some_and(|value| !value.is_boolean()) {
+                return Err(crate::ErrorKind::InputError(
+                    "Unknown synchronization preference retained".into(),
+                )
+                .into());
+            }
+        }
+        if entry.contains_key("protocol")
+            || entry.contains_key("schema_version")
+        {
+            return Err(crate::ErrorKind::InputError(
+                "Newer synchronization preference retained".into(),
+            )
+            .into());
+        }
+        if let Some(record) = record {
+            entry.insert(
+                "globally_enabled".into(),
+                serde_json::json!(record.globally_enabled),
+            );
+            entry.insert(
+                "new_instance_default".into(),
+                serde_json::json!(record.new_instance_default),
+            );
+        } else {
+            entry.remove("globally_enabled");
+            entry.remove("new_instance_default");
+        }
+        Ok(())
+    }
+}
+super::configuration_documents::preference_verbs!(SyncFeatureSettings);

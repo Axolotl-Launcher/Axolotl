@@ -49,7 +49,7 @@ pub(crate) mod login_proof;
 pub(crate) mod settings;
 pub(crate) mod translation;
 
-pub(crate) const DIR_NAME: &str = "settings";
+pub(crate) const DIR_NAME: &str = crate::state::layout::SETTINGS;
 const HANDOVER_MARKER: &str = ".handed-over";
 
 /// The variable the deployment names the directory of documents it provides
@@ -72,7 +72,8 @@ const MAX_DOCUMENT_BYTES: u64 = 1 << 20;
 
 /// Serializes the writers, which each read a document before writing it back:
 /// two settings changing at once would otherwise lose one of them.
-static WRITES: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+pub(crate) static WRITES: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
 
 /// The directory a deployment ships its own documents in.
 ///
@@ -315,6 +316,7 @@ impl<'a> Documents<'a> {
         T: Serialize,
     {
         let path = self.path(name);
+        crate::state::store::recovery_mode::ensure_path_writable(&path)?;
         // `WRITES` serializes the writers of this process, and the file is read
         // again anyway: another writer here may have replaced it since the one
         // this write began with, and the file is the answer that counts.
@@ -354,14 +356,20 @@ impl<'a> Documents<'a> {
             }
             OnDisk::Missing => {}
         }
-        let contents = serde_json::to_vec_pretty(&NewDocument {
-            schema_version,
-            data: document,
-        })?;
+        let mut raw = match tokio::fs::read(&path).await {
+            Ok(bytes) => serde_json::from_slice::<Value>(&bytes)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                serde_json::json!({})
+            }
+            Err(error) => return Err(error.into()),
+        };
+        raw["schema_version"] = Value::from(schema_version);
+        raw["data"] = serde_json::to_value(document)?;
+        let contents = serde_json::to_vec_pretty(&raw)?;
         if let Some(parent) = path.parent() {
             crate::util::io::create_dir_all(parent).await?;
         }
-        crate::util::io::write(&path, contents).await?;
+        super::persistence::document::write_json(&path, contents).await?;
         Ok(())
     }
 
@@ -394,7 +402,7 @@ impl<'a> Documents<'a> {
         if let Some(parent) = path.parent() {
             crate::util::io::create_dir_all(parent).await?;
         }
-        crate::util::io::write(&path, contents).await?;
+        super::persistence::document::write_json(&path, contents).await?;
         Ok(())
     }
 }
@@ -424,6 +432,12 @@ where
     let local = documents.stored_keys(name, schema_version).await;
     let base = match local {
         Some(_) => T::default(),
+        None if crate::state::store::configuration_documents::runtime(
+            documents.pool(),
+        ) =>
+        {
+            T::default()
+        }
         None => from_rows.await?,
     };
     let mut values = keys_of(&base)?;
@@ -748,6 +762,9 @@ struct StoredDocument<T> {
 /// build that takes over another domain has to reach the installations that
 /// already carry a marker.
 pub(crate) async fn hand_over(pool: &SqlitePool, settings_dir: &Path) -> bool {
+    if crate::state::store::configuration_documents::runtime(pool) {
+        return true;
+    }
     let documents = Documents {
         root: settings_dir.join(DIR_NAME),
         // The handover fills in what the rows hold, but not for a key the
@@ -1147,12 +1164,12 @@ mod tests {
         assert!(
             settings_dir
                 .path()
-                .join("settings")
+                .join("data/settings")
                 .join(".handed-over")
                 .is_file()
         );
 
-        let root = settings_dir.path().join("settings");
+        let root = settings_dir.path().join("data/settings");
         let documents = Documents::at(root, &pool);
         assert!(!ai::read(&documents).await.unwrap().enabled);
         assert_eq!(
@@ -1215,7 +1232,7 @@ mod tests {
         .unwrap();
 
         let settings_dir = tempfile::tempdir().unwrap();
-        let root = settings_dir.path().join("settings");
+        let root = settings_dir.path().join("data/settings");
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(root.join(".handed-over"), "0.0.0").unwrap();
 
@@ -1241,7 +1258,7 @@ mod tests {
             .unwrap();
 
         let settings_dir = tempfile::tempdir().unwrap();
-        let root = settings_dir.path().join("settings");
+        let root = settings_dir.path().join("data/settings");
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(
             root.join("ai.json"),
@@ -1262,7 +1279,7 @@ mod tests {
     async fn a_write_leaves_a_document_a_newer_build_wrote() {
         let pool = pool().await;
         let settings_dir = tempfile::tempdir().unwrap();
-        let root = settings_dir.path().join("settings");
+        let root = settings_dir.path().join("data/settings");
         std::fs::create_dir_all(&root).unwrap();
         let path = root.join("java.json");
         let newer = br#"{"schema_version":99,"data":{"runtimes":[{"path":"/old/java/bin/java","major_version":21,"full_version":"21.0.1"}]}}"#;
@@ -1286,7 +1303,7 @@ mod tests {
     async fn a_write_that_changes_nothing_leaves_the_document_alone() {
         let pool = pool().await;
         let settings_dir = tempfile::tempdir().unwrap();
-        let root = settings_dir.path().join("settings");
+        let root = settings_dir.path().join("data/settings");
         std::fs::create_dir_all(&root).unwrap();
         let path = root.join("ai.json");
         // Written the way another build left it, so a rewrite would show as

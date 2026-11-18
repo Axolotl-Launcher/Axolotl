@@ -18164,15 +18164,6 @@
   "app.settings.updates.channel.beta-description": {
     "message": "包含最新功能的新更新，但稳定性较低，更新频率更快。"
   },
-  "app.settings.updates.channel.copy-database": {
-    "message": "复制数据库"
-  },
-  "app.settings.updates.channel.copy-database-description": {
-    "message": "为防止出现问题，Beta 版将使用独立的数据存储，以免影响正式版的正确运行。这貌似是你第一次使用 Beta 版，是否要将稳定版的数据复制到 Beta 版？此操作无法自动还原。"
-  },
-  "app.settings.updates.channel.copy-database-title": {
-    "message": "将 Release 数据复制到 Beta？"
-  },
   "app.settings.updates.channel.description": {
     "message": "选择 Axolotl 接收的启动器版本。"
   },
@@ -18200,9 +18191,6 @@
   "app.settings.updates.channel.restart-title": {
     "message": "需要重启"
   },
-  "app.settings.updates.channel.start-empty": {
-    "message": "从空白数据库开始"
-  },
   "app.settings.updates.channel.title": {
     "message": "更新通道"
   },
@@ -18217,54 +18205,6 @@
   },
   "app.settings.updates.current-version": {
     "message": "当前版本 {version}"
-  },
-  "app.settings.updates.database-isolation.active": {
-    "message": "正在使用"
-  },
-  "app.settings.updates.database-isolation.beta": {
-    "message": "Beta 数据库"
-  },
-  "app.settings.updates.database-isolation.current-database": {
-    "message": "当前正在使用的数据库"
-  },
-  "app.settings.updates.database-isolation.description": {
-    "message": "Release 和 Beta 使用相互独立的数据库，因此测试 Beta 不会改变 Release 数据。"
-  },
-  "app.settings.updates.database-isolation.release": {
-    "message": "Release 数据库"
-  },
-  "app.settings.updates.database-isolation.title": {
-    "message": "数据库隔离"
-  },
-  "app.settings.updates.database-operation.active-target": {
-    "message": "无法覆盖当前正在使用的数据库。请先重启 Axolotl 并切换更新通道。"
-  },
-  "app.settings.updates.database-operation.beta-to-release": {
-    "message": "从 Beta 复制到 Release"
-  },
-  "app.settings.updates.database-operation.cancel": {
-    "message": "取消"
-  },
-  "app.settings.updates.database-operation.confirm": {
-    "message": "覆盖数据库"
-  },
-  "app.settings.updates.database-operation.confirm-description": {
-    "message": "这会用 {source} 数据库的内容完全替换未使用的 {target} 数据库。此操作无法撤销。"
-  },
-  "app.settings.updates.database-operation.confirm-title": {
-    "message": "覆盖数据库？"
-  },
-  "app.settings.updates.database-operation.failed": {
-    "message": "无法复制数据库。请确认 Axolotl 未在使用目标数据库。"
-  },
-  "app.settings.updates.database-operation.label": {
-    "message": "数据库操作"
-  },
-  "app.settings.updates.database-operation.release-to-beta": {
-    "message": "从 Release 复制到 Beta"
-  },
-  "app.settings.updates.database-operation.success": {
-    "message": "已成功将 {source} 复制到 {target}。"
   },
   "app.settings.updates.disabled": {
     "message": "此构建已禁用更新功能。"
@@ -18652,6 +18592,21 @@
   },
   "app.splash.checking-for-updates": {
     "message": "正在检查更新……"
+  },
+  "app.splash.migrating-data": {
+    "message": "正在迁移启动器数据……"
+  },
+  "app.splash.migration.core": {
+    "message": "正在迁移启动器记录……"
+  },
+  "app.splash.migration.finishing": {
+    "message": "正在完成迁移……"
+  },
+  "app.splash.migration.preparing": {
+    "message": "正在准备迁移……"
+  },
+  "app.splash.migration.recovery": {
+    "message": "正在迁移恢复记录……"
   },
   "app.splash.updating-app-directory": {
     "message": "正在更新应用目录……"
@@ -21727,5 +21682,11 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "未知文件警告"
+  },
+  "minecraft-account.session-only.title": {
+    "message": "仅本次会话登录有效"
+  },
+  "minecraft-account.session-only.description": {
+    "message": "未能保存登录凭据。重启启动器后需要重新登录。"
   }
 }

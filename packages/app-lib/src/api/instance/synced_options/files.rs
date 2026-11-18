@@ -1,10 +1,10 @@
 use crate::State;
-use crate::state::store::Collection as _;
 use crate::state::store::atom;
 use crate::state::store::instance_sync_checkpoints::{
     CheckpointKey, CheckpointLinkMode as StoredLinkMode, CheckpointRecord,
     CheckpointStatus as StoredStatus, InstanceSyncCheckpoints,
 };
+use crate::state::sync_state::collection::Collection as _;
 use crate::state::{InstanceInstallStage, InstanceMetadata, SyncedOption};
 use crate::util::io;
 use quartz_nbt::NbtCompound;
@@ -30,7 +30,6 @@ pub(in crate::api::instance) enum LinkMode {
     Symbolic,
     #[cfg(windows)]
     Hard,
-    #[cfg(windows)]
     Copy,
 }
 
@@ -40,14 +39,14 @@ impl LinkMode {
             Self::Symbolic => StoredLinkMode::Symbolic,
             #[cfg(windows)]
             Self::Hard => StoredLinkMode::Hard,
-            #[cfg(windows)]
             Self::Copy => StoredLinkMode::Copy,
         }
     }
 }
 
 pub(in crate::api::instance) fn safe_instance_id(instance_id: &str) -> String {
-    instance_id.replace([':', '/', '\\'], "_")
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(instance_id.as_bytes()))
 }
 
 pub(crate) fn instance_game_dir(
@@ -112,59 +111,70 @@ pub(in crate::api::instance) async fn ensure_link(
     source: &Path,
     target: &Path,
 ) -> crate::Result<LinkMode> {
-    if let Some(parent) = target.parent() {
-        io::create_dir_all(parent).await?;
-    }
-    if tokio::fs::symlink_metadata(target)
-        .await
-        .is_ok_and(|metadata| metadata.file_type().is_symlink())
-        && tokio::fs::read_link(target)
-            .await
-            .is_ok_and(|current| current == source)
-    {
-        return Ok(LinkMode::Symbolic);
-    }
-    if tokio::fs::symlink_metadata(target).await.is_ok() {
-        io::remove_file(target).await?;
-    }
+    // Writable game files must never alias a shared source generation: both
+    // symbolic and hard links let the game change immutable shared bytes.
+    let bytes = read_projection_bytes(source).await?;
+    publish_detached_copy(target, bytes).await?;
+    Ok(LinkMode::Copy)
+}
 
-    #[cfg(unix)]
-    {
-        tokio::fs::symlink(source, target).await?;
-        Ok(LinkMode::Symbolic)
+/// A fresh inode replaces the directory entry, so equal bytes cannot preserve
+/// an old writable alias into the shared source. Rename publishes in one step.
+pub(in crate::api::instance) async fn publish_detached_copy(
+    target: &Path,
+    bytes: Vec<u8>,
+) -> crate::Result<()> {
+    crate::state::persistence::document::write_detached_blob(target, bytes)
+        .await
+}
+
+// Kept as the common publication seam used by the shared-state coordinator.
+pub(in crate::api::instance) async fn atomic_native_write(
+    path: &Path,
+    bytes: &[u8],
+) -> crate::Result<()> {
+    publish_detached_copy(path, bytes.to_vec()).await
+}
+
+const MAX_PROJECTION_BYTES: u64 = 16 * 1024 * 1024;
+
+async fn read_projection_bytes(path: &Path) -> crate::Result<Vec<u8>> {
+    use tokio::io::AsyncReadExt;
+    let file = tokio::fs::File::open(path).await?;
+    if file.metadata().await?.len() > MAX_PROJECTION_BYTES {
+        return Err(crate::ErrorKind::InputError(
+            "Sync projection exceeds size limit".into(),
+        )
+        .into());
     }
-    #[cfg(windows)]
-    {
-        if tokio::fs::symlink_file(source, target).await.is_ok() {
-            return Ok(LinkMode::Symbolic);
-        }
-        if tokio::fs::hard_link(source, target).await.is_ok() {
-            return Ok(LinkMode::Hard);
-        }
-        io::copy(source, target).await?;
-        Ok(LinkMode::Copy)
+    let mut bytes = Vec::new();
+    file.take(MAX_PROJECTION_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .await?;
+    if bytes.len() as u64 > MAX_PROJECTION_BYTES {
+        return Err(crate::ErrorKind::InputError(
+            "Sync projection grew beyond size limit".into(),
+        )
+        .into());
     }
+    Ok(bytes)
 }
 
 pub(in crate::api::instance) async fn detach_link(
-    source: &Path,
+    _source: &Path,
     target: &Path,
 ) -> crate::Result<()> {
-    let target_metadata = tokio::fs::symlink_metadata(target).await.ok();
-    let contents = if target_metadata.is_some() && target.exists() {
-        Some(io::read(target).await?)
-    } else if source.exists() {
-        Some(io::read(source).await?)
-    } else {
-        None
+    // Missing local data is an intentional deletion, never a request to restore
+    // the canonical source while disabling synchronization.
+    let contents = match read_projection_bytes(target).await {
+        Ok(bytes) => bytes,
+        Err(error) if matches!(error.raw.as_ref(),crate::ErrorKind::StdIOError(error) if error.kind()==std::io::ErrorKind::NotFound) =>
+        {
+            return Ok(());
+        }
+        Err(error) => return Err(error),
     };
-    if target_metadata.is_some() {
-        io::remove_file(target).await?;
-    }
-    if let Some(contents) = contents {
-        io::write(target, contents).await?;
-    }
-    Ok(())
+    publish_detached_copy(target, contents).await
 }
 
 fn checkpoint_key(
@@ -179,6 +189,25 @@ fn checkpoint_key(
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(in crate::api::instance) struct CheckpointProof {
+    pub expected_sha1: String,
+    pub source_revision: i64,
+}
+impl CheckpointProof {
+    pub fn new(expected_sha1: &str, source_revision: i64) -> Self {
+        Self {
+            expected_sha1: expected_sha1.to_owned(),
+            source_revision,
+        }
+    }
+    fn matches(&self, record: &CheckpointRecord) -> bool {
+        record.status == StoredStatus::Pending
+            && record.expected_sha1 == self.expected_sha1
+            && record.source_revision == self.source_revision
+    }
+}
+
 pub(in crate::api::instance) async fn begin_checkpoint(
     instance_id: &str,
     option: SyncedOption,
@@ -187,7 +216,7 @@ pub(in crate::api::instance) async fn begin_checkpoint(
     merge_base: Option<&[u8]>,
     source_revision: i64,
     state: &State,
-) -> crate::Result<()> {
+) -> crate::Result<CheckpointProof> {
     let key = checkpoint_key(instance_id, option, variant);
     let record = CheckpointRecord {
         expected_sha1: expected_sha1.to_string(),
@@ -196,7 +225,8 @@ pub(in crate::api::instance) async fn begin_checkpoint(
         status: StoredStatus::Pending,
         link_mode: None,
     };
-    InstanceSyncCheckpoints::set(&state.data, &key, Some(&record)).await
+    InstanceSyncCheckpoints::set(&state.data, &key, Some(&record)).await?;
+    Ok(CheckpointProof::new(expected_sha1, source_revision))
 }
 
 pub(in crate::api::instance) async fn finish_checkpoint(
@@ -204,6 +234,7 @@ pub(in crate::api::instance) async fn finish_checkpoint(
     option: SyncedOption,
     variant: &str,
     mode: LinkMode,
+    proof: &CheckpointProof,
     state: &State,
 ) -> crate::Result<()> {
     let key = checkpoint_key(instance_id, option, variant);
@@ -211,6 +242,9 @@ pub(in crate::api::instance) async fn finish_checkpoint(
     if let Some(mut record) =
         InstanceSyncCheckpoints::atom_get(&mut unit, &key).await?
     {
+        if !proof.matches(&record) {
+            return Ok(());
+        }
         record.status = StoredStatus::Ready;
         record.link_mode = Some(mode.stored());
         InstanceSyncCheckpoints::atom_set(&mut unit, &key, Some(&record))
@@ -223,6 +257,7 @@ pub(in crate::api::instance) async fn finish_plain_checkpoint(
     instance_id: &str,
     option: SyncedOption,
     variant: &str,
+    proof: &CheckpointProof,
     state: &State,
 ) -> crate::Result<()> {
     let key = checkpoint_key(instance_id, option, variant);
@@ -230,6 +265,9 @@ pub(in crate::api::instance) async fn finish_plain_checkpoint(
     if let Some(mut record) =
         InstanceSyncCheckpoints::atom_get(&mut unit, &key).await?
     {
+        if !proof.matches(&record) {
+            return Ok(());
+        }
         record.status = StoredStatus::Ready;
         record.link_mode = None;
         InstanceSyncCheckpoints::atom_set(&mut unit, &key, Some(&record))
@@ -302,4 +340,85 @@ pub(in crate::api::instance) fn nbt_from_bytes(
         quartz_nbt::io::Flavor::Uncompressed,
     )?;
     Ok(root)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn generated_state_ids_preserve_exact_identity_without_separator_collisions()
+     {
+        assert_ne!(safe_instance_id("a/b"), safe_instance_id("a_b"));
+        assert_ne!(safe_instance_id("a:b"), safe_instance_id("a\\b"));
+        assert_eq!(safe_instance_id("instance").len(), 64);
+    }
+    #[test]
+    fn acknowledgement_requires_the_pending_revision_and_hash() {
+        let pending = CheckpointRecord {
+            expected_sha1: "one".into(),
+            merge_base: None,
+            source_revision: 2,
+            status: StoredStatus::Pending,
+            link_mode: None,
+        };
+        assert!(CheckpointProof::new("one", 2).matches(&pending));
+        assert!(!CheckpointProof::new("one", 1).matches(&pending));
+        assert!(!CheckpointProof::new("two", 2).matches(&pending));
+        let mut completed = pending;
+        completed.status = StoredStatus::Ready;
+        assert!(!CheckpointProof::new("one", 2).matches(&completed));
+    }
+    #[tokio::test]
+    async fn writable_projection_does_not_alias_shared_bytes_and_republish_keeps_old_targets()
+     {
+        let temporary = tempfile::tempdir().unwrap();
+        let source = temporary.path().join("source");
+        let first = temporary.path().join("first");
+        let second = temporary.path().join("second");
+        tokio::fs::write(&source, b"first generation")
+            .await
+            .unwrap();
+        ensure_link(&source, &first).await.unwrap();
+        ensure_link(&source, &second).await.unwrap();
+        tokio::fs::write(&first, b"game changed").await.unwrap();
+        assert_eq!(
+            tokio::fs::read(&source).await.unwrap(),
+            b"first generation"
+        );
+        crate::state::persistence::document::write_blob(
+            &source,
+            b"second generation".to_vec(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            tokio::fs::read(&second).await.unwrap(),
+            b"first generation"
+        );
+        ensure_link(&source, &first).await.unwrap();
+        assert_eq!(
+            tokio::fs::read(&first).await.unwrap(),
+            b"second generation"
+        );
+    }
+    #[tokio::test]
+    async fn equal_bytes_still_detach_old_hardlink_targets() {
+        let temporary = tempfile::tempdir().unwrap();
+        let source = temporary.path().join("source");
+        let target = temporary.path().join("target");
+        tokio::fs::write(&source, b"same").await.unwrap();
+        tokio::fs::hard_link(&source, &target).await.unwrap();
+        ensure_link(&source, &target).await.unwrap();
+        tokio::fs::write(&target, b"edited").await.unwrap();
+        assert_eq!(tokio::fs::read(&source).await.unwrap(), b"same");
+    }
+    #[tokio::test]
+    async fn disabling_sync_does_not_restore_deleted_local_file() {
+        let temporary = tempfile::tempdir().unwrap();
+        let source = temporary.path().join("source");
+        let target = temporary.path().join("deleted");
+        tokio::fs::write(&source, b"canonical").await.unwrap();
+        detach_link(&source, &target).await.unwrap();
+        assert!(!target.exists());
+    }
 }

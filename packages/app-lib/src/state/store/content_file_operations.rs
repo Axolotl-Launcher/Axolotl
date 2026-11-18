@@ -5,7 +5,7 @@ use sqlx::SqliteConnection;
 
 pub(crate) struct ContentFileOperations;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct FileOperationRecord {
     pub payload: String,
     pub committed: bool,
@@ -23,6 +23,15 @@ impl Collection for ContentFileOperations {
         conn: &mut SqliteConnection,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::read(
+                conn,
+                "content_file_operations",
+                key,
+            )
+            .await;
+        }
+
         let row: Option<(String, bool)> = sqlx::query_as("SELECT payload, committed FROM content_file_operations WHERE instance_id = ?")
             .bind(key).fetch_optional(&mut *conn).await?;
         Ok(row.map(|(payload, committed)| FileOperationRecord {
@@ -35,6 +44,16 @@ impl Collection for ContentFileOperations {
         key: &Self::Key,
         record: Option<&Self::Record>,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::write(
+                conn,
+                "content_file_operations",
+                key,
+                record,
+            )
+            .await;
+        }
+
         match record {
             Some(record) => {
                 sqlx::query("INSERT INTO content_file_operations(instance_id, payload, committed) VALUES (?, ?, ?) ON CONFLICT(instance_id) DO UPDATE SET payload = excluded.payload, committed = excluded.committed")
@@ -54,6 +73,14 @@ impl Collection for ContentFileOperations {
     async fn read_all(
         conn: &mut SqliteConnection,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::all(
+                conn,
+                "content_file_operations",
+            )
+            .await;
+        }
+
         let rows: Vec<(String, String, bool)> = sqlx::query_as("SELECT instance_id, payload, committed FROM content_file_operations").fetch_all(&mut *conn).await?;
         Ok(rows
             .into_iter()
@@ -66,6 +93,24 @@ impl Collection for ContentFileOperations {
         conn: &mut SqliteConnection,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, _) in
+                super::recovery_documents::strict_all::<Self::Record>(
+                    conn,
+                    "content_file_operations",
+                )
+                .await?
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         sqlx::query("DELETE FROM content_file_operations")
             .execute(&mut *conn)
             .await?;
@@ -78,6 +123,14 @@ impl Collection for ContentFileOperations {
         conn: &mut SqliteConnection,
         scope: &Self::Scope,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return Ok(Self::read_all(conn)
+                .await?
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+                .collect());
+        }
+
         Ok(Self::read(conn, scope)
             .await?
             .map(|record| vec![(scope.clone(), record)])
@@ -88,6 +141,32 @@ impl Collection for ContentFileOperations {
         scope: &Self::Scope,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, record) in records {
+                if !(key == scope) {
+                    return Err(crate::ErrorKind::InputError(
+                        "Operation record outside replacement scope".into(),
+                    )
+                    .into());
+                }
+            }
+            for (key, _) in Self::read(conn, scope)
+                .await?
+                .map(|record| vec![(scope.clone(), record)])
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         Self::write(conn, scope, records.first().map(|(_, record)| record))
             .await
     }
@@ -161,6 +240,24 @@ pub(crate) async fn mark_committed(
     instance_id: &str,
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> crate::Result<()> {
+    if super::recovery_documents::active(&mut **tx).await? {
+        let mut row =
+            ContentFileOperations::read(&mut **tx, &instance_id.to_owned())
+                .await?
+                .ok_or_else(|| {
+                    crate::ErrorKind::InputError(
+                        "File journal disappeared".into(),
+                    )
+                })?;
+        row.committed = true;
+        return ContentFileOperations::write(
+            &mut **tx,
+            &instance_id.to_owned(),
+            Some(&row),
+        )
+        .await;
+    }
+
     let result = sqlx::query("UPDATE content_file_operations SET committed = 1 WHERE instance_id = ?")
         .bind(instance_id).execute(&mut **tx).await?;
     if result.rows_affected() != 1 {

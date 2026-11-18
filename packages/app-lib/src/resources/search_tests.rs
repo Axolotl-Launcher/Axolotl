@@ -635,10 +635,17 @@ async fn confirmed_favorites_preferences_and_descriptions_survive_cache_clear()
         .favorite_add(&pool, right.project.clone(), ResourceType::Mod)
         .await
         .unwrap();
-    sqlx::query("UPDATE resource_favorites SET saved_at = 123")
-        .execute(&pool)
-        .await
-        .unwrap();
+    crate::state::user_state::favorites::domain(
+        &crate::state::store::persistence_for_pool(&pool),
+    )
+    .update(|entries| {
+        for raw in entries.values_mut() {
+            raw["saved_at"] = json!(123);
+        }
+        Ok(())
+    })
+    .await
+    .unwrap();
     store
         .confirm_projects(
             &left,
@@ -734,8 +741,13 @@ async fn connector_favorites_use_stable_ids_without_the_legacy_provider_constrai
     let pool = main_pool().await;
     let (_directory, cache) = cache().await;
     let store = crate::state::resources::ResourceStore::new(pool.clone());
-    let service =
-        ResourceService::with_store(cache.clone(), vec![], store).unwrap();
+    let provider = SearchProvider::new(SourceId::planet_minecraft(), &[]);
+    let service = ResourceService::with_store(
+        cache.clone(),
+        vec![provider.clone()],
+        store,
+    )
+    .unwrap();
     let project = SourceProjectRef {
         source: SourceId::planet_minecraft(),
         project_id: SourceProjectId::new("connector-project").unwrap(),
@@ -747,6 +759,7 @@ async fn connector_favorites_use_stable_ids_without_the_legacy_provider_constrai
     assert_eq!(service.favorites(&pool).await.unwrap()[0].project, project);
     service.favorite_remove(&pool, &project).await.unwrap();
     assert!(service.favorites(&pool).await.unwrap().is_empty());
+    assert!(provider.calls.lock().unwrap().is_empty());
     cache.close().await;
 }
 
@@ -1292,4 +1305,32 @@ async fn all_sources_skip_archive_when_instance_filters_are_not_applicable() {
     assert!(page.entries.is_empty());
     assert_eq!(page.source_failures.len(), 1);
     cache.close().await;
+}
+
+#[tokio::test]
+async fn future_provider_favorites_survive_grouped_removal_of_supported_projects()
+ {
+    let pool = main_pool().await;
+    let (_directory, cache) = cache().await;
+    let provider = SearchProvider::new(SourceId::modrinth(), &["Known".into()]);
+    let project = provider.entries[0].project.clone();
+    let service = ResourceService::new(cache.clone(), vec![provider]).unwrap();
+    service
+        .favorite_add(&pool, project.clone(), ResourceType::Mod)
+        .await
+        .unwrap();
+    let persistence = crate::state::store::persistence_for_pool(&pool);
+    crate::state::user_state::favorites::domain(&persistence).update(|entries|{
+        entries.insert("future".into(),json!({"source":"future-provider","project_id":"x","content_type":"future-kind","saved_at":1,"schemaVersion":2}));Ok(())
+    }).await.unwrap();
+    assert_eq!(service.favorites(&pool).await.unwrap().len(), 1);
+    service.favorite_remove(&pool, &project).await.unwrap();
+    let data = crate::state::user_state::favorites::domain(&persistence)
+        .read()
+        .await
+        .unwrap();
+    assert_eq!(data["entries"]["future"]["schemaVersion"], 2);
+    assert!(service.favorites(&pool).await.unwrap().is_empty());
+    cache.close().await;
+    pool.close().await;
 }

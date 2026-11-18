@@ -1,12 +1,9 @@
 use crate::ErrorKind;
 use crate::state::store::Handle;
-use crate::state::store::minecraft_device_tokens::{
-    MinecraftDeviceTokenRecord, MinecraftDeviceTokens, Singleton,
-};
+use crate::state::store::minecraft_device_tokens::MinecraftDeviceTokenRecord;
 use crate::state::store::minecraft_users::{
-    AccountType as StoredAccountType, MinecraftUserRecord, MinecraftUsers,
+    AccountType as StoredAccountType, MinecraftUserRecord,
 };
-use crate::state::store::{Collection as _, atom};
 use crate::util::fetch::authentication_client;
 use crate::util::mojang::{mojang_service_url, should_use_mojang_mirror};
 use base64::Engine;
@@ -280,6 +277,7 @@ async fn finish_microsoft_login(
     minecraft_entitlements(&minecraft_token.access_token).await?;
 
     let mut credentials = Credentials {
+        credential_persistence: None,
         account_id: None,
         offline_profile: MinecraftProfile::default(),
         account_type: MinecraftAccountType::Microsoft,
@@ -305,7 +303,8 @@ async fn finish_microsoft_login(
         credentials.offline_profile.id.as_hyphenated()
     ));
 
-    credentials.upsert(handle).await?;
+    credentials.credential_persistence =
+        Some(credentials.upsert(handle).await?);
 
     crate::anti_piracy::mark_official_login().await.map_err(|error| {
         tracing::warn!(%error, "Could not persist official Minecraft login proof");
@@ -358,8 +357,19 @@ fn from_stored_account_type(
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CredentialPersistence {
+    Keyring,
+    SessionOnly,
+    RequiresLogin,
+    NotRequired,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Credentials {
+    #[serde(default)]
+    pub credential_persistence: Option<CredentialPersistence>,
     #[serde(default)]
     pub account_id: Option<String>,
     /// The offline profile of the user these credentials are for.
@@ -500,6 +510,7 @@ impl Credentials {
         let username = validate_offline_username(username)?;
 
         Ok(Self {
+            credential_persistence: None,
             account_id: Some(format!("offline:{}", uuid.as_hyphenated())),
             offline_profile: MinecraftProfile {
                 id: uuid,
@@ -527,7 +538,11 @@ impl Credentials {
         self.account_type == MinecraftAccountType::Yggdrasil
     }
 
-    fn from_stored(account_id: String, record: MinecraftUserRecord) -> Self {
+    fn from_stored(
+        account_id: String,
+        record: MinecraftUserRecord,
+        persistence: CredentialPersistence,
+    ) -> Self {
         let account_type = from_stored_account_type(record.account_type);
         let yggdrasil = (account_type == MinecraftAccountType::Yggdrasil)
             .then_some(YggdrasilAccount {
@@ -538,6 +553,7 @@ impl Credentials {
             });
 
         Self {
+            credential_persistence: Some(persistence),
             account_id: Some(account_id),
             offline_profile: MinecraftProfile {
                 id: Uuid::parse_str(&record.uuid).unwrap_or_default(),
@@ -561,6 +577,16 @@ impl Credentials {
     async fn refresh(&mut self, handle: &Handle) -> crate::Result<()> {
         if self.is_offline() {
             return Ok(());
+        }
+        if self.access_token.is_empty()
+            || (self.is_microsoft() && self.refresh_token.is_empty())
+        {
+            self.credential_persistence =
+                Some(CredentialPersistence::RequiresLogin);
+            return Err(crate::ErrorKind::OtherError(
+                "This account needs to sign in again".into(),
+            )
+            .into());
         }
         let refresh_margin = if self.is_yggdrasil() {
             Duration::zero()
@@ -648,7 +674,7 @@ impl Credentials {
         self.expires = oauth_token.date
             + Duration::seconds(oauth_token.value.expires_in as i64);
 
-        self.upsert(handle).await?;
+        self.credential_persistence = Some(self.upsert_existing(handle).await?);
 
         Ok(())
     }
@@ -689,7 +715,7 @@ impl Credentials {
         &self,
         cache_intent: OnlineProfileCacheIntent,
     ) -> Option<Arc<MinecraftProfile>> {
-        if self.is_offline() {
+        if self.is_offline() || self.access_token.is_empty() {
             return None;
         }
         if self.is_yggdrasil() {
@@ -911,14 +937,17 @@ impl Credentials {
         handle: &Handle,
         refresh: bool,
     ) -> crate::Result<Option<Self>> {
-        let active = MinecraftUsers::get_all(handle)
+        let active = handle
+            .accounts()
+            .get_all()
             .await?
             .into_iter()
-            .find(|(_, record)| record.active);
+            .find(|(_, record, _)| record.active);
 
         Ok(match active {
-            Some((account_id, record)) => {
-                let mut credentials = Self::from_stored(account_id, record);
+            Some((account_id, record, persistence)) => {
+                let mut credentials =
+                    Self::from_stored(account_id, record, persistence);
                 if refresh {
                     credentials.refresh(handle).await.ok();
                 }
@@ -942,11 +971,11 @@ impl Credentials {
         handle: &Handle,
         refresh: bool,
     ) -> crate::Result<Vec<Self>> {
-        let stored = MinecraftUsers::get_all(handle).await?;
+        let stored = handle.accounts().get_all().await?;
         let mut credentials = Vec::with_capacity(stored.len());
 
-        for (account_id, record) in stored {
-            let mut user = Self::from_stored(account_id, record);
+        for (account_id, record, persistence) in stored {
+            let mut user = Self::from_stored(account_id, record, persistence);
             if refresh {
                 user.refresh(handle).await.ok();
             }
@@ -973,7 +1002,25 @@ impl Credentials {
             }))
     }
 
-    pub async fn upsert(&self, handle: &Handle) -> crate::Result<()> {
+    pub async fn upsert(
+        &self,
+        handle: &Handle,
+    ) -> crate::Result<CredentialPersistence> {
+        self.persist(handle, false).await
+    }
+
+    pub(super) async fn upsert_existing(
+        &self,
+        handle: &Handle,
+    ) -> crate::Result<CredentialPersistence> {
+        self.persist(handle, true).await
+    }
+
+    async fn persist(
+        &self,
+        handle: &Handle,
+        existing_only: bool,
+    ) -> crate::Result<CredentialPersistence> {
         let profile = self.maybe_online_profile().await;
         let account_id = self.account_id();
 
@@ -1007,16 +1054,20 @@ impl Credentials {
                 }),
         };
 
-        let mut unit = atom(handle).await?;
-        MinecraftUsers::atom_set(&mut unit, &account_id, Some(&record)).await?;
-        unit.commit().await
+        if existing_only {
+            handle.accounts().set_existing(&account_id, &record).await
+        } else {
+            handle.accounts().set(&account_id, &record).await
+        }
     }
 
     pub async fn remove(
         account_id: &str,
         handle: &Handle,
     ) -> crate::Result<()> {
-        MinecraftUsers::set(handle, &account_id.to_string(), None).await
+        handle.accounts().remove(account_id).await?;
+        CREDENTIAL_REFRESHES.remove(account_id);
+        Ok(())
     }
 }
 
@@ -1055,7 +1106,11 @@ impl Serialize for Credentials {
             }
         };
 
-        let mut ser = serializer.serialize_struct("Credentials", 8)?;
+        let mut ser = serializer.serialize_struct("Credentials", 9)?;
+        ser.serialize_field(
+            "credential_persistence",
+            &self.credential_persistence,
+        )?;
         ser.serialize_field("account_id", &self.account_id())?;
         ser.serialize_field("profile", &*profile)?;
         ser.serialize_field("account_type", &self.account_type)?;
@@ -1151,7 +1206,7 @@ impl DeviceTokenPair {
             display_claims,
         };
 
-        MinecraftDeviceTokens::set(handle, &Singleton, Some(&record)).await
+        handle.accounts().set_device_token(&record).await
     }
 }
 

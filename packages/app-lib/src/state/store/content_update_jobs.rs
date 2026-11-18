@@ -1,6 +1,6 @@
 //! The install job a content update plan was started as.
 
-use sqlx::{Executor, Sqlite, SqliteConnection};
+use sqlx::SqliteConnection;
 
 use super::Collection;
 
@@ -11,7 +11,7 @@ pub(crate) struct ContentUpdateJobs;
 pub(crate) type ContentUpdateJobKey = String;
 
 /// What a link carries.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ContentUpdateJobRecord {
     pub job_id: Option<String>,
 }
@@ -29,6 +29,15 @@ impl Collection for ContentUpdateJobs {
         conn: &mut SqliteConnection,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::read(
+                conn,
+                "content_update_jobs",
+                key,
+            )
+            .await;
+        }
+
         let row: Option<Option<String>> = sqlx::query_scalar(
             "SELECT job_id FROM content_update_jobs WHERE plan_id = ?",
         )
@@ -44,6 +53,16 @@ impl Collection for ContentUpdateJobs {
         key: &Self::Key,
         record: Option<&Self::Record>,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::write(
+                conn,
+                "content_update_jobs",
+                key,
+                record,
+            )
+            .await;
+        }
+
         let Some(record) = record else {
             sqlx::query("DELETE FROM content_update_jobs WHERE plan_id = ?")
                 .bind(key)
@@ -59,6 +78,11 @@ impl Collection for ContentUpdateJobs {
     async fn read_all(
         conn: &mut SqliteConnection,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::all(conn, "content_update_jobs")
+                .await;
+        }
+
         let rows: Vec<(String, Option<String>)> =
             sqlx::query_as("SELECT plan_id, job_id FROM content_update_jobs")
                 .fetch_all(&mut *conn)
@@ -74,6 +98,24 @@ impl Collection for ContentUpdateJobs {
         conn: &mut SqliteConnection,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, _) in
+                super::recovery_documents::strict_all::<Self::Record>(
+                    conn,
+                    "content_update_jobs",
+                )
+                .await?
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         sqlx::query("DELETE FROM content_update_jobs")
             .execute(&mut *conn)
             .await?;
@@ -87,6 +129,14 @@ impl Collection for ContentUpdateJobs {
         conn: &mut SqliteConnection,
         scope: &Self::Scope,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return Ok(Self::read_all(conn)
+                .await?
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+                .collect());
+        }
+
         Ok(Self::read(conn, scope)
             .await?
             .map(|record| vec![(scope.clone(), record)])
@@ -98,6 +148,32 @@ impl Collection for ContentUpdateJobs {
         scope: &Self::Scope,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, record) in records {
+                if !(key == scope) {
+                    return Err(crate::ErrorKind::InputError(
+                        "Operation record outside replacement scope".into(),
+                    )
+                    .into());
+                }
+            }
+            for (key, _) in Self::read(conn, scope)
+                .await?
+                .map(|record| vec![(scope.clone(), record)])
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         Self::write(conn, scope, records.first().map(|(_, record)| record))
             .await
     }
@@ -106,14 +182,21 @@ impl Collection for ContentUpdateJobs {
 impl ContentUpdateJobs {
     /// Links a job to the plan it was queued for, refusing a plan that already
     /// carries one: a plan is queued once.
-    pub(crate) async fn insert_in<'e, E>(
-        exec: E,
+    pub(crate) async fn insert_in(
+        exec: &mut SqliteConnection,
         key: &ContentUpdateJobKey,
         record: &ContentUpdateJobRecord,
-    ) -> crate::Result<()>
-    where
-        E: Executor<'e, Database = Sqlite>,
-    {
+    ) -> crate::Result<()> {
+        if super::recovery_documents::active(exec).await? {
+            if Self::read(exec, key).await?.is_some() {
+                return Err(crate::ErrorKind::InputError(
+                    "Plan already queued".into(),
+                )
+                .into());
+            }
+            return Self::write(exec, key, Some(record)).await;
+        }
+
         sqlx::query(
             "INSERT INTO content_update_jobs(plan_id, job_id) VALUES (?, ?)",
         )

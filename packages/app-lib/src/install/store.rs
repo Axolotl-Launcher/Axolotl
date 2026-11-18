@@ -195,7 +195,11 @@ pub async fn get(
     app_state: &State,
 ) -> crate::Result<Option<InstallJobRecord>> {
     let key = id.to_string();
-    let row = InstallJobs::get(&app_state.data, &key).await?;
+    let row = InstallJobs::snapshot(&app_state.data, Some(&key), None, true)
+        .await?
+        .into_iter()
+        .next()
+        .map(|(_, row)| row);
     row.map(|row| row_to_record(&key, row)).transpose()
 }
 
@@ -214,27 +218,29 @@ pub(crate) async fn has_any_unfinished_job(
     pool: &sqlx::SqlitePool,
 ) -> crate::Result<bool> {
     let statuses = InstallJobStatus::unfinished();
-    InstallJobs::unfinished_or_rollback(pool, &statuses).await
+    InstallJobs::snapshot_unfinished_or_rollback(
+        &crate::state::store::Handle::new(pool.clone()),
+        &statuses,
+    )
+    .await
 }
 
 pub async fn list(
     include_finished: bool,
     app_state: &State,
 ) -> crate::Result<Vec<InstallJobRecord>> {
-    let rows = if include_finished {
-        InstallJobs::get_all(&app_state.data).await?
-    } else {
-        let mut unit = atom(&app_state.data).await?;
-        let mut rows = Vec::new();
-        for status in InstallJobStatus::ALL
-            .into_iter()
-            .filter(|status| !status.is_resolved())
-        {
-            let scope = InstallJobScope::Status(status.as_str().to_string());
-            rows.extend(InstallJobs::atom_get_scoped(&mut unit, &scope).await?);
-        }
-        rows
-    };
+    let statuses: Vec<_> = InstallJobStatus::ALL
+        .into_iter()
+        .filter(|status| !status.is_resolved())
+        .map(InstallJobStatus::as_str)
+        .collect();
+    let rows = InstallJobs::snapshot(
+        &app_state.data,
+        None,
+        (!include_finished).then_some(statuses.as_slice()),
+        false,
+    )
+    .await?;
     let mut rows: Vec<_> =
         rows.into_iter().filter(|(_, row)| !row.dismissed).collect();
     rows.sort_unstable_by_key(|(_, row)| row.created);
@@ -245,17 +251,15 @@ pub async fn list(
 pub async fn list_interrupted_candidates(
     app_state: &State,
 ) -> crate::Result<Vec<InstallJobRecord>> {
-    let mut unit = atom(&app_state.data).await?;
-    let mut rows = Vec::new();
-    for status in [
+    let statuses = [
         InstallJobStatus::Queued,
         InstallJobStatus::Running,
         InstallJobStatus::Canceling,
-    ] {
-        let scope = InstallJobScope::Status(status.as_str().to_string());
-        rows.extend(InstallJobs::atom_get_scoped(&mut unit, &scope).await?);
-    }
-
+    ]
+    .map(InstallJobStatus::as_str);
+    let rows =
+        InstallJobs::snapshot(&app_state.data, None, Some(&statuses), false)
+            .await?;
     records(rows)
 }
 
@@ -363,6 +367,22 @@ pub async fn update_status(
         write_job(&mut unit, &key, row).await?;
     }
     unit.commit().await?;
+    if status.is_finished() {
+        if let Err(error) = crate::state::store::operations_db::archive(
+            &app_state.directories.settings_dir,
+            &key,
+            instance_id(state).as_deref(),
+            state.request.kind().as_str(),
+            status.as_str(),
+            modified,
+            finished,
+            &serialize_status_state(id, status, state)?,
+        )
+        .await
+        {
+            tracing::warn!(%error,"Optional task history unavailable; operation remains durable");
+        }
+    }
 
     get_required(id, app_state).await
 }
@@ -432,7 +452,12 @@ pub async fn complete_running_job(
                 super::model::InstallJobEventKind::JobSucceeded { .. }
             )
         }));
-    let mut transaction = app_state.pool.begin().await?;
+    let (mut transaction, transaction_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &app_state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
 
     if completes_instance_install_stage
         && let Some(instance_id) = instance_id.as_deref()
@@ -469,7 +494,10 @@ pub async fn complete_running_job(
     .await?;
 
     if reached != 1 {
-        transaction.rollback().await?;
+        transaction_diagnostics
+            .observe("rollback_wait", transaction.rollback())
+            .await?;
+        transaction_diagnostics.complete("rolled_back");
         return Ok(None);
     }
     if let super::model::InstallRequest::UpgradeUnmanagedInstance {
@@ -504,7 +532,24 @@ pub async fn complete_running_job(
         )
         .await?;
     }
-    transaction.commit().await?;
+    transaction_diagnostics
+        .observe("commit_wait", transaction.commit())
+        .await?;
+    transaction_diagnostics.complete("committed");
+    if let Err(error) = crate::state::store::operations_db::archive(
+        &app_state.directories.settings_dir,
+        &id_value,
+        instance_id.as_deref(),
+        state.request.kind().as_str(),
+        InstallJobStatus::Succeeded.as_str(),
+        now.timestamp(),
+        Some(now.timestamp()),
+        &json,
+    )
+    .await
+    {
+        tracing::warn!(%error,"Optional task history unavailable; completed installation retained");
+    }
 
     if completes_instance_install_stage
         && let Some(instance_id) = instance_id.as_deref()
@@ -603,9 +648,12 @@ pub async fn get_required(
 fn records(
     rows: Vec<(String, StoredJob)>,
 ) -> crate::Result<Vec<InstallJobRecord>> {
-    rows.into_iter()
-        .map(|(id, row)| row_to_record(&id, row))
-        .collect()
+    Ok(rows.into_iter().filter_map(|(id, row)| {
+        match row_to_record(&id, row) {
+            Ok(record) => Some(record),
+            Err(error) => { tracing::warn!(job_id = %id, %error, "Unsupported install job preserved and omitted from this build"); None }
+        }
+    }).collect())
 }
 
 async fn compare_and_swap_status(
@@ -682,6 +730,28 @@ async fn write_job(
 }
 
 fn row_to_record(id: &str, row: StoredJob) -> crate::Result<InstallJobRecord> {
+    if InstallJobKind::from_stored_str(&row.kind).as_str() != row.kind
+        || InstallJobStatus::from_stored_str(&row.status).as_str() != row.status
+    {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Install job {id} uses an unsupported persistent format"
+        ))
+        .into());
+    }
+    let payload: serde_json::Value = serde_json::from_str(&row.state)?;
+    if payload
+        .get("schema_version")
+        .and_then(serde_json::Value::as_u64)
+        != Some(1)
+        || payload
+            .get("_format")
+            .is_some_and(|format| format != "install-v1")
+    {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Install job {id} uses an unsupported payload format"
+        ))
+        .into());
+    }
     Ok(InstallJobRecord {
         id: Uuid::parse_str(id).map_err(|err| {
             crate::ErrorKind::InputError(format!(
@@ -727,6 +797,12 @@ mod tests {
     use std::sync::Arc;
 
     async fn fixture() -> (tempfile::TempDir, Arc<State>) {
+        fixture_with_connections(4).await
+    }
+
+    async fn fixture_with_connections(
+        connections: u32,
+    ) -> (tempfile::TempDir, Arc<State>) {
         let temp = tempfile::tempdir().unwrap();
         let directories = crate::state::DirectoryInfo {
             settings_dir: temp.path().into(),
@@ -734,7 +810,7 @@ mod tests {
             app_identifier: "store-test".into(),
         };
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(4)
+            .max_connections(connections)
             .connect_with(
                 sqlx::sqlite::SqliteConnectOptions::new()
                     .filename(temp.path().join("state.db"))
@@ -747,6 +823,79 @@ mod tests {
         sqlx::query("INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified) VALUES ('first', 'first', 'installed', '1', 'first', 1, 1)").execute(&pool).await.unwrap();
         let state = crate::state::test_state(directories, pool).await.unwrap();
         (temp, state)
+    }
+
+    #[tokio::test]
+    async fn active_job_listing_does_not_reserve_core_during_payload_reads() {
+        use crate::state::store::recovery_documents::{
+            install, snapshot_pause,
+        };
+        let (temp, state) = fixture_with_connections(1).await;
+        install(&mut *state.pool.acquire().await.unwrap())
+            .await
+            .unwrap();
+        let id = Uuid::new_v4();
+        let stored = StoredJob {
+            instance_id: None,
+            kind: "create_instance".into(),
+            status: "queued".into(),
+            state: serde_json::to_string(&InstallJobState::new(
+                creation_request(),
+            ))
+            .unwrap(),
+            created: 1,
+            modified: 1,
+            finished: None,
+            dismissed: false,
+        };
+        let path = temp.path().join("job.json");
+        let hash = crate::state::recovery::record::write(
+            &path,
+            "install_jobs",
+            &id.to_string(),
+            None,
+            1,
+            serde_json::to_value(stored).unwrap(),
+        )
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO operation_publications(kind,id,revision,object_path,sha256) VALUES('install_jobs',?,1,?,?)")
+            .bind(id.to_string()).bind(path.to_string_lossy().into_owned()).bind(hash).execute(&state.pool).await.unwrap();
+        for interrupted_only in [false, true] {
+            let reached = Arc::new(tokio::sync::Notify::new());
+            let resume = Arc::new(tokio::sync::Notify::new());
+            let reading = snapshot_pause::PAUSE.scope(
+                (reached.clone(), resume.clone()),
+                async {
+                    if interrupted_only {
+                        list_interrupted_candidates(&state).await.unwrap()
+                    } else {
+                        list(false, &state).await.unwrap()
+                    }
+                },
+            );
+            let writer = async {
+                reached.notified().await;
+                let result = tokio::time::timeout(
+                    std::time::Duration::from_secs(2),
+                    async {
+                        let tx = state
+                            .pool
+                            .begin_with("BEGIN IMMEDIATE")
+                            .await
+                            .unwrap();
+                        tx.commit().await.unwrap();
+                    },
+                )
+                .await;
+                resume.notify_one();
+                result
+                    .expect("job listing must release core before payload IO");
+            };
+            let (jobs, ()) = tokio::join!(reading, writer);
+            assert_eq!(jobs.len(), 1);
+            assert_eq!(jobs[0].id, id);
+        }
     }
 
     fn creation_request() -> super::super::model::InstallRequest {
@@ -1082,5 +1231,29 @@ mod tests {
         );
         assert_eq!(after.modified, before.modified, "no entry touched the row");
         app_state.pool.close().await;
+    }
+}
+
+#[cfg(test)]
+mod opaque_record_tests {
+    use super::*;
+
+    #[test]
+    fn unknown_install_rows_are_omitted_without_failing_the_collection() {
+        let row = StoredJob {
+            instance_id: Some("instance".into()),
+            kind: "future-install".into(),
+            status: "running".into(),
+            state: "{}".into(),
+            created: 0,
+            modified: 0,
+            finished: None,
+            dismissed: false,
+        };
+        assert!(
+            records(vec![(Uuid::new_v4().to_string(), row)])
+                .unwrap()
+                .is_empty()
+        );
     }
 }

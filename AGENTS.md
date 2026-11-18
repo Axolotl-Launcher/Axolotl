@@ -32,7 +32,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup and application da
 
 ## Settings
 
-A setting is composed from the build default, the database row, a deployment's documents and the machine's own documents, per domain and per key. Adding, changing, removing or versioning one — which migrations and `DOMAINS` entry it needs, which frontend surfaces name it, and which tests prove it — belongs to the `launcher-settings` skill; read it before touching a `settings` column or a document domain.
+A setting is composed from the build default, a deployment's documents and the machine's own documents, per domain and per key. Historical database rows participate only in one-time import. Adding, changing, removing or versioning one — which `DOMAINS` entry it needs, which frontend surfaces name it, and which tests prove it — belongs to the `launcher-settings` skill; read it before changing a settings document or its import mapping. Do not add a runtime SQL configuration projection.
 
 ## Verification and Commits
 

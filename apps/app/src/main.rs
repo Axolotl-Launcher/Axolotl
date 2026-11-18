@@ -676,7 +676,7 @@ fn run_exit_steps(app: &tauri::AppHandle) {
     theseus::minecraft_skins::begin_shutdown_flush();
     let flush = exit_barrier::block_on_with_timeout(
         exit_barrier::SKIN_FLUSH_TIMEOUT,
-        theseus::minecraft_skins::flush_pending_skin_change(),
+        theseus::minecraft_skins::flush_pending_skin_change,
     );
     match flush {
         Ok(Ok(())) => {}
@@ -1247,7 +1247,7 @@ fn main() {
                             let toast_result =
                                 exit_barrier::block_on_with_timeout(
                                     CHANGELOG_TOAST_TIMEOUT,
-                                    settings::patch(serde_json::json!({
+                                    || settings::patch(serde_json::json!({
                                         "pending_update_toast_for_version": version,
                                         "pending_update_failure": failure
                                     })),

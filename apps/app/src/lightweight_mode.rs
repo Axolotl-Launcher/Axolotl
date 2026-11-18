@@ -11,6 +11,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     window::WindowBuilder,
 };
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use theseus::prelude::CommandPayload;
 
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -21,6 +22,7 @@ const LAUNCH_INSTANCE_PREFIX: &str = "launch-instance:";
 struct TrayLabels {
     show_launcher: &'static str,
     launch_instance: &'static str,
+    launch_failed: &'static str,
     lightweight_mode: &'static str,
     quit: &'static str,
     running_prefix: &'static str,
@@ -31,6 +33,7 @@ fn tray_labels(locale: &str) -> TrayLabels {
         TrayLabels {
             show_launcher: "显示 Axolotl 启动器",
             launch_instance: "启动实例",
+            launch_failed: "无法启动实例",
             lightweight_mode: "轻量模式",
             quit: "退出",
             running_prefix: "正在运行：",
@@ -39,6 +42,7 @@ fn tray_labels(locale: &str) -> TrayLabels {
         TrayLabels {
             show_launcher: "顯示 Axolotl 啟動器",
             launch_instance: "啟動實例",
+            launch_failed: "無法啟動實例",
             lightweight_mode: "輕量模式",
             quit: "結束",
             running_prefix: "正在執行：",
@@ -47,6 +51,7 @@ fn tray_labels(locale: &str) -> TrayLabels {
         TrayLabels {
             show_launcher: "Show Axolotl Launcher",
             launch_instance: "Launch instance",
+            launch_failed: "Could not launch instance",
             lightweight_mode: "Lightweight mode",
             quit: "Quit",
             running_prefix: "Running: ",
@@ -870,6 +875,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             let instance_id = instance_id
                 .trim_start_matches(LAUNCH_INSTANCE_PREFIX)
                 .to_string();
+            let app = app.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = theseus::instance::run(
                     &instance_id,
@@ -881,6 +887,15 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
                     tracing::error!(
                         "Failed to launch tray instance {instance_id}: {error}"
                     );
+                    let locale = theseus::settings::get()
+                        .await
+                        .map(|settings| settings.locale)
+                        .unwrap_or_default();
+                    app.dialog()
+                        .message(error.to_string())
+                        .title(tray_labels(&locale).launch_failed)
+                        .kind(MessageDialogKind::Error)
+                        .show(|_| {});
                 }
             });
         }

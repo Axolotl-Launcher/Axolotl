@@ -4205,6 +4205,9 @@
   "app.instance.never-played": {
     "message": "Never played"
   },
+  "app.instance.not-found": {
+    "message": "This instance is no longer available."
+  },
   "app.instance.offline-installed-only": {
     "message": "Offline mode can only launch fully downloaded instances."
   },

@@ -4205,6 +4205,9 @@
   "app.instance.never-played": {
     "message": "从未游玩"
   },
+  "app.instance.not-found": {
+    "message": "此实例已不存在。"
+  },
   "app.instance.offline-installed-only": {
     "message": "离线模式只能启动已完整下载的实例。"
   },

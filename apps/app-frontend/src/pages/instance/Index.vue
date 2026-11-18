@@ -491,6 +491,10 @@ const props = defineProps<{
 const { formatMessage } = useVIntl()
 
 const messages = defineMessages({
+    instanceNotFound: {
+        id: 'app.instance.not-found',
+        defaultMessage: 'This instance is no longer available.',
+    },
     neverPlayed: { id: 'app.instance.never-played', defaultMessage: 'Never played' },
     upgradedTo: {
         id: 'app.instance.post-upgrade-status',
@@ -646,7 +650,13 @@ async function fetchInstance() {
         }
     })
     if (!isCurrent() || !instanceReads.isCurrent(read, props.id)) return
-    if (!nextInstance) return
+    if (nextInstance === null) {
+        instance.value = undefined
+        addNotification({ type: 'warning', title: formatMessage(messages.instanceNotFound) })
+        await router.replace({ name: 'Overview' })
+        return
+    }
+    if (nextInstance === undefined) return
     const linkChanged =
         instance.value?.id !== nextInstance?.id ||
         instance.value?.link?.type !== nextInstance?.link?.type ||

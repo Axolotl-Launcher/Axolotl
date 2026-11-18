@@ -779,23 +779,15 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.execute.positioned.label': {
         id: 'app.lab.command-generator.execute.positioned.label',
-        defaultMessage: 'positioned · Change position',
+        defaultMessage: 'positioned',
     },
     'app.lab.command-generator.execute.positioned.desc': {
         id: 'app.lab.command-generator.execute.positioned.desc',
         defaultMessage: 'Change the execution position, keeping executor and rotation',
     },
-    'app.lab.command-generator.execute.positioned-as.label': {
-        id: 'app.lab.command-generator.execute.positioned-as.label',
-        defaultMessage: "positioned as · Use target's position",
-    },
     'app.lab.command-generator.execute.positioned-as.desc': {
         id: 'app.lab.command-generator.execute.positioned-as.desc',
         defaultMessage: "Use the target's position as the execution position",
-    },
-    'app.lab.command-generator.execute.positioned-over.label': {
-        id: 'app.lab.command-generator.execute.positioned-over.label',
-        defaultMessage: 'positioned over · Position on a heightmap',
     },
     'app.lab.command-generator.execute.positioned-over.desc': {
         id: 'app.lab.command-generator.execute.positioned-over.desc',
@@ -803,15 +795,11 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.execute.rotated.label': {
         id: 'app.lab.command-generator.execute.rotated.label',
-        defaultMessage: 'rotated · Change rotation',
+        defaultMessage: 'rotated',
     },
     'app.lab.command-generator.execute.rotated.desc': {
         id: 'app.lab.command-generator.execute.rotated.desc',
         defaultMessage: 'Change the execution rotation, keeping position and executor',
-    },
-    'app.lab.command-generator.execute.rotated-as.label': {
-        id: 'app.lab.command-generator.execute.rotated-as.label',
-        defaultMessage: "rotated as · Use target's rotation",
     },
     'app.lab.command-generator.execute.rotated-as.desc': {
         id: 'app.lab.command-generator.execute.rotated-as.desc',
@@ -819,15 +807,11 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.execute.facing.label': {
         id: 'app.lab.command-generator.execute.facing.label',
-        defaultMessage: 'facing · Face a coordinate',
+        defaultMessage: 'facing',
     },
     'app.lab.command-generator.execute.facing.desc': {
         id: 'app.lab.command-generator.execute.facing.desc',
         defaultMessage: 'Face the execution direction toward a coordinate',
-    },
-    'app.lab.command-generator.execute.facing-entity.label': {
-        id: 'app.lab.command-generator.execute.facing-entity.label',
-        defaultMessage: 'facing entity · Face an entity',
     },
     'app.lab.command-generator.execute.facing-entity.desc': {
         id: 'app.lab.command-generator.execute.facing-entity.desc',
@@ -4511,6 +4495,18 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.execute.variant.field.condition',
         defaultMessage: 'Condition',
     },
+    'app.lab.command-generator.execute.variant.field.positioning': {
+        id: 'app.lab.command-generator.execute.variant.field.positioning',
+        defaultMessage: 'Positioning',
+    },
+    'app.lab.command-generator.execute.variant.field.rotation': {
+        id: 'app.lab.command-generator.execute.variant.field.rotation',
+        defaultMessage: 'Rotation',
+    },
+    'app.lab.command-generator.execute.variant.field.orientation': {
+        id: 'app.lab.command-generator.execute.variant.field.orientation',
+        defaultMessage: 'Facing',
+    },
     'app.lab.command-generator.execute.variant.placeholder': {
         id: 'app.lab.command-generator.execute.variant.placeholder',
         defaultMessage: 'Choose one',
@@ -4582,6 +4578,34 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.execute.condition.kind.stopwatch.label': {
         id: 'app.lab.command-generator.execute.condition.kind.stopwatch.label',
         defaultMessage: 'Stopwatch',
+    },
+    'app.lab.command-generator.execute.variant.form.positioned-pos.label': {
+        id: 'app.lab.command-generator.execute.variant.form.positioned-pos.label',
+        defaultMessage: 'At coordinates',
+    },
+    'app.lab.command-generator.execute.variant.form.positioned-as.label': {
+        id: 'app.lab.command-generator.execute.variant.form.positioned-as.label',
+        defaultMessage: "At a target's position",
+    },
+    'app.lab.command-generator.execute.variant.form.positioned-over.label': {
+        id: 'app.lab.command-generator.execute.variant.form.positioned-over.label',
+        defaultMessage: 'On a heightmap',
+    },
+    'app.lab.command-generator.execute.variant.form.rotated-angle.label': {
+        id: 'app.lab.command-generator.execute.variant.form.rotated-angle.label',
+        defaultMessage: 'By angles',
+    },
+    'app.lab.command-generator.execute.variant.form.rotated-as.label': {
+        id: 'app.lab.command-generator.execute.variant.form.rotated-as.label',
+        defaultMessage: "As a target's rotation",
+    },
+    'app.lab.command-generator.execute.variant.form.facing-pos.label': {
+        id: 'app.lab.command-generator.execute.variant.form.facing-pos.label',
+        defaultMessage: 'Toward coordinates',
+    },
+    'app.lab.command-generator.execute.variant.form.facing-entity.label': {
+        id: 'app.lab.command-generator.execute.variant.form.facing-entity.label',
+        defaultMessage: 'Toward an entity',
     },
 })
 

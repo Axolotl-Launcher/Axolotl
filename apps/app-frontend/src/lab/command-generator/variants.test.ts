@@ -18,6 +18,7 @@ const ifSub: ExecuteChainSubcommand = {
     variants: {
         argument: 'condition',
         labelKey: 'variant.field.condition',
+        layout: 'card',
         options: [
             {
                 id: 'entity',
@@ -76,6 +77,54 @@ const plainSub: ExecuteChainSubcommand = {
     ],
 }
 
+/** 一个家族子命令：`positioned` 把坐标、目标、高度图三种写法收在一处。 */
+const positionedSub: ExecuteChainSubcommand = {
+    id: 'positioned',
+    labelKey: 'positioned.label',
+    descriptionKey: 'positioned.desc',
+    template: '',
+    arguments: [],
+    variants: {
+        argument: 'positioning',
+        labelKey: 'variant.field.positioning',
+        layout: 'compact',
+        options: [
+            {
+                id: 'pos',
+                legacy: [{ id: 'positioned' }],
+                labelKey: 'form.positioned-pos.label',
+                descriptionKey: 'positioned.desc',
+                template: 'positioned {pos}',
+                arguments: [
+                    {
+                        name: 'pos',
+                        displayNameKey: 'pos.display',
+                        type: 'coordinates',
+                        required: true,
+                        descriptionKey: 'pos.desc',
+                    },
+                ],
+            },
+            {
+                id: 'as',
+                legacy: [{ id: 'positioned-as' }],
+                labelKey: 'form.positioned-as.label',
+                descriptionKey: 'positioned-as.desc',
+                template: 'positioned as {target}',
+                arguments: [
+                    {
+                        name: 'target',
+                        displayNameKey: 'target.display',
+                        type: 'entity-selector',
+                        required: true,
+                        descriptionKey: 'target.desc',
+                    },
+                ],
+            },
+        ],
+    },
+}
+
 describe('resolveVariant', () => {
     it('finds the option stored in the step', () => {
         expect(resolveVariant(ifSub, { condition: 'block' })?.id).toBe('block')
@@ -120,7 +169,11 @@ describe('switchVariant', () => {
 
     it('drops values the new condition has no field for', () => {
         expect(
-            switchVariant(ifSub, { condition: 'entity', target: '@e', block: 'stone' }, 'block'),
+            switchVariant(
+                ifSub,
+                { condition: 'entity', target: '@e', biome: 'minecraft:plains' },
+                'block',
+            ),
         ).toEqual({ condition: 'block' })
     })
 
@@ -147,7 +200,10 @@ describe('switchVariant', () => {
 })
 
 describe('migrateLegacyStep', () => {
-    const lookup = new Map<string, ExecuteChainSubcommand>([['if', ifSub]])
+    const lookup = new Map<string, ExecuteChainSubcommand>([
+        ['if', ifSub],
+        ['positioned', positionedSub],
+    ])
 
     it('turns an old per-condition id into a condition value', () => {
         expect(
@@ -161,5 +217,23 @@ describe('migrateLegacyStep', () => {
 
     it('leaves a condition the data no longer carries alone', () => {
         expect(migrateLegacyStep({ subcommandId: 'if-items', values: {} }, lookup)).toBeNull()
+    })
+
+    it('reads the legacy ids a family declares, including the bare command', () => {
+        expect(
+            migrateLegacyStep({ subcommandId: 'positioned', values: { pos: '~ ~ ~' } }, lookup),
+        ).toEqual({ subcommandId: 'positioned', values: { positioning: 'pos', pos: '~ ~ ~' } })
+        expect(
+            migrateLegacyStep({ subcommandId: 'positioned-as', values: { target: '@s' } }, lookup),
+        ).toEqual({ subcommandId: 'positioned', values: { positioning: 'as', target: '@s' } })
+    })
+
+    it('leaves an already migrated family step alone', () => {
+        expect(
+            migrateLegacyStep(
+                { subcommandId: 'positioned', values: { positioning: 'as', target: '@s' } },
+                lookup,
+            ),
+        ).toBeNull()
     })
 })

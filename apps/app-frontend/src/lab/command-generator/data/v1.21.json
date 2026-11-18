@@ -270,217 +270,269 @@
               ]
             },
             {
-              "id": "on",
-              "labelKey": "app.lab.command-generator.execute.on.label",
-              "descriptionKey": "app.lab.command-generator.execute.on.desc",
-              "template": "on {relation}",
-              "arguments": [
-                {
-                  "name": "relation",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.on.relation.display",
-                  "type": "enum",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.on.relation.desc",
-                  "enumValues": [
-                    "attacker",
-                    "controller",
-                    "leasher",
-                    "origin",
-                    "owner",
-                    "passengers",
-                    "target",
-                    "vehicle"
-                  ],
-                  "defaultValue": "attacker"
-                }
-              ]
-            },
-            {
               "id": "positioned",
               "labelKey": "app.lab.command-generator.execute.positioned.label",
               "descriptionKey": "app.lab.command-generator.execute.positioned.desc",
-              "template": "positioned {pos}",
-              "arguments": [
-                {
-                  "name": "pos",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.positioned.pos.display",
-                  "type": "coordinates",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.positioned.pos.desc",
-                  "placeholder": "0 64 0",
-                  "presets": [
-                    {
-                      "labelKey": "app.lab.command-generator.preset.coord.world-center",
-                      "value": "0 64 0"
-                    },
-                    {
-                      "labelKey": "app.lab.command-generator.preset.coord.current",
-                      "value": "~ ~ ~"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": "positioned-as",
-              "labelKey": "app.lab.command-generator.execute.positioned-as.label",
-              "descriptionKey": "app.lab.command-generator.execute.positioned-as.desc",
-              "template": "positioned as {target}",
-              "arguments": [
-                {
-                  "name": "target",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.positioned-as.target.display",
-                  "type": "entity-selector",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.positioned-as.target.desc",
-                  "placeholder": "@s"
-                }
-              ]
-            },
-            {
-              "id": "positioned-over",
-              "labelKey": "app.lab.command-generator.execute.positioned-over.label",
-              "descriptionKey": "app.lab.command-generator.execute.positioned-over.desc",
-              "template": "positioned over {heightmap}",
-              "arguments": [
-                {
-                  "name": "heightmap",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.positioned-over.heightmap.display",
-                  "type": "enum",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.positioned-over.heightmap.desc",
-                  "enumValues": [
-                    "world_surface",
-                    "ocean_floor",
-                    "motion_blocking",
-                    "motion_blocking_no_leaves"
-                  ],
-                  "defaultValue": "world_surface"
-                }
-              ]
+              "template": "",
+              "arguments": [],
+              "variants": {
+                "argument": "positioning",
+                "labelKey": "app.lab.command-generator.execute.variant.field.positioning",
+                "layout": "compact",
+                "options": [
+                  {
+                    "id": "pos",
+                    "legacy": [
+                      {
+                        "id": "positioned"
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.positioned-pos.label",
+                    "descriptionKey": "app.lab.command-generator.execute.positioned.desc",
+                    "template": "positioned {pos}",
+                    "arguments": [
+                      {
+                        "name": "pos",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.positioned.pos.display",
+                        "type": "coordinates",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.positioned.pos.desc",
+                        "placeholder": "0 64 0",
+                        "presets": [
+                          {
+                            "labelKey": "app.lab.command-generator.preset.coord.world-center",
+                            "value": "0 64 0"
+                          },
+                          {
+                            "labelKey": "app.lab.command-generator.preset.coord.current",
+                            "value": "~ ~ ~"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "as",
+                    "legacy": [
+                      {
+                        "id": "positioned-as"
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.positioned-as.label",
+                    "descriptionKey": "app.lab.command-generator.execute.positioned-as.desc",
+                    "template": "positioned as {target}",
+                    "arguments": [
+                      {
+                        "name": "target",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.positioned-as.target.display",
+                        "type": "entity-selector",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.positioned-as.target.desc",
+                        "placeholder": "@s"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "over",
+                    "legacy": [
+                      {
+                        "id": "positioned-over"
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.positioned-over.label",
+                    "descriptionKey": "app.lab.command-generator.execute.positioned-over.desc",
+                    "template": "positioned over {heightmap}",
+                    "arguments": [
+                      {
+                        "name": "heightmap",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.positioned-over.heightmap.display",
+                        "type": "enum",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.positioned-over.heightmap.desc",
+                        "enumValues": [
+                          "world_surface",
+                          "ocean_floor",
+                          "motion_blocking",
+                          "motion_blocking_no_leaves"
+                        ],
+                        "defaultValue": "world_surface"
+                      }
+                    ],
+                    "sinceVersion": "1.19"
+                  }
+                ]
+              }
             },
             {
               "id": "rotated",
               "labelKey": "app.lab.command-generator.execute.rotated.label",
               "descriptionKey": "app.lab.command-generator.execute.rotated.desc",
-              "template": "rotated {yaw} {pitch}",
-              "arguments": [
-                {
-                  "name": "yaw",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.rotated.yaw.display",
-                  "type": "number",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.rotated.yaw.desc",
-                  "defaultValue": 0,
-                  "presets": [
-                    {
-                      "labelKey": "app.lab.command-generator.preset.rotation.north",
-                      "value": 0
-                    },
-                    {
-                      "labelKey": "app.lab.command-generator.preset.rotation.east",
-                      "value": 90
-                    },
-                    {
-                      "labelKey": "app.lab.command-generator.preset.rotation.south",
-                      "value": 180
-                    },
-                    {
-                      "labelKey": "app.lab.command-generator.preset.rotation.west",
-                      "value": -90
-                    }
-                  ]
-                },
-                {
-                  "name": "pitch",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.rotated.pitch.display",
-                  "type": "number",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.rotated.pitch.desc",
-                  "defaultValue": 0,
-                  "presets": [
-                    {
-                      "labelKey": "app.lab.command-generator.preset.pitch.horizontal",
-                      "value": 0
-                    },
-                    {
-                      "labelKey": "app.lab.command-generator.preset.pitch.up",
-                      "value": -90
-                    },
-                    {
-                      "labelKey": "app.lab.command-generator.preset.pitch.down",
-                      "value": 90
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": "rotated-as",
-              "labelKey": "app.lab.command-generator.execute.rotated-as.label",
-              "descriptionKey": "app.lab.command-generator.execute.rotated-as.desc",
-              "template": "rotated as {target}",
-              "arguments": [
-                {
-                  "name": "target",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.rotated-as.target.display",
-                  "type": "entity-selector",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.rotated-as.target.desc",
-                  "placeholder": "@s"
-                }
-              ]
+              "template": "",
+              "arguments": [],
+              "variants": {
+                "argument": "rotation",
+                "labelKey": "app.lab.command-generator.execute.variant.field.rotation",
+                "layout": "compact",
+                "options": [
+                  {
+                    "id": "angle",
+                    "legacy": [
+                      {
+                        "id": "rotated"
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.rotated-angle.label",
+                    "descriptionKey": "app.lab.command-generator.execute.rotated.desc",
+                    "template": "rotated {yaw} {pitch}",
+                    "arguments": [
+                      {
+                        "name": "yaw",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.rotated.yaw.display",
+                        "type": "number",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.rotated.yaw.desc",
+                        "defaultValue": 0,
+                        "presets": [
+                          {
+                            "labelKey": "app.lab.command-generator.preset.rotation.north",
+                            "value": 0
+                          },
+                          {
+                            "labelKey": "app.lab.command-generator.preset.rotation.east",
+                            "value": 90
+                          },
+                          {
+                            "labelKey": "app.lab.command-generator.preset.rotation.south",
+                            "value": 180
+                          },
+                          {
+                            "labelKey": "app.lab.command-generator.preset.rotation.west",
+                            "value": -90
+                          }
+                        ]
+                      },
+                      {
+                        "name": "pitch",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.rotated.pitch.display",
+                        "type": "number",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.rotated.pitch.desc",
+                        "defaultValue": 0,
+                        "presets": [
+                          {
+                            "labelKey": "app.lab.command-generator.preset.pitch.horizontal",
+                            "value": 0
+                          },
+                          {
+                            "labelKey": "app.lab.command-generator.preset.pitch.up",
+                            "value": -90
+                          },
+                          {
+                            "labelKey": "app.lab.command-generator.preset.pitch.down",
+                            "value": 90
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "as",
+                    "legacy": [
+                      {
+                        "id": "rotated-as"
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.rotated-as.label",
+                    "descriptionKey": "app.lab.command-generator.execute.rotated-as.desc",
+                    "template": "rotated as {target}",
+                    "arguments": [
+                      {
+                        "name": "target",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.rotated-as.target.display",
+                        "type": "entity-selector",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.rotated-as.target.desc",
+                        "placeholder": "@s"
+                      }
+                    ]
+                  }
+                ]
+              }
             },
             {
               "id": "facing",
               "labelKey": "app.lab.command-generator.execute.facing.label",
               "descriptionKey": "app.lab.command-generator.execute.facing.desc",
-              "template": "facing {pos}",
-              "arguments": [
-                {
-                  "name": "pos",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.facing.pos.display",
-                  "type": "coordinates",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.facing.pos.desc",
-                  "placeholder": "0 64 0"
-                }
-              ]
-            },
-            {
-              "id": "facing-entity",
-              "labelKey": "app.lab.command-generator.execute.facing-entity.label",
-              "descriptionKey": "app.lab.command-generator.execute.facing-entity.desc",
-              "template": "facing entity {target} {anchor}",
-              "arguments": [
-                {
-                  "name": "target",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.facing-entity.target.display",
-                  "type": "entity-selector",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.facing-entity.target.desc",
-                  "placeholder": "@p"
-                },
-                {
-                  "name": "anchor",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.facing-entity.anchor.display",
-                  "type": "enum",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.facing-entity.anchor.desc",
-                  "enumValues": ["eyes", "feet"],
-                  "defaultValue": "eyes",
-                  "presets": [
-                    {
-                      "labelKey": "app.lab.command-generator.preset.anchor.eyes",
-                      "value": "eyes"
-                    },
-                    {
-                      "labelKey": "app.lab.command-generator.preset.anchor.feet",
-                      "value": "feet"
-                    }
-                  ]
-                }
-              ]
+              "template": "",
+              "arguments": [],
+              "variants": {
+                "argument": "orientation",
+                "labelKey": "app.lab.command-generator.execute.variant.field.orientation",
+                "layout": "compact",
+                "options": [
+                  {
+                    "id": "pos",
+                    "legacy": [
+                      {
+                        "id": "facing"
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.facing-pos.label",
+                    "descriptionKey": "app.lab.command-generator.execute.facing.desc",
+                    "template": "facing {pos}",
+                    "arguments": [
+                      {
+                        "name": "pos",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.facing.pos.display",
+                        "type": "coordinates",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.facing.pos.desc",
+                        "placeholder": "0 64 0"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "entity",
+                    "legacy": [
+                      {
+                        "id": "facing-entity"
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.facing-entity.label",
+                    "descriptionKey": "app.lab.command-generator.execute.facing-entity.desc",
+                    "template": "facing entity {target} {anchor}",
+                    "arguments": [
+                      {
+                        "name": "target",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.facing-entity.target.display",
+                        "type": "entity-selector",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.facing-entity.target.desc",
+                        "placeholder": "@p"
+                      },
+                      {
+                        "name": "anchor",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.facing-entity.anchor.display",
+                        "type": "enum",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.facing-entity.anchor.desc",
+                        "enumValues": ["eyes", "feet"],
+                        "defaultValue": "eyes",
+                        "presets": [
+                          {
+                            "labelKey": "app.lab.command-generator.preset.anchor.eyes",
+                            "value": "eyes"
+                          },
+                          {
+                            "labelKey": "app.lab.command-generator.preset.anchor.feet",
+                            "value": "feet"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
             },
             {
               "id": "in",
@@ -511,33 +563,6 @@
                     {
                       "labelKey": "app.lab.command-generator.preset.dimension.end",
                       "value": "minecraft:the_end"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": "anchored",
-              "labelKey": "app.lab.command-generator.execute.anchored.label",
-              "descriptionKey": "app.lab.command-generator.execute.anchored.desc",
-              "template": "anchored {anchor}",
-              "arguments": [
-                {
-                  "name": "anchor",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.anchored.anchor.display",
-                  "type": "enum",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.anchored.anchor.desc",
-                  "enumValues": ["eyes", "feet"],
-                  "defaultValue": "eyes",
-                  "presets": [
-                    {
-                      "labelKey": "app.lab.command-generator.preset.anchor.eyes",
-                      "value": "eyes"
-                    },
-                    {
-                      "labelKey": "app.lab.command-generator.preset.anchor.feet",
-                      "value": "feet"
                     }
                   ]
                 }
@@ -579,6 +604,60 @@
               ]
             },
             {
+              "id": "anchored",
+              "labelKey": "app.lab.command-generator.execute.anchored.label",
+              "descriptionKey": "app.lab.command-generator.execute.anchored.desc",
+              "template": "anchored {anchor}",
+              "arguments": [
+                {
+                  "name": "anchor",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.anchored.anchor.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.anchored.anchor.desc",
+                  "enumValues": ["eyes", "feet"],
+                  "defaultValue": "eyes",
+                  "presets": [
+                    {
+                      "labelKey": "app.lab.command-generator.preset.anchor.eyes",
+                      "value": "eyes"
+                    },
+                    {
+                      "labelKey": "app.lab.command-generator.preset.anchor.feet",
+                      "value": "feet"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "on",
+              "labelKey": "app.lab.command-generator.execute.on.label",
+              "descriptionKey": "app.lab.command-generator.execute.on.desc",
+              "template": "on {relation}",
+              "arguments": [
+                {
+                  "name": "relation",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.on.relation.display",
+                  "type": "enum",
+                  "required": true,
+                  "descriptionKey": "app.lab.command-generator.arg.execute.on.relation.desc",
+                  "enumValues": [
+                    "attacker",
+                    "controller",
+                    "leasher",
+                    "origin",
+                    "owner",
+                    "passengers",
+                    "target",
+                    "vehicle"
+                  ],
+                  "defaultValue": "attacker"
+                }
+              ],
+              "sinceVersion": "1.19"
+            },
+            {
               "id": "summon",
               "labelKey": "app.lab.command-generator.execute.summon.label",
               "descriptionKey": "app.lab.command-generator.execute.summon.desc",
@@ -592,7 +671,8 @@
                   "descriptionKey": "app.lab.command-generator.arg.execute.summon.entity.desc",
                   "placeholder": "minecraft:axolotl"
                 }
-              ]
+              ],
+              "sinceVersion": "1.19"
             }
           ]
         },
@@ -609,6 +689,7 @@
               "variants": {
                 "argument": "condition",
                 "labelKey": "app.lab.command-generator.execute.variant.field.condition",
+                "layout": "card",
                 "options": [
                   {
                     "id": "entity",
@@ -1040,6 +1121,7 @@
               "variants": {
                 "argument": "condition",
                 "labelKey": "app.lab.command-generator.execute.variant.field.condition",
+                "layout": "card",
                 "options": [
                   {
                     "id": "entity",

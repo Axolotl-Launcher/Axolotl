@@ -75,6 +75,18 @@ export interface CommandArgument {
 }
 
 /**
+ * 旧数据里这个写法曾经用过的子命令 id。
+ *
+ * 合并前每种写法都是一个独立子命令（`positioned-as`），用户预置里存的就是这种 id。
+ * 不填时按 `<子命令 id>-<写法 id>` 推导，`if-biome` 这类就靠这条规则还原。
+ */
+export interface ExecuteChainLegacyOption {
+    id: string
+    /** 旧 id 里顺带编进去的字段，例如 `store-result-score` 的 `mode: 'result'` */
+    values?: Record<string, string | number | boolean>
+}
+
+/**
  * 一个子命令的一种写法，例如 `positioned as <targets>`。
  *
  * 同一行的括号分支（`positioned (<pos>|as <targets>|over <heightmap>)`）参数表
@@ -83,6 +95,7 @@ export interface CommandArgument {
 export interface ExecuteChainVariantOption {
     /** 写进步骤 `values[variants.argument]` 的值，例如 `biome` */
     id: string
+    legacy?: ExecuteChainLegacyOption[]
     labelKey: string
     descriptionKey: string
     template: string
@@ -104,8 +117,11 @@ export interface ExecuteChainVariants {
     descriptionKey?: string
     /** 不填则强制用户选；填了就按这个写法入链 */
     defaultValue?: string
-    /** 大卡还是紧凑入口，见选择器的分档规则 */
-    layout?: 'card' | 'compact'
+    /**
+     * 选择器里的入口形态：`card` 是大卡片（带说明与写法数量），
+     * `compact` 是与普通子命令同排的小按钮。
+     */
+    layout: 'card' | 'compact'
     options: ExecuteChainVariantOption[]
 }
 

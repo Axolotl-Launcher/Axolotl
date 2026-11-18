@@ -293,7 +293,7 @@ function variantLabel(step: ChainStep): string {
 
 function stepIcon(step: ChainStep): Component {
     const option = resolveVariant(getSubcommand(step.subcommandId), step.values)
-    return option ? variantIcon(option.id) : subcommandIcon(step.subcommandId)
+    return option ? variantIcon(option.id, step.subcommandId) : subcommandIcon(step.subcommandId)
 }
 
 function onVariantChange(step: ChainStep, optionId: string) {
@@ -302,12 +302,14 @@ function onVariantChange(step: ChainStep, optionId: string) {
     step.values = switchVariant(sub, step.values, optionId)
 }
 
-function variantSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
-    return category.subcommands.filter((sub) => sub.variants)
+/** 写法多的子命令用大卡片，说明与写法数量都摊开。 */
+function cardSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
+    return category.subcommands.filter((sub) => sub.variants?.layout === 'card')
 }
 
-function plainSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
-    return category.subcommands.filter((sub) => !sub.variants)
+/** 普通子命令与写法少的家族共用一排小按钮，家族多一个折角提示还要再选。 */
+function compactSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
+    return category.subcommands.filter((sub) => sub.variants?.layout !== 'card')
 }
 
 const output = computed(() => {
@@ -662,13 +664,13 @@ defineExpose({ getState, setState })
                     <p class="m-0 text-xs font-medium text-[var(--color-text-tertiary)]">
                         {{ formatDynamic(cat.labelKey, cat.id) }}
                     </p>
-                    <!-- 条件子命令要再选一次跟什么判断，所以给它们更大的卡，而不是一排小按钮 -->
+                    <!-- 写法多的子命令要再选一次跟什么，所以给它们更大的卡，而不是一排小按钮 -->
                     <div
-                        v-if="variantSubcommands(cat).length"
+                        v-if="cardSubcommands(cat).length"
                         class="grid min-w-0 gap-2 sm:grid-cols-2"
                     >
                         <button
-                            v-for="sub in variantSubcommands(cat)"
+                            v-for="sub in cardSubcommands(cat)"
                             :key="sub.id"
                             type="button"
                             class="flex min-w-0 items-start gap-3 rounded-xl border border-solid border-surface-4 bg-surface-3 p-3 text-left transition-colors hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
@@ -699,9 +701,9 @@ defineExpose({ getState, setState })
                             </span>
                         </button>
                     </div>
-                    <div v-if="plainSubcommands(cat).length" class="flex flex-wrap gap-2">
+                    <div v-if="compactSubcommands(cat).length" class="flex flex-wrap gap-2">
                         <Button
-                            v-for="sub in plainSubcommands(cat)"
+                            v-for="sub in compactSubcommands(cat)"
                             :key="sub.id"
                             v-tooltip="formatDynamic(sub.descriptionKey, sub.id)"
                             type="outlined"
@@ -710,9 +712,12 @@ defineExpose({ getState, setState })
                             ><component
                                 :is="subcommandIcon(sub.id)"
                                 aria-hidden="true"
-                                class="h-4 w-4"
-                            />{{ formatDynamic(sub.labelKey, sub.id) }}</Button
-                        >
+                                class="h-4 w-4" />{{ formatDynamic(sub.labelKey, sub.id)
+                            }}<ChevronDownIcon
+                                v-if="sub.variants"
+                                aria-hidden="true"
+                                class="h-3 w-3 opacity-60"
+                        /></Button>
                     </div>
                 </div>
             </div>

@@ -7697,14 +7697,11 @@
   "app.lab.command-generator.execute.facing-entity.desc": {
     "message": "把执行朝向设为面向某个实体"
   },
-  "app.lab.command-generator.execute.facing-entity.label": {
-    "message": "facing entity · 面向实体"
-  },
   "app.lab.command-generator.execute.facing.desc": {
     "message": "把执行朝向设为面向某个坐标"
   },
   "app.lab.command-generator.execute.facing.label": {
-    "message": "facing · 面向坐标"
+    "message": "facing"
   },
   "app.lab.command-generator.execute.final-hint": {
     "message": "输入实际命令，不带斜杠。"
@@ -7787,20 +7784,14 @@
   "app.lab.command-generator.execute.positioned-as.desc": {
     "message": "把执行位置设为目标的当前位置"
   },
-  "app.lab.command-generator.execute.positioned-as.label": {
-    "message": "positioned as · 以目标为位置"
-  },
   "app.lab.command-generator.execute.positioned-over.desc": {
     "message": "把执行位置放到坐标下方的高度图上"
-  },
-  "app.lab.command-generator.execute.positioned-over.label": {
-    "message": "positioned over · 按高度图定位"
   },
   "app.lab.command-generator.execute.positioned.desc": {
     "message": "改变执行位置，执行者和朝向不变"
   },
   "app.lab.command-generator.execute.positioned.label": {
-    "message": "positioned · 改变位置"
+    "message": "positioned"
   },
   "app.lab.command-generator.execute.quick-examples": {
     "message": "快速示例"
@@ -7826,14 +7817,11 @@
   "app.lab.command-generator.execute.rotated-as.desc": {
     "message": "把执行朝向设为目标当前的朝向"
   },
-  "app.lab.command-generator.execute.rotated-as.label": {
-    "message": "rotated as · 以目标为朝向"
-  },
   "app.lab.command-generator.execute.rotated.desc": {
     "message": "改变执行朝向，位置和执行者不变"
   },
   "app.lab.command-generator.execute.rotated.label": {
-    "message": "rotated · 改变朝向"
+    "message": "rotated"
   },
   "app.lab.command-generator.execute.store-result-block.desc": {
     "message": "把命令结果存入方块的 NBT 数据"
@@ -7948,6 +7936,36 @@
   },
   "app.lab.command-generator.execute.variant.field.condition": {
     "message": "判断条件"
+  },
+  "app.lab.command-generator.execute.variant.field.orientation": {
+    "message": "朝向方式"
+  },
+  "app.lab.command-generator.execute.variant.field.positioning": {
+    "message": "定位方式"
+  },
+  "app.lab.command-generator.execute.variant.field.rotation": {
+    "message": "旋转方式"
+  },
+  "app.lab.command-generator.execute.variant.form.facing-entity.label": {
+    "message": "面向实体"
+  },
+  "app.lab.command-generator.execute.variant.form.facing-pos.label": {
+    "message": "面向坐标"
+  },
+  "app.lab.command-generator.execute.variant.form.positioned-as.label": {
+    "message": "以目标位置"
+  },
+  "app.lab.command-generator.execute.variant.form.positioned-over.label": {
+    "message": "按高度图"
+  },
+  "app.lab.command-generator.execute.variant.form.positioned-pos.label": {
+    "message": "指定坐标"
+  },
+  "app.lab.command-generator.execute.variant.form.rotated-angle.label": {
+    "message": "指定角度"
+  },
+  "app.lab.command-generator.execute.variant.form.rotated-as.label": {
+    "message": "以目标朝向"
   },
   "app.lab.command-generator.execute.variant.placeholder": {
     "message": "选择一项"

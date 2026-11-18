@@ -61,7 +61,7 @@ export function activeStepArguments(
 }
 
 /**
- * 换一个变体：只保留新变体下同名的参数，其余丢弃。
+ * 换一个写法：只保留新写法下同名的参数，其余丢弃。
  * 否则从 `block` 换到 `score` 会把 `pos` 留在步骤里，渲染时被拼进命令。
  */
 export function switchVariant(
@@ -83,27 +83,34 @@ export function switchVariant(
 }
 
 /**
- * 旧数据把每个变体写成一个独立子命令（`if-biome`、`positioned-as`），
- * 用户预置里存的就是这种 id。这里按最长的子命令前缀把它还原成「子命令 + 变体」。
+ * 旧数据把每种写法写成一个独立子命令（`if-biome`、`positioned-as`），
+ * 用户预置里存的就是这种 id。这里按 `legacy` 声明的旧 id 还原成「子命令 + 写法」。
  */
 export function migrateLegacyStep(
     step: { subcommandId: string; values: ChainValues },
     lookup: ReadonlyMap<string, ExecuteChainSubcommand>,
 ): { subcommandId: string; values: ChainValues } | null {
-    const id = step.subcommandId
-    let match: { sub: ExecuteChainSubcommand; rest: string } | null = null
-    for (const [subId, sub] of lookup) {
-        if (!sub.variants || !id.startsWith(`${subId}-`)) continue
-        if (match && match.sub.id.length >= subId.length) continue
-        match = { sub, rest: id.slice(subId.length + 1) }
-    }
-    if (!match) return null
+    // 已经是新格式的家族步骤：`positioned` 同时是家族 id 和 `pos` 写法的旧 id，
+    // 只要家族字段已经有值就说明不用迁移。
+    const current = lookup.get(step.subcommandId)
+    if (current?.variants && step.values[current.variants.argument] !== undefined) return null
 
-    const variants = match.sub.variants!
-    const option = variants.options.find((candidate) => candidate.id === match!.rest)
-    if (!option) return null
-    return {
-        subcommandId: match.sub.id,
-        values: { ...step.values, [variants.argument]: option.id },
+    for (const sub of lookup.values()) {
+        const variants = sub.variants
+        if (!variants) continue
+        for (const option of variants.options) {
+            const legacy = option.legacy ?? [{ id: `${sub.id}-${option.id}` }]
+            const hit = legacy.find((candidate) => candidate.id === step.subcommandId)
+            if (!hit) continue
+            return {
+                subcommandId: sub.id,
+                values: {
+                    ...step.values,
+                    ...(hit.values ?? {}),
+                    [variants.argument]: option.id,
+                },
+            }
+        }
     }
+    return null
 }

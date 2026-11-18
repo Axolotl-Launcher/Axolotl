@@ -2,13 +2,11 @@ import {
     ArrowUpDownIcon,
     BoxesIcon,
     BracesIcon,
-    ChartAreaIcon,
     ChartColumnBigIcon,
     CircleUserIcon,
     CodeIcon,
     CompassIcon,
     CubeIcon,
-    DatabaseIcon,
     EyeIcon,
     FilterIcon,
     FilterXIcon,
@@ -29,7 +27,6 @@ import {
     TimerIcon,
     UnknownIcon,
     UserPlusIcon,
-    UserRoundIcon,
     UsersIcon,
     WorldIcon,
 } from '@modrinth/assets'
@@ -47,12 +44,8 @@ const SUBCOMMAND_ICONS: Record<string, Component> = {
     at: PinIcon,
     on: OrganizationIcon,
     positioned: MapIcon,
-    'positioned-as': ScanEyeIcon,
-    'positioned-over': SunriseIcon,
     rotated: RotateClockwiseIcon,
-    'rotated-as': RotateCounterClockwiseIcon,
     facing: CompassIcon,
-    'facing-entity': MousePointer2Icon,
     in: GlobeIcon,
     anchored: ArrowUpDownIcon,
     align: GridIcon,
@@ -61,20 +54,14 @@ const SUBCOMMAND_ICONS: Record<string, Component> = {
     // 条件子命令（判断的正负）
     if: FilterIcon,
     unless: FilterXIcon,
-
-    // 存储子命令
-    'store-result-score': ChartColumnBigIcon,
-    'store-success-score': ChartColumnBigIcon,
-    'store-result-bossbar': ChartAreaIcon,
-    'store-result-block': CubeIcon,
-    'store-success-block': CubeIcon,
-    'store-result-entity': UserRoundIcon,
-    'store-success-entity': UserRoundIcon,
-    'store-result-storage': DatabaseIcon,
-    'store-success-storage': DatabaseIcon,
 }
 
-/** 条件子命令后面跟的判断类型，例如 `if` 的 `biome`。 */
+/**
+ * 子命令后面跟的写法，例如 `if` 的 `biome`、`positioned` 的 `over`。
+ *
+ * 写法 id 只在家族内唯一（`positioned` 与 `rotated` 都有 `as`），
+ * 所以先按 `<家族>.<写法>` 找，找不到再退回只看写法 id。
+ */
 const VARIANT_ICONS: Record<string, Component> = {
     entity: UsersIcon,
     block: CubeIcon,
@@ -90,12 +77,21 @@ const VARIANT_ICONS: Record<string, Component> = {
     function: CodeIcon,
     predicate: ListFilterIcon,
     stopwatch: TimerIcon,
+
+    'positioned.pos': MapIcon,
+    'positioned.as': ScanEyeIcon,
+    'positioned.over': SunriseIcon,
+    'rotated.angle': RotateClockwiseIcon,
+    'rotated.as': RotateCounterClockwiseIcon,
+    'facing.pos': CompassIcon,
+    'facing.entity': MousePointer2Icon,
 }
 
 export function subcommandIcon(id: string): Component {
     return SUBCOMMAND_ICONS[id] ?? UnknownIcon
 }
 
-export function variantIcon(id: string): Component {
-    return VARIANT_ICONS[id] ?? UnknownIcon
+export function variantIcon(id: string, familyId?: string): Component {
+    const scoped = familyId ? VARIANT_ICONS[`${familyId}.${id}`] : undefined
+    return scoped ?? VARIANT_ICONS[id] ?? UnknownIcon
 }

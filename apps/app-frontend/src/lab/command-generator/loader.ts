@@ -71,12 +71,12 @@ export function loadCommandsForVersion(versionId: string): CommandDefinition[] {
                       ...category,
                       subcommands: category.subcommands
                           .map((subcommand) =>
-                              subcommand.condition
+                              subcommand.variants
                                   ? {
                                         ...subcommand,
-                                        condition: {
-                                            ...subcommand.condition,
-                                            options: subcommand.condition.options.filter((option) =>
+                                        variants: {
+                                            ...subcommand.variants,
+                                            options: subcommand.variants.options.filter((option) =>
                                                 isAvailable(option.sinceVersion),
                                             ),
                                         },
@@ -143,12 +143,12 @@ function applyPatch(base: CommandDefinition[], patch: PatchDataFile): CommandDef
                         const extra = (chainPatch.addedOptions ?? [])
                             .filter((entry) => entry.subcommandId === subcommand.id)
                             .map((entry) => entry.option)
-                        if (!extra.length || !subcommand.condition) return subcommand
+                        if (!extra.length || !subcommand.variants) return subcommand
                         return {
                             ...subcommand,
-                            condition: {
-                                ...subcommand.condition,
-                                options: [...subcommand.condition.options, ...extra],
+                            variants: {
+                                ...subcommand.variants,
+                                options: [...subcommand.variants.options, ...extra],
                             },
                         }
                     }),

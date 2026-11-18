@@ -7652,12 +7652,6 @@
   "app.lab.command-generator.execute.clear": {
     "message": "Clear"
   },
-  "app.lab.command-generator.execute.condition.count": {
-    "message": "{count} conditions"
-  },
-  "app.lab.command-generator.execute.condition.field": {
-    "message": "Condition"
-  },
   "app.lab.command-generator.execute.condition.kind.biome.label": {
     "message": "Biome"
   },
@@ -7699,12 +7693,6 @@
   },
   "app.lab.command-generator.execute.condition.kind.stopwatch.label": {
     "message": "Stopwatch"
-  },
-  "app.lab.command-generator.execute.condition.placeholder": {
-    "message": "Pick a condition"
-  },
-  "app.lab.command-generator.execute.condition.unset": {
-    "message": "No condition picked yet"
   },
   "app.lab.command-generator.execute.facing-entity.desc": {
     "message": "Face the execution direction toward an entity"
@@ -7954,6 +7942,18 @@
   },
   "app.lab.command-generator.execute.unless.label": {
     "message": "unless"
+  },
+  "app.lab.command-generator.execute.variant.count": {
+    "message": "{count} forms"
+  },
+  "app.lab.command-generator.execute.variant.field.condition": {
+    "message": "Condition"
+  },
+  "app.lab.command-generator.execute.variant.placeholder": {
+    "message": "Choose one"
+  },
+  "app.lab.command-generator.execute.variant.unset": {
+    "message": "No form picked yet"
   },
   "app.lab.command-generator.filter.all": {
     "message": "All"

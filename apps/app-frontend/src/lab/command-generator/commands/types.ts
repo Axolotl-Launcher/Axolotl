@@ -75,13 +75,13 @@ export interface CommandArgument {
 }
 
 /**
- * 条件子命令后面跟的一种判断，例如 `if` 后面的 `biome`。
+ * 一个子命令的一种写法，例如 `positioned as <targets>`。
  *
- * `if biome <pos> <biome>` 与 `if block <pos> <block>` 的参数表完全不同，
- * 所以模板与参数都挂在这一层，而不是挂在子命令上。
+ * 同一行的括号分支（`positioned (<pos>|as <targets>|over <heightmap>)`）参数表
+ * 完全不同，所以模板与参数都挂在这一层，而不是挂在子命令上。
  */
-export interface ExecuteChainConditionOption {
-    /** 写进步骤 `values[condition.argument]` 的值，例如 `biome` */
+export interface ExecuteChainVariantOption {
+    /** 写进步骤 `values[variants.argument]` 的值，例如 `biome` */
     id: string
     labelKey: string
     descriptionKey: string
@@ -91,17 +91,22 @@ export interface ExecuteChainConditionOption {
 }
 
 /**
- * 条件子命令（`if` / `unless`）的可选判断列表。
+ * 子命令的写法列表：`if` / `unless` 的条件、`positioned` 的定位方式、
+ * `store` 的存储目标都走这里。
  *
- * 步骤里只存 `{ subcommandId: 'if', values: { condition: 'biome', ... } }`，
- * 具体跟什么条件由编辑区选择，所以一条链里可以有多个 if / unless。
+ * 步骤里只存 `{ subcommandId: 'if', values: { condition: 'biome' } }`，
+ * 具体写法由编辑区选择，所以一条链里可以有多个同族子命令。
  */
-export interface ExecuteChainCondition {
+export interface ExecuteChainVariants {
     /** 选择结果写入步骤 `values` 的字段名 */
     argument: string
     labelKey: string
     descriptionKey?: string
-    options: ExecuteChainConditionOption[]
+    /** 不填则强制用户选；填了就按这个写法入链 */
+    defaultValue?: string
+    /** 大卡还是紧凑入口，见选择器的分档规则 */
+    layout?: 'card' | 'compact'
+    options: ExecuteChainVariantOption[]
 }
 
 export interface ExecuteChainSubcommand {
@@ -111,8 +116,8 @@ export interface ExecuteChainSubcommand {
     descriptionKey: string
     template: string
     arguments: CommandArgument[]
-    /** 有该字段时，模板与参数取自选中的 option，本层的 template/arguments 留空 */
-    condition?: ExecuteChainCondition
+    /** 有该字段时，模板与参数取自选中的变体，本层的 template/arguments 留空 */
+    variants?: ExecuteChainVariants
 }
 
 export interface ExecuteChainCategory {
@@ -157,10 +162,10 @@ export interface PatchDataFile {
             categoryId: string
             added?: ExecuteChainSubcommand[]
             patched?: Record<string, Partial<ExecuteChainSubcommand>>
-            /** 往已有条件子命令的 option 列表追加判断，例如 26.3 的 `slots` */
+            /** 往已有子命令的变体列表追加写法，例如 26.3 的 `slots` */
             addedOptions?: Array<{
                 subcommandId: string
-                option: ExecuteChainConditionOption
+                option: ExecuteChainVariantOption
             }>
         }
     >

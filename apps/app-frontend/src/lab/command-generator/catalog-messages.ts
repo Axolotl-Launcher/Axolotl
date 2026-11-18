@@ -4507,21 +4507,21 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.execute.unless.desc',
         defaultMessage: 'Continue only when the condition fails',
     },
-    'app.lab.command-generator.execute.condition.field': {
-        id: 'app.lab.command-generator.execute.condition.field',
+    'app.lab.command-generator.execute.variant.field.condition': {
+        id: 'app.lab.command-generator.execute.variant.field.condition',
         defaultMessage: 'Condition',
     },
-    'app.lab.command-generator.execute.condition.placeholder': {
-        id: 'app.lab.command-generator.execute.condition.placeholder',
-        defaultMessage: 'Pick a condition',
+    'app.lab.command-generator.execute.variant.placeholder': {
+        id: 'app.lab.command-generator.execute.variant.placeholder',
+        defaultMessage: 'Choose one',
     },
-    'app.lab.command-generator.execute.condition.unset': {
-        id: 'app.lab.command-generator.execute.condition.unset',
-        defaultMessage: 'No condition picked yet',
+    'app.lab.command-generator.execute.variant.unset': {
+        id: 'app.lab.command-generator.execute.variant.unset',
+        defaultMessage: 'No form picked yet',
     },
-    'app.lab.command-generator.execute.condition.count': {
-        id: 'app.lab.command-generator.execute.condition.count',
-        defaultMessage: '{count} conditions',
+    'app.lab.command-generator.execute.variant.count': {
+        id: 'app.lab.command-generator.execute.variant.count',
+        defaultMessage: '{count} forms',
     },
     'app.lab.command-generator.execute.unless-items.desc': {
         id: 'app.lab.command-generator.execute.unless-items.desc',

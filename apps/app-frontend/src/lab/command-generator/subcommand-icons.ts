@@ -75,7 +75,7 @@ const SUBCOMMAND_ICONS: Record<string, Component> = {
 }
 
 /** 条件子命令后面跟的判断类型，例如 `if` 的 `biome`。 */
-const CONDITION_ICONS: Record<string, Component> = {
+const VARIANT_ICONS: Record<string, Component> = {
     entity: UsersIcon,
     block: CubeIcon,
     blocks: BoxesIcon,
@@ -96,6 +96,6 @@ export function subcommandIcon(id: string): Component {
     return SUBCOMMAND_ICONS[id] ?? UnknownIcon
 }
 
-export function conditionIcon(id: string): Component {
-    return CONDITION_ICONS[id] ?? UnknownIcon
+export function variantIcon(id: string): Component {
+    return VARIANT_ICONS[id] ?? UnknownIcon
 }

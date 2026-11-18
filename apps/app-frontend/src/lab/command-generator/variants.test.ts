@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import type { ExecuteChainSubcommand } from './commands/types.ts'
 import {
-    migrateLegacyConditionStep,
-    resolveConditionOption,
+    migrateLegacyStep,
+    resolveVariant,
     stepArguments,
     stepTemplate,
-    switchCondition,
-} from './conditions.ts'
+    switchVariant,
+} from './variants.ts'
 
 const ifSub: ExecuteChainSubcommand = {
     id: 'if',
@@ -15,9 +15,9 @@ const ifSub: ExecuteChainSubcommand = {
     descriptionKey: 'if.desc',
     template: '',
     arguments: [],
-    condition: {
+    variants: {
         argument: 'condition',
-        labelKey: 'condition.field',
+        labelKey: 'variant.field.condition',
         options: [
             {
                 id: 'entity',
@@ -76,18 +76,18 @@ const plainSub: ExecuteChainSubcommand = {
     ],
 }
 
-describe('resolveConditionOption', () => {
+describe('resolveVariant', () => {
     it('finds the option stored in the step', () => {
-        expect(resolveConditionOption(ifSub, { condition: 'block' })?.id).toBe('block')
+        expect(resolveVariant(ifSub, { condition: 'block' })?.id).toBe('block')
     })
 
     it('returns nothing while no condition is picked', () => {
-        expect(resolveConditionOption(ifSub, {})).toBeUndefined()
-        expect(resolveConditionOption(ifSub, { condition: '' })).toBeUndefined()
+        expect(resolveVariant(ifSub, {})).toBeUndefined()
+        expect(resolveVariant(ifSub, { condition: '' })).toBeUndefined()
     })
 
     it('returns nothing for a condition the data no longer has', () => {
-        expect(resolveConditionOption(ifSub, { condition: 'items' })).toBeUndefined()
+        expect(resolveVariant(ifSub, { condition: 'items' })).toBeUndefined()
     })
 })
 
@@ -111,60 +111,55 @@ describe('stepArguments and stepTemplate', () => {
     })
 })
 
-describe('switchCondition', () => {
+describe('switchVariant', () => {
     it('keeps values whose name still exists', () => {
         expect(
-            switchCondition(ifSub, { condition: 'block', block: 'stone', pos: '~ ~ ~' }, 'entity'),
+            switchVariant(ifSub, { condition: 'block', block: 'stone', pos: '~ ~ ~' }, 'entity'),
         ).toEqual({ condition: 'entity' })
     })
 
     it('drops values the new condition has no field for', () => {
         expect(
-            switchCondition(ifSub, { condition: 'entity', target: '@e', block: 'stone' }, 'block'),
+            switchVariant(ifSub, { condition: 'entity', target: '@e', block: 'stone' }, 'block'),
         ).toEqual({ condition: 'block' })
     })
 
     it('carries a shared field across', () => {
         const shared: ExecuteChainSubcommand = {
             ...ifSub,
-            condition: {
-                ...ifSub.condition!,
+            variants: {
+                ...ifSub.variants!,
                 options: [
-                    ifSub.condition!.options[0],
+                    ifSub.variants!.options[0],
                     {
-                        ...ifSub.condition!.options[0],
+                        ...ifSub.variants!.options[0],
                         id: 'function',
                         template: 'if function {target}',
                     },
                 ],
             },
         }
-        expect(switchCondition(shared, { condition: 'entity', target: '@e' }, 'function')).toEqual({
+        expect(switchVariant(shared, { condition: 'entity', target: '@e' }, 'function')).toEqual({
             condition: 'function',
             target: '@e',
         })
     })
 })
 
-describe('migrateLegacyConditionStep', () => {
-    const lookup = (id: string) => (id === 'if' ? ifSub : undefined)
+describe('migrateLegacyStep', () => {
+    const lookup = new Map<string, ExecuteChainSubcommand>([['if', ifSub]])
 
     it('turns an old per-condition id into a condition value', () => {
         expect(
-            migrateLegacyConditionStep(
-                { subcommandId: 'if-block', values: { block: 'stone' } },
-                lookup,
-            ),
+            migrateLegacyStep({ subcommandId: 'if-block', values: { block: 'stone' } }, lookup),
         ).toEqual({ subcommandId: 'if', values: { condition: 'block', block: 'stone' } })
     })
 
     it('leaves ordinary subcommands alone', () => {
-        expect(migrateLegacyConditionStep({ subcommandId: 'as', values: {} }, lookup)).toBeNull()
+        expect(migrateLegacyStep({ subcommandId: 'as', values: {} }, lookup)).toBeNull()
     })
 
     it('leaves a condition the data no longer carries alone', () => {
-        expect(
-            migrateLegacyConditionStep({ subcommandId: 'if-items', values: {} }, lookup),
-        ).toBeNull()
+        expect(migrateLegacyStep({ subcommandId: 'if-items', values: {} }, lookup)).toBeNull()
     })
 })

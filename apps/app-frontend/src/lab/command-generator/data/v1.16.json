@@ -1125,9 +1125,9 @@
               "descriptionKey": "app.lab.command-generator.execute.if.desc",
               "template": "",
               "arguments": [],
-              "condition": {
+              "variants": {
                 "argument": "condition",
-                "labelKey": "app.lab.command-generator.execute.condition.field",
+                "labelKey": "app.lab.command-generator.execute.variant.field.condition",
                 "options": [
                   {
                     "id": "entity",
@@ -1556,9 +1556,9 @@
               "descriptionKey": "app.lab.command-generator.execute.unless.desc",
               "template": "",
               "arguments": [],
-              "condition": {
+              "variants": {
                 "argument": "condition",
-                "labelKey": "app.lab.command-generator.execute.condition.field",
+                "labelKey": "app.lab.command-generator.execute.variant.field.condition",
                 "options": [
                   {
                     "id": "entity",

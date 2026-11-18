@@ -9,17 +9,17 @@ import { commandCatalogMessage } from '@/lab/command-generator/catalog-messages'
 import { moveChainItem } from '@/lab/command-generator/chain-order'
 import type {
     ExecuteChainCategory,
-    ExecuteChainCondition,
     ExecuteChainSubcommand,
+    ExecuteChainVariants,
 } from '@/lab/command-generator/commands/types.ts'
+import { subcommandIcon, variantIcon } from '@/lab/command-generator/subcommand-icons'
 import {
     activeStepArguments,
-    migrateLegacyConditionStep,
-    resolveConditionOption,
+    migrateLegacyStep,
+    resolveVariant,
     stepTemplate,
-    switchCondition,
-} from '@/lab/command-generator/conditions'
-import { conditionIcon, subcommandIcon } from '@/lab/command-generator/subcommand-icons'
+    switchVariant,
+} from '@/lab/command-generator/variants'
 
 import CommandGeneratorArgument from './CommandGeneratorArgument.vue'
 
@@ -79,17 +79,17 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.execute.picker-title',
         defaultMessage: 'Available subcommands',
     },
-    conditionPlaceholder: {
-        id: 'app.lab.command-generator.execute.condition.placeholder',
-        defaultMessage: 'Pick a condition',
+    variantPlaceholder: {
+        id: 'app.lab.command-generator.execute.variant.placeholder',
+        defaultMessage: 'Choose one',
     },
-    conditionUnset: {
-        id: 'app.lab.command-generator.execute.condition.unset',
-        defaultMessage: 'No condition picked yet',
+    variantUnset: {
+        id: 'app.lab.command-generator.execute.variant.unset',
+        defaultMessage: 'No form picked yet',
     },
-    conditionOptionCount: {
-        id: 'app.lab.command-generator.execute.condition.count',
-        defaultMessage: '{count} conditions',
+    variantCount: {
+        id: 'app.lab.command-generator.execute.variant.count',
+        defaultMessage: '{count} forms',
     },
     moveUp: { id: 'app.lab.command-generator.execute.move-up', defaultMessage: 'Move up' },
     moveDown: { id: 'app.lab.command-generator.execute.move-down', defaultMessage: 'Move down' },
@@ -262,8 +262,8 @@ function renderStep(step: ChainStep): string {
 }
 
 /** 条件步骤当前跟的判断；普通子命令返回 undefined。 */
-function conditionOf(step: ChainStep): ExecuteChainCondition | undefined {
-    return getSubcommand(step.subcommandId)?.condition
+function variantsOf(step: ChainStep): ExecuteChainVariants | undefined {
+    return getSubcommand(step.subcommandId)?.variants
 }
 
 /** 条件步骤要渲染的参数，未选条件时为空。 */
@@ -271,43 +271,43 @@ function getStepArguments(step: ChainStep) {
     return activeStepArguments(getSubcommand(step.subcommandId), step.values)
 }
 
-function conditionOptions(step: ChainStep): ComboboxOption<string>[] {
-    const condition = conditionOf(step)
-    if (!condition) return []
-    return condition.options.map((option) => ({
+function variantOptions(step: ChainStep): ComboboxOption<string>[] {
+    const variants = variantsOf(step)
+    if (!variants) return []
+    return variants.options.map((option) => ({
         value: option.id,
         label: formatDynamic(option.labelKey, option.id),
     }))
 }
 
-function conditionValue(step: ChainStep): string {
-    const condition = conditionOf(step)
-    if (!condition) return ''
-    return String(step.values[condition.argument] ?? '')
+function variantValue(step: ChainStep): string {
+    const variants = variantsOf(step)
+    if (!variants) return ''
+    return String(step.values[variants.argument] ?? '')
 }
 
-function conditionLabel(step: ChainStep): string {
-    const option = resolveConditionOption(getSubcommand(step.subcommandId), step.values)
+function variantLabel(step: ChainStep): string {
+    const option = resolveVariant(getSubcommand(step.subcommandId), step.values)
     return option ? formatDynamic(option.labelKey, option.id) : ''
 }
 
 function stepIcon(step: ChainStep): Component {
-    const option = resolveConditionOption(getSubcommand(step.subcommandId), step.values)
-    return option ? conditionIcon(option.id) : subcommandIcon(step.subcommandId)
+    const option = resolveVariant(getSubcommand(step.subcommandId), step.values)
+    return option ? variantIcon(option.id) : subcommandIcon(step.subcommandId)
 }
 
-function onConditionChange(step: ChainStep, optionId: string) {
+function onVariantChange(step: ChainStep, optionId: string) {
     const sub = getSubcommand(step.subcommandId)
-    if (!sub?.condition) return
-    step.values = switchCondition(sub, step.values, optionId)
+    if (!sub?.variants) return
+    step.values = switchVariant(sub, step.values, optionId)
 }
 
-function conditionSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
-    return category.subcommands.filter((sub) => sub.condition)
+function variantSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
+    return category.subcommands.filter((sub) => sub.variants)
 }
 
 function plainSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
-    return category.subcommands.filter((sub) => !sub.condition)
+    return category.subcommands.filter((sub) => !sub.variants)
 }
 
 const output = computed(() => {
@@ -423,7 +423,7 @@ function getState(): ExecuteChainState {
 function setState(state: ExecuteChainState) {
     chain.value = state.chain.map((step) => {
         // 旧预置里存的是 if-biome 这种 id，换成 if + condition=biome 才能打开
-        const migrated = migrateLegacyConditionStep(step, getSubcommand) ?? step
+        const migrated = migrateLegacyStep(step, subcommandMap.value) ?? step
         return {
             id: nextId++,
             subcommandId: migrated.subcommandId,
@@ -527,7 +527,7 @@ defineExpose({ getState, setState })
                                                 : step.subcommandId
                                         }}
                                     </span>
-                                    <template v-if="conditionLabel(step)">
+                                    <template v-if="variantLabel(step)">
                                         <span
                                             class="text-[var(--color-text-tertiary)]"
                                             aria-hidden="true"
@@ -535,7 +535,7 @@ defineExpose({ getState, setState })
                                         >
                                         <span
                                             class="font-normal text-[var(--color-text-secondary)]"
-                                            >{{ conditionLabel(step) }}</span
+                                            >{{ variantLabel(step) }}</span
                                         >
                                     </template>
                                 </button>
@@ -591,22 +591,22 @@ defineExpose({ getState, setState })
                                 v-else
                                 class="m-0 mt-2 text-xs leading-5 text-[var(--color-text-tertiary)]"
                             >
-                                {{ formatMessage(messages.conditionUnset) }}
+                                {{ formatMessage(messages.variantUnset) }}
                             </p>
                             <div v-if="step.expanded" class="mt-4 flex min-w-0 flex-col gap-4">
-                                <div v-if="conditionOf(step)" class="flex min-w-0 flex-col gap-2">
+                                <div v-if="variantsOf(step)" class="flex min-w-0 flex-col gap-2">
                                     <span
                                         class="text-sm font-semibold text-[var(--color-text-primary)]"
-                                        >{{ formatDynamic(conditionOf(step)!.labelKey, '') }}</span
+                                        >{{ formatDynamic(variantsOf(step)!.labelKey, '') }}</span
                                     >
                                     <Combobox
-                                        :model-value="conditionValue(step)"
-                                        :options="conditionOptions(step)"
-                                        :aria-label="formatDynamic(conditionOf(step)!.labelKey, '')"
-                                        :placeholder="formatMessage(messages.conditionPlaceholder)"
+                                        :model-value="variantValue(step)"
+                                        :options="variantOptions(step)"
+                                        :aria-label="formatDynamic(variantsOf(step)!.labelKey, '')"
+                                        :placeholder="formatMessage(messages.variantPlaceholder)"
                                         width="full"
                                         @update:model-value="
-                                            onConditionChange(step, String($event ?? ''))
+                                            onVariantChange(step, String($event ?? ''))
                                         "
                                     />
                                 </div>
@@ -664,11 +664,11 @@ defineExpose({ getState, setState })
                     </p>
                     <!-- 条件子命令要再选一次跟什么判断，所以给它们更大的卡，而不是一排小按钮 -->
                     <div
-                        v-if="conditionSubcommands(cat).length"
+                        v-if="variantSubcommands(cat).length"
                         class="grid min-w-0 gap-2 sm:grid-cols-2"
                     >
                         <button
-                            v-for="sub in conditionSubcommands(cat)"
+                            v-for="sub in variantSubcommands(cat)"
                             :key="sub.id"
                             type="button"
                             class="flex min-w-0 items-start gap-3 rounded-xl border border-solid border-surface-4 bg-surface-3 p-3 text-left transition-colors hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
@@ -692,8 +692,8 @@ defineExpose({ getState, setState })
                                     formatDynamic(sub.descriptionKey, sub.id)
                                 }}</span>
                                 <span class="text-xs text-[var(--color-text-tertiary)]">{{
-                                    formatMessage(messages.conditionOptionCount, {
-                                        count: sub.condition?.options.length ?? 0,
+                                    formatMessage(messages.variantCount, {
+                                        count: sub.variants?.options.length ?? 0,
                                     })
                                 }}</span>
                             </span>

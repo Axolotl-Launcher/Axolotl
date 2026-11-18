@@ -1,38 +1,38 @@
 import type {
     CommandArgument,
-    ExecuteChainConditionOption,
     ExecuteChainSubcommand,
+    ExecuteChainVariantOption,
 } from './commands/types.ts'
 
 export type ChainValues = Record<string, string | number | boolean>
 
-/** 步骤当前选中的条件；未选择或数据里已不存在时返回 undefined。 */
-export function resolveConditionOption(
+/** 步骤当前选中的变体；未选择或数据里已不存在时返回 undefined。 */
+export function resolveVariant(
     sub: ExecuteChainSubcommand | undefined,
     values: ChainValues,
-): ExecuteChainConditionOption | undefined {
-    const condition = sub?.condition
-    if (!condition) return undefined
-    const chosen = values[condition.argument]
+): ExecuteChainVariantOption | undefined {
+    const variants = sub?.variants
+    if (!variants) return undefined
+    const chosen = values[variants.argument]
     if (typeof chosen !== 'string' || chosen === '') return undefined
-    return condition.options.find((option) => option.id === chosen)
+    return variants.options.find((option) => option.id === chosen)
 }
 
-/** 步骤要渲染的参数：条件子命令取选中 option 的参数。 */
+/** 步骤要渲染的参数：有变体时取选中变体的参数。 */
 export function stepArguments(
     sub: ExecuteChainSubcommand | undefined,
     values: ChainValues,
 ): CommandArgument[] {
     if (!sub) return []
-    if (!sub.condition) return sub.arguments
-    return resolveConditionOption(sub, values)?.arguments ?? []
+    if (!sub.variants) return sub.arguments
+    return resolveVariant(sub, values)?.arguments ?? []
 }
 
-/** 步骤要渲染的模板：条件子命令取选中 option 的模板，未选择时为空。 */
+/** 步骤要渲染的模板：有变体时取选中变体的模板，未选择时为空。 */
 export function stepTemplate(sub: ExecuteChainSubcommand | undefined, values: ChainValues): string {
     if (!sub) return ''
-    if (!sub.condition) return sub.template
-    return resolveConditionOption(sub, values)?.template ?? ''
+    if (!sub.variants) return sub.template
+    return resolveVariant(sub, values)?.template ?? ''
 }
 
 /**
@@ -61,18 +61,18 @@ export function activeStepArguments(
 }
 
 /**
- * 换一个判断条件：只保留新条件下同名的参数，其余丢弃。
+ * 换一个变体：只保留新变体下同名的参数，其余丢弃。
  * 否则从 `block` 换到 `score` 会把 `pos` 留在步骤里，渲染时被拼进命令。
  */
-export function switchCondition(
+export function switchVariant(
     sub: ExecuteChainSubcommand,
     values: ChainValues,
     optionId: string,
 ): ChainValues {
-    const condition = sub.condition
-    if (!condition) return values
-    const next: ChainValues = { [condition.argument]: optionId }
-    const option = condition.options.find((candidate) => candidate.id === optionId)
+    const variants = sub.variants
+    if (!variants) return values
+    const next: ChainValues = { [variants.argument]: optionId }
+    const option = variants.options.find((candidate) => candidate.id === optionId)
     if (!option) return next
     for (const arg of option.arguments) {
         const previous = values[arg.name]
@@ -82,24 +82,28 @@ export function switchCondition(
     return next
 }
 
-const LEGACY_CONDITION_ID = /^(if|unless)-(.+)$/
-
 /**
- * 旧数据把每个条件写成一个独立子命令（`if-biome`），用户预置里存的就是这种 id。
- * 这里把 `if-biome` 还原成 `if` + `condition: 'biome'`，老预置才能继续打开。
+ * 旧数据把每个变体写成一个独立子命令（`if-biome`、`positioned-as`），
+ * 用户预置里存的就是这种 id。这里按最长的子命令前缀把它还原成「子命令 + 变体」。
  */
-export function migrateLegacyConditionStep(
+export function migrateLegacyStep(
     step: { subcommandId: string; values: ChainValues },
-    lookup: (id: string) => ExecuteChainSubcommand | undefined,
+    lookup: ReadonlyMap<string, ExecuteChainSubcommand>,
 ): { subcommandId: string; values: ChainValues } | null {
-    const match = LEGACY_CONDITION_ID.exec(step.subcommandId)
+    const id = step.subcommandId
+    let match: { sub: ExecuteChainSubcommand; rest: string } | null = null
+    for (const [subId, sub] of lookup) {
+        if (!sub.variants || !id.startsWith(`${subId}-`)) continue
+        if (match && match.sub.id.length >= subId.length) continue
+        match = { sub, rest: id.slice(subId.length + 1) }
+    }
     if (!match) return null
-    const [, polarity, kind] = match
-    const sub = lookup(polarity)
-    if (!sub?.condition) return null
-    if (!sub.condition.options.some((option) => option.id === kind)) return null
+
+    const variants = match.sub.variants!
+    const option = variants.options.find((candidate) => candidate.id === match!.rest)
+    if (!option) return null
     return {
-        subcommandId: polarity,
-        values: { [sub.condition.argument]: kind, ...step.values },
+        subcommandId: match.sub.id,
+        values: { ...step.values, [variants.argument]: option.id },
     }
 }

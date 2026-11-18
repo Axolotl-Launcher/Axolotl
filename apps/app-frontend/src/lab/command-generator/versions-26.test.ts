@@ -212,7 +212,7 @@ describe('Java 26 release command syntax', () => {
             command
                 .chainCategories!.flatMap((category) => category.subcommands)
                 .some((subcommand) =>
-                    subcommand.condition?.options.some((option) => option.id === 'slots'),
+                    subcommand.variants?.options.some((option) => option.id === 'slots'),
                 )
         expect(hasSlotCondition(findCommand('execute')!)).toBeTruthy()
         expect(hasSlotCondition(before)).toBeFalsy()

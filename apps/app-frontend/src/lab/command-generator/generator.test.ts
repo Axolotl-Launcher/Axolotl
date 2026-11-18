@@ -108,7 +108,7 @@ describe('command syntax regressions', () => {
         const hasCondition = (kind: string) =>
             findCommand('execute')!.chainCategories!.some((category) =>
                 category.subcommands.some((subcommand) =>
-                    subcommand.condition?.options.some((option) => option.id === kind),
+                    subcommand.variants?.options.some((option) => option.id === kind),
                 ),
             )
         initializeRegistry('1.16')

@@ -442,13 +442,14 @@ import {
 import { useQueryClient } from '@tanstack/vue-query'
 import { listen } from '@tauri-apps/api/event'
 import type { Ref } from 'vue'
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Draggable from 'vuedraggable'
 
 import axolotlLogo from '@/assets/axolotl.png'
 import steveSkinTexture from '@/assets/skins/steve.png?inline'
 import MinecraftLoginModal from '@/components/ui/MinecraftLoginModal.vue'
+import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
 import {
     isOfflineAccountRestrictedError,
     useAntiPiracyStatus,
@@ -817,6 +818,12 @@ onMounted(() => {
     void refreshValues().catch(console.warn)
 })
 
+const { subscribe, addCleanup } = useScopedEventListeners()
+addCleanup(() => {
+    refreshGeneration += 1
+    clearHeadRefreshRetry()
+    ghostLockObserver?.disconnect()
+})
 await refreshValues(0, false, true)
 
 watch(offline, async (isOffline, wasOffline) => {
@@ -1403,22 +1410,15 @@ async function copyAccountUuid(account: MinecraftCredential) {
     }
 }
 
-const unlisten = await process_listener(async (e: { event: string }) => {
+await subscribe(process_listener, async (e: { event: string }) => {
     if (e.event === 'launched') {
         await refreshValues()
     }
 })
-const unlistenDeviceLogin = await listen('minecraft-device-login-requested', () => {
-    minecraftLoginModal.value?.showDeviceLogin()
-})
-
-onUnmounted(() => {
-    refreshGeneration += 1
-    clearHeadRefreshRetry()
-    ghostLockObserver?.disconnect()
-    unlisten()
-    unlistenDeviceLogin()
-})
+await subscribe(
+    (callback) => listen('minecraft-device-login-requested', callback),
+    () => minecraftLoginModal.value?.showDeviceLogin(),
+)
 
 const messages = defineMessages({
     offlineMode: {

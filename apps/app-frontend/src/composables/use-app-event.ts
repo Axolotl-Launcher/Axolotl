@@ -1,6 +1,6 @@
-import { onUnmounted } from 'vue'
-
 import { instance_listener } from '@/helpers/events.js'
+
+import { useScopedEventListeners } from './use-scoped-event-listeners'
 
 export interface InstanceAppEvent {
     event: string
@@ -9,18 +9,6 @@ export interface InstanceAppEvent {
 
 export function useAppEvent(type: 'instance', callback: (event: InstanceAppEvent) => void) {
     if (type !== 'instance') return
-    let unlisten: (() => void) | undefined
-    let disposed = false
-    void instance_listener((event: InstanceAppEvent) => {
-        if (!disposed) callback(event)
-    })
-        .then((dispose) => {
-            if (disposed) dispose()
-            else unlisten = dispose
-        })
-        .catch(console.error)
-    onUnmounted(() => {
-        disposed = true
-        unlisten?.()
-    })
+    const { subscribe } = useScopedEventListeners()
+    void subscribe(instance_listener, callback).catch(console.error)
 }

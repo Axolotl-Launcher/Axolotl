@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { PlusIcon } from '@modrinth/assets'
 import { Button, defineMessages, injectNotificationManager, NavTabs, useVIntl } from '@modrinth/ui'
-import { onUnmounted, shallowRef } from 'vue'
+import { shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { NewInstanceImage } from '@/assets/icons'
+import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
 import { DIRECT_LINKS_CHANGED_EVENT } from '@/helpers/direct-link-sync'
 import { instance_groups_listener, instance_listener } from '@/helpers/events.js'
 import { list } from '@/helpers/instance'
@@ -33,25 +34,19 @@ const messages = defineMessages({
 
 breadcrumbs.setRootContext({ name: formatMessage(messages.library), link: route.path })
 
+const { subscribe } = useScopedEventListeners()
 const instances = shallowRef(await list().catch(handleError))
 
 const refreshInstances = async () => {
     instances.value = await list().catch(handleError)
 }
 
-window.addEventListener(DIRECT_LINKS_CHANGED_EVENT, refreshInstances)
-
-const unlistenInstance = await instance_listener(async () => {
-    await refreshInstances()
-})
-const unlistenInstanceGroups = await instance_groups_listener(async () => {
-    await refreshInstances()
-})
-onUnmounted(() => {
-    unlistenInstance()
-    unlistenInstanceGroups()
-    window.removeEventListener(DIRECT_LINKS_CHANGED_EVENT, refreshInstances)
-})
+await subscribe<Event>((callback) => {
+    window.addEventListener(DIRECT_LINKS_CHANGED_EVENT, callback)
+    return () => window.removeEventListener(DIRECT_LINKS_CHANGED_EVENT, callback)
+}, refreshInstances)
+await subscribe(instance_listener, refreshInstances)
+await subscribe(instance_groups_listener, refreshInstances)
 </script>
 
 <template>

@@ -26,9 +26,10 @@ import {
     rename,
     writeTextFile,
 } from '@tauri-apps/plugin-fs'
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
 import { instance_listener } from '@/helpers/events'
 import { get_full_path } from '@/helpers/instance'
 import { invoke } from '@/helpers/invoke'
@@ -80,7 +81,7 @@ const error = ref<Error | null>(null)
 const currentPath = ref('')
 const editingFile = ref<EditingFile | null>(null)
 const refreshRequests = createRequestGeneration()
-let disposed = false
+const { subscribe, isDisposed } = useScopedEventListeners()
 
 debug('setup: start, instance.id =', props.instance.id)
 
@@ -92,11 +93,12 @@ async function resolvePath(relativePath: string): Promise<string> {
 }
 
 async function refresh() {
+    if (isDisposed()) return
     const request = refreshRequests.begin(`${instanceRoot.value}\0${currentPath.value}`)
     const requestedRoot = instanceRoot.value
     const requestedPath = currentPath.value
     const isCurrent = () =>
-        !disposed &&
+        !isDisposed() &&
         refreshRequests.isCurrent(request, `${instanceRoot.value}\0${currentPath.value}`) &&
         requestedRoot === instanceRoot.value &&
         requestedPath === currentPath.value
@@ -273,22 +275,14 @@ function getAdditionalMenuOptions(
 }
 
 debug('setup: registering instance_listener')
-const unlistenInstances = await instance_listener(
-    async (event: { event: string; instance_id: string }) => {
-        debug('instance_listener: event =', event.event, 'path =', event.instance_id)
-        if (event.instance_id === props.instance.id && event.event === 'synced') {
-            debug('instance_listener: synced event matched, calling refresh')
-            await refresh()
-        }
-    },
-)
-debug('setup: instance_listener registered')
-
-onUnmounted(() => {
-    disposed = true
-    refreshRequests.invalidate()
-    unlistenInstances()
+await subscribe(instance_listener, async (event: { event: string; instance_id: string }) => {
+    debug('instance_listener: event =', event.event, 'path =', event.instance_id)
+    if (event.instance_id === props.instance.id && event.event === 'synced') {
+        debug('instance_listener: synced event matched, calling refresh')
+        await refresh()
+    }
 })
+debug('setup: instance_listener registered')
 
 watch(
     () => props.instance.id,

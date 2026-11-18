@@ -20,11 +20,12 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import dayjs from 'dayjs'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import GameDirectoryBadge from '@/components/ui/instance/GameDirectoryBadge.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
+import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { trackEvent } from '@/helpers/analytics'
@@ -219,20 +220,19 @@ defineExpose({
 
 const currentEvent = ref(null)
 
-const unlisten =
-    props.playing === undefined
-        ? await process_listener((e) => {
-              if (e.instance_id === props.instance.id) {
-                  currentEvent.value = e.event
-                  if (e.event === 'finished') {
-                      internalPlaying.value = false
-                  }
-              }
-          })
-        : () => undefined
+if (props.playing === undefined) {
+    const { subscribe } = useScopedEventListeners()
+    await subscribe(process_listener, (e) => {
+        if (e.instance_id === props.instance.id) {
+            currentEvent.value = e.event
+            if (e.event === 'finished') {
+                internalPlaying.value = false
+            }
+        }
+    })
+}
 
 onMounted(() => checkProcess())
-onUnmounted(() => unlisten())
 </script>
 
 <template>

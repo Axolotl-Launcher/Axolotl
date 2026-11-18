@@ -22,6 +22,8 @@ use crate::{ErrorKind, State, ai};
 
 const CACHE_MAX_AGE_SECONDS: i64 = 7 * 24 * 60 * 60;
 const AI_BATCH_RESULT_INVALID: &str = "AI_BATCH_RESULT_INVALID";
+const BILI_INDEX_MAX_BATCH_SEGMENTS: usize = 8;
+const BILI_INDEX_BATCH_BYTE_BUDGET: usize = 4096;
 const GOOGLE_TRANSLATE_URL: &str =
     "https://translate-pa.googleapis.com/v1/translateHtml";
 const GOOGLE_TRANSLATE_API_KEY: &str =
@@ -831,8 +833,12 @@ async fn deepl_translate(
 fn strip_json_fence(value: &str) -> &str {
     let trimmed = value
         .split_once("</think>")
-        .map_or(value, |(_, translation)| translation)
-        .trim();
+        .map_or(value, |(_, translation)| translation);
+    strip_code_fence(trimmed)
+}
+
+fn strip_code_fence(value: &str) -> &str {
+    let trimmed = value.trim();
     let trimmed = trimmed
         .strip_prefix("```json")
         .or_else(|| trimmed.strip_prefix("```"))
@@ -937,38 +943,99 @@ fn bili_index_payload(
             "content": format!("{DEFAULT_AI_SYSTEM_PROMPT}\n\n{input}"),
         }],
         "temperature": 0.0,
-        "max_tokens": 1024,
+        "max_tokens": 8192,
         "stream": false,
         "chat_template_kwargs": {"enable_thinking": false},
     })
 }
 
+#[derive(Debug)]
+enum BiliIndexBatchError {
+    TooLong,
+    InvalidOutput,
+    Request(crate::Error),
+}
+
+type BiliIndexBatchResult = Result<Vec<TranslatedSegment>, BiliIndexBatchError>;
+
+impl BiliIndexBatchError {
+    fn into_error(self) -> crate::Error {
+        match self {
+            Self::TooLong => ErrorKind::OtherError(
+                "TRANSLATION_CONTENT_TOO_LONG: Bili Index Translate could not translate one segment within its length limit; try shorter content".to_string(),
+            ).into(),
+            Self::InvalidOutput => ErrorKind::OtherError(
+                "TRANSLATION_PROVIDER_FAILED: Bili Index Translate returned malformed or incomplete output for a single segment".to_string(),
+            ).into(),
+            Self::Request(error) => error,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct BiliIndexOutput {
+    translations: Vec<TranslatedSegment>,
+}
+
 fn parse_bili_index_response(
     value: &Value,
     segments: &[TranslationSegment],
-) -> crate::Result<Vec<TranslatedSegment>> {
+) -> BiliIndexBatchResult {
+    use BiliIndexBatchError::{InvalidOutput, TooLong};
+
     if value
         .pointer("/choices/0/finish_reason")
         .and_then(Value::as_str)
         == Some("length")
     {
-        return Err(ErrorKind::OtherError("TRANSLATION_CONTENT_TOO_LONG: Bili Index Translate output was truncated".to_string()).into());
+        return Err(TooLong);
     }
-    let content = value.pointer("/choices/0/message/content").and_then(Value::as_str)
-        .ok_or_else(|| ErrorKind::OtherError("TRANSLATION_PROVIDER_FAILED: Bili Index Translate returned no content".to_string()))?;
-    let content = content
-        .split_once("</think>")
-        .map_or(content, |(_, text)| text)
+    let content = value
+        .pointer("/choices/0/message/content")
+        .and_then(Value::as_str)
+        .ok_or(InvalidOutput)?
         .trim();
-    let content = content.strip_prefix("<think>").unwrap_or(content).trim();
-    parse_ai_translation_content(content, segments)
+    let content = content.strip_prefix("<think>").unwrap_or(content);
+    let parse = |answer| {
+        serde_json::from_str::<BiliIndexOutput>(strip_code_fence(answer))
+    };
+    let output = parse(content)
+        .or_else(|error| {
+            content
+                .split_once("</think>")
+                .map_or(Err(error), |(_, answer)| parse(answer))
+        })
+        .map_err(|_| InvalidOutput)?;
+    if output.translations.len() != segments.len() {
+        return Err(InvalidOutput);
+    }
+    let mut translations = output
+        .translations
+        .into_iter()
+        .map(|result| (result.id, result.text))
+        .collect::<HashMap<_, _>>();
+    segments
+        .iter()
+        .map(|segment| {
+            let text = translations
+                .remove(&segment.id)
+                .filter(|text| {
+                    !text.trim().is_empty() || segment.text.trim().is_empty()
+                })
+                .ok_or(InvalidOutput)?;
+            Ok(TranslatedSegment {
+                id: segment.id.clone(),
+                text,
+            })
+        })
+        .collect()
 }
 
-async fn bili_index_translate(
+async fn bili_index_translate_batch(
+    client: &reqwest::Client,
     segments: &[TranslationSegment],
     request: &TranslationRequest,
-) -> crate::Result<Vec<TranslatedSegment>> {
-    let client = crate::util::fetch::configured_client().await?;
+) -> BiliIndexBatchResult {
     let payload = bili_index_payload(segments, request);
     let response = send_with_retry(|| {
         client
@@ -977,9 +1044,66 @@ async fn bili_index_translate(
             .timeout(Duration::from_secs(120))
             .json(&payload)
     })
-    .await?;
-    let value = checked_json(response, "Bili Index Translate").await?;
+    .await
+    .map_err(BiliIndexBatchError::Request)?;
+    let status = response.status();
+    if status == StatusCode::PAYLOAD_TOO_LARGE {
+        return Err(BiliIndexBatchError::TooLong);
+    }
+    let value = checked_json(response, "Bili Index Translate")
+        .await
+        .map_err(|error| {
+            if status.is_success() {
+                BiliIndexBatchError::InvalidOutput
+            } else {
+                BiliIndexBatchError::Request(error)
+            }
+        })?;
     parse_bili_index_response(&value, segments)
+}
+
+fn bili_index_batch_len(segments: &[TranslationSegment]) -> usize {
+    let mut len = 0;
+    let mut bytes = 0;
+    for segment in segments.iter().take(BILI_INDEX_MAX_BATCH_SEGMENTS) {
+        bytes += segment.text.len() + segment.id.len();
+        if len > 0 && bytes > BILI_INDEX_BATCH_BYTE_BUDGET {
+            break;
+        }
+        len += 1;
+    }
+    len
+}
+
+async fn bili_index_translate<'segments, BatchFuture>(
+    mut segments: &'segments [TranslationSegment],
+    mut translate_batch: impl FnMut(&'segments [TranslationSegment]) -> BatchFuture,
+) -> crate::Result<Vec<TranslatedSegment>>
+where
+    BatchFuture: Future<Output = BiliIndexBatchResult>,
+{
+    let mut results = Vec::with_capacity(segments.len());
+    while !segments.is_empty() {
+        let (batch, remaining) =
+            segments.split_at(bili_index_batch_len(segments));
+        segments = remaining;
+        let mut pending = vec![batch];
+        while let Some(batch) = pending.pop() {
+            match translate_batch(batch).await {
+                Ok(translated) => results.extend(translated),
+                Err(
+                    BiliIndexBatchError::TooLong
+                    | BiliIndexBatchError::InvalidOutput,
+                ) if batch.len() > 1 => {
+                    let (left, right) = batch.split_at(batch.len() / 2);
+                    pending.push(right);
+                    pending.push(left);
+                }
+                Err(error) => return Err(error.into_error()),
+            }
+        }
+    }
+    Ok(results)
 }
 
 fn system_prompt(settings: &StoredTranslationSettings) -> String {
@@ -1075,7 +1199,7 @@ async fn cleanup_expired_cache(derived: &DerivedDb) -> crate::Result<()> {
 }
 
 async fn translate_uncached(
-    _http: &reqwest::Client,
+    http: &reqwest::Client,
     segments: &[TranslationSegment],
     settings: &StoredTranslationSettings,
     request: &TranslationRequest,
@@ -1152,7 +1276,10 @@ async fn translate_uncached(
                 .collect()
         }
         TranslationProvider::BiliIndexTranslate => {
-            bili_index_translate(segments, request).await
+            bili_index_translate(segments, |batch| {
+                bili_index_translate_batch(http, batch, request)
+            })
+            .await
         }
         TranslationProvider::Ai => {
             ai_translate_with_fallback(segments, settings, request).await
@@ -1319,7 +1446,6 @@ pub async fn test_provider(
         target_language = %target,
         custom_system_prompt_set =
             !settings.settings.ai_system_prompt.trim().is_empty(),
-        system_prompt = %system_prompt(&settings),
         "Testing translation provider"
     );
 
@@ -1349,7 +1475,6 @@ pub async fn test_provider(
     })?;
 
     tracing::info!(
-        test_result = %result,
         provider = ?provider,
         "Translation provider test succeeded"
     );
@@ -1412,16 +1537,23 @@ mod tests {
 
     #[test]
     fn bili_index_request_uses_axolotl_contract_and_upstream_options() {
-        let segments = vec![segment("one", "Hello")];
-        let payload = bili_index_payload(&segments, &request(segments.clone()));
+        let segments = vec![TranslationSegment {
+            format: TranslationTextFormat::Html,
+            ..segment("one", "<p>Hello <code>world</code></p>")
+        }];
+        let request = request(segments.clone());
+        let payload = bili_index_payload(&segments, &request);
         assert_eq!(payload["model"], "Index-Translate-35B-A3B");
-        assert_eq!(payload["max_tokens"], 1024);
+        assert_eq!(payload["max_tokens"], 8192);
         assert_eq!(payload["temperature"], 0.0);
         assert_eq!(payload["stream"], false);
         assert_eq!(payload["chat_template_kwargs"]["enable_thinking"], false);
         let prompt = payload["messages"][0]["content"].as_str().unwrap();
-        assert!(prompt.starts_with(DEFAULT_AI_SYSTEM_PROMPT));
-        assert!(prompt.contains("zh-CN"));
+        let input: Value = serde_json::from_str(
+            prompt.strip_prefix(DEFAULT_AI_SYSTEM_PROMPT).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(input, json!(request));
         assert_eq!(
             serde_json::to_value(TranslationProvider::BiliIndexTranslate)
                 .unwrap(),
@@ -1433,22 +1565,181 @@ mod tests {
         );
     }
 
+    fn bili_index_response(finish_reason: &str, content: &str) -> Value {
+        json!({"choices": [{
+            "finish_reason": finish_reason,
+            "message": {"content": content},
+        }]})
+    }
+
     #[test]
-    fn bili_index_response_strips_thinking_and_checks_completeness() {
-        let segments = vec![segment("one", "Hello")];
-        let value = json!({"choices": [{"message": {"content": "<think>ignored</think> {\"translations\":[{\"id\":\"one\",\"text\":\"你好\"}]}"}}]});
+    fn bili_index_response_preserves_text_and_orders_exact_ids() {
+        let segments = [segment("one", "Hello"), segment("two", "World")];
+        let value = bili_index_response(
+            "stop",
+            concat!(
+                "<think>ignored</think>\n```json\n",
+                r#"{"translations":[{"id":"two","text":"<think>世界</think>"},{"id":"one","text":"你好"}]}"#,
+                "\n```",
+            ),
+        );
+        let result = parse_bili_index_response(&value, &segments).unwrap();
+        assert_eq!(result[0].id, "one");
+        assert_eq!(result[0].text, "你好");
+        assert_eq!(result[1].id, "two");
+        assert_eq!(result[1].text, "<think>世界</think>");
         assert_eq!(
-            parse_bili_index_response(&value, &segments).unwrap()[0].text,
-            "你好"
+            parse_bili_index_response(
+                &bili_index_response(
+                    "stop",
+                    r#"{"translations":[{"id":"one","text":"<think>你好</think>"}]}"#,
+                ),
+                &segments[..1],
+            )
+            .unwrap()[0]
+                .text,
+            "<think>你好</think>"
         );
-        assert!(
-            parse_bili_index_response(&json!({"choices": []}), &segments)
-                .is_err()
-        );
-        assert!(parse_bili_index_response(&json!({"choices": [{"message": {"content": "{\"translations\":[]}"}}]}), &segments).is_err());
-        let mut truncated = value;
-        truncated["choices"][0]["finish_reason"] = json!("length");
-        assert!(parse_bili_index_response(&truncated, &segments).is_err());
+    }
+
+    #[test]
+    fn bili_index_response_rejects_invalid_results_even_when_stopped() {
+        let segments = [segment("one", "Hello"), segment("two", "World")];
+        for content in [
+            r#"{"translations":[{"id":"one","text":"partial"}"#,
+            r#"{"translations":[{"id":"one","text":"你好"}]}"#,
+            r#"{"translations":[{"id":"one","text":"你好"},{"id":"one","text":"世界"}]}"#,
+            r#"{"translations":[{"id":"one","text":"你好"},{"id":"other","text":"世界"}]}"#,
+            r#"{"translations":[{"id":"one","text":"你好"},{"id":"two","text":"世界"},{}]}"#,
+            r#"{"translations":[{"id":"one","text":"你好"},{"id":"two","text":" "}]}"#,
+        ] {
+            assert!(matches!(
+                parse_bili_index_response(
+                    &bili_index_response("stop", content),
+                    &segments,
+                ),
+                Err(BiliIndexBatchError::InvalidOutput)
+            ));
+        }
+        assert!(matches!(
+            parse_bili_index_response(&json!({"choices": []}), &segments),
+            Err(BiliIndexBatchError::InvalidOutput)
+        ));
+    }
+
+    #[test]
+    fn bili_index_initial_batches_limit_count_and_bytes() {
+        let segments = (0..10)
+            .map(|index| segment(&index.to_string(), "Hello"))
+            .collect::<Vec<_>>();
+        assert_eq!(bili_index_batch_len(&segments), 8);
+        assert_eq!(bili_index_batch_len(&segments[8..]), 2);
+
+        let text = "界".repeat(BILI_INDEX_BATCH_BYTE_BUDGET / 4);
+        let oversize = format!("<p>{text}{text}</p>");
+        let segments = [
+            segment("first", &text),
+            segment("second", &text),
+            TranslationSegment {
+                format: TranslationTextFormat::Html,
+                ..segment("html", &oversize)
+            },
+            segment("last", "Hello"),
+        ];
+        assert_eq!(bili_index_batch_len(&segments), 1);
+        assert_eq!(bili_index_batch_len(&segments[1..]), 1);
+        assert_eq!(bili_index_batch_len(&segments[2..]), 1);
+    }
+
+    #[tokio::test]
+    async fn bili_index_splits_length_and_bad_stop_responses() {
+        let html = r#"<p><a href="https://example.com" data-ax-translation-attr="0">Hello</a></p>"#;
+        let segments = [
+            TranslationSegment {
+                format: TranslationTextFormat::Html,
+                ..segment("html", html)
+            },
+            segment("second", "World"),
+            segment("third", "Example"),
+            segment("last", "Text"),
+        ];
+        let request = request(segments.to_vec());
+        let mut batch_sizes = Vec::new();
+        let results = bili_index_translate(&segments, |batch| {
+            batch_sizes.push(batch.len());
+            let payload = bili_index_payload(batch, &request);
+            let prompt = payload["messages"][0]["content"].as_str().unwrap();
+            let input: Value = serde_json::from_str(
+                prompt.strip_prefix(DEFAULT_AI_SYSTEM_PROMPT).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(input["context"], json!(request.context));
+            assert_eq!(input["segments"], json!(batch));
+            if batch[0].id == "html" {
+                assert_eq!(input["segments"][0]["text"], html);
+            }
+            let response = match batch.len() {
+                4 => bili_index_response("length", ""),
+                2 if batch[0].id == "html" => {
+                    bili_index_response("stop", r#"{"translations":[{"id":"#)
+                }
+                2 => bili_index_response("stop", r#"{"translations":[]}"#),
+                1 => bili_index_response(
+                    "stop",
+                    &json!({"translations": batch}).to_string(),
+                ),
+                _ => unreachable!(),
+            };
+            std::future::ready(parse_bili_index_response(&response, batch))
+        })
+        .await
+        .unwrap();
+        assert_eq!(batch_sizes, [4, 2, 1, 1, 2, 1, 1]);
+        assert_eq!(results.len(), segments.len());
+        for (result, segment) in results.iter().zip(&segments) {
+            assert_eq!(result.id, segment.id);
+            assert_eq!(result.text, segment.text);
+        }
+    }
+
+    #[tokio::test]
+    async fn bili_index_singleton_failures_are_clear_and_do_not_retry() {
+        let segments = [segment("one", "private source")];
+        for (finish_reason, expected_error) in [
+            ("length", "TRANSLATION_CONTENT_TOO_LONG"),
+            ("stop", "malformed or incomplete output"),
+        ] {
+            let mut calls = 0;
+            let error = bili_index_translate(&segments, |batch| {
+                calls += 1;
+                let response =
+                    bili_index_response(finish_reason, "private output");
+                std::future::ready(parse_bili_index_response(&response, batch))
+            })
+            .await
+            .unwrap_err()
+            .to_string();
+            assert_eq!(calls, 1);
+            assert!(error.contains(expected_error));
+            assert!(!error.contains("private"));
+        }
+    }
+
+    #[tokio::test]
+    async fn bili_index_does_not_split_request_errors() {
+        let segments = [segment("one", "Hello"), segment("two", "World")];
+        let mut calls = 0;
+        let error = bili_index_translate(&segments, |_| {
+            calls += 1;
+            std::future::ready(Err(BiliIndexBatchError::Request(
+                ErrorKind::OtherError("TRANSLATION_RATE_LIMITED".to_string())
+                    .into(),
+            )))
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(calls, 1);
+        assert!(error.to_string().contains("TRANSLATION_RATE_LIMITED"));
     }
 
     #[test]

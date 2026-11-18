@@ -188,8 +188,7 @@ const messages = defineMessages({
     },
     executeRunRequired: {
         id: 'app.lab.command-generator.execute.run-required',
-        defaultMessage:
-            'Fill in the command to run: an execute chain has to end with run <command>',
+        defaultMessage: 'Fill in the command to run: run has to be followed by a command',
     },
     seedMultiplayerNote: {
         id: 'app.lab.command-generator.perm.seed.multiplayer-note',

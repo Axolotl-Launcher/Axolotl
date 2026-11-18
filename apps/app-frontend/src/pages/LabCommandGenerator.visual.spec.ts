@@ -287,7 +287,7 @@ it('refuses to generate an execute chain that never says what to run', async () 
     await flushPromises()
     await wrapper.get('.action-bar button').trigger('click')
     expect(wrapper.find('.result-code').exists()).toBe(false)
-    expect(wrapper.get('[role="alert"]').text()).toContain('end with run')
+    expect(wrapper.get('[role="alert"]').text()).toContain('Fill in the command to run')
 })
 
 it.each(['give', 'execute'])(

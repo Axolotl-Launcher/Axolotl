@@ -7818,7 +7818,7 @@
     "message": "rotated"
   },
   "app.lab.command-generator.execute.run-required": {
-    "message": "Fill in the command to run: an execute chain has to end with run <command>"
+    "message": "Fill in the command to run: run has to be followed by a command"
   },
   "app.lab.command-generator.execute.store-block.desc": {
     "message": "Store the value into a block's NBT data"

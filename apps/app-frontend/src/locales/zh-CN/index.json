@@ -5946,7 +5946,7 @@
     "message": "倍率"
   },
   "app.lab.command-generator.arg.execute.store-block.type.desc": {
-    "message": "byte / short / int / long / float / double"
+    "message": "byte 字节 / short 短整型 / int 整型 / long 长整型 / float 单精度 / double 双精度"
   },
   "app.lab.command-generator.arg.execute.store-block.type.display": {
     "message": "数值类型"
@@ -5970,7 +5970,7 @@
     "message": "目标"
   },
   "app.lab.command-generator.arg.execute.store-entity.type.desc": {
-    "message": "byte / short / int / long / float / double"
+    "message": "byte 字节 / short 短整型 / int 整型 / long 长整型 / float 单精度 / double 双精度"
   },
   "app.lab.command-generator.arg.execute.store-entity.type.display": {
     "message": "数值类型"
@@ -6018,7 +6018,7 @@
     "message": "存储 ID"
   },
   "app.lab.command-generator.arg.execute.store-storage.type.desc": {
-    "message": "byte / short / int / long / float / double"
+    "message": "byte 字节 / short 短整型 / int 整型 / long 长整型 / float 单精度 / double 双精度"
   },
   "app.lab.command-generator.arg.execute.store-storage.type.display": {
     "message": "数值类型"
@@ -7818,7 +7818,7 @@
     "message": "rotated"
   },
   "app.lab.command-generator.execute.run-required": {
-    "message": "还没填要执行的命令：`execute` 必须以 `run <命令>` 结尾"
+    "message": "还没填要执行的命令：run 后面必须跟一条命令"
   },
   "app.lab.command-generator.execute.store-block.desc": {
     "message": "把数值存入方块的 NBT 数据"

@@ -77,6 +77,13 @@ const allowedUntranslatedMessages = new Set([
     '{degrees}°',
     'MCP',
     '/give @p minecraft:white_banner[minecraft:banner_patterns=[…]] 1',
+    // `/execute` 子命令的标签就是命令关键字本身，中文界面里也不该翻译
+    'if',
+    'unless',
+    'store',
+    'positioned',
+    'rotated',
+    'facing',
 ])
 
 function messageText(value) {

@@ -657,6 +657,11 @@ async fn open_migrated_app_db(
     reconcile_existing_content_favorites_migration(&pool).await?;
     reconcile_pending_instance_content_ownership_duplicates(&pool).await?;
     MIGRATOR.run(&pool).await?;
+    if super::store::settings::Settings::repair_dangling_home_instance(&pool)
+        .await?
+    {
+        tracing::warn!(database = %db_path.display(), "Cleared a home instance selection that referenced a missing instance");
+    }
     record_current_app_version(&pool).await?;
 
     if let Err(err) = stale_data_cleanup(&pool).await {

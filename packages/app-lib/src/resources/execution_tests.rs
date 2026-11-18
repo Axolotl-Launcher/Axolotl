@@ -2711,6 +2711,154 @@ async fn backup_cleanup_checks_selection_snapshot_tasks_references_and_rollback_
 }
 
 #[tokio::test]
+async fn missing_backup_cleanup_preserves_history_and_releases_only_its_hold() {
+    use super::history_cleanup::{
+        execute_with_state, prepare_with_state, scan_with_state,
+    };
+
+    let (_temp, state, original, old, root) = fixture().await;
+    std::fs::write(root.join("new.zip"), b"new bytes").unwrap();
+    let plan = local_plan(
+        &state,
+        original.clone(),
+        artifact(SourceId::curseforge(), "123", "456", b"new bytes"),
+        "new.zip",
+        None,
+    )
+    .await;
+    execute("instance", &plan, None, &state).await.unwrap();
+    let tracked = scan_with_state("instance", &state).await.unwrap().remove(0);
+    let path = root.join(&tracked.relative_path);
+    let digest = &old.integrity.hashes[0].value;
+    sqlx::query("INSERT OR IGNORE INTO store_blobs (digest, size, state, created_at, last_used_at) VALUES (?, 9, 'ready', 1, 1)")
+        .bind(digest).execute(&state.pool).await.unwrap();
+    let reason = format!("resource-history:{}", tracked.id.as_str());
+    for hold in [reason.as_str(), "other-backup"] {
+        crate::state::store::store_retained_refs::retain(
+            &state.pool,
+            digest,
+            hold,
+            1,
+        )
+        .await
+        .unwrap();
+    }
+    let holds = || {
+        sqlx::query_scalar::<_, String>(
+            "SELECT reason FROM store_retained_refs WHERE digest = ? ORDER BY reason",
+        )
+        .bind(digest)
+        .fetch_all(&state.pool)
+    };
+
+    std::fs::remove_file(&path).unwrap();
+    let missing = scan_with_state("instance", &state).await.unwrap().remove(0);
+    assert_eq!(missing.history_id.as_ref(), Some(&tracked.id));
+    assert!(!missing.exists && !missing.rollback_available);
+    let mut expected = history::list_with_state("instance", None, &state)
+        .await
+        .unwrap()
+        .remove(0);
+    assert!(!expected.backup_retired);
+
+    let review =
+        prepare_with_state("instance", vec![tracked.id.clone()], &state)
+            .await
+            .unwrap();
+    assert!(!review.files[0].exists);
+    std::fs::create_dir(&path).unwrap();
+    assert!(scan_with_state("instance", &state).await.is_err());
+    assert!(
+        execute_with_state(review.id.clone(), review.revision, &state)
+            .await
+            .is_err()
+    );
+    std::fs::remove_dir(&path).unwrap();
+    std::fs::write(&path, b"old bytes").unwrap();
+    assert!(
+        execute_with_state(review.id, review.revision, &state)
+            .await
+            .is_err()
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), b"old bytes");
+    assert!(holds().await.unwrap().contains(&reason));
+
+    std::fs::remove_file(&path).unwrap();
+    let review =
+        prepare_with_state("instance", vec![tracked.id.clone()], &state)
+            .await
+            .unwrap();
+    sqlx::raw_sql("CREATE TRIGGER fail_missing_cleanup BEFORE UPDATE OF consumed ON resource_history_cleanup_plans BEGIN SELECT RAISE(ABORT, 'test failure'); END;")
+        .execute(&state.pool).await.unwrap();
+    assert!(matches!(
+        execute_with_state(review.id.clone(), review.revision, &state).await,
+        Err(ResourceError::Database(_))
+    ));
+    assert_eq!(
+        history::list_with_state("instance", None, &state)
+            .await
+            .unwrap(),
+        vec![expected.clone()]
+    );
+    assert!(holds().await.unwrap().contains(&reason));
+    sqlx::query("DROP TRIGGER fail_missing_cleanup")
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    let result = execute_with_state(review.id, review.revision, &state)
+        .await
+        .unwrap();
+    assert_eq!(result.removed, vec![tracked.id.clone()]);
+    assert!(result.failures.is_empty());
+    expected.backup_retired = true;
+    assert_eq!(
+        history::list_with_state("instance", None, &state)
+            .await
+            .unwrap(),
+        vec![expected]
+    );
+    assert_eq!(holds().await.unwrap(), vec!["other-backup".to_string()]);
+    assert!(
+        scan_with_state("instance", &state)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        prepare_with_state("instance", vec![tracked.id.clone()], &state)
+            .await
+            .is_err()
+    );
+    std::fs::write(&path, b"reappeared").unwrap();
+    let orphan = scan_with_state("instance", &state).await.unwrap().remove(0);
+    assert_ne!(orphan.id, tracked.id);
+    assert_eq!(orphan.history_id, None);
+    assert!(orphan.exists && orphan.recognized && !orphan.rollback_available);
+    assert!(
+        prepare_with_state("instance", vec![tracked.id], &state)
+            .await
+            .is_err()
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), b"reappeared");
+    let review =
+        prepare_with_state("instance", vec![orphan.id.clone()], &state)
+            .await
+            .unwrap();
+    assert!(review.entries.is_empty());
+    let result = execute_with_state(review.id, review.revision, &state)
+        .await
+        .unwrap();
+    assert_eq!(result.removed, vec![orphan.id]);
+    assert!(result.failures.is_empty());
+    assert!(!path.exists());
+    assert_eq!(
+        std::fs::read(root.join(&original.relative_path)).unwrap(),
+        b"new bytes"
+    );
+    state.pool.close().await;
+}
+
+#[tokio::test]
 async fn naming_preferences_cover_unknown_ambiguous_custom_disabled_names() {
     let (_temp, state, mut current, old, _) = fixture().await;
     for (path, original, preserve, expected) in [
@@ -3290,21 +3438,39 @@ async fn rollback_after_unlink_does_not_restore_pack_ownership_or_missing_member
 }
 
 #[tokio::test]
-async fn cleanup_recovery_restores_uncommitted_moves_and_finishes_committed_deletion()
- {
-    let (_temp, state, _, _, root) = fixture().await;
-    let path = "resourcepacks/current.zip_previous.zip.old";
+async fn mixed_backup_cleanup_recovers_only_staged_files() {
+    let (_temp, state, original, _, root) = fixture().await;
+    std::fs::write(root.join("new.zip"), b"new bytes").unwrap();
+    let plan = local_plan(
+        &state,
+        original,
+        artifact(SourceId::curseforge(), "123", "456", b"new bytes"),
+        "new.zip",
+        None,
+    )
+    .await;
+    execute("instance", &plan, None, &state).await.unwrap();
+    let tracked = super::history_cleanup::scan_with_state("instance", &state)
+        .await
+        .unwrap()
+        .remove(0);
+    let missing = root.join(&tracked.relative_path);
+    std::fs::remove_file(&missing).unwrap();
+    let path = "resourcepacks/zzzz-current.zip_previous.zip.old";
     std::fs::write(root.join(path), b"old bytes").unwrap();
     let files = super::history_cleanup::scan_with_state("instance", &state)
         .await
         .unwrap();
+    let ids = files.iter().map(|file| file.id.clone()).collect::<Vec<_>>();
     let review = super::history_cleanup::prepare_with_state(
         "instance",
-        vec![files[0].id.clone()],
+        ids.clone(),
         &state,
     )
     .await
     .unwrap();
+    assert!(!review.files[0].exists);
+    assert_eq!(review.files[1].relative_path, path);
     let temporary = "resourcepacks/.cleanup-test.old";
     let mut draft = super::history_cleanup::CleanupDraft {
         plan: review.clone(),
@@ -3323,27 +3489,67 @@ async fn cleanup_recovery_restores_uncommitted_moves_and_finishes_committed_dele
     let recovered = super::history_cleanup::scan_with_state("instance", &state)
         .await
         .unwrap();
-    assert_eq!(recovered[0].relative_path, path);
+    assert_eq!(recovered[1].relative_path, path);
+    assert!(!recovered[0].exists);
     assert!(root.join(path).exists());
     assert!(!root.join(temporary).exists());
     let review = super::history_cleanup::prepare_with_state(
         "instance",
-        vec![files[0].id.clone()],
+        ids.clone(),
         &state,
     )
     .await
     .unwrap();
-    draft.plan = review.clone();
-    draft.committed = true;
-    sqlx::query("UPDATE resource_history_cleanup_plans SET payload = ?, consumed = 1 WHERE id = ?").bind(serde_json::to_string(&draft).unwrap()).bind(review.id.as_str()).execute(&state.pool).await.unwrap();
-    std::fs::rename(root.join(path), root.join(temporary)).unwrap();
-    assert!(
+    sqlx::raw_sql("CREATE TRIGGER fail_mixed_cleanup BEFORE UPDATE ON resource_history BEGIN SELECT RAISE(ABORT, 'test failure'); END;")
+        .execute(&state.pool).await.unwrap();
+    assert!(matches!(
+        super::history_cleanup::execute_with_state(
+            review.id,
+            review.revision,
+            &state
+        )
+        .await,
+        Err(ResourceError::Database(_))
+    ));
+    assert!(!missing.exists());
+    assert_eq!(std::fs::read(root.join(path)).unwrap(), b"old bytes");
+    assert_eq!(
         super::history_cleanup::scan_with_state("instance", &state)
             .await
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        recovered
     );
+    sqlx::query("DROP TRIGGER fail_mixed_cleanup")
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    let review =
+        super::history_cleanup::prepare_with_state("instance", ids, &state)
+            .await
+            .unwrap();
+    draft.plan = review.clone();
+    draft.committed = true;
+    let mut tx = state.pool.begin().await.unwrap();
+    sqlx::query("UPDATE resource_history_cleanup_plans SET payload = ?, consumed = 1 WHERE id = ?").bind(serde_json::to_string(&draft).unwrap()).bind(review.id.as_str()).execute(&mut *tx).await.unwrap();
+    sqlx::query(
+        "UPDATE resource_history SET backup_available = 0 WHERE id = ?",
+    )
+    .bind(tracked.id.as_str())
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    std::fs::rename(root.join(path), root.join(temporary)).unwrap();
+    std::fs::write(&missing, b"reappeared").unwrap();
+    let recovered = super::history_cleanup::scan_with_state("instance", &state)
+        .await
+        .unwrap();
+    assert_eq!(recovered.len(), 1);
+    assert_eq!(recovered[0].relative_path, tracked.relative_path);
+    assert_eq!(recovered[0].history_id, None);
+    assert!(recovered[0].exists && recovered[0].recognized);
     assert!(!root.join(temporary).exists());
+    assert_eq!(std::fs::read(missing).unwrap(), b"reappeared");
     state.pool.close().await;
 }
 

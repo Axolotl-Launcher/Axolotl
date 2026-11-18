@@ -13511,6 +13511,9 @@
   "app.resources.backups.confirm": {
     "message": "Delete these backups"
   },
+  "app.resources.backups.confirm-missing": {
+    "message": "Clear missing backups"
+  },
   "app.resources.backups.description": {
     "message": "Review old files before removing them. Verified backups can restore a previous installation."
   },
@@ -13550,8 +13553,17 @@
   "app.resources.backups.removed": {
     "message": "{count, number} files deleted."
   },
+  "app.resources.backups.removed-missing": {
+    "message": "{count, plural, one {Cleared # missing backup.} other {Cleared # missing backups.}}"
+  },
   "app.resources.backups.review": {
     "message": "Review selected cleanup"
+  },
+  "app.resources.backups.review-changed": {
+    "message": "A selected backup changed. Scan again before reviewing cleanup."
+  },
+  "app.resources.backups.review-missing": {
+    "message": "{count, plural, one {Clear # missing backup} other {Clear # missing backups}} from this list. No files are deleted for these entries, and update history is kept."
   },
   "app.resources.backups.review-size": {
     "message": "{count, plural, one {Delete # file} other {Delete # files}} · {size}"
@@ -13566,7 +13578,7 @@
     "message": "Search file names or paths…"
   },
   "app.resources.backups.select-visible": {
-    "message": "Select available files"
+    "message": "Select eligible items"
   },
   "app.resources.backups.selected-size": {
     "message": "{count, number} selected · {size}"

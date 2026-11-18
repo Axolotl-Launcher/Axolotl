@@ -1145,14 +1145,18 @@ Function .onInit
   ${EndIf}
 
   ; Schematic files are a separate, independently remembered choice: a user may
-  ; want the launcher to own modpacks without taking over their schematics.
+  ; want the launcher to own modpacks without taking over their schematics. An
+  ; installation that predates the choice has no preference recorded, and an
+  ; update must not hand the launcher file types the user was never asked about.
   StrCpy $SchematicAssociationState ${BST_CHECKED}
   ${If} $FreshInstall = 0
+    StrCpy $SchematicAssociationState ${BST_UNCHECKED}
     ClearErrors
     ReadRegStr $0 SHCTX "${UNINSTKEY}" "SchematicFileAssociation"
     ${IfNot} ${Errors}
-    ${AndIf} $0 == "0"
-      StrCpy $SchematicAssociationState ${BST_UNCHECKED}
+      ${If} $0 != "0"
+        StrCpy $SchematicAssociationState ${BST_CHECKED}
+      ${EndIf}
     ${EndIf}
   ${EndIf}
   ${GetOptions} $CMDLINE "/SCHEMATIC_FILE_ASSOCIATION" $0

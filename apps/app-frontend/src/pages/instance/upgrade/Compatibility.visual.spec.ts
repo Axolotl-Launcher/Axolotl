@@ -6,6 +6,7 @@ import { defineComponent, h, ref, unref } from 'vue'
 
 import type {
     InstanceUpgradeIssue,
+    InstanceUpgradeItemStatus,
     InstanceUpgradePlan,
     InstanceUpgradeResolution,
 } from '@/helpers/instance-upgrade'
@@ -84,7 +85,11 @@ function prereleaseIssue(projectId: string, root: boolean): InstanceUpgradeIssue
     }
 }
 
-function plan(resolution: InstanceUpgradeResolution, blockingIssues: InstanceUpgradeIssue[]) {
+function plan(
+    resolution: InstanceUpgradeResolution,
+    blockingIssues: InstanceUpgradeIssue[],
+    status: InstanceUpgradeItemStatus = 'prerelease_only',
+) {
     const environment = {
         gameVersion: '26.3',
         modLoader: 'fabric' as const,
@@ -108,7 +113,7 @@ function plan(resolution: InstanceUpgradeResolution, blockingIssues: InstanceUpg
                 currentReleaseId: 'old',
                 currentEnabled: true,
                 autoDependency: false,
-                status: 'prerelease_only',
+                status,
                 resolution,
                 candidateReleaseIds: ['root-beta'],
             },
@@ -177,6 +182,58 @@ it('confirms newly exposed prerelease dependencies after allowing the root and t
         expect(backend.update).toHaveBeenCalledTimes(3)
         await flow.controls.value!.onNext()
         expect(backend.push).toHaveBeenCalledWith('/instance/instance/upgrade/customize')
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('offers keep/disable for an incompatible-dependency blocker and clears it on disable', async () => {
+    backend.update.mockReset()
+    backend.push.mockReset()
+    const resolution: InstanceUpgradeResolution = {
+        contentId: 'root',
+        action: 'upgrade',
+        allowPrerelease: false,
+        confirmedPrereleaseDependencies: [],
+    }
+    const incompatibility: InstanceUpgradeIssue = {
+        code: 'incompatible_dependency',
+        message: 'root is incompatible with other',
+        contentId: null,
+        provider: 'modrinth',
+        projectId: 'root',
+        conflictingProjectId: 'other',
+        dependencyRequirements: [],
+    }
+    const initial = plan(resolution, [incompatibility], 'incompatible_dependency')
+    let flow!: ReturnType<typeof provideInstanceUpgradeFlow>
+    const wrapper = mount(
+        defineComponent({
+            setup() {
+                flow = provideInstanceUpgradeFlow(ref({ id: 'instance' } as GameInstance))
+                flow.setPlan(initial)
+                return () => h(Compatibility)
+            },
+        }),
+        { global: { plugins: [VueQueryPlugin], stubs: { RouterLink: true } } },
+    )
+    try {
+        await flushPromises()
+        const canContinue = () => unref(flow.controls.value!.canNext)
+        const disableButton = () =>
+            wrapper.findAll('button').find((button) => button.text().includes('Disable current'))
+        expect(canContinue()).toBe(false)
+        expect(disableButton()).toBeTruthy()
+
+        backend.update.mockImplementationOnce(
+            async (_id: string, next: InstanceUpgradeResolution) =>
+                plan(next, [], 'upgrade_available'),
+        )
+        await disableButton()!.trigger('click')
+        await flushPromises()
+        expect(backend.update).toHaveBeenCalledTimes(1)
+        expect(backend.update.mock.calls[0][1].action).toBe('disable')
+        expect(canContinue()).toBe(true)
     } finally {
         wrapper.unmount()
     }

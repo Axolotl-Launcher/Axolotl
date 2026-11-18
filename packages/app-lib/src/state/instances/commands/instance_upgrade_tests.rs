@@ -3534,6 +3534,174 @@ fn concrete_incompatibility_takes_priority_over_search_limit() {
     assert_eq!(selected.conflicting_project_id.as_deref(), Some("b"));
 }
 
+#[test]
+fn incompatibility_recorded_after_other_failure_survives_global_search_limit() {
+    let roots = vec![root("a", "a-old", true), root("b", "b-old", true)];
+    let a_candidates = (0..6)
+        .map(|index| {
+            let mut candidate =
+                candidate("a", &format!("a-{index}"), 20 - index);
+            candidate.dependencies.push(incompatible("b"));
+            if index == 0 {
+                candidate.dependencies.push(required("m", None));
+            }
+            candidate
+        })
+        .collect::<Vec<_>>();
+    let b_candidates = (0..6)
+        .map(|index| {
+            let mut candidate =
+                candidate("b", &format!("b-{index}"), 20 - index);
+            if index == 0 {
+                candidate.dependencies.push(required("m", None));
+            }
+            candidate
+        })
+        .collect::<Vec<_>>();
+    let catalog = catalog([
+        (key("a"), a_candidates),
+        (key("b"), b_candidates),
+        (key("m"), Vec::new()),
+    ]);
+
+    let outcome = solve_for_strategy_with_limit(
+        SolveStrategy::Newest,
+        &roots,
+        &catalog,
+        &HashMap::new(),
+        &HashSet::new(),
+        &InstalledAliasIndex::default(),
+        10,
+    );
+    assert!(outcome.solution.is_none());
+    assert_eq!(outcome.visited_states, 10);
+    let issue = outcome.issue.expect("a failure issue");
+    assert_eq!(
+        issue.code,
+        InstanceUpgradeIssueCode::IncompatibleDependency,
+        "an incompatibility recorded after a write-once first issue must still be reported: {issue:?}"
+    );
+}
+
+#[test]
+fn incompatibility_survives_earlier_complete_failure_of_other_kind() {
+    let mut keep_root = root("c", "c-old", true);
+    keep_root.action = InstanceUpgradeAction::Keep;
+    let roots = vec![
+        root("a", "a-old", true),
+        root("b", "b-old", true),
+        keep_root,
+    ];
+    let a_candidates = (0..6)
+        .map(|index| {
+            let mut candidate =
+                candidate("a", &format!("a-{index}"), 20 - index);
+            candidate.dependencies.push(incompatible("b"));
+            candidate
+        })
+        .collect::<Vec<_>>();
+    let b_candidates = (0..6)
+        .map(|index| candidate("b", &format!("b-{index}"), 20 - index))
+        .collect::<Vec<_>>();
+    let c_candidates = vec![
+        {
+            let mut candidate = candidate("c", "c-0", 20);
+            candidate.dependencies.push(required("m", None));
+            candidate
+        },
+        candidate("c", "c-1", 10),
+    ];
+    let catalog = catalog([
+        (key("a"), a_candidates),
+        (key("b"), b_candidates),
+        (key("c"), c_candidates),
+        (key("m"), Vec::new()),
+    ]);
+
+    let outcome = solve_for_strategy_with_limit(
+        SolveStrategy::Newest,
+        &roots,
+        &catalog,
+        &HashMap::new(),
+        &HashSet::new(),
+        &InstalledAliasIndex::default(),
+        12,
+    );
+    assert!(outcome.solution.is_none());
+    assert_eq!(outcome.visited_states, 12);
+    let issue = outcome.issue.expect("a failure issue");
+    assert_eq!(
+        issue.code,
+        InstanceUpgradeIssueCode::IncompatibleDependency,
+        "an earlier complete failure of another kind must not mask a later incompatibility: {issue:?}"
+    );
+}
+
+#[test]
+fn candidate_invariance_proof_gates_limit_reporting() {
+    let requirement = InstanceUpgradeDependencyRequirement {
+        root_content_id: "entry-a".to_string(),
+        root_provider: ContentProvider::Modrinth,
+        root_project_id: "a".to_string(),
+        parent_provider: ContentProvider::Modrinth,
+        parent_project_id: "a".to_string(),
+        parent_release_id: "a-0".to_string(),
+        dependency_provider: ContentProvider::Modrinth,
+        dependency_project_id: "b".to_string(),
+        required_release_id: None,
+        candidate_release_id: Some("b-0".to_string()),
+    };
+    let issue = issue_with_requirements(
+        InstanceUpgradeIssueCode::IncompatibleDependency,
+        "a is incompatible with b",
+        Some(&key("a")),
+        Some("a"),
+        Some("b"),
+        vec![requirement],
+    );
+    let b_candidates = (0..2)
+        .map(|index| candidate("b", &format!("b-{index}"), 20 - index))
+        .collect::<Vec<_>>();
+
+    let mut version_scoped_a = candidate("a", "a-0", 20);
+    version_scoped_a.dependencies.push(CandidateDependency {
+        key: key("b"),
+        version_id: Some("b-0".to_string()),
+        kind: CandidateDependencyKind::Incompatible,
+    });
+    let version_scoped = catalog([
+        (key("a"), vec![version_scoped_a, candidate("a", "a-1", 10)]),
+        (key("b"), b_candidates.clone()),
+    ]);
+    assert!(
+        !incompatibility_is_candidate_invariant(
+            &issue,
+            &version_scoped,
+            &InstalledAliasIndex::default(),
+        ),
+        "a version-scoped incompatibility leaves compatible alternatives, so it is not proven"
+    );
+
+    let invariant_a = (0..2)
+        .map(|index| {
+            let mut candidate =
+                candidate("a", &format!("a-{index}"), 20 - index);
+            candidate.dependencies.push(incompatible("b"));
+            candidate
+        })
+        .collect::<Vec<_>>();
+    let invariant =
+        catalog([(key("a"), invariant_a), (key("b"), b_candidates)]);
+    assert!(
+        incompatibility_is_candidate_invariant(
+            &issue,
+            &invariant,
+            &InstalledAliasIndex::default(),
+        ),
+        "an incompatibility holding for every candidate pair is independent of unexplored combinations"
+    );
+}
+
 fn test_environment(
     shader_runtime: ShaderRuntime,
 ) -> InstanceUpgradeEnvironment {

@@ -174,6 +174,7 @@ struct SearchState {
     canceled: bool,
     cancel: Option<CancellationToken>,
     first_issue: Option<InstanceUpgradeIssue>,
+    first_incompatibility: Option<InstanceUpgradeIssue>,
 }
 
 pub(crate) type UpgradePlanningReporter =

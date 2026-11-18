@@ -675,9 +675,13 @@ async fn imported_pack_member_persists_exact_artifact_and_identity_after_cache_c
         release_id: document.release.reference.release_id.clone(),
         slug: None,
     };
-    let key =
-        CacheKey::new("modrinth-v2-dates".into(), SourceId::modrinth(), &query)
-            .unwrap();
+    let source = SourceId::modrinth();
+    let key = CacheKey::new(
+        service.source_namespace(&source).unwrap(),
+        source,
+        &query.cache_identity(),
+    )
+    .unwrap();
     service
         .cache()
         .put(

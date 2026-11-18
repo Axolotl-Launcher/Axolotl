@@ -10,7 +10,6 @@ use crate::state::instances::{
     ContentSourceKind, Instance, InstanceFile, InstanceInstallCandidate,
     InstanceInstallTarget, InstanceLink,
 };
-use crate::state::store::Handle;
 use crate::state::{
     CacheBehaviour, CachedEntry, ContentFile, ContentItem, ContentItemOwner,
     ContentItemProject, ContentItemRollback, ContentItemUpdate,
@@ -248,7 +247,7 @@ pub(crate) async fn list_content(
             Some((_, version_id)) => {
                 get_cached_modpack_identifiers(
                     version_id,
-                    &state.cache_handle(),
+                    state.resource_cache(),
                 )
                 .await?
             }

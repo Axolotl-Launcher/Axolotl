@@ -291,6 +291,7 @@ impl RefreshCoordinator {
         instance_id: &str,
         task_id: &str,
         writes: Vec<RefreshWrite>,
+        cache_generation: i64,
     ) -> ResourceResult<()> {
         let mut slots = self.slots.lock().await;
         let Some(slot) = slots
@@ -320,6 +321,7 @@ impl RefreshCoordinator {
             &state.data,
             instance_id,
             current,
+            cache_generation,
         )
         .await;
         let applied = match applied {
@@ -392,8 +394,10 @@ async fn run_round(
     cancel: &CancellationToken,
 ) -> ResourceResult<()> {
     use crate::state::store::content_refresh_scan_failures::ContentRefreshScanFailures;
+    let cache = state.resource_cache();
+    let cache_generation = cache.generation().await;
     let retry_scan_paths = if mode == RefreshMode::RetryFailed {
-        ContentRefreshScanFailures::failed(&state.derived, instance_id)
+        ContentRefreshScanFailures::failed(cache, instance_id)
             .await?
             .into_iter()
             .map(|(key, _)| key.relative_path)
@@ -418,7 +422,7 @@ async fn run_round(
     let service = state.resources().await?.clone();
     let initial = crate::state::store::content_snapshot::get_with_saved_pack(
         &state.data,
-        &state.derived,
+        cache,
         instance_id,
     )
     .await?;
@@ -480,6 +484,7 @@ async fn run_round(
                     &task_id,
                     pack_mode,
                     &cancel,
+                    cache_generation,
                 )
                 .await;
                 if let Some(slot) = state
@@ -536,11 +541,11 @@ async fn run_round(
             biased;
             _ = cancel.cancelled() => return Err(ResourceError::Canceled),
             _ = interval.tick() => {
-                if !buffered.is_empty() { state.content_refresh.save(state, instance_id, task_id, std::mem::take(&mut buffered)).await?; }
+                if !buffered.is_empty() { state.content_refresh.save(state, instance_id, task_id, std::mem::take(&mut buffered), cache_generation).await?; }
             }
             Some(write) = writes_rx.recv() => {
                 buffered.push(write);
-                if buffered.len() >= 32 { state.content_refresh.save(state, instance_id, task_id, std::mem::take(&mut buffered)).await?; }
+                if buffered.len() >= 32 { state.content_refresh.save(state, instance_id, task_id, std::mem::take(&mut buffered), cache_generation).await?; }
             }
             Some(result) = workers.next(), if !workers.is_empty() => {
                 if let Err(error) = result.unwrap_or_else(|error| Err(ResourceError::InvalidRequest(error.to_string()))) {
@@ -556,7 +561,7 @@ async fn run_round(
                 match progress {
                     Some(crate::state::instances::commands::ScanProgress::Files(files)) => {
                         let mut slots = state.content_refresh.slots.lock().await;
-                        let records = crate::state::store::content_snapshot::get_with_saved_pack(&state.data, &state.derived, instance_id).await?;
+                        let records = crate::state::store::content_snapshot::get_with_saved_pack(&state.data, state.resource_cache(), instance_id).await?;
                         let eligible = files.iter().filter(|file| !failed_paths.contains(&file.relative_path)).collect::<Vec<_>>();
                         let unsaved_file_ids = records.entries.iter().filter(|entry| unsaved_entries.contains(&entry.id))
                             .filter_map(|entry| entry.file_id.as_deref()).collect::<HashSet<_>>();
@@ -618,6 +623,7 @@ async fn run_round(
                         instance_id,
                         task_id,
                         std::mem::take(&mut buffered),
+                        cache_generation,
                     )
                     .await?;
             }
@@ -658,11 +664,12 @@ async fn refresh_pack(
     task_id: &str,
     mode: RefreshMode,
     cancel: &CancellationToken,
+    cache_generation: i64,
 ) -> ResourceResult<()> {
     use crate::state::store::content_refresh_pack::*;
     let records = crate::state::store::content_snapshot::get_with_saved_pack(
         &state.data,
-        &state.derived,
+        state.resource_cache(),
         instance_id,
     )
     .await?;
@@ -718,13 +725,14 @@ async fn refresh_pack(
         return Ok(());
     }
     let record = pack_attempt(saved, location_key, link_key, now, &result);
-    ContentRefreshPacks::upsert(
-        &state.derived,
+    ContentRefreshPacks::upsert_at(
+        state.resource_cache(),
         &PackKey {
             instance_id: instance_id.into(),
             content_set_id: current.content_set.id,
         },
         &record,
+        cache_generation,
     )
     .await?;
     let pack = result?;

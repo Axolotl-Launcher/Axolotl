@@ -156,6 +156,7 @@ pub async fn purge_cache_types(
     if cache_types.iter().any(|kind| {
         crate::resources::protocol::owns(*kind)
             || *kind == CacheValueType::ModpackFiles
+            || kind.uses_resource_projection()
     }) {
         state
             .resources()

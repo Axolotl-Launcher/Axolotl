@@ -102,10 +102,21 @@ impl ContentFileFingerprints {
         })
         .collect())
     }
+    #[cfg(test)]
     pub(crate) async fn set_current(
         handle: &super::Handle,
         instance: &str,
         record: &FileFingerprintRecord,
+    ) -> crate::Result<()> {
+        let generation = super::content_evidence::generation(handle).await;
+        Self::set_current_at(handle, instance, record, generation).await
+    }
+
+    pub(crate) async fn set_current_at(
+        handle: &super::Handle,
+        instance: &str,
+        record: &FileFingerprintRecord,
+        generation: i64,
     ) -> crate::Result<()> {
         if !record.valid() {
             return Err(crate::ErrorKind::InputError(
@@ -119,12 +130,13 @@ impl ContentFileFingerprints {
                 && guard.sha1.eq_ignore_ascii_case(record.sha1())
                 && u64::try_from(guard.size).ok() == Some(record.size)
         }) {
-            super::content_evidence::write(
+            super::content_evidence::write_at(
                 handle,
                 "fingerprint",
                 &guard.file_id,
                 guard,
                 record,
+                generation,
             )
             .await;
         }
@@ -159,6 +171,7 @@ impl ContentFileFingerprints {
         root: &std::path::Path,
         integrity: &crate::resources::ArtifactIntegrity,
     ) -> crate::Result<()> {
+        let generation = super::content_evidence::generation(handle).await;
         let guards = super::content_evidence::current(handle, instance).await?;
         if let Some(guard) = guards
             .values()
@@ -231,12 +244,13 @@ impl ContentFileFingerprints {
                     })
                 {
                     record.relative_path = destination.into();
-                    super::content_evidence::write(
+                    super::content_evidence::write_at(
                         handle,
                         "fingerprint",
                         &guard.file_id,
                         guard,
                         &record,
+                        generation,
                     )
                     .await;
                 }

@@ -49,6 +49,7 @@ pub(super) async fn prepare(
     _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
     crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
+    let cache_generation = state.resource_cache().generation().await;
     recover(state, instance_id, root).await?;
     let mut files = Vec::new();
     for (original, destination) in paths {
@@ -79,10 +80,11 @@ pub(super) async fn prepare(
             .await
             .map_err(crate::ErrorKind::ResourceError)?;
         if let Some(record) = &resolved.record {
-            ContentFileFingerprints::set_current(
+            ContentFileFingerprints::set_current_at(
                 &state.data,
                 instance_id,
                 record,
+                cache_generation,
             )
             .await?;
         }

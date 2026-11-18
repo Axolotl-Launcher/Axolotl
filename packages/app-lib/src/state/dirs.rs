@@ -337,7 +337,7 @@ impl DirectoryInfo {
     }
 
     pub fn resource_cache_db(&self) -> PathBuf {
-        self.cache_db_dir().join("resources.db")
+        self.cache_db_dir().join(crate::resources::cache::FILE_NAME)
     }
 
     pub fn content_store_dir(&self) -> PathBuf {

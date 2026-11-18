@@ -658,14 +658,14 @@ impl ResourceService {
         right: &ResourceArtifact,
         generation: i64,
     ) -> Option<VerifiedArtifactMatch> {
-        let key = evidence_key(&left.reference, &right.reference)?;
+        let key = evidence_key(self, &left.reference, &right.reference)?;
         let evidence = verify_artifact_pair(left, right);
         if let Some(evidence) = &evidence {
             self.cache()
                 .store_evidence(&key, evidence, generation)
                 .await;
         } else {
-            self.cache().invalidate_evidence(&key).await;
+            self.cache().invalidate_evidence(&key, generation).await;
         }
         evidence
     }
@@ -675,7 +675,7 @@ impl ResourceService {
         left: &SourceArtifactRef,
         right: &SourceArtifactRef,
     ) -> Option<VerifiedArtifactMatch> {
-        let key = evidence_key(left, right)?;
+        let key = evidence_key(self, left, right)?;
         let evidence: VerifiedArtifactMatch =
             self.cache().evidence(&key).await?;
         let references_match = (&evidence.left == left
@@ -693,19 +693,30 @@ impl ResourceService {
 }
 
 fn evidence_key(
+    service: &ResourceService,
     left: &SourceArtifactRef,
     right: &SourceArtifactRef,
 ) -> Option<String> {
     use sha2::{Digest, Sha256};
     let mut refs = [
-        serde_json::to_string(left).ok()?,
-        serde_json::to_string(right).ok()?,
+        scoped_artifact_key(service, left)?,
+        scoped_artifact_key(service, right)?,
     ];
     refs.sort();
     Some(format!(
         "{:x}",
         Sha256::digest(serde_json::to_vec(&refs).ok()?)
     ))
+}
+
+fn scoped_artifact_key(
+    service: &ResourceService,
+    artifact: &SourceArtifactRef,
+) -> Option<String> {
+    let scope = service
+        .source_namespace(&artifact.release.project.source)
+        .unwrap_or_default();
+    serde_json::to_string(&(scope, artifact)).ok()
 }
 
 pub struct ProbeBudget {

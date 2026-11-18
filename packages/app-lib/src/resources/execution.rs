@@ -410,6 +410,7 @@ async fn execute_inner(
     state: &crate::State,
 ) -> crate::Result<()> {
     let _cache_usage = crate::storage::usage::lease().await?;
+    let cache_generation = state.resource_cache().generation().await;
     if plan.instance_id != instance_id
         || plan.issues.iter().any(|issue| issue.blocking)
     {
@@ -978,7 +979,7 @@ async fn execute_inner(
                     }
                     persist_plan(
                         &state.pool,
-                        state.cache_pool(),
+                        (state.resource_cache(), cache_generation),
                         &scope.content_set_id,
                         plan,
                         &downloads,
@@ -1120,7 +1121,7 @@ pub(crate) async fn recover_plan(
 
 async fn persist_plan(
     pool: &SqlitePool,
-    cache_pool: &SqlitePool,
+    (cache, cache_generation): (&super::cache::ResourceCache, i64),
     set_id: &str,
     plan: &ResourceOperationPlan,
     downloads: &[(PathBuf, ResourceType, u64, String, String)],
@@ -1150,9 +1151,27 @@ async fn persist_plan(
     .await?
     .ok_or_else(|| input("instance disappeared before the plan was stored"))?;
     let mut mod_metadata = HashMap::new();
-    for (action, (source_path, kind, _, _, _)) in
+    let mut cache_entries = Vec::new();
+    for (action, (source_path, kind, size, sha1, _)) in
         plan.actions.iter().zip(downloads)
     {
+        let target = &action.target.reference.release;
+        let modrinth = target.project.source == SourceId::modrinth();
+        cache_entries.push(
+            crate::state::CacheValue::FileHash(crate::state::CachedFileHash {
+                path: format!(
+                    "{instance_path}/{}",
+                    action.target_relative_path
+                ),
+                size: *size,
+                hash: sha1.clone(),
+                project_type: Some(project_type(*kind)?),
+                project_id: modrinth
+                    .then(|| target.project.project_id.as_str().into()),
+                version_id: modrinth.then(|| target.release_id.as_str().into()),
+            })
+            .get_entry(),
+        );
         if *kind == ResourceType::Mod {
             let bytes = bytes::Bytes::from(tokio::fs::read(source_path).await?);
             let metadata = tokio::task::spawn_blocking(move || {
@@ -1164,6 +1183,8 @@ async fn persist_plan(
             mod_metadata.insert(action.entry_id.clone(), metadata);
         }
     }
+    crate::state::CachedEntry::invalidate_install_hashes(cache, &cache_entries)
+        .await;
     let (mut tx, tx_diagnostics) =
         crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
             .await?;
@@ -1173,7 +1194,6 @@ async fn persist_plan(
         .map(|node| (node.id.clone(), node.installed_entries.clone()))
         .collect();
     let now = chrono::Utc::now();
-    let mut cache_entries = Vec::new();
     let restore: Option<serde_json::Value> =
         if let Some(id) = &draft.restore_history {
             let payload =
@@ -1207,7 +1227,6 @@ async fn persist_plan(
                 "artifact size disagrees with the reviewed snapshot",
             ));
         }
-        let local_mod_data = mod_metadata.remove(&action.entry_id).flatten();
         if let Some(current) = &action.current {
             files::rename_entry_file_in_transaction(
                 &plan.instance_id,
@@ -1231,44 +1250,9 @@ async fn persist_plan(
                 sha1,
                 size: *size,
                 missing: false,
-                local_mod_data: local_mod_data.as_deref(),
+                local_mod_data: None,
                 icon_path: None,
             },
-            &mut tx,
-        )
-        .await?;
-        let cache =
-            crate::state::CacheValue::FileHash(crate::state::CachedFileHash {
-                path: format!(
-                    "{instance_path}/{}",
-                    action.target_relative_path
-                ),
-                size: *size,
-                hash: sha1.clone(),
-                project_type: Some(project_type(*kind)?),
-                project_id: (action.target.reference.release.project.source
-                    == SourceId::modrinth())
-                .then(|| {
-                    action
-                        .target
-                        .reference
-                        .release
-                        .project
-                        .project_id
-                        .as_str()
-                        .into()
-                }),
-                version_id: (action.target.reference.release.project.source
-                    == SourceId::modrinth())
-                .then(|| {
-                    action.target.reference.release.release_id.as_str().into()
-                }),
-            })
-            .get_entry();
-        cache_entries.push(cache);
-        files::set_local_mod_data_in_transaction(
-            &disk_file.id,
-            local_mod_data.as_deref(),
             &mut tx,
         )
         .await?;
@@ -1630,15 +1614,31 @@ async fn persist_plan(
     )
     .await?;
     ResourceExecutionJournals::delete_in(&mut tx, plan.id.as_str()).await?;
-    // The hash cache lives in the derived database. Dropping the entries the
-    // commit is about to replace keeps a run that stops before the write below
-    // from trusting metadata of the file that was just replaced.
-    crate::state::CachedEntry::forget_best_effort(&cache_entries, cache_pool)
-        .await;
     tx_diagnostics.observe("commit_wait", tx.commit()).await?;
     tx_diagnostics.complete("committed");
-    crate::state::CachedEntry::store_best_effort(&cache_entries, cache_pool)
-        .await;
+    crate::state::CachedEntry::store_install_hashes(
+        cache,
+        cache_generation,
+        &cache_entries,
+    )
+    .await;
+    for (action, (_, _, size, sha1, _)) in plan.actions.iter().zip(downloads) {
+        if let Some(metadata) = mod_metadata
+            .get(&action.entry_id)
+            .and_then(Option::as_deref)
+            && let Ok(size) = i64::try_from(*size)
+        {
+            crate::state::store::content_evidence::remember_parsed(
+                cache,
+                cache_generation,
+                sha1,
+                size,
+                Some(metadata),
+                None,
+            )
+            .await;
+        }
+    }
     Ok(())
 }
 

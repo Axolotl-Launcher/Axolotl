@@ -332,7 +332,7 @@ pub(crate) async fn get(
 /// that reads the rest instead of inside it.
 pub(crate) async fn get_with_saved_pack(
     handle: &Handle,
-    derived: &super::derived_db::DerivedDb,
+    derived: &crate::resources::cache::ResourceCache,
     instance_id: &str,
 ) -> crate::Result<SnapshotRecords> {
     let mut records = get(handle, instance_id).await?;

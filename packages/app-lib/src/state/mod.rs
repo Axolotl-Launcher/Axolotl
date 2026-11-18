@@ -387,6 +387,7 @@ pub struct State {
     /// fatal, when it cannot be opened.
     pub(crate) derived: store::derived_db::DerivedDb,
 
+    resource_cache: Arc<crate::resources::cache::ResourceCache>,
     resource_service: OnceCell<Arc<crate::resources::ResourceService>>,
     pub(crate) file_fingerprints: crate::resources::fingerprints::FileFingerprints,
     pub(crate) content_refresh: crate::resources::refresh::RefreshCoordinator,
@@ -453,21 +454,13 @@ impl State {
         self.derived.pool()
     }
 
-    /// The same database, as the handle its collections are read through.
-    pub(crate) fn cache_handle(&self) -> store::Handle {
-        self.derived.handle()
-    }
-
     pub async fn resources(
         &self,
     ) -> crate::resources::ResourceResult<&Arc<crate::resources::ResourceService>>
     {
         self.resource_service
             .get_or_try_init(|| async {
-                let path = self.directories.resource_cache_db();
-                let cache = Arc::new(
-                    crate::resources::cache::ResourceCache::open(path).await,
-                );
+                let cache = self.resource_cache.clone();
                 crate::resources::ResourceService::with_store(
                     cache,
                     crate::resources::providers::default_providers(),
@@ -475,6 +468,12 @@ impl State {
                 )
             })
             .await
+    }
+
+    pub(crate) fn resource_cache(
+        &self,
+    ) -> &Arc<crate::resources::cache::ResourceCache> {
+        &self.resource_cache
     }
 
     pub(crate) async fn lock_instance_screenshots(
@@ -1591,10 +1590,14 @@ impl State {
                 .join(store::derived_db::FILE_NAME),
         )
         .await;
-        CachedEntry::store_best_effort(&legacy.cached_entries, derived.pool())
-            .await;
+        let resource_cache = Arc::new(
+            crate::resources::cache::ResourceCache::open(
+                directories.resource_cache_db(),
+            )
+            .await,
+        );
         if !recovery_mode {
-            forget_removed_instances(&pool, &derived).await;
+            forget_removed_instances(&pool, &resource_cache).await;
         }
 
         let discord_rpc = DiscordGuard::init()?;
@@ -1669,6 +1672,7 @@ impl State {
             data,
             derived,
             pool,
+            resource_cache,
             resource_service: OnceCell::new(),
             file_fingerprints: Default::default(),
             content_refresh: Default::default(),
@@ -1762,7 +1766,7 @@ impl State {
 /// they name, so a database with no left-over rows costs two reads.
 async fn forget_removed_instances(
     pool: &SqlitePool,
-    derived: &store::derived_db::DerivedDb,
+    derived: &crate::resources::cache::ResourceCache,
 ) {
     let mut instance_ids =
         match store::content_refresh_pack::ContentRefreshPacks::instance_ids(
@@ -1846,6 +1850,12 @@ pub(crate) async fn test_state(
     let persistence =
         persistence::Persistence::new(directories.settings_dir.clone());
     let data = store::Handle::with_persistence(pool.clone(), &persistence);
+    let resource_cache = Arc::new(
+        crate::resources::cache::ResourceCache::open(
+            directories.resource_cache_db(),
+        )
+        .await,
+    );
     Ok(Arc::new(State {
         persistence,
         directories,
@@ -1890,6 +1900,7 @@ pub(crate) async fn test_state(
         data,
         derived,
         pool,
+        resource_cache,
         resource_service: OnceCell::new(),
         file_fingerprints: Default::default(),
         content_refresh: Default::default(),

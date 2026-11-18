@@ -163,22 +163,18 @@ fn verify_resource_cache(
     directories: &DirectoryInfo,
     path: &Path,
 ) -> std::io::Result<()> {
-    let relative = path
-        .strip_prefix(directories.cache_db_dir())
-        .map_err(std::io::Error::other)?;
+    if path != directories.resource_cache_db() {
+        return Err(std::io::Error::other("Invalid resource cache path"));
+    }
     let settings = Dir::open_ambient_dir(
         &directories.settings_dir,
         cap_std::ambient_authority(),
     )?;
-    let mut dir = settings.open_dir_nofollow("cache")?;
-    for part in relative.parent().into_iter().flat_map(Path::iter) {
-        dir = dir.open_dir_nofollow(part)?;
-    }
+    let dir = settings.open_dir_nofollow("cache")?;
     let mut options = OpenOptions::new();
     options.read(true).follow(FollowSymlinks::No);
     dir.open_with(
-        relative
-            .file_name()
+        path.file_name()
             .ok_or_else(|| std::io::Error::other("Invalid cache path"))?,
         &options,
     )?;
@@ -252,16 +248,7 @@ pub async fn clear_cache() -> crate::Result<CacheCleanupResult> {
     })
     .await
     .map_err(std::io::Error::other)??;
-    let resources = state
-        .resources()
-        .await
-        .map_err(crate::resources::protocol::error)?;
-    verify_resource_cache(&directories, resources.cache().path())?;
-    resources
-        .cache()
-        .info()
-        .await
-        .map_err(crate::resources::protocol::error)?;
+    let resource_cache = state.resource_cache();
     use crate::state::{CacheValueType as Kind, CachedEntry};
     if let Err(error) = CachedEntry::purge_cache_types(
         &[
@@ -295,8 +282,15 @@ pub async fn clear_cache() -> crate::Result<CacheCleanupResult> {
         failures.push(format!("API cache: {error}"));
     }
     if let Err(error) = async {
-        resources.cache().clear().await?;
-        resources.cache().compact().await
+        verify_resource_cache(&directories, resource_cache.path())?;
+        resource_cache
+            .clear()
+            .await
+            .map_err(crate::resources::protocol::error)?;
+        resource_cache
+            .compact()
+            .await
+            .map_err(crate::resources::protocol::error)
     }
     .await
     {

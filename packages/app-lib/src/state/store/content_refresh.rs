@@ -24,6 +24,7 @@ pub(crate) async fn set_results(
     handle: &Handle,
     instance_id: &str,
     writes: Vec<RefreshWrite>,
+    cache_generation: i64,
 ) -> crate::Result<Vec<RefreshWrite>> {
     let mut unit = atom(handle).await?;
     let instance = match super::content_snapshot::get_instance(
@@ -67,12 +68,8 @@ pub(crate) async fn set_results(
         ),
     };
     let location = location_key(&instance);
-    let evidence_guards =
-        super::content_evidence::guards(unit.connection(), instance_id).await?;
     let mut applied = Vec::new();
-    let mut presentations =
-        std::collections::HashMap::<String, PresentationRecord>::new();
-    for mut write in writes {
+    for write in writes {
         if write
             .context
             .content_revision
@@ -147,11 +144,19 @@ pub(crate) async fn set_results(
             )
             .await?;
         }
+        applied.push(write);
+    }
+    let accepted_guards =
+        super::content_evidence::guards(unit.connection(), instance_id).await?;
+    unit.commit().await?;
+    let mut presentations =
+        std::collections::HashMap::<String, PresentationRecord>::new();
+    let mut evidence = Vec::new();
+    for write in &mut applied {
+        let Some(guard) = accepted_guards.get(&write.file_id) else {
+            continue;
+        };
         if let Some(presentation) = &mut write.presentation {
-            let Some(evidence_guard) = evidence_guards.get(&write.file_id)
-            else {
-                continue;
-            };
             let previous =
                 if let Some(previous) = presentations.get(&write.file_id) {
                     Some(previous.clone())
@@ -161,7 +166,7 @@ pub(crate) async fn set_results(
                         "presentation",
                         instance_id,
                         &write.file_id,
-                        evidence_guard,
+                        guard,
                     )
                     .await
                 };
@@ -199,16 +204,6 @@ pub(crate) async fn set_results(
             }
             presentations.insert(write.file_id.clone(), presentation.clone());
         }
-        applied.push(write);
-    }
-    let accepted_guards =
-        super::content_evidence::guards(unit.connection(), instance_id).await?;
-    unit.commit().await?;
-    let mut evidence = Vec::new();
-    for write in &applied {
-        let Some(guard) = accepted_guards.get(&write.file_id) else {
-            continue;
-        };
         for (kind, id, payload) in [
             (
                 "check",
@@ -239,7 +234,12 @@ pub(crate) async fn set_results(
             }
         }
     }
-    super::content_evidence::try_write_batch(handle, instance_id, evidence)
-        .await?;
+    super::content_evidence::try_write_batch(
+        handle,
+        instance_id,
+        evidence,
+        cache_generation,
+    )
+    .await?;
     Ok(applied)
 }

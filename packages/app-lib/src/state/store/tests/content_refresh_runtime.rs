@@ -243,7 +243,7 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         relative_path: "resourcepacks/recovered.zip".into(),
     };
     ContentRefreshScanFailures::upsert(
-        &state.derived,
+        state.resource_cache(),
         &key,
         &ScanFailureRecord {
             attempted_at: chrono::Utc::now().timestamp(),
@@ -259,7 +259,7 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         .unwrap();
     finished(&state).await;
     assert!(
-        ContentRefreshScanFailures::failed(&state.derived, "instance")
+        ContentRefreshScanFailures::failed(state.resource_cache(), "instance")
             .await
             .unwrap()
             .iter()
@@ -284,7 +284,7 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         .unwrap();
     finished(&state).await;
     assert!(
-        !ContentRefreshScanFailures::failed(&state.derived, "instance")
+        !ContentRefreshScanFailures::failed(state.resource_cache(), "instance")
             .await
             .unwrap()
             .iter()
@@ -674,12 +674,13 @@ async fn failed_database_commit_never_publishes_and_retry_revisits_only_unsaved_
         presentation: None,
         artifact: None,
     };
-    sqlx::query("CREATE TRIGGER reject_refresh_result BEFORE INSERT ON content_evidence WHEN NEW.kind='check' BEGIN SELECT RAISE(FAIL, 'simulated write failure'); END").execute(state.derived.pool()).await.unwrap();
+    sqlx::query("CREATE TRIGGER reject_refresh_result BEFORE INSERT ON content_evidence WHEN NEW.kind='check' BEGIN SELECT RAISE(FAIL, 'simulated write failure'); END").execute(state.resource_cache().pool().unwrap()).await.unwrap();
     let mut events = state.content_refresh.subscribe();
+    let generation = state.resource_cache().generation().await;
     assert!(
         state
             .content_refresh
-            .save(&state, "instance", &task.id, vec![write])
+            .save(&state, "instance", &task.id, vec![write], generation)
             .await
             .is_err()
     );
@@ -706,7 +707,7 @@ async fn failed_database_commit_never_publishes_and_retry_revisits_only_unsaved_
             .contains("fast")
     );
     sqlx::query("DROP TRIGGER reject_refresh_result")
-        .execute(state.derived.pool())
+        .execute(state.resource_cache().pool().unwrap())
         .await
         .unwrap();
     state
@@ -1007,8 +1008,9 @@ async fn conditional_result_writes_reject_changed_files_and_changed_target() {
         presentation: None,
         artifact: None,
     };
+    let generation = state.resource_cache().generation().await;
     assert_eq!(
-        set_results(&state.data, "instance", vec![write.clone()])
+        set_results(&state.data, "instance", vec![write.clone()], generation)
             .await
             .unwrap()
             .len(),
@@ -1020,7 +1022,7 @@ async fn conditional_result_writes_reject_changed_files_and_changed_target() {
         ..write.clone()
     };
     assert!(
-        set_results(&state.data, "instance", vec![invalid])
+        set_results(&state.data, "instance", vec![invalid], generation)
             .await
             .unwrap()
             .is_empty()
@@ -1031,7 +1033,7 @@ async fn conditional_result_writes_reject_changed_files_and_changed_target() {
         .await
         .unwrap();
     assert!(
-        set_results(&state.data, "instance", vec![write])
+        set_results(&state.data, "instance", vec![write], generation)
             .await
             .unwrap()
             .is_empty()
@@ -1261,7 +1263,7 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
     let (_temp, state, _) = fixture().await;
     let records = content_snapshot::get_with_saved_pack(
         &state.data,
-        &state.derived,
+        state.resource_cache(),
         "instance",
     )
     .await
@@ -1297,12 +1299,12 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
         110,
         &Err(crate::ErrorKind::InputError("offline".into()).into()),
     );
-    ContentRefreshPacks::upsert(&state.derived, &key, &failed)
+    ContentRefreshPacks::upsert(state.resource_cache(), &key, &failed)
         .await
         .unwrap();
     let restored = content_snapshot::get_with_saved_pack(
         &state.data,
-        &state.derived,
+        state.resource_cache(),
         "instance",
     )
     .await
@@ -1329,10 +1331,10 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
     ));
     let recovered =
         pack_attempt(Some(restored), location, link, 120, &Ok(None));
-    ContentRefreshPacks::upsert(&state.derived, &key, &recovered)
+    ContentRefreshPacks::upsert(state.resource_cache(), &key, &recovered)
         .await
         .unwrap();
-    let restored = ContentRefreshPacks::saved(&state.derived, &key)
+    let restored = ContentRefreshPacks::saved(state.resource_cache(), &key)
         .await
         .unwrap()
         .unwrap();

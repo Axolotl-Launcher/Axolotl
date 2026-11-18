@@ -63,19 +63,19 @@ async fn save(
 async fn removing_one_favorite_leaves_the_projects_of_the_same_resource() {
     let pool = support::pool().await;
     support::add_resource(&pool, "resource").await;
-    link(&pool, "modrinth", "sodium", "resource").await;
-    link(&pool, "curseforge", "sodium", "resource").await;
-    save(&pool, "modrinth", "sodium", "mod", 100).await;
-    save(&pool, "curseforge", "sodium", "mod", 200).await;
+    link(&pool, "modrinth", "sodium01", "resource").await;
+    link(&pool, "curseforge", "123", "resource").await;
+    save(&pool, "modrinth", "sodium01", "mod", 100).await;
+    save(&pool, "curseforge", "123", "mod", 200).await;
 
-    favorites::remove_project(&pool, &project("modrinth", "sodium"))
+    favorites::remove_project(&pool, &project("modrinth", "sodium01"))
         .await
         .expect("remove one favorite");
 
     assert_eq!(
         favorites::saved(&pool).await.expect("read favorites"),
         vec![SavedFavorite {
-            project: project("curseforge", "sodium"),
+            project: project("curseforge", "123"),
             content_type: ResourceType::Mod,
             saved_at: 200,
             resource_id: resource("resource"),
@@ -87,22 +87,22 @@ async fn removing_one_favorite_leaves_the_projects_of_the_same_resource() {
 async fn every_saved_favorite_is_a_row_with_the_time_it_was_saved() {
     let pool = support::pool().await;
     support::add_resource(&pool, "resource").await;
-    link(&pool, "modrinth", "sodium", "resource").await;
-    link(&pool, "curseforge", "sodium", "resource").await;
-    save(&pool, "modrinth", "sodium", "mod", 100).await;
-    save(&pool, "curseforge", "sodium", "mod", 200).await;
+    link(&pool, "modrinth", "sodium01", "resource").await;
+    link(&pool, "curseforge", "123", "resource").await;
+    save(&pool, "modrinth", "sodium01", "mod", 100).await;
+    save(&pool, "curseforge", "123", "mod", 200).await;
 
     assert_eq!(
         favorites::saved(&pool).await.expect("read favorites"),
         vec![
             SavedFavorite {
-                project: project("curseforge", "sodium"),
+                project: project("curseforge", "123"),
                 content_type: ResourceType::Mod,
                 saved_at: 200,
                 resource_id: resource("resource"),
             },
             SavedFavorite {
-                project: project("modrinth", "sodium"),
+                project: project("modrinth", "sodium01"),
                 content_type: ResourceType::Mod,
                 saved_at: 100,
                 resource_id: resource("resource"),
@@ -115,22 +115,22 @@ async fn every_saved_favorite_is_a_row_with_the_time_it_was_saved() {
 async fn a_resource_saved_as_two_content_types_keeps_both_rows() {
     let pool = support::pool().await;
     support::add_resource(&pool, "resource").await;
-    link(&pool, "modrinth", "sodium", "resource").await;
-    link(&pool, "curseforge", "sodium", "resource").await;
-    save(&pool, "modrinth", "sodium", "mod", 100).await;
-    save(&pool, "curseforge", "sodium", "shader", 200).await;
+    link(&pool, "modrinth", "sodium01", "resource").await;
+    link(&pool, "curseforge", "123", "resource").await;
+    save(&pool, "modrinth", "sodium01", "mod", 100).await;
+    save(&pool, "curseforge", "123", "shader", 200).await;
 
     assert_eq!(
         favorites::saved(&pool).await.expect("read favorites"),
         vec![
             SavedFavorite {
-                project: project("curseforge", "sodium"),
+                project: project("curseforge", "123"),
                 content_type: ResourceType::Shader,
                 saved_at: 200,
                 resource_id: resource("resource"),
             },
             SavedFavorite {
-                project: project("modrinth", "sodium"),
+                project: project("modrinth", "sodium01"),
                 content_type: ResourceType::Mod,
                 saved_at: 100,
                 resource_id: resource("resource"),

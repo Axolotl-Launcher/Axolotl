@@ -1230,7 +1230,7 @@ async fn cache_survives_close_and_reopen_with_a_separate_wal_database() {
         .await
         .unwrap();
     assert_eq!(mode, "wal");
-    assert_eq!(reopened.info().await.unwrap().schema_version, 2);
+    assert_eq!(reopened.info().await.unwrap().schema_version, 3);
     probe.close().await;
     reopened.close().await;
 }
@@ -2085,6 +2085,63 @@ fn cache_path_is_shared_and_independent_of_the_content_root() {
         directories.resource_cache_db(),
         directories.databases_dir().join("resources.db")
     );
+}
+
+#[tokio::test]
+async fn resource_cache_reopens_with_matching_environment_but_isolates_other_endpoints()
+ {
+    struct Environment(&'static str);
+
+    #[async_trait]
+    impl ProtocolTransport for Environment {
+        fn cache_namespace(&self, _: &SourceId) -> String {
+            modrinth_cache_scope(self.0)
+        }
+
+        async fn request(
+            &self,
+            _: &SourceId,
+            _: ProtocolRequest,
+        ) -> ResourceResult<Value> {
+            panic!("the cache test must not request the network");
+        }
+    }
+
+    let temp = tempfile::tempdir().unwrap();
+    let directories = crate::state::DirectoryInfo {
+        settings_dir: temp.path().into(),
+        config_dir: temp.path().join("content"),
+        app_identifier: "test".into(),
+    };
+    let key = |endpoint| {
+        let provider = ModrinthProvider::new(Arc::new(Environment(endpoint)));
+        CacheKey::new(
+            provider.namespace(),
+            SourceId::modrinth(),
+            &project_query("project"),
+        )
+        .unwrap()
+    };
+    let release = ResourceCache::open(directories.resource_cache_db()).await;
+    let cached = project_value(SourceId::modrinth(), "project", "example");
+    release
+        .put(
+            &key("https://catalog.example/v2"),
+            &cached,
+            60,
+            release.generation().await,
+            chrono::Utc::now().timestamp_micros(),
+        )
+        .await;
+    release.close().await;
+
+    let beta = ResourceCache::open(directories.resource_cache_db()).await;
+    assert_eq!(
+        beta.get(&key("https://catalog.example/v2/")).await,
+        Some(cached)
+    );
+    assert!(beta.get(&key("https://other.example/v2")).await.is_none());
+    beta.close().await;
 }
 
 fn target() -> ipc::ResourceTarget {

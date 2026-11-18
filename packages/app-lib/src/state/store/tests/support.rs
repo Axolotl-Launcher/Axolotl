@@ -100,18 +100,22 @@ pub(super) async fn derived() -> (tempfile::TempDir, Handle) {
 }
 
 /// The same database, reached the way the collections that live there are.
-pub(super) async fn derived_db() -> (tempfile::TempDir, DerivedDb) {
+pub(super) async fn resource_cache()
+-> (tempfile::TempDir, crate::resources::cache::ResourceCache) {
     let directory = tempfile::tempdir().unwrap();
-    let db = DerivedDb::open(directory.path().join(FILE_NAME)).await;
+    let db = crate::resources::cache::ResourceCache::open(
+        directory.path().join("resources.db"),
+    )
+    .await;
     (directory, db)
 }
 
-/// A derived database this build cannot open, which stays disabled for the run.
-pub(super) async fn disabled_derived() -> (tempfile::TempDir, DerivedDb) {
+pub(super) async fn disabled_resource_cache()
+-> (tempfile::TempDir, crate::resources::cache::ResourceCache) {
     let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join(FILE_NAME);
-    tokio::fs::write(&path, b"not a database").await.unwrap();
-    let db = DerivedDb::open(path).await;
+    let path = directory.path().join("directory-instead-of-resources.db");
+    tokio::fs::create_dir(&path).await.unwrap();
+    let db = crate::resources::cache::ResourceCache::open(path).await;
     (directory, db)
 }
 

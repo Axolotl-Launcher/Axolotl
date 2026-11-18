@@ -1,12 +1,12 @@
 //! What a content snapshot reads, and the transaction it reads it in.
 
+use crate::resources::cache::ResourceCache;
 use crate::state::instances::commands::content_snapshot::local;
 use crate::state::store::content_file_fingerprints::{
     ContentFileFingerprints, FileFingerprintRecord, FileModifiedTime,
     FingerprintKey,
 };
 use crate::state::store::content_snapshot::{get, get_with_saved_pack, pause};
-use crate::state::store::derived_db::{DerivedDb, FILE_NAME};
 use crate::state::store::{Collection as _, Handle, content_refresh_checks::*};
 
 async fn seed(pool: &sqlx::SqlitePool) {
@@ -31,10 +31,9 @@ async fn seeded() -> sqlx::SqlitePool {
     pool
 }
 
-/// A derived database of its own, with every derived migration applied.
-async fn derived() -> (tempfile::TempDir, DerivedDb) {
+async fn derived() -> (tempfile::TempDir, ResourceCache) {
     let directory = tempfile::tempdir().unwrap();
-    let db = DerivedDb::open(directory.path().join(FILE_NAME)).await;
+    let db = ResourceCache::open(directory.path().join("resources.db")).await;
     (directory, db)
 }
 
@@ -713,5 +712,5 @@ async fn saved_pack_metadata_recovers_without_network_and_outlives_the_content_s
         "deleting the instance is what drops its derived records now"
     );
     pool.close().await;
-    derived.pool().close().await;
+    derived.close().await;
 }

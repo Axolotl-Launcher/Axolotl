@@ -1,12 +1,13 @@
 //! Rebuildable evidence. The core owns identities; cache rows only describe
 //! the exact file and content-set revision recorded by their guard.
-use super::{Handle, derived_db::DerivedDb};
+use super::Handle;
+use crate::resources::cache::ResourceCache;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sqlx::{SqliteConnection, SqlitePool};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, OnceLock};
-use tokio::sync::{Mutex, OnceCell};
+use std::sync::{Arc, OnceLock, Weak};
+use tokio::sync::Mutex;
 
 #[derive(
     Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow,
@@ -48,39 +49,44 @@ pub(crate) async fn entry_files(
         .bind(instance).fetch_all(connection).await?.into_iter().collect())
 }
 
-async fn cache(handle: &Handle) -> Option<Arc<DerivedDb>> {
+async fn cache(handle: &Handle) -> Arc<ResourceCache> {
     cache_at(
         crate::state::layout::cache(handle.persistence().root())
-            .join(super::derived_db::FILE_NAME),
+            .join(crate::resources::cache::FILE_NAME),
     )
     .await
 }
 
-async fn cache_at(path: PathBuf) -> Option<Arc<DerivedDb>> {
+async fn cache_at(path: PathBuf) -> Arc<ResourceCache> {
     if let Some(state) = crate::State::get_if_initialized()
-        && path
-            == state
-                .directories
-                .cache_db_dir()
-                .join(super::derived_db::FILE_NAME)
+        && path == state.directories.resource_cache_db()
     {
-        return (!state.derived.is_disabled())
-            .then(|| Arc::new(state.derived.clone()));
+        return state.resource_cache().clone();
     }
-    type Cache = Arc<OnceCell<Arc<DerivedDb>>>;
+    type Cache = Arc<Mutex<Weak<ResourceCache>>>;
     static CACHES: OnceLock<Mutex<HashMap<PathBuf, Cache>>> = OnceLock::new();
     let cell = {
         let mut caches = CACHES.get_or_init(Mutex::default).lock().await;
+        caches.retain(|_, cache| {
+            Arc::strong_count(cache) > 1
+                || cache.try_lock().is_ok_and(|cache| cache.strong_count() > 0)
+        });
         caches
             .entry(path.clone())
-            .or_insert_with(|| Arc::new(OnceCell::new()))
+            .or_insert_with(|| Arc::new(Mutex::new(Weak::new())))
             .clone()
     };
-    let database = cell
-        .get_or_init(|| async { Arc::new(DerivedDb::open(path).await) })
-        .await
-        .clone();
-    (!database.is_disabled()).then_some(database)
+    let mut cache = cell.lock().await;
+    if let Some(database) = cache.upgrade() {
+        return database;
+    }
+    let database = Arc::new(ResourceCache::open(path).await);
+    *cache = Arc::downgrade(&database);
+    database
+}
+
+pub(crate) async fn generation(handle: &Handle) -> i64 {
+    cache(handle).await.generation().await
 }
 
 pub(crate) async fn current(
@@ -98,9 +104,9 @@ pub(crate) async fn read<T: DeserializeOwned>(
     id: &str,
     expected: &Guard,
 ) -> Option<T> {
-    let database = cache(handle).await?;
+    let database = cache(handle).await;
     let row = sqlx::query_as::<_, (String,String)>("SELECT guard,payload FROM content_evidence WHERE kind=? AND instance_id=? AND record_id=?")
-        .bind(kind).bind(instance).bind(id).fetch_optional(database.pool()).await;
+        .bind(kind).bind(instance).bind(id).fetch_optional(database.pool()?).await;
     match row {
         Ok(Some((guard, payload)))
             if serde_json::from_str::<Guard>(&guard).ok().as_ref()
@@ -131,10 +137,11 @@ pub(crate) async fn read_scoped<T: DeserializeOwned>(
     expected: &HashMap<String, Guard>,
     entries: Option<&HashMap<String, String>>,
 ) -> HashMap<String, T> {
-    let Some(database) = cache(handle).await else {
+    let database = cache(handle).await;
+    let Some(pool) = database.pool() else {
         return HashMap::new();
     };
-    let rows=match sqlx::query_as::<_,(String,String,String)>("SELECT record_id,guard,payload FROM content_evidence WHERE kind=? AND instance_id=?").bind(kind).bind(instance).fetch_all(database.pool()).await {
+    let rows=match sqlx::query_as::<_,(String,String,String)>("SELECT record_id,guard,payload FROM content_evidence WHERE kind=? AND instance_id=?").bind(kind).bind(instance).fetch_all(pool).await {
         Ok(rows)=>rows,Err(error)=>{tracing::warn!(%error,"Content evidence unavailable");return HashMap::new();}
     };
     rows.into_iter()
@@ -177,12 +184,12 @@ pub(crate) async fn read_for_transfer<T: DeserializeOwned>(
     expected_new: &Guard,
     original_path: &str,
 ) -> Option<T> {
-    let database = cache(handle).await?;
+    let database = cache(handle).await;
     let (guard, payload) = sqlx::query_as::<_, (String, String)>(
         "SELECT guard,payload FROM content_evidence WHERE kind=? AND instance_id=? AND record_id=?",
     )
     .bind(kind).bind(instance).bind(id)
-    .fetch_optional(database.pool()).await.ok()??;
+    .fetch_optional(database.pool()?).await.ok()??;
     let mut saved: Guard = serde_json::from_str(&guard).ok()?;
     if saved.relative_path != original_path
         || !matches!((saved.revision, expected_new.revision),
@@ -215,8 +222,11 @@ pub(crate) async fn write_batch(
     handle: &Handle,
     instance: &str,
     records: Vec<Write>,
+    generation: i64,
 ) {
-    if let Err(error) = try_write_batch(handle, instance, records).await {
+    if let Err(error) =
+        try_write_batch(handle, instance, records, generation).await
+    {
         tracing::warn!(%error, "Optional evidence batch was not persisted");
     }
 }
@@ -227,30 +237,28 @@ pub(crate) async fn try_write_batch(
     handle: &Handle,
     instance: &str,
     records: Vec<Write>,
+    generation: i64,
 ) -> crate::Result<()> {
     if records.is_empty() {
         return Ok(());
     }
     let current = current(handle, instance).await?;
-    let database = cache(handle).await.ok_or_else(|| {
-        crate::ErrorKind::FSError(
-            "Optional content evidence is unavailable".into(),
-        )
-    })?;
-    let mut tx = database.pool().begin().await?;
-    for record in records {
-        if current.get(&record.guard.file_id) != Some(&record.guard) {
-            return Err(crate::ErrorKind::InputError(
-                "Content changed before refresh evidence publication".into(),
-            )
-            .into());
-        }
-        let guard = serde_json::to_string(&record.guard)?;
-        sqlx::query("INSERT INTO content_evidence(kind,instance_id,record_id,guard,payload) VALUES(?,?,?,?,?) ON CONFLICT(kind,instance_id,record_id) DO UPDATE SET guard=excluded.guard,payload=excluded.payload")
-            .bind(record.kind).bind(instance).bind(record.id).bind(guard).bind(record.payload).execute(&mut *tx).await?;
-    }
-    tx.commit().await?;
-    Ok(())
+    cache(handle).await
+        .update_projection(generation, async |unit| {
+            for record in records {
+                if current.get(&record.guard.file_id) != Some(&record.guard) {
+                    return Err(crate::ErrorKind::InputError(
+                        "Content changed before refresh evidence publication".into(),
+                    )
+                    .into());
+                }
+                let guard = serde_json::to_string(&record.guard)?;
+                sqlx::query("INSERT INTO content_evidence(kind,instance_id,record_id,guard,payload) VALUES(?,?,?,?,?) ON CONFLICT(kind,instance_id,record_id) DO UPDATE SET guard=excluded.guard,payload=excluded.payload")
+                    .bind(record.kind).bind(instance).bind(record.id).bind(guard).bind(record.payload).execute(unit.connection()).await?;
+            }
+            Ok(())
+        })
+        .await
 }
 
 /// Only the scanner can carry completed cache rows over its own revision bump.
@@ -264,8 +272,10 @@ pub(crate) async fn rebase_scanned_evidence(
     after: &HashMap<String, Guard>,
     before_entries: &HashMap<String, String>,
     after_entries: &HashMap<String, String>,
+    generation: i64,
 ) {
-    let Some(database) = cache(handle).await else {
+    let database = cache(handle).await;
+    let Some(pool) = database.pool() else {
         return;
     };
     let Ok(live) = current(handle, instance).await else {
@@ -273,7 +283,8 @@ pub(crate) async fn rebase_scanned_evidence(
     };
     let Ok(rows) = sqlx::query_as::<_, (String, String, String, String)>(
         "SELECT kind,record_id,guard,payload FROM content_evidence WHERE instance_id=? AND kind IN ('check','presentation','fingerprint')"
-    ).bind(instance).fetch_all(database.pool()).await else { return };
+    ).bind(instance).fetch_all(pool).await else { return };
+    let mut retained = Vec::new();
     for (kind, id, saved, payload) in rows {
         let candidate = (|| {
             let file = if kind == "check" {
@@ -331,15 +342,26 @@ pub(crate) async fn rebase_scanned_evidence(
             serde_json::to_string(current).ok()
         })();
         let Some(next) = candidate else { continue };
-        // A writer that already installed the new generation wins. Never copy
-        // an older payload over its result merely because a scan finished.
-        if let Err(error) = sqlx::query("UPDATE content_evidence SET guard=? WHERE kind=? AND instance_id=? AND record_id=? AND guard=? AND payload=?")
-            .bind(next).bind(kind).bind(instance).bind(id).bind(saved).bind(payload).execute(database.pool()).await {
-            tracing::warn!(%error,"Unchanged scan evidence could not be retained");
-        }
+        retained.push((next, kind, id, saved, payload));
+    }
+    if retained.is_empty() {
+        return;
+    }
+    if let Err(error) = database
+        .update_projection(generation, async |unit| {
+            for (next, kind, id, saved, payload) in retained {
+                sqlx::query("UPDATE content_evidence SET guard=? WHERE kind=? AND instance_id=? AND record_id=? AND guard=? AND payload=?")
+                    .bind(next).bind(kind).bind(instance).bind(id).bind(saved).bind(payload).execute(unit.connection()).await?;
+            }
+            Ok(())
+        })
+        .await
+    {
+        tracing::warn!(%error, "Unchanged scan evidence could not be retained");
     }
 }
 
+#[cfg(test)]
 pub(crate) async fn write<T: Serialize>(
     handle: &Handle,
     kind: &str,
@@ -347,6 +369,19 @@ pub(crate) async fn write<T: Serialize>(
     expected: &Guard,
     record: &T,
 ) {
+    let generation = generation(handle).await;
+    write_at(handle, kind, id, expected, record, generation).await;
+}
+
+pub(crate) async fn write_at<T: Serialize>(
+    handle: &Handle,
+    kind: &str,
+    id: &str,
+    expected: &Guard,
+    record: &T,
+    generation: i64,
+) {
+    let database = cache(handle).await;
     let valid = current(handle, &expected.instance_id)
         .await
         .ok()
@@ -354,9 +389,6 @@ pub(crate) async fn write<T: Serialize>(
     if valid.as_ref() != Some(expected) {
         return;
     }
-    let Some(database) = cache(handle).await else {
-        return;
-    };
     let payload = match serde_json::to_string(record) {
         Ok(value) => value,
         Err(error) => {
@@ -368,8 +400,11 @@ pub(crate) async fn write<T: Serialize>(
         Ok(value) => value,
         Err(_) => return,
     };
-    if let Err(error)=sqlx::query("INSERT INTO content_evidence(kind,instance_id,record_id,guard,payload) VALUES(?,?,?,?,?) ON CONFLICT(kind,instance_id,record_id) DO UPDATE SET guard=excluded.guard,payload=excluded.payload")
-        .bind(kind).bind(&expected.instance_id).bind(id).bind(guard).bind(payload).execute(database.pool()).await {
+    if let Err(error) = database.update_projection(generation, async |unit| {
+        sqlx::query("INSERT INTO content_evidence(kind,instance_id,record_id,guard,payload) VALUES(?,?,?,?,?) ON CONFLICT(kind,instance_id,record_id) DO UPDATE SET guard=excluded.guard,payload=excluded.payload")
+            .bind(kind).bind(&expected.instance_id).bind(id).bind(guard).bind(payload).execute(unit.connection()).await?;
+        Ok(())
+    }).await {
         tracing::warn!(%error,"Content evidence write dropped");
     }
 }
@@ -380,9 +415,10 @@ pub(crate) async fn remove(
     instance: &str,
     id: &str,
 ) {
-    if let Some(database) = cache(handle).await {
+    let database = cache(handle).await;
+    if let Some(pool) = database.pool() {
         if let Err(error)=sqlx::query("DELETE FROM content_evidence WHERE kind=? AND instance_id=? AND record_id=?")
-            .bind(kind).bind(instance).bind(id).execute(database.pool()).await {tracing::warn!(%error,"Content evidence cleanup deferred");}
+            .bind(kind).bind(instance).bind(id).execute(pool).await {tracing::warn!(%error,"Content evidence cleanup deferred");}
     }
 }
 
@@ -441,7 +477,8 @@ async fn artifacts<'a>(
     handle: &Handle,
     guards: impl Iterator<Item = &'a Guard>,
 ) -> HashMap<String, Parsed> {
-    let Some(database) = cache(handle).await else {
+    let database = cache(handle).await;
+    let Some(pool) = database.pool() else {
         return HashMap::new();
     };
     let ids = guards
@@ -459,7 +496,7 @@ async fn artifacts<'a>(
         separated.push_unseparated(")");
         let Ok(rows) = query
             .build_query_as::<(String, String)>()
-            .fetch_all(database.pool())
+            .fetch_all(pool)
             .await
         else {
             continue;
@@ -542,16 +579,15 @@ pub(crate) async fn parsed_for_artifact(
 }
 
 async fn artifact(handle: &Handle, sha1: &str, size: i64) -> Option<Parsed> {
-    let database = cache(handle).await?;
+    let database = cache(handle).await;
     let id = format!("{}:{size}", sha1.to_ascii_lowercase());
-    let payload=sqlx::query_scalar::<_,String>("SELECT payload FROM content_evidence WHERE kind='artifact' AND instance_id='' AND record_id=?").bind(id).fetch_optional(database.pool()).await.ok().flatten()?;
+    let payload=sqlx::query_scalar::<_,String>("SELECT payload FROM content_evidence WHERE kind='artifact' AND instance_id='' AND record_id=?").bind(id).fetch_optional(database.pool()?).await.ok().flatten()?;
     decode_artifact(&payload)
 }
 
-/// Parsing describes immutable bytes, so an orphan cache write after a rolled
-/// back install is harmless. No ownership or instance selection is stored here.
 pub(crate) async fn remember_parsed(
-    connection: &mut SqliteConnection,
+    database: &ResourceCache,
+    generation: i64,
     sha1: &str,
     size: i64,
     metadata: Option<&str>,
@@ -566,42 +602,30 @@ pub(crate) async fn remember_parsed(
     {
         return;
     }
-    let file = sqlx::query_scalar::<_, String>(
-        "SELECT file FROM pragma_database_list WHERE name='main'",
-    )
-    .fetch_one(&mut *connection)
-    .await
-    .ok();
-    let Some(path) = file.map(PathBuf::from).filter(|path| {
-        path.file_name().is_some_and(|name| name == "system.db")
-    }) else {
-        return;
-    };
-    let Some(root) = path.parent() else {
-        return;
-    };
-    let Some(database) = cache_at(root.join("derived.db")).await else {
-        return;
-    };
     let parsed = Parsed {
         metadata: metadata.map(str::to_owned),
         icon: icon.map(str::to_owned),
     };
-    if let Err(error) = save_artifact(&database, sha1, size, &parsed).await {
+    if let Err(error) =
+        save_artifact(database, generation, sha1, size, &parsed).await
+    {
         tracing::warn!(%error,"Parsed content cache write dropped");
     }
 }
 
 async fn save_artifact(
-    database: &DerivedDb,
+    database: &ResourceCache,
+    generation: i64,
     sha1: &str,
     size: i64,
     parsed: &Parsed,
 ) -> crate::Result<()> {
     let payload = serde_json::to_string(parsed)?;
-    sqlx::query("INSERT INTO content_evidence(kind,instance_id,record_id,guard,payload) VALUES('artifact','',?,'',?) ON CONFLICT(kind,instance_id,record_id) DO UPDATE SET payload=excluded.payload")
-        .bind(artifact_key(sha1,size)).bind(payload).execute(database.pool()).await?;
-    Ok(())
+    database.update_projection(generation, async |unit| {
+        sqlx::query("INSERT INTO content_evidence(kind,instance_id,record_id,guard,payload) VALUES('artifact','',?,'',?) ON CONFLICT(kind,instance_id,record_id) DO UPDATE SET payload=excluded.payload")
+            .bind(artifact_key(sha1,size)).bind(payload).execute(unit.connection()).await?;
+        Ok(())
+    }).await
 }
 
 #[cfg(test)]
@@ -611,11 +635,10 @@ pub(crate) async fn seed_artifact(
     size: i64,
     metadata: String,
 ) -> crate::Result<()> {
-    let database = cache(handle).await.ok_or_else(|| {
-        crate::ErrorKind::FSError("Test evidence unavailable".into())
-    })?;
+    let database = cache(handle).await;
     save_artifact(
         &database,
+        database.generation().await,
         sha1,
         size,
         &Parsed {

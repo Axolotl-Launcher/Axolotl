@@ -1,6 +1,6 @@
 //! Failed scans include paths that do not yet have a tracked file or entry.
 use super::Collection;
-use super::derived_db::DerivedDb;
+use crate::resources::cache::ResourceCache;
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
 
@@ -137,31 +137,56 @@ impl Collection for ContentRefreshScanFailures {
 /// through that database rather than through a handle.
 impl ContentRefreshScanFailures {
     pub(crate) async fn failed(
-        derived: &DerivedDb,
+        cache: &ResourceCache,
         instance_id: &str,
     ) -> crate::Result<Vec<(ScanFailureKey, ScanFailureRecord)>> {
         let scope = instance_id.to_string();
-        derived
-            .read(async |handle| Self::get_scoped(handle, &scope).await)
+        cache
+            .with_projection(async |handle| {
+                Self::get_scoped(handle, &scope).await
+            })
             .await
     }
 
+    #[cfg(test)]
     pub(crate) async fn upsert(
-        derived: &DerivedDb,
+        cache: &ResourceCache,
         key: &ScanFailureKey,
         record: &ScanFailureRecord,
     ) -> crate::Result<()> {
-        derived
-            .write(async |handle| Self::set(handle, key, Some(record)).await)
+        Self::upsert_at(cache, key, record, cache.generation().await).await
+    }
+
+    pub(crate) async fn upsert_at(
+        cache: &ResourceCache,
+        key: &ScanFailureKey,
+        record: &ScanFailureRecord,
+        generation: i64,
+    ) -> crate::Result<()> {
+        cache
+            .update_projection(generation, async |unit| {
+                Self::atom_set(unit, key, Some(record)).await
+            })
             .await
     }
 
+    #[cfg(test)]
     pub(crate) async fn remove(
-        derived: &DerivedDb,
+        cache: &ResourceCache,
         key: &ScanFailureKey,
     ) -> crate::Result<()> {
-        derived
-            .write(async |handle| Self::set(handle, key, None).await)
+        Self::remove_at(cache, key, cache.generation().await).await
+    }
+
+    pub(crate) async fn remove_at(
+        cache: &ResourceCache,
+        key: &ScanFailureKey,
+        generation: i64,
+    ) -> crate::Result<()> {
+        cache
+            .update_projection(generation, async |unit| {
+                Self::atom_set(unit, key, None).await
+            })
             .await
     }
 
@@ -169,22 +194,22 @@ impl ContentRefreshScanFailures {
     /// to the table that owns them, so the deletion of an instance is what
     /// removes them, and running it again costs nothing.
     pub(crate) async fn forget_instance(
-        derived: &DerivedDb,
+        cache: &ResourceCache,
         instance_id: &str,
     ) -> crate::Result<()> {
-        derived
-            .write(async |handle| {
-                Self::set_scoped(handle, &instance_id.to_string(), &[]).await
+        cache
+            .update_projection(cache.generation().await, async |unit| {
+                Self::atom_set_scoped(unit, &instance_id.to_string(), &[]).await
             })
             .await
     }
 
     /// The instances this collection holds a record for.
     pub(crate) async fn instance_ids(
-        derived: &DerivedDb,
+        cache: &ResourceCache,
     ) -> crate::Result<Vec<String>> {
-        derived
-            .read(async |handle| {
+        cache
+            .with_projection(async |handle| {
                 let mut connection = handle.connection().await?;
                 Ok(sqlx::query_scalar(
                     "SELECT DISTINCT instance_id FROM content_refresh_scan_failures",

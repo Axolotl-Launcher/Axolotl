@@ -155,14 +155,6 @@ pub(crate) async fn upsert_instance_file(
     let missing = i64::from(file.missing);
     let added_at = file.added_at.timestamp();
     let modified_at = file.modified_at.timestamp();
-    crate::state::store::content_evidence::remember_parsed(
-        &mut *tx,
-        &file.sha1,
-        file.size as i64,
-        file.local_mod_data.as_deref(),
-        file.icon_path.as_deref(),
-    )
-    .await;
     let local_mod_data = None::<&str>;
     let icon_path = None::<&str>;
 
@@ -794,32 +786,6 @@ pub(crate) async fn rename_entry_file_in_transaction(
 
 /// Records the metadata read from a file's own bytes, dropping the icon that
 /// described the bytes it replaced.
-pub(crate) async fn set_local_mod_data_in_transaction(
-    file_id: &str,
-    local_mod_data: Option<&str>,
-    tx: &mut Transaction<'_, Sqlite>,
-) -> crate::Result<()> {
-    if let Some((sha1, size)) = sqlx::query_as::<_, (String, i64)>(
-        "SELECT sha1,size FROM instance_files WHERE id=?",
-    )
-    .bind(file_id)
-    .fetch_optional(&mut **tx)
-    .await?
-    {
-        crate::state::store::content_evidence::remember_parsed(
-            &mut *tx,
-            &sha1,
-            size,
-            local_mod_data,
-            None,
-        )
-        .await;
-    }
-    sqlx::query("UPDATE instance_files SET local_mod_data=NULL,icon_path=NULL WHERE id=?").bind(file_id).execute(&mut **tx).await?;
-
-    Ok(())
-}
-
 /// Reads the metadata stored for files that carry exactly these bytes.
 #[cfg(test)]
 pub(crate) async fn get_local_mod_data_for_artifact<'e, E>(

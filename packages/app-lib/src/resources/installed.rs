@@ -633,6 +633,13 @@ pub(super) async fn installed_file_identity(
 ) -> ResourceResult<LocalArtifactIdentity> {
     use crate::state::store::content_file_fingerprints::ContentFileFingerprints;
 
+    let generation = cache.generation().await;
+    let content_generation =
+        if std::ptr::eq(cache, state.resource_cache().as_ref()) {
+            generation
+        } else {
+            state.resource_cache().generation().await
+        };
     let previous = ContentFileFingerprints::get_current(
         &state.data,
         instance_id,
@@ -657,10 +664,14 @@ pub(super) async fn installed_file_identity(
         )));
     }
     if let Some(record) = &result.record {
-        ContentFileFingerprints::set_current(&state.data, instance_id, record)
-            .await?;
+        ContentFileFingerprints::set_current_at(
+            &state.data,
+            instance_id,
+            record,
+            content_generation,
+        )
+        .await?;
     }
-    let generation = cache.generation().await;
     cache
         .store_local_identity(&result.identity, generation)
         .await;

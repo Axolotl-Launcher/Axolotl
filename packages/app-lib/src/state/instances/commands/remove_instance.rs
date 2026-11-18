@@ -72,7 +72,7 @@ async fn remove_instance_files_and_state(
         // spurious "Unknown instance" error.
         tracing::debug!(instance_id, "Instance was already removed");
         forget_sync_rows(instance_id, state).await;
-        forget_derived_rows(instance_id, &state.derived).await;
+        forget_derived_rows(instance_id, state.resource_cache()).await;
         return Ok(());
     };
 
@@ -160,7 +160,7 @@ async fn remove_instance_files_and_state(
         .await?;
     instance_rows::delete_instance_by_id(&instance.id, &state.pool).await?;
     forget_sync_rows(&instance.id, state).await;
-    forget_derived_rows(&instance.id, &state.derived).await;
+    forget_derived_rows(&instance.id, state.resource_cache()).await;
     config_sync::remove_config_file(&state.directories, &instance.path).await?;
     for job in jobs {
         if let Err(error) =
@@ -221,7 +221,7 @@ fn is_version_isolated_game_dir(path: &Path) -> bool {
 /// record is worth less than the deletion itself, so a failure is a warning.
 pub(crate) async fn forget_derived_rows(
     instance_id: &str,
-    derived: &crate::state::store::derived_db::DerivedDb,
+    derived: &crate::resources::cache::ResourceCache,
 ) {
     use crate::state::store::content_refresh_pack::ContentRefreshPacks;
     use crate::state::store::content_refresh_scan_failures::ContentRefreshScanFailures;
@@ -555,7 +555,7 @@ mod tests {
             content_set_id: "set".into(),
         };
         ContentRefreshPacks::upsert(
-            &state.derived,
+            state.resource_cache(),
             &pack,
             &PackRecord {
                 location_key: "root".into(),
@@ -569,7 +569,7 @@ mod tests {
         .await
         .unwrap();
         ContentRefreshScanFailures::upsert(
-            &state.derived,
+            state.resource_cache(),
             &ScanFailureKey {
                 instance_id: "instance".into(),
                 location_key: "root".into(),
@@ -595,16 +595,19 @@ mod tests {
             "the deletion step removes the instance itself"
         );
         assert!(
-            ContentRefreshPacks::saved(&state.derived, &pack)
+            ContentRefreshPacks::saved(state.resource_cache(), &pack)
                 .await
                 .unwrap()
                 .is_none()
         );
         assert!(
-            ContentRefreshScanFailures::failed(&state.derived, "instance")
-                .await
-                .unwrap()
-                .is_empty()
+            ContentRefreshScanFailures::failed(
+                state.resource_cache(),
+                "instance"
+            )
+            .await
+            .unwrap()
+            .is_empty()
         );
         state.pool.close().await;
     }
@@ -616,7 +619,7 @@ mod tests {
     async fn deleting_an_instance_that_is_gone_still_drops_its_derived_rows() {
         let (_temp, state) = state_with_one_instance().await;
         ContentRefreshScanFailures::upsert(
-            &state.derived,
+            state.resource_cache(),
             &ScanFailureKey {
                 instance_id: "instance".into(),
                 location_key: "root".into(),
@@ -638,10 +641,13 @@ mod tests {
             .unwrap();
 
         assert!(
-            ContentRefreshScanFailures::failed(&state.derived, "instance")
-                .await
-                .unwrap()
-                .is_empty()
+            ContentRefreshScanFailures::failed(
+                state.resource_cache(),
+                "instance"
+            )
+            .await
+            .unwrap()
+            .is_empty()
         );
         state.pool.close().await;
     }

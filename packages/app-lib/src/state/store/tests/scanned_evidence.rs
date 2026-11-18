@@ -82,6 +82,7 @@ async fn fixture() -> (tempfile::TempDir, Handle, RefreshCheckRecord) {
             guard,
             payload: serde_json::to_string(&payload).unwrap(),
         }],
+        content_evidence::generation(&handle).await,
     )
     .await
     .unwrap();
@@ -99,6 +100,7 @@ async fn scan(
     instance_content_files::set_scanned(
         handle,
         ScannedFiles {
+            cache_generation: content_evidence::generation(handle).await,
             complete: true,
             create_entries: true,
             instance_id: "instance",
@@ -158,7 +160,7 @@ async fn adding_an_unrelated_file_retains_exact_completed_evidence_but_late_old_
     );
     let cache = sqlx::SqlitePool::connect_with(
         sqlx::sqlite::SqliteConnectOptions::new()
-            .filename(root.path().join("cache/derived.db")),
+            .filename(root.path().join("cache/resources.db")),
     )
     .await
     .unwrap();

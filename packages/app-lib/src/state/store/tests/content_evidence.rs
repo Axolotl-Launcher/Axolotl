@@ -89,18 +89,14 @@ async fn cache_loss_and_newer_payload_do_not_remove_core_relationships() {
     .await
     .unwrap();
     assert_eq!(owner, "user_added");
-    assert!(directory.path().join("cache/derived.db").is_file());
+    assert!(directory.path().join("cache/resources.db").is_file());
 }
 
 #[tokio::test]
 async fn inaccessible_optional_cache_leaves_the_core_usable() {
     let (directory, handle) = fixture().await;
-    tokio::fs::create_dir_all(directory.path().join("cache"))
-        .await
-        .unwrap();
-    tokio::fs::write(directory.path().join("cache/derived.db"), b"not SQLite")
-        .await
-        .unwrap();
+    let cache = directory.path().join("cache/resources.db");
+    tokio::fs::create_dir_all(&cache).await.unwrap();
     let current = guard(&handle).await;
     assert!(
         content_evidence::read::<Parsed>(
@@ -127,12 +123,7 @@ async fn inaccessible_optional_cache_leaves_the_core_usable() {
             .unwrap(),
         1
     );
-    assert_eq!(
-        tokio::fs::read(directory.path().join("cache/derived.db"))
-            .await
-            .unwrap(),
-        b"not SQLite"
-    );
+    assert!(cache.is_dir());
 }
 
 #[tokio::test]

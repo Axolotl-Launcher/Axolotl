@@ -12,7 +12,7 @@ pub(crate) async fn get(
     let mut records =
         crate::state::store::content_snapshot::get_with_saved_pack(
             &state.data,
-            &state.derived,
+            state.resource_cache(),
             instance_id,
         )
         .await?;

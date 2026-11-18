@@ -20,7 +20,7 @@ use crate::state::{
     CacheBehaviour, CacheValue, CachedEntry, CachedFileHash, ContentProvider,
     ContentProviderRef, CurseForgeFileId, CurseForgeProjectId, Dependency,
     DependencyType, KnownModrinthFile, ModLoader, ModrinthProjectId,
-    ModrinthVersionId, Project, ProjectType, State, Version, cache_file_hash,
+    ModrinthVersionId, Project, ProjectType, State, Version,
 };
 use crate::util::fetch::{
     self, ContentValidation, DownloadMeta, DownloadReason, DownloadRequest,
@@ -2489,6 +2489,8 @@ async fn add_project_bytes_with_provider(
     provider_ref: Option<&ContentProviderRef>,
     state: &State,
 ) -> crate::Result<String> {
+    let cache = state.resource_cache();
+    let cache_generation = cache.generation().await;
     let _instance_lock = state.lock_instance_content(instance_id).await;
 
     let scope = resolve_content_scope(instance_id, None, state).await?;
@@ -2535,17 +2537,21 @@ async fn add_project_bytes_with_provider(
         None => fetch::sha1_async(bytes.clone()).await?,
     };
 
-    cache_file_hash(
-        bytes.clone(),
-        &scope.instance.path,
-        &relative_path,
-        Some(&sha1),
-        Some(project_type),
-        None,
-        &state.cache_handle(),
-    )
-    .await?;
     fetch::write(&full_path, &bytes, &state.io_semaphore).await?;
+    let hash_cache = CacheValue::FileHash(CachedFileHash {
+        path: format!("{}/{}", scope.instance.path, relative_path),
+        size: bytes.len() as u64,
+        hash: sha1.clone(),
+        project_type: Some(project_type),
+        project_id: None,
+        version_id: None,
+    })
+    .get_entry();
+    CachedEntry::invalidate_install_hashes(
+        cache,
+        std::slice::from_ref(&hash_cache),
+    )
+    .await;
 
     let local_mod_data = if project_type == ProjectType::Mod {
         crate::mod_metadata::extract_mod_metadata(&bytes)
@@ -2580,6 +2586,20 @@ async fn add_project_bytes_with_provider(
         state,
     )
     .await?;
+
+    CachedEntry::store_install_hashes(cache, cache_generation, &[hash_cache])
+        .await;
+    if let Ok(size) = i64::try_from(file.size) {
+        crate::state::store::content_evidence::remember_parsed(
+            cache,
+            cache_generation,
+            &sha1,
+            size,
+            local_mod_data.as_deref(),
+            None,
+        )
+        .await;
+    }
 
     Ok(relative_path)
 }
@@ -2942,6 +2962,28 @@ async fn record_project_files_transaction(
     let _instance_lock = state.lock_instance_content(instance_id).await;
 
     let scope = resolve_content_scope(instance_id, None, state).await?;
+    let hash_cache_entries: Vec<_> = records
+        .iter()
+        .map(|record| {
+            CacheValue::FileHash(CachedFileHash {
+                path: format!(
+                    "{}/{}",
+                    scope.instance.path, record.relative_path
+                ),
+                size: record.size,
+                hash: record.sha1.clone(),
+                project_type: Some(record.project_type),
+                project_id: record.known_modrinth_project_id.clone(),
+                version_id: record.known_modrinth_version_id.clone(),
+            })
+            .get_entry()
+        })
+        .collect();
+    CachedEntry::invalidate_install_hashes(
+        state.resource_cache(),
+        &hash_cache_entries,
+    )
+    .await;
     let (mut tx, tx_diagnostics) = begin_content_write(&state.pool).await?;
     write_guards::ensure_content_write_parents(
         &scope.instance.id,
@@ -2949,7 +2991,6 @@ async fn record_project_files_transaction(
         &mut tx,
     )
     .await?;
-    let mut hash_cache_entries = Vec::with_capacity(records.len());
     for record in records {
         let file_name = Path::new(&record.relative_path)
             .file_name()
@@ -3099,20 +3140,6 @@ async fn record_project_files_transaction(
             )
             .await?;
         }
-        hash_cache_entries.push(
-            CacheValue::FileHash(CachedFileHash {
-                path: format!(
-                    "{}/{}",
-                    scope.instance.path, record.relative_path
-                ),
-                size: record.size,
-                hash: record.sha1.clone(),
-                project_type: Some(record.project_type),
-                project_id: record.known_modrinth_project_id.clone(),
-                version_id: record.known_modrinth_version_id.clone(),
-            })
-            .get_entry(),
-        );
     }
     if let Some(plan) = plan {
         let paths = records
@@ -3132,12 +3159,8 @@ async fn record_project_files_transaction(
         &mut tx,
     )
     .await?;
-    CachedEntry::forget_best_effort(&hash_cache_entries, state.cache_pool())
-        .await;
     tx_diagnostics.observe("commit_wait", tx.commit()).await?;
     tx_diagnostics.complete("committed");
-    CachedEntry::store_best_effort(&hash_cache_entries, state.cache_pool())
-        .await;
     Ok(())
 }
 
@@ -3867,6 +3890,8 @@ async fn rollback_project_inner(
     project_path: &str,
     state: &State,
 ) -> crate::Result<String> {
+    let cache = state.resource_cache();
+    let cache_generation = cache.generation().await;
     let _writer = state.acquire_install_db_permit().await?;
     let _instance_lock =
         state.lock_instance_content_exclusive(instance_id).await;
@@ -4019,6 +4044,16 @@ async fn rollback_project_inner(
                 None
             };
 
+            let hash_cache = CacheValue::FileHash(CachedFileHash {
+                path: format!("{}/{}", scope.instance.path, final_relative_path),
+                size: restored_size,
+                hash: restored_sha1.clone(),
+                project_type: project_type_for_file_path(&final_relative_path),
+                project_id: None,
+                version_id: None,
+            })
+            .get_entry();
+            CachedEntry::invalidate_install_hashes(cache, std::slice::from_ref(&hash_cache)).await;
             let (mut tx, tx_diagnostics) = crate::state::store::lock_diagnostics::begin(&state.pool, "BEGIN IMMEDIATE").await?;
             files::rename_file_in_place_in_transaction(
                 &scope.instance.id,
@@ -4075,28 +4110,20 @@ async fn rollback_project_inner(
                 .await?;
             }
             content_store_files::remove_instance_files(&mut tx, instance_id, &[project_path, final_relative_path.as_str()]).await?;
-            let hash_cache = CacheValue::FileHash(CachedFileHash {
-                path: format!("{}/{}", scope.instance.path, final_relative_path),
-                size: restored_size,
-                hash: restored_sha1,
-                project_type: project_type_for_file_path(&final_relative_path),
-                project_id: None,
-                version_id: None,
-            })
-            .get_entry();
             content_sets::bump_content_set_revision_in_transaction(
                 &scope.content_set_id,
                 &mut tx,
             )
             .await?;
             rollback_journals::delete_journal(instance_id, &mut *tx).await?;
-            // The hash cache lives in the derived database: forget the old
-            // entry before the commit, store the new one after it.
-            CachedEntry::forget_best_effort(std::slice::from_ref(&hash_cache), state.cache_pool())
-                .await;
             tx_diagnostics.observe("commit_wait", tx.commit()).await?;
     tx_diagnostics.complete("committed");
-            CachedEntry::store_best_effort(&[hash_cache], state.cache_pool()).await;
+            CachedEntry::store_install_hashes(cache, cache_generation, &[hash_cache]).await;
+            if let Ok(size) = i64::try_from(restored_size) {
+                crate::state::store::content_evidence::remember_parsed(
+                    cache, cache_generation, &restored_sha1, size, local_mod_data.as_deref(), None
+                ).await;
+            }
 
             Ok(final_relative_path)
             }.await;

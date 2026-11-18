@@ -92,7 +92,14 @@ pub(crate) async fn artifacts(
 
 pub(crate) fn index_key(release: &str) -> ResourceResult<cache::CacheKey> {
     SourceReleaseId::new(release)?;
-    cache::CacheKey::new("pack-index".into(), SourceId::modrinth(), &release)
+    cache::CacheKey::new(
+        format!(
+            "pack-index:{}",
+            modrinth_cache_scope(env!("MODRINTH_API_URL"))
+        ),
+        SourceId::modrinth(),
+        &release,
+    )
 }
 
 pub(crate) fn valid_index(index: &crate::state::CachedModpackFiles) -> bool {
@@ -111,9 +118,18 @@ pub(crate) fn valid_index(index: &crate::state::CachedModpackFiles) -> bool {
         && index.file_hashes.iter().all(|hash| hash.len() == 40 && hash.bytes().all(|byte| byte.is_ascii_hexdigit()))
 }
 
+#[cfg(test)]
 pub(crate) async fn save_index(
     cache: &cache::ResourceCache,
     index: &crate::state::CachedModpackFiles,
+) -> ResourceResult<()> {
+    save_index_at(cache, index, cache.generation().await).await
+}
+
+pub(crate) async fn save_index_at(
+    cache: &cache::ResourceCache,
+    index: &crate::state::CachedModpackFiles,
+    generation: i64,
 ) -> ResourceResult<()> {
     if !valid_index(index) {
         return Err(ResourceError::InvalidRequest("invalid pack index".into()));
@@ -124,7 +140,7 @@ pub(crate) async fn save_index(
             &key,
             &ProviderValue::Protocol(serde_json::to_value(index)?),
             24 * 60 * 60,
-            cache.generation().await,
+            generation,
             chrono::Utc::now().timestamp_micros(),
         )
         .await;

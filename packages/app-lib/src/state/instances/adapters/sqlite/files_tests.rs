@@ -132,8 +132,7 @@ async fn the_metadata_of_files_with_the_same_bytes_reads_back() {
 }
 
 #[tokio::test]
-async fn recorded_file_metadata_reads_from_derived_evidence_and_leaves_no_sql_copy()
- {
+async fn installed_file_metadata_is_published_after_the_core_transaction() {
     let root = tempfile::tempdir().unwrap();
     let pool = crate::state::store::databases::open(root.path())
         .await
@@ -145,14 +144,56 @@ async fn recorded_file_metadata_reads_from_derived_evidence_and_leaves_no_sql_co
         .bind(&sha1).execute(&pool).await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
-    set_local_mod_data_in_transaction(
-        "file",
-        Some("{\"name\":\"recorded\"}"),
+    upsert_instance_file_from_parts_in_transaction(
+        UpsertInstanceFile {
+            instance_id: "instance",
+            relative_path: "mods/file.jar",
+            file_name: "file.jar",
+            enabled: true,
+            sha1: &sha1,
+            size: 10,
+            missing: false,
+            local_mod_data: Some("{\"name\":\"recorded\"}"),
+            icon_path: None,
+        },
         &mut tx,
     )
     .await
     .unwrap();
     tx.commit().await.unwrap();
+
+    let cache_path = root.path().join("cache/resources.db");
+    assert!(!cache_path.exists());
+    let cache = crate::resources::cache::ResourceCache::open(cache_path).await;
+    let previous_generation = cache.generation().await;
+    cache.clear().await.unwrap();
+    crate::state::store::content_evidence::remember_parsed(
+        &cache,
+        previous_generation,
+        &sha1,
+        10,
+        Some("{\"name\":\"superseded\"}"),
+        None,
+    )
+    .await;
+    assert!(
+        crate::state::store::content_evidence::parsed_for_artifact(
+            &pool, &sha1, 10
+        )
+        .await
+        .unwrap()
+        .is_empty()
+    );
+    crate::state::store::content_evidence::remember_parsed(
+        &cache,
+        cache.generation().await,
+        &sha1,
+        10,
+        Some("{\"name\":\"recorded\"}"),
+        None,
+    )
+    .await;
+    cache.close().await;
 
     let cached = crate::state::store::content_evidence::parsed_for_artifact(
         &pool, &sha1, 10,

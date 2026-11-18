@@ -799,7 +799,12 @@ impl ResourceProvider for ModrinthProvider {
         }
     }
     fn namespace(&self) -> String {
-        "modrinth-v2-dates".into()
+        let scope = self.transport.cache_namespace(&SourceId::modrinth());
+        if scope.is_empty() {
+            "modrinth-v2-dates".into()
+        } else {
+            format!("modrinth-v2-dates:{scope}")
+        }
     }
     fn batch_limit(&self, query: &ProviderQuery) -> usize {
         if matches!(query, ProviderQuery::UpdateCandidates { .. }) {

@@ -47,6 +47,7 @@ pub(crate) async fn get_entry_file_ids(
 }
 
 pub(crate) struct ScannedFiles<'a> {
+    pub cache_generation: i64,
     pub complete: bool,
     pub create_entries: bool,
     pub instance_id: &'a str,
@@ -69,6 +70,7 @@ where
     Fut: std::future::Future<Output = bool>,
 {
     let ScannedFiles {
+        cache_generation,
         complete,
         create_entries,
         instance_id,
@@ -159,8 +161,8 @@ where
                 file.enabled,
                 &file.sha1,
                 file.size,
-                file.local_mod_data.as_deref(),
-                file.icon_path.as_deref(),
+                None,
+                None,
                 &mut tx,
             )
             .await?
@@ -234,6 +236,7 @@ where
         &accepted_guards,
         &previous_entries,
         &accepted_entries,
+        cache_generation,
     )
     .await;
     let mut evidence = Vec::new();
@@ -264,7 +267,13 @@ where
             payload: serde_json::to_string(&parsed)?,
         });
     }
-    super::content_evidence::write_batch(handle, instance_id, evidence).await;
+    super::content_evidence::write_batch(
+        handle,
+        instance_id,
+        evidence,
+        cache_generation,
+    )
+    .await;
     Ok(Some(synced_files))
 }
 
@@ -282,8 +291,8 @@ async fn upsert_scanned_file(
             sha1: &file.sha1,
             size: file.size,
             missing: false,
-            local_mod_data: file.local_mod_data.as_deref(),
-            icon_path: file.icon_path.as_deref(),
+            local_mod_data: None,
+            icon_path: None,
         },
         tx,
     )

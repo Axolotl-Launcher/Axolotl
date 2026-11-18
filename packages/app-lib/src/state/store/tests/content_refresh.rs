@@ -472,10 +472,10 @@ fn fingerprint_attributes_require_precise_time_path_and_root() {
 }
 
 #[tokio::test]
-async fn saved_packs_and_scan_failures_answer_on_the_derived_database() {
+async fn saved_packs_and_scan_failures_answer_on_the_resource_cache() {
     use crate::state::store::content_refresh_pack::*;
     use crate::state::store::content_refresh_scan_failures::*;
-    let (_directory, derived) = support::derived_db().await;
+    let (_directory, derived) = support::resource_cache().await;
     let key = ScanFailureKey {
         instance_id: "instance".into(),
         location_key: "root".into(),
@@ -547,7 +547,55 @@ async fn saved_packs_and_scan_failures_answer_on_the_derived_database() {
             .unwrap()
             .is_none()
     );
-    derived.pool().close().await;
+    derived.close().await;
+}
+
+#[tokio::test]
+async fn clearing_resource_cache_discards_saved_refreshes_and_rejects_older_work()
+ {
+    use crate::state::store::content_refresh_scan_failures::*;
+    let (_directory, cache) = support::resource_cache().await;
+    let key = ScanFailureKey {
+        instance_id: "instance".into(),
+        location_key: "root".into(),
+        relative_path: "mods/example.jar".into(),
+    };
+    let failure = ScanFailureRecord {
+        attempted_at: 1,
+        error: "scan failed".into(),
+    };
+    let generation = cache.generation().await;
+    ContentRefreshScanFailures::upsert_at(&cache, &key, &failure, generation)
+        .await
+        .unwrap();
+    assert_eq!(
+        ContentRefreshScanFailures::failed(&cache, "instance")
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    cache.clear().await.unwrap();
+    ContentRefreshScanFailures::upsert_at(&cache, &key, &failure, generation)
+        .await
+        .unwrap();
+    assert!(
+        ContentRefreshScanFailures::failed(&cache, "instance")
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    ContentRefreshScanFailures::upsert(&cache, &key, &failure)
+        .await
+        .unwrap();
+    assert_eq!(
+        ContentRefreshScanFailures::failed(&cache, "instance")
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    cache.close().await;
 }
 
 /// The old schema removed a saved pack in two cases: the instance went away, or
@@ -559,7 +607,7 @@ async fn a_content_set_switch_keeps_the_saved_pack_of_the_set_it_left() {
     use crate::state::store::content_refresh_pack::*;
     let pool = support::pool().await;
     seed_with_second_set(&pool).await;
-    let (_directory, derived) = support::derived_db().await;
+    let (_directory, derived) = support::resource_cache().await;
     let handle = Handle::new(pool.clone());
     let left = PackKey {
         instance_id: "instance".into(),
@@ -619,17 +667,17 @@ async fn a_content_set_switch_keeps_the_saved_pack_of_the_set_it_left() {
         vec!["instance".to_string()]
     );
     pool.close().await;
-    derived.pool().close().await;
+    derived.close().await;
 }
 
 /// A database this build cannot open keeps answering: the caller reads nothing
 /// and its write is dropped rather than reported as a failure.
 #[tokio::test]
-async fn a_disabled_derived_database_holds_no_refresh_state() {
+async fn a_disabled_resource_cache_holds_no_refresh_state() {
     use crate::state::store::content_refresh_pack::*;
     use crate::state::store::content_refresh_scan_failures::*;
-    let (_directory, derived) = support::disabled_derived().await;
-    assert!(derived.is_disabled());
+    let (_directory, derived) = support::disabled_resource_cache().await;
+    assert!(!derived.available());
     let pack = PackKey {
         instance_id: "instance".into(),
         content_set_id: "set".into(),

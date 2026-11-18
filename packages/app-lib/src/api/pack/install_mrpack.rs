@@ -958,6 +958,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
     reporter: InstallProgressReporter,
 ) -> crate::Result<MrpackInstallOutcome> {
     let state = &State::get().await?;
+    let cache_generation = state.resource_cache().generation().await;
 
     let file = create_pack.file;
     let description = create_pack.description.clone();
@@ -2270,6 +2271,8 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             cached_pack_hashes.push(zip_reader.hash_entry(index).await?.1);
         }
         CachedEntry::cache_modpack_files_best_effort(
+            state.resource_cache(),
+            cache_generation,
             version_id,
             cached_pack_hashes,
             cached_pack_project_ids,

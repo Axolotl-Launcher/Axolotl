@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ChevronDownIcon, ChevronUpIcon, GripVerticalIcon, XIcon } from '@modrinth/assets'
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
-import { computed, ref, watch } from 'vue'
+import { usePreferredReducedMotion, useTimeoutFn } from '@vueuse/core'
+import { computed, nextTick, ref, watch } from 'vue'
 import Draggable from 'vuedraggable'
 
 import { commandCatalogMessage } from '@/lab/command-generator/catalog-messages'
@@ -107,6 +108,17 @@ let nextId = 1
 const chain = ref<ChainStep[]>([])
 const finalCommand = ref('')
 const finalInputRef = ref<HTMLInputElement | null>(null)
+const chainSectionRef = ref<HTMLElement | null>(null)
+const dragging = ref(false)
+const nudgeState = ref<{ id: number; direction: 'up' | 'down' } | null>(null)
+const reducedMotion = usePreferredReducedMotion()
+const { start: resetNudge } = useTimeoutFn(
+    () => {
+        nudgeState.value = null
+    },
+    220,
+    { immediate: false },
+)
 
 const QUICK_PRESETS = [
     {
@@ -251,7 +263,46 @@ function removeStep(index: number) {
 }
 
 function moveStep(index: number, delta: number) {
-    chain.value = moveChainItem(chain.value, index, index + delta)
+    const target = index + delta
+    if (target < 0 || target >= chain.value.length) return
+    const moved = chain.value[index]
+    const before = stepElement(moved.id)?.getBoundingClientRect().top ?? null
+    chain.value = moveChainItem(chain.value, index, target)
+    nudgeState.value = { id: moved.id, direction: delta < 0 ? 'up' : 'down' }
+    resetNudge()
+    if (before === null) return
+    void nextTick(() => slideStep(moved.id, before))
+}
+
+function stepElement(id: number): HTMLElement | null {
+    return chainSectionRef.value?.querySelector<HTMLElement>(`[data-step-id="${id}"]`) ?? null
+}
+
+/** 箭头与拖拽走同一条排序路径，这里补上拖拽本来就有的位移动画。 */
+function slideStep(id: number, previousTop: number) {
+    if (reducedMotion.value === 'reduce') return
+    const element = stepElement(id)
+    if (!element) return
+    const offset = previousTop - element.getBoundingClientRect().top
+    if (!offset) return
+    element.animate([{ transform: `translateY(${offset}px)` }, { transform: 'translateY(0)' }], {
+        duration: 200,
+        easing: 'cubic-bezier(0.2, 0, 0, 1)',
+    })
+}
+
+function isNudged(id: number, direction: 'up' | 'down'): boolean {
+    return nudgeState.value?.id === id && nudgeState.value.direction === direction
+}
+
+function onDragStart() {
+    dragging.value = true
+    const active = document.activeElement
+    if (active instanceof HTMLElement) active.blur()
+}
+
+function onDragEnd() {
+    dragging.value = false
 }
 
 function getSubcommand(id: string): ExecuteChainSubcommand | undefined {
@@ -314,7 +365,7 @@ defineExpose({ getState, setState })
                 >
             </div>
         </details>
-        <section class="flex min-w-0 flex-col gap-3">
+        <section ref="chainSectionRef" class="flex min-w-0 flex-col gap-3">
             <div class="flex items-center justify-between gap-2">
                 <h3 class="m-0 text-sm font-semibold text-[var(--color-text-primary)]">
                     {{ formatMessage(messages.executeChainTitle) }}
@@ -342,19 +393,23 @@ defineExpose({ getState, setState })
                 item-key="id"
                 tag="ol"
                 class="m-0 flex min-w-0 list-none flex-col gap-3 p-0"
+                :class="{ 'select-none': dragging }"
                 handle=".execute-chain-drag-handle"
                 ghost-class="opacity-30"
                 :animation="150"
                 :force-fallback="true"
                 :fallback-on-body="false"
+                @start="onDragStart"
+                @end="onDragEnd"
             >
                 <template #item="{ element: step, index }">
                     <li
+                        :data-step-id="step.id"
                         class="min-w-0 rounded-lg border border-solid border-surface-4 bg-surface-3 p-3"
                     >
                         <div class="flex flex-wrap items-center gap-2">
                             <span
-                                class="execute-chain-drag-handle flex shrink-0 cursor-grab items-center text-[var(--color-text-tertiary)] active:cursor-grabbing"
+                                class="execute-chain-drag-handle flex shrink-0 cursor-grab touch-none items-center text-[var(--color-text-tertiary)] active:cursor-grabbing"
                                 aria-hidden="true"
                                 ><GripVerticalIcon class="h-4 w-4"
                             /></span>
@@ -395,6 +450,8 @@ defineExpose({ getState, setState })
                                     :disabled="index === 0"
                                     @click="moveStep(index, -1)"
                                     ><ChevronUpIcon
+                                        class="transition-transform duration-200 ease-out"
+                                        :class="isNudged(step.id, 'up') ? '-translate-y-1' : ''"
                                 /></Button>
                                 <Button
                                     v-tooltip="formatMessage(messages.moveDown)"
@@ -405,6 +462,8 @@ defineExpose({ getState, setState })
                                     :disabled="index === chain.length - 1"
                                     @click="moveStep(index, 1)"
                                     ><ChevronDownIcon
+                                        class="transition-transform duration-200 ease-out"
+                                        :class="isNudged(step.id, 'down') ? 'translate-y-1' : ''"
                                 /></Button>
                                 <Button
                                     v-tooltip="formatMessage(messages.removeStep)"

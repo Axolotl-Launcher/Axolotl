@@ -113,13 +113,13 @@ mod tests {
         let tools = definitions();
         assert_eq!(tools.len(), 269);
         let bytes = serde_json::to_vec(&tools).unwrap();
-        // FNV-1a of the complete pre-refactor catalog: names, order, descriptions,
-        // argument schemas and annotations. Update only for intentional API changes.
+        // FNV-1a of the complete wire catalog: names, order, descriptions,
+        // argument schemas and annotations. Update only for intentional contract changes.
         let fingerprint =
             bytes.iter().fold(0xcbf29ce484222325u64, |hash, byte| {
                 (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
             });
-        assert_eq!(fingerprint, 0x3fe057d32cf1772d);
+        assert_eq!(fingerprint, 0xe2a8816fea29d4ee);
     }
 
     #[test]

@@ -2241,32 +2241,41 @@ async fn exact_cross_source_replace_and_rollback_preserve_entry_disabled_path_an
     let backups = super::history_cleanup::scan_with_state("instance", &state)
         .await
         .unwrap();
+    let retired_path = consumed.backup_relative_path.as_ref().unwrap();
+    assert!(backups.iter().all(|backup| backup.id != consumed.id));
     let retired = backups
         .iter()
-        .find(|backup| backup.id == consumed.id)
+        .find(|backup| &backup.relative_path == retired_path)
         .unwrap();
-    assert_eq!(retired.history_id.as_ref(), Some(&consumed.id));
-    assert!(retired.exists);
+    assert!(retired.history_id.is_none());
+    assert!(retired.exists && retired.recognized);
     assert!(!retired.rollback_available);
+    assert!(
+        super::history_cleanup::prepare_with_state(
+            "instance",
+            vec![consumed.id.clone()],
+            &state,
+        )
+        .await
+        .is_err()
+    );
     let cleanup = super::history_cleanup::prepare_with_state(
         "instance",
-        vec![consumed.id.clone()],
+        vec![retired.id.clone()],
         &state,
     )
     .await
     .unwrap();
-    super::history_cleanup::execute_with_state(
+    let result = super::history_cleanup::execute_with_state(
         cleanup.id,
         cleanup.revision,
         &state,
     )
     .await
     .unwrap();
-    assert!(
-        !root
-            .join(consumed.backup_relative_path.as_ref().unwrap())
-            .exists()
-    );
+    assert_eq!(result.removed, vec![retired.id.clone()]);
+    assert!(result.failures.is_empty());
+    assert!(!root.join(retired_path).exists());
     let retained: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM store_retained_refs WHERE reason = ?",
     )

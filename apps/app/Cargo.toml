@@ -31,6 +31,7 @@ image = { workspace = true }
 keyring = { workspace = true }
 launcher-mcp = { workspace = true }
 launcher-observability = { workspace = true }
+launcher-observability-mcp = { workspace = true }
 launcher-tools = { workspace = true }
 libc = { workspace = true }
 minisign-verify = { workspace = true }

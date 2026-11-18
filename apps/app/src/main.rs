@@ -224,6 +224,7 @@ async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
     State::init(app.config().identifier.clone()).await?;
     api::resources::initialize_content_refresh_events(&app).await?;
     api::mcp::initialize(&app).await;
+    api::observability_mcp::initialize(&app).await;
     let anti_piracy_app = app.clone();
     tauri::async_runtime::spawn(async move {
         let status = theseus::anti_piracy::check_region().await;
@@ -701,6 +702,7 @@ fn run_exit_steps(app: &tauri::AppHandle) {
                 );
             }
             api::mcp::shutdown(app).await;
+            api::observability_mcp::shutdown(app).await;
         };
         if tokio::time::timeout(exit_barrier::SOFT_WINDOW, services)
             .await
@@ -1097,6 +1099,7 @@ fn main() {
         .plugin(api::planet_minecraft::init())
         .plugin(api::settings::init())
         .plugin(api::mcp::init())
+        .plugin(api::observability_mcp::init())
         .plugin(api::storage::init())
         .plugin(api::system_accent::init())
         .plugin(api::seed_map::init())

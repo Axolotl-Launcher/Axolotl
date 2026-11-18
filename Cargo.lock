@@ -7495,6 +7495,7 @@ dependencies = [
  "keyring",
  "launcher-mcp",
  "launcher-observability",
+ "launcher-observability-mcp",
  "launcher-tools",
  "libc",
  "libloading",

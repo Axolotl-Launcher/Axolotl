@@ -163,11 +163,23 @@ impl Client {
     }
 }
 
+/// reqwest is built with `rustls-no-provider` in this workspace, so every test
+/// client installs the ring provider first, exactly as the launcher does.
+fn http_client() -> reqwest::Client {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+    reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .expect("HTTP client")
+}
+
 async fn connect(
     server: &Server,
     token: Option<&str>,
 ) -> (Client, reqwest::Response) {
-    let http = reqwest::Client::builder().build().expect("HTTP client");
+    let http = http_client();
     let endpoint = server.snapshot().endpoint.expect("endpoint");
     let request = http
         .post(&endpoint)
@@ -335,7 +347,11 @@ async fn stops_listening_after_stop() {
     let endpoint = server.snapshot().endpoint.unwrap();
     server.stop().await;
 
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
     let client = reqwest::Client::builder()
+        .no_proxy()
         .timeout(Duration::from_secs(2))
         .build()
         .unwrap();

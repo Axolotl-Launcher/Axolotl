@@ -468,7 +468,7 @@ fn preserve_corrupt(path: &Path, bytes: &[u8]) -> crate::Result<()> {
     Ok(())
 }
 
-fn replace_bytes(path: &Path, bytes: &[u8]) -> crate::Result<()> {
+pub(super) fn replace_bytes(path: &Path, bytes: &[u8]) -> crate::Result<()> {
     crate::state::store::recovery_mode::ensure_path_writable(path)?;
     let parent = path.parent().ok_or_else(|| {
         crate::ErrorKind::InputError("Document has no parent directory".into())

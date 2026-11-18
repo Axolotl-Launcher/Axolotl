@@ -117,20 +117,7 @@ pub async fn set_group_memberships(
     // Note: the instances themselves are deliberately not validated here.
     // JSON-backed instances (`local:` ids) have no row in the `instances` table,
     // and requiring one is what used to make grouping them fail outright.
-    let unique_group_ids = updates
-        .iter()
-        .flat_map(|update| update.group_ids.iter())
-        .collect::<HashSet<_>>();
-    for group_id in unique_group_ids {
-        if !instance_groups::group_exists(group_id) {
-            return Err(crate::ErrorKind::InputError(format!(
-                "Unknown instance group {group_id}"
-            ))
-            .into());
-        }
-    }
-
-    instance_groups::set_memberships(
+    instance_groups::set_memberships_checked(
         &updates
             .iter()
             .map(|update| {

@@ -865,201 +865,101 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.execute.summon.desc',
         defaultMessage: 'Summon an entity at the execution position and make it the executor',
     },
-    'app.lab.command-generator.execute.if-entity.label': {
-        id: 'app.lab.command-generator.execute.if-entity.label',
-        defaultMessage: 'if entity · Check entity exists',
-    },
     'app.lab.command-generator.execute.if-entity.desc': {
         id: 'app.lab.command-generator.execute.if-entity.desc',
         defaultMessage: 'Continue if the given entity exists',
-    },
-    'app.lab.command-generator.execute.unless-entity.label': {
-        id: 'app.lab.command-generator.execute.unless-entity.label',
-        defaultMessage: 'unless entity · Check entity absent',
     },
     'app.lab.command-generator.execute.unless-entity.desc': {
         id: 'app.lab.command-generator.execute.unless-entity.desc',
         defaultMessage: 'Continue if the given entity does not exist',
     },
-    'app.lab.command-generator.execute.if-block.label': {
-        id: 'app.lab.command-generator.execute.if-block.label',
-        defaultMessage: 'if block · Check block',
-    },
     'app.lab.command-generator.execute.if-block.desc': {
         id: 'app.lab.command-generator.execute.if-block.desc',
         defaultMessage: 'Continue if the given position is the given block',
-    },
-    'app.lab.command-generator.execute.if-blocks.label': {
-        id: 'app.lab.command-generator.execute.if-blocks.label',
-        defaultMessage: 'if blocks · Check region',
     },
     'app.lab.command-generator.execute.if-blocks.desc': {
         id: 'app.lab.command-generator.execute.if-blocks.desc',
         defaultMessage: 'Continue if the two regions match',
     },
-    'app.lab.command-generator.execute.if-score.label': {
-        id: 'app.lab.command-generator.execute.if-score.label',
-        defaultMessage: 'if score · Compare scores',
-    },
     'app.lab.command-generator.execute.if-score.desc': {
         id: 'app.lab.command-generator.execute.if-score.desc',
         defaultMessage: 'Continue if the score comparison holds',
-    },
-    'app.lab.command-generator.execute.if-score-matches.label': {
-        id: 'app.lab.command-generator.execute.if-score-matches.label',
-        defaultMessage: 'if score matches · Check score range',
     },
     'app.lab.command-generator.execute.if-score-matches.desc': {
         id: 'app.lab.command-generator.execute.if-score-matches.desc',
         defaultMessage: 'Continue if the score is within the given range',
     },
-    'app.lab.command-generator.execute.if-biome.label': {
-        id: 'app.lab.command-generator.execute.if-biome.label',
-        defaultMessage: 'if biome · Check biome',
-    },
     'app.lab.command-generator.execute.if-biome.desc': {
         id: 'app.lab.command-generator.execute.if-biome.desc',
         defaultMessage: 'Continue if the position matches the biome',
-    },
-    'app.lab.command-generator.execute.if-data.label': {
-        id: 'app.lab.command-generator.execute.if-data.label',
-        defaultMessage: 'if data · Check NBT data',
     },
     'app.lab.command-generator.execute.if-data.desc': {
         id: 'app.lab.command-generator.execute.if-data.desc',
         defaultMessage: 'Continue if the given NBT path exists',
     },
-    'app.lab.command-generator.execute.unless-biome.label': {
-        id: 'app.lab.command-generator.execute.unless-biome.label',
-        defaultMessage: 'unless biome · Check biome (inverse)',
-    },
     'app.lab.command-generator.execute.unless-biome.desc': {
         id: 'app.lab.command-generator.execute.unless-biome.desc',
         defaultMessage: 'Continue if the position is NOT in the given biome',
-    },
-    'app.lab.command-generator.execute.unless-blocks.label': {
-        id: 'app.lab.command-generator.execute.unless-blocks.label',
-        defaultMessage: 'unless blocks · Check region (inverse)',
     },
     'app.lab.command-generator.execute.unless-blocks.desc': {
         id: 'app.lab.command-generator.execute.unless-blocks.desc',
         defaultMessage: 'Continue if the regions do NOT match',
     },
-    'app.lab.command-generator.execute.unless-data.label': {
-        id: 'app.lab.command-generator.execute.unless-data.label',
-        defaultMessage: 'unless data · Check NBT data (inverse)',
-    },
     'app.lab.command-generator.execute.unless-data.desc': {
         id: 'app.lab.command-generator.execute.unless-data.desc',
         defaultMessage: 'Continue if the NBT path does not exist',
-    },
-    'app.lab.command-generator.execute.unless-score-matches.label': {
-        id: 'app.lab.command-generator.execute.unless-score-matches.label',
-        defaultMessage: 'unless score matches · Check score range (inverse)',
     },
     'app.lab.command-generator.execute.unless-score-matches.desc': {
         id: 'app.lab.command-generator.execute.unless-score-matches.desc',
         defaultMessage: 'Continue if the score is outside the range',
     },
-    'app.lab.command-generator.execute.if-items.label': {
-        id: 'app.lab.command-generator.execute.if-items.label',
-        defaultMessage: 'if items · Check items (1.21+)',
-    },
     'app.lab.command-generator.execute.if-items.desc': {
         id: 'app.lab.command-generator.execute.if-items.desc',
         defaultMessage: 'Continue if the given slot contains the item',
-    },
-    'app.lab.command-generator.execute.if-function.label': {
-        id: 'app.lab.command-generator.execute.if-function.label',
-        defaultMessage: 'if function · Check function result',
     },
     'app.lab.command-generator.execute.if-function.desc': {
         id: 'app.lab.command-generator.execute.if-function.desc',
         defaultMessage: 'Continue if the function returns success',
     },
-    'app.lab.command-generator.execute.unless-function.label': {
-        id: 'app.lab.command-generator.execute.unless-function.label',
-        defaultMessage: 'unless function · Check function result (inverse)',
-    },
     'app.lab.command-generator.execute.unless-function.desc': {
         id: 'app.lab.command-generator.execute.unless-function.desc',
         defaultMessage: 'Continue if the function does not return success',
-    },
-    'app.lab.command-generator.execute.if-dimension.label': {
-        id: 'app.lab.command-generator.execute.if-dimension.label',
-        defaultMessage: 'if dimension · Check dimension',
     },
     'app.lab.command-generator.execute.if-dimension.desc': {
         id: 'app.lab.command-generator.execute.if-dimension.desc',
         defaultMessage: 'Continue if the execution dimension matches',
     },
-    'app.lab.command-generator.execute.unless-dimension.label': {
-        id: 'app.lab.command-generator.execute.unless-dimension.label',
-        defaultMessage: 'unless dimension · Check dimension (inverse)',
-    },
     'app.lab.command-generator.execute.unless-dimension.desc': {
         id: 'app.lab.command-generator.execute.unless-dimension.desc',
         defaultMessage: 'Continue if the execution dimension differs',
-    },
-    'app.lab.command-generator.execute.if-loaded.label': {
-        id: 'app.lab.command-generator.execute.if-loaded.label',
-        defaultMessage: 'if loaded · Check chunk loaded',
     },
     'app.lab.command-generator.execute.if-loaded.desc': {
         id: 'app.lab.command-generator.execute.if-loaded.desc',
         defaultMessage: 'Continue if the chunk at the position is loaded',
     },
-    'app.lab.command-generator.execute.unless-loaded.label': {
-        id: 'app.lab.command-generator.execute.unless-loaded.label',
-        defaultMessage: 'unless loaded · Check chunk loaded (inverse)',
-    },
     'app.lab.command-generator.execute.unless-loaded.desc': {
         id: 'app.lab.command-generator.execute.unless-loaded.desc',
         defaultMessage: 'Continue if the chunk at the position is not loaded',
-    },
-    'app.lab.command-generator.execute.if-predicate.label': {
-        id: 'app.lab.command-generator.execute.if-predicate.label',
-        defaultMessage: 'if predicate · Check predicate',
     },
     'app.lab.command-generator.execute.if-predicate.desc': {
         id: 'app.lab.command-generator.execute.if-predicate.desc',
         defaultMessage: 'Continue if the predicate passes',
     },
-    'app.lab.command-generator.execute.unless-predicate.label': {
-        id: 'app.lab.command-generator.execute.unless-predicate.label',
-        defaultMessage: 'unless predicate · Check predicate (inverse)',
-    },
     'app.lab.command-generator.execute.unless-predicate.desc': {
         id: 'app.lab.command-generator.execute.unless-predicate.desc',
         defaultMessage: 'Continue if the predicate fails',
-    },
-    'app.lab.command-generator.execute.if-stopwatch.label': {
-        id: 'app.lab.command-generator.execute.if-stopwatch.label',
-        defaultMessage: 'if stopwatch · Check stopwatch',
     },
     'app.lab.command-generator.execute.if-stopwatch.desc': {
         id: 'app.lab.command-generator.execute.if-stopwatch.desc',
         defaultMessage: 'Continue if the stopwatch value is inside the range',
     },
-    'app.lab.command-generator.execute.unless-stopwatch.label': {
-        id: 'app.lab.command-generator.execute.unless-stopwatch.label',
-        defaultMessage: 'unless stopwatch · Check stopwatch (inverse)',
-    },
     'app.lab.command-generator.execute.unless-stopwatch.desc': {
         id: 'app.lab.command-generator.execute.unless-stopwatch.desc',
         defaultMessage: 'Continue if the stopwatch value is outside the range',
     },
-    'app.lab.command-generator.execute.unless-block.label': {
-        id: 'app.lab.command-generator.execute.unless-block.label',
-        defaultMessage: 'unless block · Check block (inverse)',
-    },
     'app.lab.command-generator.execute.unless-block.desc': {
         id: 'app.lab.command-generator.execute.unless-block.desc',
         defaultMessage: 'Continue if the position is NOT the given block',
-    },
-    'app.lab.command-generator.execute.unless-score.label': {
-        id: 'app.lab.command-generator.execute.unless-score.label',
-        defaultMessage: 'unless score · Compare scores (inverse)',
     },
     'app.lab.command-generator.execute.unless-score.desc': {
         id: 'app.lab.command-generator.execute.unless-score.desc',
@@ -4531,10 +4431,6 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.arg.data.literalValue.desc',
         defaultMessage: 'SNBT value',
     },
-    'app.lab.command-generator.execute.if-slots.label': {
-        id: 'app.lab.command-generator.execute.if-slots.label',
-        defaultMessage: 'if slots',
-    },
     'app.lab.command-generator.execute.if-slots.desc': {
         id: 'app.lab.command-generator.execute.if-slots.desc',
         defaultMessage: 'Test slots on a block or entity using a slot source.',
@@ -4562,10 +4458,6 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.arg.execute.slots.desc': {
         id: 'app.lab.command-generator.arg.execute.slots.desc',
         defaultMessage: 'A slot range, inline slot source or namespaced ID.',
-    },
-    'app.lab.command-generator.execute.unless-slots.label': {
-        id: 'app.lab.command-generator.execute.unless-slots.label',
-        defaultMessage: 'unless slots',
     },
     'app.lab.command-generator.execute.unless-slots.desc': {
         id: 'app.lab.command-generator.execute.unless-slots.desc',
@@ -4598,6 +4490,98 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.arg.waypoint.value.desc': {
         id: 'app.lab.command-generator.arg.waypoint.value.desc',
         defaultMessage: 'Color or style',
+    },
+    'app.lab.command-generator.execute.if.label': {
+        id: 'app.lab.command-generator.execute.if.label',
+        defaultMessage: 'if',
+    },
+    'app.lab.command-generator.execute.if.desc': {
+        id: 'app.lab.command-generator.execute.if.desc',
+        defaultMessage: 'Continue only when the condition holds',
+    },
+    'app.lab.command-generator.execute.unless.label': {
+        id: 'app.lab.command-generator.execute.unless.label',
+        defaultMessage: 'unless',
+    },
+    'app.lab.command-generator.execute.unless.desc': {
+        id: 'app.lab.command-generator.execute.unless.desc',
+        defaultMessage: 'Continue only when the condition fails',
+    },
+    'app.lab.command-generator.execute.condition.field': {
+        id: 'app.lab.command-generator.execute.condition.field',
+        defaultMessage: 'Condition',
+    },
+    'app.lab.command-generator.execute.condition.placeholder': {
+        id: 'app.lab.command-generator.execute.condition.placeholder',
+        defaultMessage: 'Pick a condition',
+    },
+    'app.lab.command-generator.execute.condition.unset': {
+        id: 'app.lab.command-generator.execute.condition.unset',
+        defaultMessage: 'No condition picked yet',
+    },
+    'app.lab.command-generator.execute.condition.count': {
+        id: 'app.lab.command-generator.execute.condition.count',
+        defaultMessage: '{count} conditions',
+    },
+    'app.lab.command-generator.execute.unless-items.desc': {
+        id: 'app.lab.command-generator.execute.unless-items.desc',
+        defaultMessage: 'Continue when the slot does not hold the item',
+    },
+    'app.lab.command-generator.execute.condition.kind.entity.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.entity.label',
+        defaultMessage: 'Entity',
+    },
+    'app.lab.command-generator.execute.condition.kind.block.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.block.label',
+        defaultMessage: 'Block',
+    },
+    'app.lab.command-generator.execute.condition.kind.blocks.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.blocks.label',
+        defaultMessage: 'Block region',
+    },
+    'app.lab.command-generator.execute.condition.kind.score.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.score.label',
+        defaultMessage: 'Score compare',
+    },
+    'app.lab.command-generator.execute.condition.kind.score-matches.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.score-matches.label',
+        defaultMessage: 'Score range',
+    },
+    'app.lab.command-generator.execute.condition.kind.biome.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.biome.label',
+        defaultMessage: 'Biome',
+    },
+    'app.lab.command-generator.execute.condition.kind.data.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.data.label',
+        defaultMessage: 'NBT data',
+    },
+    'app.lab.command-generator.execute.condition.kind.items.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.items.label',
+        defaultMessage: 'Items',
+    },
+    'app.lab.command-generator.execute.condition.kind.slots.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.slots.label',
+        defaultMessage: 'Slots',
+    },
+    'app.lab.command-generator.execute.condition.kind.dimension.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.dimension.label',
+        defaultMessage: 'Dimension',
+    },
+    'app.lab.command-generator.execute.condition.kind.loaded.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.loaded.label',
+        defaultMessage: 'Chunk loaded',
+    },
+    'app.lab.command-generator.execute.condition.kind.function.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.function.label',
+        defaultMessage: 'Function',
+    },
+    'app.lab.command-generator.execute.condition.kind.predicate.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.predicate.label',
+        defaultMessage: 'Predicate',
+    },
+    'app.lab.command-generator.execute.condition.kind.stopwatch.label': {
+        id: 'app.lab.command-generator.execute.condition.kind.stopwatch.label',
+        defaultMessage: 'Stopwatch',
     },
 })
 

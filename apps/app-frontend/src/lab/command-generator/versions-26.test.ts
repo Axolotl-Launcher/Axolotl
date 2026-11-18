@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { findCommand, getAllCommands, initializeRegistry } from './commands/registry.ts'
+import type { CommandDefinition } from './commands/types.ts'
 import { buildCommand, getDefaultValues, validateCommand } from './generator.ts'
 import { loadCommandsForVersion, loadManifest } from './loader.ts'
 import { createItemNbtTree, parseNbt, serializeNbtDocument } from './nbt-tree.ts'
@@ -207,16 +208,14 @@ describe('Java 26 release command syntax', () => {
                     item: 'minecraft:stone',
                 }),
             ).toBe(`/item ${action} entity @s container.* with minecraft:stone`)
-        const conditions = findCommand('execute')!.chainCategories!.flatMap(
-            (category) => category.subcommands,
-        )
-        expect(conditions.some((condition) => condition.id === 'if-slots')).toBeTruthy()
-        expect(conditions.some((condition) => condition.id === 'unless-slots')).toBeTruthy()
-        expect(
-            !before.chainCategories!.some((category) =>
-                category.subcommands.some((sub) => sub.id === 'if-slots'),
-            ),
-        ).toBeTruthy()
+        const hasSlotCondition = (command: CommandDefinition) =>
+            command
+                .chainCategories!.flatMap((category) => category.subcommands)
+                .some((subcommand) =>
+                    subcommand.condition?.options.some((option) => option.id === 'slots'),
+                )
+        expect(hasSlotCondition(findCommand('execute')!)).toBeTruthy()
+        expect(hasSlotCondition(before)).toBeFalsy()
         expect(
             !loadCommandsForVersion('26.2')
                 .find((command) => command.id === 'item')!

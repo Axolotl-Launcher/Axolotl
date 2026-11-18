@@ -60,19 +60,30 @@ function resolveCommandsForVersion(versionId: string): CommandDefinition[] {
 }
 
 export function loadCommandsForVersion(versionId: string): CommandDefinition[] {
+    const isAvailable = (sinceVersion: string | undefined) =>
+        !sinceVersion || versionId.localeCompare(sinceVersion, undefined, { numeric: true }) >= 0
+
     return resolveCommandsForVersion(versionId).map((command) =>
         command.chainCategories
             ? {
                   ...command,
                   chainCategories: command.chainCategories.map((category) => ({
                       ...category,
-                      subcommands: category.subcommands.filter(
-                          (subcommand) =>
-                              !subcommand.sinceVersion ||
-                              versionId.localeCompare(subcommand.sinceVersion, undefined, {
-                                  numeric: true,
-                              }) >= 0,
-                      ),
+                      subcommands: category.subcommands
+                          .map((subcommand) =>
+                              subcommand.condition
+                                  ? {
+                                        ...subcommand,
+                                        condition: {
+                                            ...subcommand.condition,
+                                            options: subcommand.condition.options.filter((option) =>
+                                                isAvailable(option.sinceVersion),
+                                            ),
+                                        },
+                                    }
+                                  : subcommand,
+                          )
+                          .filter((subcommand) => isAvailable(subcommand.sinceVersion)),
                   })),
               }
             : command,
@@ -126,7 +137,21 @@ function applyPatch(base: CommandDefinition[], patch: PatchDataFile): CommandDef
                         ...subcommand,
                         ...chainPatch.patched?.[subcommand.id],
                     }))
-                    .concat(category.id === chainPatch.categoryId ? (chainPatch.added ?? []) : []),
+                    .concat(category.id === chainPatch.categoryId ? (chainPatch.added ?? []) : [])
+                    .map((subcommand) => {
+                        if (category.id !== chainPatch.categoryId) return subcommand
+                        const extra = (chainPatch.addedOptions ?? [])
+                            .filter((entry) => entry.subcommandId === subcommand.id)
+                            .map((entry) => entry.option)
+                        if (!extra.length || !subcommand.condition) return subcommand
+                        return {
+                            ...subcommand,
+                            condition: {
+                                ...subcommand.condition,
+                                options: [...subcommand.condition.options, ...extra],
+                            },
+                        }
+                    }),
             })),
         }
     })

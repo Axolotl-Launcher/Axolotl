@@ -7652,6 +7652,60 @@
   "app.lab.command-generator.execute.clear": {
     "message": "清空"
   },
+  "app.lab.command-generator.execute.condition.count": {
+    "message": "{count} 种判断"
+  },
+  "app.lab.command-generator.execute.condition.field": {
+    "message": "判断条件"
+  },
+  "app.lab.command-generator.execute.condition.kind.biome.label": {
+    "message": "生物群系"
+  },
+  "app.lab.command-generator.execute.condition.kind.block.label": {
+    "message": "方块"
+  },
+  "app.lab.command-generator.execute.condition.kind.blocks.label": {
+    "message": "区域方块"
+  },
+  "app.lab.command-generator.execute.condition.kind.data.label": {
+    "message": "NBT 数据"
+  },
+  "app.lab.command-generator.execute.condition.kind.dimension.label": {
+    "message": "维度"
+  },
+  "app.lab.command-generator.execute.condition.kind.entity.label": {
+    "message": "实体"
+  },
+  "app.lab.command-generator.execute.condition.kind.function.label": {
+    "message": "函数"
+  },
+  "app.lab.command-generator.execute.condition.kind.items.label": {
+    "message": "物品"
+  },
+  "app.lab.command-generator.execute.condition.kind.loaded.label": {
+    "message": "区块已加载"
+  },
+  "app.lab.command-generator.execute.condition.kind.predicate.label": {
+    "message": "谓词"
+  },
+  "app.lab.command-generator.execute.condition.kind.score-matches.label": {
+    "message": "分数范围"
+  },
+  "app.lab.command-generator.execute.condition.kind.score.label": {
+    "message": "分数比较"
+  },
+  "app.lab.command-generator.execute.condition.kind.slots.label": {
+    "message": "槽位"
+  },
+  "app.lab.command-generator.execute.condition.kind.stopwatch.label": {
+    "message": "计时器"
+  },
+  "app.lab.command-generator.execute.condition.placeholder": {
+    "message": "选择判断条件"
+  },
+  "app.lab.command-generator.execute.condition.unset": {
+    "message": "还没选择判断条件"
+  },
   "app.lab.command-generator.execute.facing-entity.desc": {
     "message": "把执行朝向设为面向某个实体"
   },
@@ -7676,86 +7730,50 @@
   "app.lab.command-generator.execute.if-biome.desc": {
     "message": "如果指定位置的生物群系匹配则继续"
   },
-  "app.lab.command-generator.execute.if-biome.label": {
-    "message": "if biome · 检测生物群系"
-  },
   "app.lab.command-generator.execute.if-block.desc": {
     "message": "如果指定位置是指定方块则继续"
-  },
-  "app.lab.command-generator.execute.if-block.label": {
-    "message": "if block · 检测方块"
   },
   "app.lab.command-generator.execute.if-blocks.desc": {
     "message": "如果两个区域的方块匹配则继续"
   },
-  "app.lab.command-generator.execute.if-blocks.label": {
-    "message": "if blocks · 检测区域"
-  },
   "app.lab.command-generator.execute.if-data.desc": {
     "message": "如果指定 NBT 路径存在则继续"
-  },
-  "app.lab.command-generator.execute.if-data.label": {
-    "message": "if data · 检测 NBT 数据"
   },
   "app.lab.command-generator.execute.if-dimension.desc": {
     "message": "如果执行维度匹配则继续"
   },
-  "app.lab.command-generator.execute.if-dimension.label": {
-    "message": "if dimension · 检测维度"
-  },
   "app.lab.command-generator.execute.if-entity.desc": {
     "message": "如果指定实体存在则继续"
-  },
-  "app.lab.command-generator.execute.if-entity.label": {
-    "message": "if entity · 检测实体存在"
   },
   "app.lab.command-generator.execute.if-function.desc": {
     "message": "如果函数返回成功则继续"
   },
-  "app.lab.command-generator.execute.if-function.label": {
-    "message": "if function · 检测函数返回"
-  },
   "app.lab.command-generator.execute.if-items.desc": {
     "message": "如果指定槽位有指定物品则继续"
-  },
-  "app.lab.command-generator.execute.if-items.label": {
-    "message": "if items · 检测物品（1.21+）"
   },
   "app.lab.command-generator.execute.if-loaded.desc": {
     "message": "如果该位置的区块已加载则继续"
   },
-  "app.lab.command-generator.execute.if-loaded.label": {
-    "message": "if loaded · 检测区块已加载"
-  },
   "app.lab.command-generator.execute.if-predicate.desc": {
     "message": "如果谓词判定通过则继续"
-  },
-  "app.lab.command-generator.execute.if-predicate.label": {
-    "message": "if predicate · 检测谓词"
   },
   "app.lab.command-generator.execute.if-score-matches.desc": {
     "message": "如果分数在指定范围内则继续"
   },
-  "app.lab.command-generator.execute.if-score-matches.label": {
-    "message": "if score matches · 检测分数范围"
-  },
   "app.lab.command-generator.execute.if-score.desc": {
     "message": "如果两个记分比较成立则继续"
-  },
-  "app.lab.command-generator.execute.if-score.label": {
-    "message": "if score · 比较分数"
   },
   "app.lab.command-generator.execute.if-slots.desc": {
     "message": "使用槽位来源检查方块或实体的槽位。"
   },
-  "app.lab.command-generator.execute.if-slots.label": {
-    "message": "if slots · 检查槽位"
-  },
   "app.lab.command-generator.execute.if-stopwatch.desc": {
     "message": "如果计时器数值在范围内则继续"
   },
-  "app.lab.command-generator.execute.if-stopwatch.label": {
-    "message": "if stopwatch · 检测计时器"
+  "app.lab.command-generator.execute.if.desc": {
+    "message": "条件成立才继续"
+  },
+  "app.lab.command-generator.execute.if.label": {
+    "message": "if"
   },
   "app.lab.command-generator.execute.in.desc": {
     "message": "切换执行维度，位置坐标不变"
@@ -7892,80 +7910,50 @@
   "app.lab.command-generator.execute.unless-biome.desc": {
     "message": "如果位置不在指定生物群系则继续"
   },
-  "app.lab.command-generator.execute.unless-biome.label": {
-    "message": "unless biome · 检测生物群系（反向）"
-  },
   "app.lab.command-generator.execute.unless-block.desc": {
     "message": "如果指定位置不是指定方块则继续"
-  },
-  "app.lab.command-generator.execute.unless-block.label": {
-    "message": "unless block · 检测方块（反向）"
   },
   "app.lab.command-generator.execute.unless-blocks.desc": {
     "message": "如果区域不匹配则继续"
   },
-  "app.lab.command-generator.execute.unless-blocks.label": {
-    "message": "unless blocks · 检测区域（反向）"
-  },
   "app.lab.command-generator.execute.unless-data.desc": {
     "message": "如果 NBT 路径不存在则继续"
-  },
-  "app.lab.command-generator.execute.unless-data.label": {
-    "message": "unless data · 检测 NBT 数据（反向）"
   },
   "app.lab.command-generator.execute.unless-dimension.desc": {
     "message": "如果执行维度不匹配则继续"
   },
-  "app.lab.command-generator.execute.unless-dimension.label": {
-    "message": "unless dimension · 检测维度（反向）"
-  },
   "app.lab.command-generator.execute.unless-entity.desc": {
     "message": "如果指定实体不存在则继续"
-  },
-  "app.lab.command-generator.execute.unless-entity.label": {
-    "message": "unless entity · 检测实体不存在"
   },
   "app.lab.command-generator.execute.unless-function.desc": {
     "message": "如果函数未成功返回则继续"
   },
-  "app.lab.command-generator.execute.unless-function.label": {
-    "message": "unless function · 检测函数返回（反向）"
+  "app.lab.command-generator.execute.unless-items.desc": {
+    "message": "如果指定槽位没有指定物品则继续"
   },
   "app.lab.command-generator.execute.unless-loaded.desc": {
     "message": "如果该位置的区块未加载则继续"
   },
-  "app.lab.command-generator.execute.unless-loaded.label": {
-    "message": "unless loaded · 检测区块已加载（反向）"
-  },
   "app.lab.command-generator.execute.unless-predicate.desc": {
     "message": "如果谓词判定不通过则继续"
-  },
-  "app.lab.command-generator.execute.unless-predicate.label": {
-    "message": "unless predicate · 检测谓词（反向）"
   },
   "app.lab.command-generator.execute.unless-score-matches.desc": {
     "message": "如果分数不在范围内则继续"
   },
-  "app.lab.command-generator.execute.unless-score-matches.label": {
-    "message": "unless score matches · 检测分数范围（反向）"
-  },
   "app.lab.command-generator.execute.unless-score.desc": {
     "message": "如果两个记分比较不成立则继续"
-  },
-  "app.lab.command-generator.execute.unless-score.label": {
-    "message": "unless score · 比较分数（反向）"
   },
   "app.lab.command-generator.execute.unless-slots.desc": {
     "message": "使用槽位来源检查方块或实体的槽位。"
   },
-  "app.lab.command-generator.execute.unless-slots.label": {
-    "message": "unless slots · 检查槽位"
-  },
   "app.lab.command-generator.execute.unless-stopwatch.desc": {
     "message": "如果计时器数值不在范围内则继续"
   },
-  "app.lab.command-generator.execute.unless-stopwatch.label": {
-    "message": "unless stopwatch · 检测计时器（反向）"
+  "app.lab.command-generator.execute.unless.desc": {
+    "message": "条件不成立才继续"
+  },
+  "app.lab.command-generator.execute.unless.label": {
+    "message": "unless"
   },
   "app.lab.command-generator.filter.all": {
     "message": "全部"

@@ -1,17 +1,25 @@
 <script setup lang="ts">
 import { ChevronDownIcon, ChevronUpIcon, GripVerticalIcon, XIcon } from '@modrinth/assets'
-import { Button, defineMessages, useVIntl } from '@modrinth/ui'
+import { Button, Combobox, type ComboboxOption, defineMessages, useVIntl } from '@modrinth/ui'
 import { usePreferredReducedMotion, useTimeoutFn } from '@vueuse/core'
-import { computed, nextTick, ref, watch } from 'vue'
+import { type Component, computed, nextTick, ref, watch } from 'vue'
 import Draggable from 'vuedraggable'
 
 import { commandCatalogMessage } from '@/lab/command-generator/catalog-messages'
 import { moveChainItem } from '@/lab/command-generator/chain-order'
 import type {
     ExecuteChainCategory,
+    ExecuteChainCondition,
     ExecuteChainSubcommand,
 } from '@/lab/command-generator/commands/types.ts'
-import { subcommandIcon } from '@/lab/command-generator/subcommand-icons'
+import {
+    activeStepArguments,
+    migrateLegacyConditionStep,
+    resolveConditionOption,
+    stepTemplate,
+    switchCondition,
+} from '@/lab/command-generator/conditions'
+import { conditionIcon, subcommandIcon } from '@/lab/command-generator/subcommand-icons'
 
 import CommandGeneratorArgument from './CommandGeneratorArgument.vue'
 
@@ -70,6 +78,18 @@ const messages = defineMessages({
     executePickerTitle: {
         id: 'app.lab.command-generator.execute.picker-title',
         defaultMessage: 'Available subcommands',
+    },
+    conditionPlaceholder: {
+        id: 'app.lab.command-generator.execute.condition.placeholder',
+        defaultMessage: 'Pick a condition',
+    },
+    conditionUnset: {
+        id: 'app.lab.command-generator.execute.condition.unset',
+        defaultMessage: 'No condition picked yet',
+    },
+    conditionOptionCount: {
+        id: 'app.lab.command-generator.execute.condition.count',
+        defaultMessage: '{count} conditions',
     },
     moveUp: { id: 'app.lab.command-generator.execute.move-up', defaultMessage: 'Move up' },
     moveDown: { id: 'app.lab.command-generator.execute.move-down', defaultMessage: 'Move down' },
@@ -137,8 +157,8 @@ const QUICK_PRESETS = [
             chain.value = [
                 {
                     id: nextId++,
-                    subcommandId: 'if-entity',
-                    values: { target: '@e[type=zombie]' },
+                    subcommandId: 'if',
+                    values: { condition: 'entity', target: '@e[type=zombie]' },
                     expanded: false,
                 },
             ]
@@ -167,8 +187,12 @@ const QUICK_PRESETS = [
                 { id: nextId++, subcommandId: 'at', values: { target: '@s' }, expanded: false },
                 {
                     id: nextId++,
-                    subcommandId: 'if-block',
-                    values: { pos: '~ ~-1 ~', block: 'minecraft:grass_block' },
+                    subcommandId: 'if',
+                    values: {
+                        condition: 'block',
+                        pos: '~ ~-1 ~',
+                        block: 'minecraft:grass_block',
+                    },
                     expanded: false,
                 },
             ]
@@ -218,14 +242,72 @@ const subcommandMap = computed(() => {
 function renderStep(step: ChainStep): string {
     const sub = subcommandMap.value.get(step.subcommandId)
     if (!sub) return ''
-    let text = sub.template
-    for (const arg of sub.arguments) {
-        const value = step.values[arg.name]
-        const replacement =
-            value !== undefined && value !== null && value !== '' ? String(value) : ''
-        text = text.split(`{${arg.name}}`).join(replacement)
-    }
-    return text.trim()
+    const template = stepTemplate(sub, step.values)
+    if (!template) return ''
+    const args = new Map(activeStepArguments(sub, step.values).map((arg) => [arg.name, arg]))
+    // 占位符是空格分隔的独立 token；当前条件下不存在的、以及还没填的，连同它的空格一起省掉，
+    // 否则 `if items block` 会因为被跳过的 `{target}` 留下双空格。
+    return template
+        .split(' ')
+        .map((token) => {
+            const match = /^\{(\w+)\}$/.exec(token)
+            if (!match) return token
+            const arg = args.get(match[1])
+            if (!arg) return ''
+            const value = step.values[arg.name]
+            return value === undefined || value === null || value === '' ? '' : String(value)
+        })
+        .filter((token) => token !== '')
+        .join(' ')
+}
+
+/** 条件步骤当前跟的判断；普通子命令返回 undefined。 */
+function conditionOf(step: ChainStep): ExecuteChainCondition | undefined {
+    return getSubcommand(step.subcommandId)?.condition
+}
+
+/** 条件步骤要渲染的参数，未选条件时为空。 */
+function getStepArguments(step: ChainStep) {
+    return activeStepArguments(getSubcommand(step.subcommandId), step.values)
+}
+
+function conditionOptions(step: ChainStep): ComboboxOption<string>[] {
+    const condition = conditionOf(step)
+    if (!condition) return []
+    return condition.options.map((option) => ({
+        value: option.id,
+        label: formatDynamic(option.labelKey, option.id),
+    }))
+}
+
+function conditionValue(step: ChainStep): string {
+    const condition = conditionOf(step)
+    if (!condition) return ''
+    return String(step.values[condition.argument] ?? '')
+}
+
+function conditionLabel(step: ChainStep): string {
+    const option = resolveConditionOption(getSubcommand(step.subcommandId), step.values)
+    return option ? formatDynamic(option.labelKey, option.id) : ''
+}
+
+function stepIcon(step: ChainStep): Component {
+    const option = resolveConditionOption(getSubcommand(step.subcommandId), step.values)
+    return option ? conditionIcon(option.id) : subcommandIcon(step.subcommandId)
+}
+
+function onConditionChange(step: ChainStep, optionId: string) {
+    const sub = getSubcommand(step.subcommandId)
+    if (!sub?.condition) return
+    step.values = switchCondition(sub, step.values, optionId)
+}
+
+function conditionSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
+    return category.subcommands.filter((sub) => sub.condition)
+}
+
+function plainSubcommands(category: ExecuteChainCategory): ExecuteChainSubcommand[] {
+    return category.subcommands.filter((sub) => !sub.condition)
 }
 
 const output = computed(() => {
@@ -245,6 +327,7 @@ watch(
 
 function addSubcommand(sub: ExecuteChainSubcommand) {
     const values: Record<string, string | number | boolean> = {}
+    // 条件子命令不带预设：后面跟什么由用户在卡片里选，选之前不生成任何命令片段。
     for (const arg of sub.arguments) {
         if (arg.defaultValue !== undefined) {
             values[arg.name] = arg.defaultValue
@@ -338,12 +421,16 @@ function getState(): ExecuteChainState {
 }
 
 function setState(state: ExecuteChainState) {
-    chain.value = state.chain.map((s) => ({
-        id: nextId++,
-        subcommandId: s.subcommandId,
-        values: { ...s.values },
-        expanded: false,
-    }))
+    chain.value = state.chain.map((step) => {
+        // 旧预置里存的是 if-biome 这种 id，换成 if + condition=biome 才能打开
+        const migrated = migrateLegacyConditionStep(step, getSubcommand) ?? step
+        return {
+            id: nextId++,
+            subcommandId: migrated.subcommandId,
+            values: { ...migrated.values },
+            expanded: false,
+        }
+    })
     finalCommand.value = state.finalCommand
 }
 
@@ -426,7 +513,7 @@ defineExpose({ getState, setState })
                                     @click="step.expanded = !step.expanded"
                                 >
                                     <component
-                                        :is="subcommandIcon(step.subcommandId)"
+                                        :is="stepIcon(step)"
                                         aria-hidden="true"
                                         class="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]"
                                     />
@@ -440,6 +527,17 @@ defineExpose({ getState, setState })
                                                 : step.subcommandId
                                         }}
                                     </span>
+                                    <template v-if="conditionLabel(step)">
+                                        <span
+                                            class="text-[var(--color-text-tertiary)]"
+                                            aria-hidden="true"
+                                            >·</span
+                                        >
+                                        <span
+                                            class="font-normal text-[var(--color-text-secondary)]"
+                                            >{{ conditionLabel(step) }}</span
+                                        >
+                                    </template>
                                 </button>
                                 <div
                                     class="flex items-center gap-1"
@@ -485,19 +583,41 @@ defineExpose({ getState, setState })
                                 </div>
                             </div>
                             <code
+                                v-if="renderStep(step)"
                                 class="mt-2 block break-all text-xs leading-5 text-[var(--color-text-tertiary)]"
                                 >{{ renderStep(step) }}</code
                             >
-                            <div
-                                v-if="step.expanded"
-                                class="mt-4 grid min-w-0 gap-4 md:grid-cols-2"
+                            <p
+                                v-else
+                                class="m-0 mt-2 text-xs leading-5 text-[var(--color-text-tertiary)]"
                             >
-                                <CommandGeneratorArgument
-                                    v-for="arg in getSubcommand(step.subcommandId)?.arguments ?? []"
-                                    :key="arg.name"
-                                    v-model="step.values[arg.name]"
-                                    :arg="arg"
-                                />
+                                {{ formatMessage(messages.conditionUnset) }}
+                            </p>
+                            <div v-if="step.expanded" class="mt-4 flex min-w-0 flex-col gap-4">
+                                <div v-if="conditionOf(step)" class="flex min-w-0 flex-col gap-2">
+                                    <span
+                                        class="text-sm font-semibold text-[var(--color-text-primary)]"
+                                        >{{ formatDynamic(conditionOf(step)!.labelKey, '') }}</span
+                                    >
+                                    <Combobox
+                                        :model-value="conditionValue(step)"
+                                        :options="conditionOptions(step)"
+                                        :aria-label="formatDynamic(conditionOf(step)!.labelKey, '')"
+                                        :placeholder="formatMessage(messages.conditionPlaceholder)"
+                                        width="full"
+                                        @update:model-value="
+                                            onConditionChange(step, String($event ?? ''))
+                                        "
+                                    />
+                                </div>
+                                <div class="grid min-w-0 gap-4 md:grid-cols-2">
+                                    <CommandGeneratorArgument
+                                        v-for="arg in getStepArguments(step)"
+                                        :key="arg.name"
+                                        v-model="step.values[arg.name]"
+                                        :arg="arg"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </li>
@@ -538,13 +658,50 @@ defineExpose({ getState, setState })
                 {{ formatMessage(messages.executePickerTitle) }}
             </summary>
             <div class="mt-3 flex flex-col gap-4">
-                <div v-for="cat in categories" :key="cat.id">
-                    <p class="m-0 mb-2 text-xs font-medium text-[var(--color-text-tertiary)]">
+                <div v-for="cat in categories" :key="cat.id" class="flex flex-col gap-2">
+                    <p class="m-0 text-xs font-medium text-[var(--color-text-tertiary)]">
                         {{ formatDynamic(cat.labelKey, cat.id) }}
                     </p>
-                    <div class="flex flex-wrap gap-2">
+                    <!-- 条件子命令要再选一次跟什么判断，所以给它们更大的卡，而不是一排小按钮 -->
+                    <div
+                        v-if="conditionSubcommands(cat).length"
+                        class="grid min-w-0 gap-2 sm:grid-cols-2"
+                    >
+                        <button
+                            v-for="sub in conditionSubcommands(cat)"
+                            :key="sub.id"
+                            type="button"
+                            class="flex min-w-0 items-start gap-3 rounded-xl border border-solid border-surface-4 bg-surface-3 p-3 text-left transition-colors hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                            @click="addSubcommand(sub)"
+                        >
+                            <span
+                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-4 text-[var(--color-text-secondary)]"
+                            >
+                                <component
+                                    :is="subcommandIcon(sub.id)"
+                                    aria-hidden="true"
+                                    class="h-5 w-5"
+                                />
+                            </span>
+                            <span class="flex min-w-0 flex-col gap-1">
+                                <span
+                                    class="font-mono text-sm font-semibold text-[var(--color-text-primary)]"
+                                    >{{ formatDynamic(sub.labelKey, sub.id) }}</span
+                                >
+                                <span class="text-xs leading-5 text-[var(--color-text-tertiary)]">{{
+                                    formatDynamic(sub.descriptionKey, sub.id)
+                                }}</span>
+                                <span class="text-xs text-[var(--color-text-tertiary)]">{{
+                                    formatMessage(messages.conditionOptionCount, {
+                                        count: sub.condition?.options.length ?? 0,
+                                    })
+                                }}</span>
+                            </span>
+                        </button>
+                    </div>
+                    <div v-if="plainSubcommands(cat).length" class="flex flex-wrap gap-2">
                         <Button
-                            v-for="sub in cat.subcommands"
+                            v-for="sub in plainSubcommands(cat)"
                             :key="sub.id"
                             v-tooltip="formatDynamic(sub.descriptionKey, sub.id)"
                             type="outlined"

@@ -11,10 +11,12 @@ import {
     DatabaseIcon,
     EyeIcon,
     FilterIcon,
+    FilterXIcon,
     GaugeIcon,
     GlobeIcon,
     GridIcon,
     LayersIcon,
+    ListFilterIcon,
     MapIcon,
     MousePointer2Icon,
     OrganizationIcon,
@@ -34,8 +36,10 @@ import {
 import type { Component } from 'vue'
 
 /**
- * 图标表示子命令作用于什么，动词与 if/unless 的正负由标签文字承担，
- * 因此 `if block` 与 `unless block` 共用同一个字形。
+ * 图标表示子命令作用于什么，动词与 if/unless 的正负由标签文字承担。
+ *
+ * `if` 与 `unless` 是同一组判断的两个方向，用「筛子 / 筛掉」区分；
+ * 具体判断什么，由链卡片按选中的条件换成对应的 kind 图标。
  */
 const SUBCOMMAND_ICONS: Record<string, Component> = {
     // 修饰子命令
@@ -54,34 +58,9 @@ const SUBCOMMAND_ICONS: Record<string, Component> = {
     align: GridIcon,
     summon: UserPlusIcon,
 
-    // 条件子命令
-    'if-entity': UsersIcon,
-    'unless-entity': UsersIcon,
-    'if-block': CubeIcon,
-    'unless-block': CubeIcon,
-    'if-blocks': BoxesIcon,
-    'unless-blocks': BoxesIcon,
-    'if-score': ChartColumnBigIcon,
-    'unless-score': ChartColumnBigIcon,
-    'if-score-matches': GaugeIcon,
-    'unless-score-matches': GaugeIcon,
-    'if-biome': LayersIcon,
-    'unless-biome': LayersIcon,
-    'if-data': BracesIcon,
-    'unless-data': BracesIcon,
-    'if-items': PackageIcon,
-    'if-slots': PackageIcon,
-    'unless-slots': PackageIcon,
-    'if-dimension': WorldIcon,
-    'unless-dimension': WorldIcon,
-    'if-loaded': EyeIcon,
-    'unless-loaded': EyeIcon,
-    'if-function': CodeIcon,
-    'unless-function': CodeIcon,
-    'if-predicate': FilterIcon,
-    'unless-predicate': FilterIcon,
-    'if-stopwatch': TimerIcon,
-    'unless-stopwatch': TimerIcon,
+    // 条件子命令（判断的正负）
+    if: FilterIcon,
+    unless: FilterXIcon,
 
     // 存储子命令
     'store-result-score': ChartColumnBigIcon,
@@ -95,6 +74,28 @@ const SUBCOMMAND_ICONS: Record<string, Component> = {
     'store-success-storage': DatabaseIcon,
 }
 
+/** 条件子命令后面跟的判断类型，例如 `if` 的 `biome`。 */
+const CONDITION_ICONS: Record<string, Component> = {
+    entity: UsersIcon,
+    block: CubeIcon,
+    blocks: BoxesIcon,
+    score: ChartColumnBigIcon,
+    'score-matches': GaugeIcon,
+    biome: LayersIcon,
+    data: BracesIcon,
+    items: PackageIcon,
+    slots: PackageIcon,
+    dimension: WorldIcon,
+    loaded: EyeIcon,
+    function: CodeIcon,
+    predicate: ListFilterIcon,
+    stopwatch: TimerIcon,
+}
+
 export function subcommandIcon(id: string): Component {
     return SUBCOMMAND_ICONS[id] ?? UnknownIcon
+}
+
+export function conditionIcon(id: string): Component {
+    return CONDITION_ICONS[id] ?? UnknownIcon
 }

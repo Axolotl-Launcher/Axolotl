@@ -7652,6 +7652,60 @@
   "app.lab.command-generator.execute.clear": {
     "message": "Clear"
   },
+  "app.lab.command-generator.execute.condition.count": {
+    "message": "{count} conditions"
+  },
+  "app.lab.command-generator.execute.condition.field": {
+    "message": "Condition"
+  },
+  "app.lab.command-generator.execute.condition.kind.biome.label": {
+    "message": "Biome"
+  },
+  "app.lab.command-generator.execute.condition.kind.block.label": {
+    "message": "Block"
+  },
+  "app.lab.command-generator.execute.condition.kind.blocks.label": {
+    "message": "Block region"
+  },
+  "app.lab.command-generator.execute.condition.kind.data.label": {
+    "message": "NBT data"
+  },
+  "app.lab.command-generator.execute.condition.kind.dimension.label": {
+    "message": "Dimension"
+  },
+  "app.lab.command-generator.execute.condition.kind.entity.label": {
+    "message": "Entity"
+  },
+  "app.lab.command-generator.execute.condition.kind.function.label": {
+    "message": "Function"
+  },
+  "app.lab.command-generator.execute.condition.kind.items.label": {
+    "message": "Items"
+  },
+  "app.lab.command-generator.execute.condition.kind.loaded.label": {
+    "message": "Chunk loaded"
+  },
+  "app.lab.command-generator.execute.condition.kind.predicate.label": {
+    "message": "Predicate"
+  },
+  "app.lab.command-generator.execute.condition.kind.score-matches.label": {
+    "message": "Score range"
+  },
+  "app.lab.command-generator.execute.condition.kind.score.label": {
+    "message": "Score compare"
+  },
+  "app.lab.command-generator.execute.condition.kind.slots.label": {
+    "message": "Slots"
+  },
+  "app.lab.command-generator.execute.condition.kind.stopwatch.label": {
+    "message": "Stopwatch"
+  },
+  "app.lab.command-generator.execute.condition.placeholder": {
+    "message": "Pick a condition"
+  },
+  "app.lab.command-generator.execute.condition.unset": {
+    "message": "No condition picked yet"
+  },
   "app.lab.command-generator.execute.facing-entity.desc": {
     "message": "Face the execution direction toward an entity"
   },
@@ -7676,86 +7730,50 @@
   "app.lab.command-generator.execute.if-biome.desc": {
     "message": "Continue if the position matches the biome"
   },
-  "app.lab.command-generator.execute.if-biome.label": {
-    "message": "if biome · Check biome"
-  },
   "app.lab.command-generator.execute.if-block.desc": {
     "message": "Continue if the given position is the given block"
-  },
-  "app.lab.command-generator.execute.if-block.label": {
-    "message": "if block · Check block"
   },
   "app.lab.command-generator.execute.if-blocks.desc": {
     "message": "Continue if the two regions match"
   },
-  "app.lab.command-generator.execute.if-blocks.label": {
-    "message": "if blocks · Check region"
-  },
   "app.lab.command-generator.execute.if-data.desc": {
     "message": "Continue if the given NBT path exists"
-  },
-  "app.lab.command-generator.execute.if-data.label": {
-    "message": "if data · Check NBT data"
   },
   "app.lab.command-generator.execute.if-dimension.desc": {
     "message": "Continue if the execution dimension matches"
   },
-  "app.lab.command-generator.execute.if-dimension.label": {
-    "message": "if dimension · Check dimension"
-  },
   "app.lab.command-generator.execute.if-entity.desc": {
     "message": "Continue if the given entity exists"
-  },
-  "app.lab.command-generator.execute.if-entity.label": {
-    "message": "if entity · Check entity exists"
   },
   "app.lab.command-generator.execute.if-function.desc": {
     "message": "Continue if the function returns success"
   },
-  "app.lab.command-generator.execute.if-function.label": {
-    "message": "if function · Check function result"
-  },
   "app.lab.command-generator.execute.if-items.desc": {
     "message": "Continue if the given slot contains the item"
-  },
-  "app.lab.command-generator.execute.if-items.label": {
-    "message": "if items · Check items (1.21+)"
   },
   "app.lab.command-generator.execute.if-loaded.desc": {
     "message": "Continue if the chunk at the position is loaded"
   },
-  "app.lab.command-generator.execute.if-loaded.label": {
-    "message": "if loaded · Check chunk loaded"
-  },
   "app.lab.command-generator.execute.if-predicate.desc": {
     "message": "Continue if the predicate passes"
-  },
-  "app.lab.command-generator.execute.if-predicate.label": {
-    "message": "if predicate · Check predicate"
   },
   "app.lab.command-generator.execute.if-score-matches.desc": {
     "message": "Continue if the score is within the given range"
   },
-  "app.lab.command-generator.execute.if-score-matches.label": {
-    "message": "if score matches · Check score range"
-  },
   "app.lab.command-generator.execute.if-score.desc": {
     "message": "Continue if the score comparison holds"
-  },
-  "app.lab.command-generator.execute.if-score.label": {
-    "message": "if score · Compare scores"
   },
   "app.lab.command-generator.execute.if-slots.desc": {
     "message": "Test slots on a block or entity using a slot source."
   },
-  "app.lab.command-generator.execute.if-slots.label": {
-    "message": "if slots"
-  },
   "app.lab.command-generator.execute.if-stopwatch.desc": {
     "message": "Continue if the stopwatch value is inside the range"
   },
-  "app.lab.command-generator.execute.if-stopwatch.label": {
-    "message": "if stopwatch · Check stopwatch"
+  "app.lab.command-generator.execute.if.desc": {
+    "message": "Continue only when the condition holds"
+  },
+  "app.lab.command-generator.execute.if.label": {
+    "message": "if"
   },
   "app.lab.command-generator.execute.in.desc": {
     "message": "Switch the execution dimension, keeping coordinates"
@@ -7892,80 +7910,50 @@
   "app.lab.command-generator.execute.unless-biome.desc": {
     "message": "Continue if the position is NOT in the given biome"
   },
-  "app.lab.command-generator.execute.unless-biome.label": {
-    "message": "unless biome · Check biome (inverse)"
-  },
   "app.lab.command-generator.execute.unless-block.desc": {
     "message": "Continue if the position is NOT the given block"
-  },
-  "app.lab.command-generator.execute.unless-block.label": {
-    "message": "unless block · Check block (inverse)"
   },
   "app.lab.command-generator.execute.unless-blocks.desc": {
     "message": "Continue if the regions do NOT match"
   },
-  "app.lab.command-generator.execute.unless-blocks.label": {
-    "message": "unless blocks · Check region (inverse)"
-  },
   "app.lab.command-generator.execute.unless-data.desc": {
     "message": "Continue if the NBT path does not exist"
-  },
-  "app.lab.command-generator.execute.unless-data.label": {
-    "message": "unless data · Check NBT data (inverse)"
   },
   "app.lab.command-generator.execute.unless-dimension.desc": {
     "message": "Continue if the execution dimension differs"
   },
-  "app.lab.command-generator.execute.unless-dimension.label": {
-    "message": "unless dimension · Check dimension (inverse)"
-  },
   "app.lab.command-generator.execute.unless-entity.desc": {
     "message": "Continue if the given entity does not exist"
-  },
-  "app.lab.command-generator.execute.unless-entity.label": {
-    "message": "unless entity · Check entity absent"
   },
   "app.lab.command-generator.execute.unless-function.desc": {
     "message": "Continue if the function does not return success"
   },
-  "app.lab.command-generator.execute.unless-function.label": {
-    "message": "unless function · Check function result (inverse)"
+  "app.lab.command-generator.execute.unless-items.desc": {
+    "message": "Continue when the slot does not hold the item"
   },
   "app.lab.command-generator.execute.unless-loaded.desc": {
     "message": "Continue if the chunk at the position is not loaded"
   },
-  "app.lab.command-generator.execute.unless-loaded.label": {
-    "message": "unless loaded · Check chunk loaded (inverse)"
-  },
   "app.lab.command-generator.execute.unless-predicate.desc": {
     "message": "Continue if the predicate fails"
-  },
-  "app.lab.command-generator.execute.unless-predicate.label": {
-    "message": "unless predicate · Check predicate (inverse)"
   },
   "app.lab.command-generator.execute.unless-score-matches.desc": {
     "message": "Continue if the score is outside the range"
   },
-  "app.lab.command-generator.execute.unless-score-matches.label": {
-    "message": "unless score matches · Check score range (inverse)"
-  },
   "app.lab.command-generator.execute.unless-score.desc": {
     "message": "Continue if the score comparison does not hold"
-  },
-  "app.lab.command-generator.execute.unless-score.label": {
-    "message": "unless score · Compare scores (inverse)"
   },
   "app.lab.command-generator.execute.unless-slots.desc": {
     "message": "Test slots on a block or entity using a slot source."
   },
-  "app.lab.command-generator.execute.unless-slots.label": {
-    "message": "unless slots"
-  },
   "app.lab.command-generator.execute.unless-stopwatch.desc": {
     "message": "Continue if the stopwatch value is outside the range"
   },
-  "app.lab.command-generator.execute.unless-stopwatch.label": {
-    "message": "unless stopwatch · Check stopwatch (inverse)"
+  "app.lab.command-generator.execute.unless.desc": {
+    "message": "Continue only when the condition fails"
+  },
+  "app.lab.command-generator.execute.unless.label": {
+    "message": "unless"
   },
   "app.lab.command-generator.filter.all": {
     "message": "All"

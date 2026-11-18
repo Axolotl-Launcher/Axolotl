@@ -2994,6 +2994,33 @@
         "flush: .spawn(move || {",
         "shutdown: .spawn(move || {"
       ]
+    },
+    {
+      "file": "apps/app/src/api/observability_mcp/config.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP preferences: atomic rename of one small JSON document next to the existing mcp.json, the same bounded synchronous write the launcher tools MCP performs; it holds no managed resource",
+      "sites": [
+        "save_preferences: std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/observability_mcp/service.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP startup: reads observability-mcp.json once under the controller lock before any listener starts; a missing file leaves capture off and touches no managed resource",
+      "sites": [
+        "initialize: let result = (|| match std::fs::read(config_path(app)?) {"
+      ]
+    },
+    {
+      "file": "packages/launcher-observability-mcp/src/server.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP listener: one axum server task owned by the Server guard, cancelled through its token and awaited on stop so it cannot outlive the plugin; it holds no launcher resource and only reads the in-process capture",
+      "sites": [
+        "start: let task = tokio::spawn(async move {"
+      ]
     }
   ]
 }

@@ -51,11 +51,14 @@ on port 4318. The launcher does not ship a collector or a bundled endpoint.
   failures by stable `domain` and `error.kind`.
 - Startup, updates, installs and downloads, instance launch, network requests,
   authentication, database operations, theme packs, and MCP tools are covered
-  by their IPC command spans and the allowlisted frontend product events;
-  shutdown flushes the providers within a bounded budget. Existing `theseus`
-  spans are not bridged wholesale because many predate `skip_all` and may carry
-  paths or account data; flow-specific spans added through the public API must
-  declare only bounded attributes.
+  by their IPC command spans, the migrated `theseus` domain spans, and the
+  allowlisted frontend product events; shutdown flushes the providers within a
+  bounded budget.
+- Legacy `theseus` spans were migrated from bare `#[instrument]` to
+  `#[instrument(skip_all, level = "info")]`, keeping explicit span names,
+  field lists and `err` markers, and are bridged by the same span-only OTLP
+  layer. New flow-specific spans must declare only bounded attributes; do not
+  add bare `#[instrument]` attributes that capture arguments.
 - The main webview records page views, IPC outcomes, UI errors, and a small
   allowlisted set of product actions. It cannot send arbitrary attributes,
   names, paths, or user content.

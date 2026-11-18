@@ -282,7 +282,7 @@ fn to_style(value: &str) -> TranslationStyle {
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_settings() -> crate::Result<TranslationSettings> {
     let state = State::get().await?;
     Ok(load_settings(&documents::Documents::new(&state))
@@ -290,7 +290,7 @@ pub async fn get_settings() -> crate::Result<TranslationSettings> {
         .settings)
 }
 
-#[tracing::instrument(skip(settings))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn update_settings(
     settings: TranslationSettings,
 ) -> crate::Result<()> {
@@ -1160,7 +1160,7 @@ async fn translate_uncached(
     }
 }
 
-#[tracing::instrument(skip(request))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn translate(
     request: TranslationRequest,
 ) -> crate::Result<TranslationResponse> {
@@ -1258,7 +1258,7 @@ pub async fn translate(
     Ok(TranslationResponse { segments })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn test_provider(
     provider: TranslationProvider,
 ) -> crate::Result<String> {
@@ -1357,7 +1357,7 @@ pub async fn test_provider(
     Ok(result)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn clear_cache() -> crate::Result<()> {
     let state = State::get().await?;
     state

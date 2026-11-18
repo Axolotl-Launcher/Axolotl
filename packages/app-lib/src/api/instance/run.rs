@@ -19,7 +19,7 @@ pub enum QuickPlayType {
     Server(ServerAddress),
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn run(
     instance_id: &str,
     quick_play_type: QuickPlayType,
@@ -29,7 +29,7 @@ pub async fn run(
         .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn run_with_extra_launch_args(
     instance_id: &str,
     quick_play_type: QuickPlayType,
@@ -50,7 +50,7 @@ pub async fn run_with_extra_launch_args(
 /// Like [`run_with_extra_launch_args`], but additionally resolves a GC-args
 /// intent against the actual JVM and reports what was actually used (useful
 /// for surfacing strategy fallback / flag pruning to the user).
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn run_with_extra_launch_args_with_gc(
     instance_id: &str,
     quick_play_type: QuickPlayType,
@@ -140,7 +140,7 @@ async fn run_with_extra_launch_args_inner(
     })?
 }
 
-#[tracing::instrument(skip(credentials))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn run_credentials(
     instance_id: &str,
     credentials: &Credentials,

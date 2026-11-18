@@ -295,7 +295,7 @@ fn ensure_skin_management_supported(
 
 /// Gets the capes for the selected Minecraft profile.
 /// Only one cape can be equipped.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_available_capes() -> crate::Result<Vec<Cape>> {
     get_available_capes_with_cache(false).await
 }
@@ -430,7 +430,7 @@ pub async fn get_available_capes_for_preview(
 /// Saved skins are identified by texture key. If Mojang reports that a saved skin is active with
 /// a different model variant or cape, the saved row is updated and returned as equipped.
 /// Exactly one returned skin is marked as equipped.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_available_skins() -> crate::Result<Vec<Skin>> {
     get_available_skins_with_cache(false).await
 }
@@ -664,7 +664,7 @@ pub async fn get_available_skins_with_cache(
 
 /// Adds or updates a skin in the app database and equips it for the current profile.
 /// Bundled default skins are only persisted when they have an associated cape.
-#[tracing::instrument(skip(texture_blob))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn add_and_equip_custom_skin(
     texture_blob: Bytes,
     variant: MinecraftSkinVariant,
@@ -845,7 +845,7 @@ async fn add_and_equip_custom_skin_now(
 /// If the skin is already equipped, it will be re-equipped.
 ///
 /// This does not check whether a custom skin exists in the app database.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn equip_skin(skin: Skin) -> crate::Result<()> {
     let state = State::get().await?;
     let selected_credentials = Credentials::get_default_credential(&state.data)
@@ -1032,7 +1032,7 @@ async fn persist_equipped_skin(
 /// the currently selected skin is the one being removed. This gives frontend code more options
 /// to decide between unequipping strategies: falling back to other custom skin, to a default
 /// skin, letting the user choose another skin, etc.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn remove_custom_skin(skin: Skin) -> crate::Result<()> {
     let state = State::get().await?;
 
@@ -1069,7 +1069,7 @@ pub async fn remove_custom_skin(skin: Skin) -> crate::Result<()> {
 }
 
 /// Persists the custom saved skin order for the currently selected Minecraft profile.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn set_custom_skin_order(
     texture_keys: Vec<String>,
 ) -> crate::Result<()> {
@@ -1092,7 +1092,7 @@ pub async fn set_custom_skin_order(
 ///
 /// This is used by the skin editor. If the edited skin is currently equipped, the caller should
 /// queue a separate equip operation after saving the local row.
-#[tracing::instrument(skip(texture_blob))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn save_custom_skin(
     mut skin: Skin,
     texture_blob: Bytes,
@@ -1186,7 +1186,7 @@ pub async fn save_custom_skin(
 
 /// Unequips the currently equipped skin for the currently selected Minecraft profile, resetting
 /// it to one of the default skins and unequipping any cape.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn unequip_skin() -> crate::Result<()> {
     let state = State::get().await?;
     let selected_credentials = Credentials::get_default_credential(&state.data)
@@ -1241,7 +1241,7 @@ async fn unequip_skin_now(
 /// suited for display purposes, not persistent storage or transmission.
 ///
 /// The normalized texture is returned as PNG bytes.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn normalize_skin_texture(
     texture: &UrlOrBlob,
 ) -> crate::Result<Bytes> {
@@ -1250,7 +1250,7 @@ pub async fn normalize_skin_texture(
 
 /// Normalizes a skin for previews without applying Minecraft's inner-layer
 /// opacity conversion.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn normalize_skin_texture_for_preview(
     texture: &UrlOrBlob,
 ) -> crate::Result<Bytes> {
@@ -1268,13 +1268,13 @@ pub fn begin_shutdown_flush() {
 ///
 /// This is used before launching Minecraft and before closing the app so the debounced
 /// skin selection is still applied for those boundary cases.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn flush_pending_skin_change() -> crate::Result<()> {
     flush_pending_skin_change_inner(None, false).await
 }
 
 /// Sends any pending skin change for a specific Minecraft account immediately.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn flush_pending_skin_change_for_profile(
     profile_id: Uuid,
 ) -> crate::Result<()> {
@@ -1529,7 +1529,7 @@ async fn execute_pending_skin_change(
 
 /// Reads and validates a skin texture file from the given path.
 /// Returns the file content as bytes if it's a valid skin texture (PNG with 64x64 or 64x32 dimensions).
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_dragged_skin_data(
     path: &std::path::Path,
 ) -> crate::Result<Bytes> {

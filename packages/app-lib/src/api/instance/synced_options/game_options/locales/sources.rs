@@ -145,7 +145,7 @@ pub(super) async fn snapshot_instance(
     Ok(id)
 }
 
-#[tracing::instrument(skip_all, fields(snapshot_id = id), err)]
+#[tracing::instrument(skip_all, level = "info", fields(snapshot_id = id), err)]
 pub(super) async fn load_snapshot(
     state: &State,
     id: &str,

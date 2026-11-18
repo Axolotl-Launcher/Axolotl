@@ -3,7 +3,7 @@ use crate::state::State;
 use crate::util::io;
 use std::path::PathBuf;
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_full_path(instance_id: &str) -> crate::Result<PathBuf> {
     let state = State::get().await?;
     let instance = crate::state::get_instance(instance_id, &state.pool)
@@ -25,7 +25,7 @@ pub async fn get_full_path(instance_id: &str) -> crate::Result<PathBuf> {
     // falling back to the profile directory.
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_mod_full_path(
     instance_id: &str,
     project_path: &str,

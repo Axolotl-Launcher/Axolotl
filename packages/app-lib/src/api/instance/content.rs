@@ -12,7 +12,7 @@ use std::sync::LazyLock;
 static CONTENT_UPDATE_PLANS: LazyLock<DashMap<String, ContentUpdatePlan>> =
     LazyLock::new(DashMap::new);
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn sync_content_files(
     instance_id: &str,
 ) -> crate::Result<Vec<crate::state::instances::InstanceFile>> {
@@ -20,7 +20,7 @@ pub async fn sync_content_files(
     crate::state::sync_content_files(instance_id, &state).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn list_content_sets(
     instance_id: &str,
 ) -> crate::Result<Vec<ContentSet>> {
@@ -28,7 +28,7 @@ pub async fn list_content_sets(
     crate::state::list_content_sets(instance_id, &state.pool).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_projects(
     instance_id: &str,
     cache_behaviour: Option<CacheBehaviour>,
@@ -43,7 +43,7 @@ pub async fn get_projects(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_installed_project_ids(
     instance_id: &str,
 ) -> crate::Result<Vec<String>> {
@@ -56,7 +56,7 @@ pub async fn get_installed_project_ids(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_install_candidates(
     project_id: &str,
     project_type: ProjectType,
@@ -72,7 +72,7 @@ pub async fn get_install_candidates(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_content_items(
     instance_id: &str,
     cache_behaviour: Option<CacheBehaviour>,
@@ -81,7 +81,7 @@ pub async fn get_content_items(
     crate::state::list_content(instance_id, None, cache_behaviour, &state).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_content_items_by_paths(
     instance_id: &str,
     paths: Vec<String>,
@@ -97,7 +97,7 @@ pub async fn get_content_items_by_paths(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_content_snapshot(
     instance_id: &str,
 ) -> crate::Result<InstanceContentSnapshot> {
@@ -116,7 +116,7 @@ pub async fn get_content_snapshot_for_display(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn refresh_content(
     instance_id: &str,
 ) -> crate::Result<InstanceContentSnapshot> {
@@ -125,7 +125,7 @@ pub async fn refresh_content(
     crate::state::get_content_snapshot(instance_id, true, &state).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn plan_content_updates(
     instance_id: &str,
     scope: ContentUpdateScope,
@@ -265,7 +265,7 @@ pub enum ContentUpdateApplyResult {
     },
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn apply_content_update_plan(
     plan_id: &str,
     resolutions: Vec<ContentUpdateResolution>,
@@ -611,7 +611,7 @@ fn ensure_update_plan_revision(
     .into())
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_linked_modpack_content(
     instance_id: &str,
     cache_behaviour: Option<CacheBehaviour>,
@@ -626,7 +626,7 @@ pub async fn get_linked_modpack_content(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_dependencies_as_content_items(
     dependencies: Vec<Dependency>,
     cache_behaviour: Option<CacheBehaviour>,
@@ -641,7 +641,7 @@ pub async fn get_dependencies_as_content_items(
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_linked_modpack_info(
     instance_id: &str,
     cache_behaviour: Option<CacheBehaviour>,

@@ -992,7 +992,7 @@ fn find_multimc_path() -> Option<PathBuf> {
 
 /// Checks if this PathBuf is a valid instance for the given launcher type
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn is_valid_importable_instance(
     instance_path: PathBuf,
     r#type: ImportLauncherType,
@@ -1024,7 +1024,7 @@ pub async fn is_valid_importable_instance(
 
 /// Caches an image file in the filesystem into the cache directory, and returns the path to the cached file.
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn recache_icon(
     icon_path: PathBuf,
 ) -> crate::Result<Option<PathBuf>> {
@@ -1665,7 +1665,7 @@ fn is_busy_dir_error(error: &eyre::Report) -> bool {
 }
 
 #[async_recursion::async_recursion]
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_all_subfiles(
     src: &Path,
     include_empty_dirs: bool,

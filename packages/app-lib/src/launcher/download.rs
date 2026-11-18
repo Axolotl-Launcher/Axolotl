@@ -1069,7 +1069,7 @@ fn missing_initial_minecraft_bytes(
         )?)
 }
 
-#[tracing::instrument(skip_all, fields(version = version.id.as_str()))]
+#[tracing::instrument(skip_all, level = "info", fields(version = version.id.as_str()))]
 #[allow(clippy::too_many_arguments)]
 pub async fn download_minecraft(
     st: &State,
@@ -1155,7 +1155,7 @@ pub async fn download_minecraft(
     Ok(progress)
 }
 
-#[tracing::instrument(skip_all, fields(version = version.id.as_str(), loader = ?loader))]
+#[tracing::instrument(skip_all, level = "info", fields(version = version.id.as_str(), loader = ?loader))]
 
 pub async fn download_version_info(
     st: &State,
@@ -1691,7 +1691,7 @@ async fn move_corrupt_client(path: &Path) -> Option<PathBuf> {
     }
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 
 pub async fn download_client(
     st: &State,
@@ -1810,7 +1810,7 @@ pub async fn download_client(
     Ok(())
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 
 pub async fn download_assets_index(
     st: &State,
@@ -2004,7 +2004,7 @@ fn coalesce_batch_assets(items: Vec<H2BatchAsset>) -> Vec<H2BatchAsset> {
     coalesced
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub async fn download_assets(
     st: &State,
@@ -2336,7 +2336,7 @@ fn fallback_progress_units(
     u32::from(fetched)..logical_items
 }
 
-#[tracing::instrument(skip_all, fields(version))]
+#[tracing::instrument(skip_all, level = "info", fields(version))]
 #[allow(clippy::too_many_arguments)]
 pub async fn download_libraries(
     st: &State,
@@ -2809,7 +2809,7 @@ fn native_libraries_to_download<'a>(
     Ok(result)
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn download_log_config(
     st: &State,
     local_source: Option<&LocalRuntimeSource>,

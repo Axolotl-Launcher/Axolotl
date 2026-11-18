@@ -6023,17 +6023,11 @@
   "app.lab.command-generator.arg.execute.store-storage.type.display": {
     "message": "Type"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.objective.desc": {
-    "message": "Objective name"
+  "app.lab.command-generator.arg.execute.store.mode.desc": {
+    "message": "result keeps the command value, success keeps 1 or 0"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.objective.display": {
-    "message": "Objective"
-  },
-  "app.lab.command-generator.arg.execute.store-success-score.target.desc": {
-    "message": "Score holder"
-  },
-  "app.lab.command-generator.arg.execute.store-success-score.target.display": {
-    "message": "Target"
+  "app.lab.command-generator.arg.execute.store.mode.display": {
+    "message": "What to keep"
   },
   "app.lab.command-generator.arg.execute.summon.entity.desc": {
     "message": "Entity ID"
@@ -7823,59 +7817,26 @@
   "app.lab.command-generator.execute.rotated.label": {
     "message": "rotated"
   },
-  "app.lab.command-generator.execute.store-result-block.desc": {
-    "message": "Store the result into a block's NBT data"
+  "app.lab.command-generator.execute.store-block.desc": {
+    "message": "Store the value into a block's NBT data"
   },
-  "app.lab.command-generator.execute.store-result-block.label": {
-    "message": "store result block · Store into block NBT"
+  "app.lab.command-generator.execute.store-bossbar.desc": {
+    "message": "Store the value into a boss bar's value or max"
   },
-  "app.lab.command-generator.execute.store-result-bossbar.desc": {
-    "message": "Store the result into a boss bar's value or max"
+  "app.lab.command-generator.execute.store-entity.desc": {
+    "message": "Store the value into an entity's NBT data"
   },
-  "app.lab.command-generator.execute.store-result-bossbar.label": {
-    "message": "store result bossbar · Store into boss bar"
+  "app.lab.command-generator.execute.store-score.desc": {
+    "message": "Store the value into a scoreboard"
   },
-  "app.lab.command-generator.execute.store-result-entity.desc": {
-    "message": "Store the result into an entity's NBT data"
+  "app.lab.command-generator.execute.store-storage.desc": {
+    "message": "Store the value into a command storage"
   },
-  "app.lab.command-generator.execute.store-result-entity.label": {
-    "message": "store result entity · Store into entity NBT"
+  "app.lab.command-generator.execute.store.desc": {
+    "message": "Keep the result, or the success flag, somewhere the chain can read it"
   },
-  "app.lab.command-generator.execute.store-result-score.desc": {
-    "message": "Store the command's actual result into a scoreboard"
-  },
-  "app.lab.command-generator.execute.store-result-score.label": {
-    "message": "store result score · Store into scoreboard"
-  },
-  "app.lab.command-generator.execute.store-result-storage.desc": {
-    "message": "Store the result into a command storage"
-  },
-  "app.lab.command-generator.execute.store-result-storage.label": {
-    "message": "store result storage · Store into storage"
-  },
-  "app.lab.command-generator.execute.store-success-block.desc": {
-    "message": "Store 1 or 0 into a block's NBT data"
-  },
-  "app.lab.command-generator.execute.store-success-block.label": {
-    "message": "store success block · Store success into block NBT"
-  },
-  "app.lab.command-generator.execute.store-success-entity.desc": {
-    "message": "Store 1 or 0 into an entity's NBT data"
-  },
-  "app.lab.command-generator.execute.store-success-entity.label": {
-    "message": "store success entity · Store success into entity NBT"
-  },
-  "app.lab.command-generator.execute.store-success-score.desc": {
-    "message": "Store 1 or 0 depending on the command's success"
-  },
-  "app.lab.command-generator.execute.store-success-score.label": {
-    "message": "store success score · Store success flag"
-  },
-  "app.lab.command-generator.execute.store-success-storage.desc": {
-    "message": "Store 1 or 0 into a command storage"
-  },
-  "app.lab.command-generator.execute.store-success-storage.label": {
-    "message": "store success storage · Store success into storage"
+  "app.lab.command-generator.execute.store.label": {
+    "message": "store"
   },
   "app.lab.command-generator.execute.summon.desc": {
     "message": "Summon an entity at the execution position and make it the executor"
@@ -7937,6 +7898,9 @@
   "app.lab.command-generator.execute.variant.field.condition": {
     "message": "Condition"
   },
+  "app.lab.command-generator.execute.variant.field.destination": {
+    "message": "Destination"
+  },
   "app.lab.command-generator.execute.variant.field.orientation": {
     "message": "Facing"
   },
@@ -7966,6 +7930,21 @@
   },
   "app.lab.command-generator.execute.variant.form.rotated-as.label": {
     "message": "As a target's rotation"
+  },
+  "app.lab.command-generator.execute.variant.form.store-block.label": {
+    "message": "Block NBT"
+  },
+  "app.lab.command-generator.execute.variant.form.store-bossbar.label": {
+    "message": "Boss bar"
+  },
+  "app.lab.command-generator.execute.variant.form.store-entity.label": {
+    "message": "Entity NBT"
+  },
+  "app.lab.command-generator.execute.variant.form.store-score.label": {
+    "message": "Scoreboard"
+  },
+  "app.lab.command-generator.execute.variant.form.store-storage.label": {
+    "message": "Command storage"
   },
   "app.lab.command-generator.execute.variant.placeholder": {
     "message": "Choose one"

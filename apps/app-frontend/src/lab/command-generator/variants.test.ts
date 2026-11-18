@@ -125,6 +125,77 @@ const positionedSub: ExecuteChainSubcommand = {
     },
 }
 
+/** 一个带子命令级参数的家族：`store` 的 `mode` 与写法无关。 */
+const storeSub: ExecuteChainSubcommand = {
+    id: 'store',
+    labelKey: 'store.label',
+    descriptionKey: 'store.desc',
+    template: '',
+    arguments: [
+        {
+            name: 'mode',
+            displayNameKey: 'mode.display',
+            type: 'enum',
+            required: true,
+            descriptionKey: 'mode.desc',
+            enumValues: ['result', 'success'],
+            defaultValue: 'result',
+        },
+    ],
+    variants: {
+        argument: 'destination',
+        labelKey: 'variant.field.destination',
+        layout: 'card',
+        options: [
+            {
+                id: 'score',
+                legacy: [
+                    { id: 'store-result-score', values: { mode: 'result' } },
+                    { id: 'store-success-score', values: { mode: 'success' } },
+                ],
+                labelKey: 'form.store-score.label',
+                descriptionKey: 'store-score.desc',
+                template: 'store {mode} score {target} {objective}',
+                arguments: [
+                    {
+                        name: 'target',
+                        displayNameKey: 'target.display',
+                        type: 'entity-selector',
+                        required: true,
+                        descriptionKey: 'target.desc',
+                    },
+                    {
+                        name: 'objective',
+                        displayNameKey: 'objective.display',
+                        type: 'objective',
+                        required: true,
+                        descriptionKey: 'objective.desc',
+                    },
+                ],
+            },
+            {
+                id: 'block',
+                legacy: [
+                    { id: 'store-result-block', values: { mode: 'result' } },
+                    { id: 'store-success-block', values: { mode: 'success' } },
+                ],
+                labelKey: 'form.store-block.label',
+                descriptionKey: 'store-block.desc',
+                template: 'store {mode} block {pos} {path} {type} {scale}',
+                arguments: [
+                    {
+                        name: 'pos',
+                        displayNameKey: 'pos.display',
+                        type: 'coordinates',
+                        required: true,
+                        descriptionKey: 'pos.desc',
+                    },
+                ],
+            },
+        ],
+    },
+}
+
 describe('resolveVariant', () => {
     it('finds the option stored in the step', () => {
         expect(resolveVariant(ifSub, { condition: 'block' })?.id).toBe('block')
@@ -157,6 +228,17 @@ describe('stepArguments and stepTemplate', () => {
     it('use the subcommand itself when it carries no condition', () => {
         expect(stepArguments(plainSub, {}).map((arg) => arg.name)).toEqual(['target'])
         expect(stepTemplate(plainSub, {})).toBe('as {target}')
+    })
+
+    it('put the subcommand-level arguments before the form ones', () => {
+        expect(stepArguments(storeSub, { destination: 'score' }).map((arg) => arg.name)).toEqual([
+            'mode',
+            'target',
+            'objective',
+        ])
+        expect(stepTemplate(storeSub, { destination: 'score' })).toBe(
+            'store {mode} score {target} {objective}',
+        )
     })
 })
 
@@ -197,12 +279,23 @@ describe('switchVariant', () => {
             target: '@e',
         })
     })
+
+    it('keeps a subcommand-level argument such as store mode', () => {
+        expect(
+            switchVariant(
+                storeSub,
+                { destination: 'score', mode: 'success', target: '@s' },
+                'block',
+            ),
+        ).toEqual({ mode: 'success', destination: 'block' })
+    })
 })
 
 describe('migrateLegacyStep', () => {
     const lookup = new Map<string, ExecuteChainSubcommand>([
         ['if', ifSub],
         ['positioned', positionedSub],
+        ['store', storeSub],
     ])
 
     it('turns an old per-condition id into a condition value', () => {
@@ -235,5 +328,17 @@ describe('migrateLegacyStep', () => {
                 lookup,
             ),
         ).toBeNull()
+    })
+
+    it('restores the fields an old id had folded into itself', () => {
+        expect(
+            migrateLegacyStep(
+                { subcommandId: 'store-success-block', values: { pos: '~ ~ ~' } },
+                lookup,
+            ),
+        ).toEqual({
+            subcommandId: 'store',
+            values: { pos: '~ ~ ~', mode: 'success', destination: 'block' },
+        })
     })
 })

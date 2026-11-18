@@ -171,8 +171,13 @@ const QUICK_PRESETS = [
             chain.value = [
                 {
                     id: nextId++,
-                    subcommandId: 'store-result-score',
-                    values: { target: '@s', objective: 'kills' },
+                    subcommandId: 'store',
+                    values: {
+                        mode: 'result',
+                        destination: 'score',
+                        target: '@s',
+                        objective: 'kills',
+                    },
                     expanded: false,
                 },
             ]

@@ -6023,17 +6023,11 @@
   "app.lab.command-generator.arg.execute.store-storage.type.display": {
     "message": "数值类型"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.objective.desc": {
-    "message": "记分项名称"
+  "app.lab.command-generator.arg.execute.store.mode.desc": {
+    "message": "result 存命令的返回值，success 存 1 或 0"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.objective.display": {
-    "message": "记分项"
-  },
-  "app.lab.command-generator.arg.execute.store-success-score.target.desc": {
-    "message": "记分持有者"
-  },
-  "app.lab.command-generator.arg.execute.store-success-score.target.display": {
-    "message": "目标"
+  "app.lab.command-generator.arg.execute.store.mode.display": {
+    "message": "存什么"
   },
   "app.lab.command-generator.arg.execute.summon.entity.desc": {
     "message": "实体 ID"
@@ -7823,59 +7817,26 @@
   "app.lab.command-generator.execute.rotated.label": {
     "message": "rotated"
   },
-  "app.lab.command-generator.execute.store-result-block.desc": {
-    "message": "把命令结果存入方块的 NBT 数据"
+  "app.lab.command-generator.execute.store-block.desc": {
+    "message": "把数值存入方块的 NBT 数据"
   },
-  "app.lab.command-generator.execute.store-result-block.label": {
-    "message": "store result block · 存入方块 NBT"
+  "app.lab.command-generator.execute.store-bossbar.desc": {
+    "message": "把数值存入 Boss 栏的当前值或最大值"
   },
-  "app.lab.command-generator.execute.store-result-bossbar.desc": {
-    "message": "把结果值存入 Boss 栏的当前值或最大值"
+  "app.lab.command-generator.execute.store-entity.desc": {
+    "message": "把数值存入实体的 NBT 数据"
   },
-  "app.lab.command-generator.execute.store-result-bossbar.label": {
-    "message": "store result bossbar · 存入 Boss 栏"
+  "app.lab.command-generator.execute.store-score.desc": {
+    "message": "把数值存入记分板"
   },
-  "app.lab.command-generator.execute.store-result-entity.desc": {
-    "message": "把命令结果存入实体的 NBT 数据"
+  "app.lab.command-generator.execute.store-storage.desc": {
+    "message": "把数值存入命令存储"
   },
-  "app.lab.command-generator.execute.store-result-entity.label": {
-    "message": "store result entity · 存入实体 NBT"
+  "app.lab.command-generator.execute.store.desc": {
+    "message": "把结果或成功状态存到别处，供后面的子命令读取"
   },
-  "app.lab.command-generator.execute.store-result-score.desc": {
-    "message": "把命令的实际结果值存入记分板"
-  },
-  "app.lab.command-generator.execute.store-result-score.label": {
-    "message": "store result score · 存入记分板"
-  },
-  "app.lab.command-generator.execute.store-result-storage.desc": {
-    "message": "把命令结果存入命令存储"
-  },
-  "app.lab.command-generator.execute.store-result-storage.label": {
-    "message": "store result storage · 存入存储"
-  },
-  "app.lab.command-generator.execute.store-success-block.desc": {
-    "message": "把成功与否（1/0）存入方块的 NBT 数据"
-  },
-  "app.lab.command-generator.execute.store-success-block.label": {
-    "message": "store success block · 存入成功状态到方块"
-  },
-  "app.lab.command-generator.execute.store-success-entity.desc": {
-    "message": "把成功与否（1/0）存入实体的 NBT 数据"
-  },
-  "app.lab.command-generator.execute.store-success-entity.label": {
-    "message": "store success entity · 存入成功状态到实体"
-  },
-  "app.lab.command-generator.execute.store-success-score.desc": {
-    "message": "把命令是否成功（1 或 0）存入记分板"
-  },
-  "app.lab.command-generator.execute.store-success-score.label": {
-    "message": "store success score · 存入成功状态"
-  },
-  "app.lab.command-generator.execute.store-success-storage.desc": {
-    "message": "把成功与否（1/0）存入命令存储"
-  },
-  "app.lab.command-generator.execute.store-success-storage.label": {
-    "message": "store success storage · 存入成功状态到存储"
+  "app.lab.command-generator.execute.store.label": {
+    "message": "store"
   },
   "app.lab.command-generator.execute.summon.desc": {
     "message": "在执行位置生成实体，并以该实体为执行者"
@@ -7937,6 +7898,9 @@
   "app.lab.command-generator.execute.variant.field.condition": {
     "message": "判断条件"
   },
+  "app.lab.command-generator.execute.variant.field.destination": {
+    "message": "存储目标"
+  },
   "app.lab.command-generator.execute.variant.field.orientation": {
     "message": "朝向方式"
   },
@@ -7966,6 +7930,21 @@
   },
   "app.lab.command-generator.execute.variant.form.rotated-as.label": {
     "message": "以目标朝向"
+  },
+  "app.lab.command-generator.execute.variant.form.store-block.label": {
+    "message": "方块 NBT"
+  },
+  "app.lab.command-generator.execute.variant.form.store-bossbar.label": {
+    "message": "Boss 栏"
+  },
+  "app.lab.command-generator.execute.variant.form.store-entity.label": {
+    "message": "实体 NBT"
+  },
+  "app.lab.command-generator.execute.variant.form.store-score.label": {
+    "message": "记分板"
+  },
+  "app.lab.command-generator.execute.variant.form.store-storage.label": {
+    "message": "命令存储"
   },
   "app.lab.command-generator.execute.variant.placeholder": {
     "message": "选择一项"

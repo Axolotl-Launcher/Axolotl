@@ -949,77 +949,33 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.execute.unless-score.desc',
         defaultMessage: 'Continue if the score comparison does not hold',
     },
-    'app.lab.command-generator.execute.store-result-score.label': {
-        id: 'app.lab.command-generator.execute.store-result-score.label',
-        defaultMessage: 'store result score · Store into scoreboard',
+    'app.lab.command-generator.execute.store.label': {
+        id: 'app.lab.command-generator.execute.store.label',
+        defaultMessage: 'store',
     },
-    'app.lab.command-generator.execute.store-result-score.desc': {
-        id: 'app.lab.command-generator.execute.store-result-score.desc',
-        defaultMessage: "Store the command's actual result into a scoreboard",
+    'app.lab.command-generator.execute.store.desc': {
+        id: 'app.lab.command-generator.execute.store.desc',
+        defaultMessage: 'Keep the result, or the success flag, somewhere the chain can read it',
     },
-    'app.lab.command-generator.execute.store-success-score.label': {
-        id: 'app.lab.command-generator.execute.store-success-score.label',
-        defaultMessage: 'store success score · Store success flag',
+    'app.lab.command-generator.execute.store-score.desc': {
+        id: 'app.lab.command-generator.execute.store-score.desc',
+        defaultMessage: 'Store the value into a scoreboard',
     },
-    'app.lab.command-generator.execute.store-success-score.desc': {
-        id: 'app.lab.command-generator.execute.store-success-score.desc',
-        defaultMessage: "Store 1 or 0 depending on the command's success",
+    'app.lab.command-generator.execute.store-bossbar.desc': {
+        id: 'app.lab.command-generator.execute.store-bossbar.desc',
+        defaultMessage: "Store the value into a boss bar's value or max",
     },
-    'app.lab.command-generator.execute.store-result-bossbar.label': {
-        id: 'app.lab.command-generator.execute.store-result-bossbar.label',
-        defaultMessage: 'store result bossbar · Store into boss bar',
+    'app.lab.command-generator.execute.store-block.desc': {
+        id: 'app.lab.command-generator.execute.store-block.desc',
+        defaultMessage: "Store the value into a block's NBT data",
     },
-    'app.lab.command-generator.execute.store-result-bossbar.desc': {
-        id: 'app.lab.command-generator.execute.store-result-bossbar.desc',
-        defaultMessage: "Store the result into a boss bar's value or max",
+    'app.lab.command-generator.execute.store-entity.desc': {
+        id: 'app.lab.command-generator.execute.store-entity.desc',
+        defaultMessage: "Store the value into an entity's NBT data",
     },
-    'app.lab.command-generator.execute.store-result-block.label': {
-        id: 'app.lab.command-generator.execute.store-result-block.label',
-        defaultMessage: 'store result block · Store into block NBT',
-    },
-    'app.lab.command-generator.execute.store-result-block.desc': {
-        id: 'app.lab.command-generator.execute.store-result-block.desc',
-        defaultMessage: "Store the result into a block's NBT data",
-    },
-    'app.lab.command-generator.execute.store-success-block.label': {
-        id: 'app.lab.command-generator.execute.store-success-block.label',
-        defaultMessage: 'store success block · Store success into block NBT',
-    },
-    'app.lab.command-generator.execute.store-success-block.desc': {
-        id: 'app.lab.command-generator.execute.store-success-block.desc',
-        defaultMessage: "Store 1 or 0 into a block's NBT data",
-    },
-    'app.lab.command-generator.execute.store-result-entity.label': {
-        id: 'app.lab.command-generator.execute.store-result-entity.label',
-        defaultMessage: 'store result entity · Store into entity NBT',
-    },
-    'app.lab.command-generator.execute.store-result-entity.desc': {
-        id: 'app.lab.command-generator.execute.store-result-entity.desc',
-        defaultMessage: "Store the result into an entity's NBT data",
-    },
-    'app.lab.command-generator.execute.store-success-entity.label': {
-        id: 'app.lab.command-generator.execute.store-success-entity.label',
-        defaultMessage: 'store success entity · Store success into entity NBT',
-    },
-    'app.lab.command-generator.execute.store-success-entity.desc': {
-        id: 'app.lab.command-generator.execute.store-success-entity.desc',
-        defaultMessage: "Store 1 or 0 into an entity's NBT data",
-    },
-    'app.lab.command-generator.execute.store-result-storage.label': {
-        id: 'app.lab.command-generator.execute.store-result-storage.label',
-        defaultMessage: 'store result storage · Store into storage',
-    },
-    'app.lab.command-generator.execute.store-result-storage.desc': {
-        id: 'app.lab.command-generator.execute.store-result-storage.desc',
-        defaultMessage: 'Store the result into a command storage',
-    },
-    'app.lab.command-generator.execute.store-success-storage.label': {
-        id: 'app.lab.command-generator.execute.store-success-storage.label',
-        defaultMessage: 'store success storage · Store success into storage',
-    },
-    'app.lab.command-generator.execute.store-success-storage.desc': {
-        id: 'app.lab.command-generator.execute.store-success-storage.desc',
-        defaultMessage: 'Store 1 or 0 into a command storage',
+    'app.lab.command-generator.execute.store-storage.desc': {
+        id: 'app.lab.command-generator.execute.store-storage.desc',
+        defaultMessage: 'Store the value into a command storage',
     },
     'app.lab.command-generator.preset.common.self': {
         id: 'app.lab.command-generator.preset.common.self',
@@ -3866,6 +3822,14 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.arg.execute.unless-score.sourceObjective.desc',
         defaultMessage: 'Right-hand objective',
     },
+    'app.lab.command-generator.arg.execute.store.mode.display': {
+        id: 'app.lab.command-generator.arg.execute.store.mode.display',
+        defaultMessage: 'What to keep',
+    },
+    'app.lab.command-generator.arg.execute.store.mode.desc': {
+        id: 'app.lab.command-generator.arg.execute.store.mode.desc',
+        defaultMessage: 'result keeps the command value, success keeps 1 or 0',
+    },
     'app.lab.command-generator.arg.execute.store-result-score.target.display': {
         id: 'app.lab.command-generator.arg.execute.store-result-score.target.display',
         defaultMessage: 'Target',
@@ -3880,22 +3844,6 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.arg.execute.store-result-score.objective.desc': {
         id: 'app.lab.command-generator.arg.execute.store-result-score.objective.desc',
-        defaultMessage: 'Objective name',
-    },
-    'app.lab.command-generator.arg.execute.store-success-score.target.display': {
-        id: 'app.lab.command-generator.arg.execute.store-success-score.target.display',
-        defaultMessage: 'Target',
-    },
-    'app.lab.command-generator.arg.execute.store-success-score.target.desc': {
-        id: 'app.lab.command-generator.arg.execute.store-success-score.target.desc',
-        defaultMessage: 'Score holder',
-    },
-    'app.lab.command-generator.arg.execute.store-success-score.objective.display': {
-        id: 'app.lab.command-generator.arg.execute.store-success-score.objective.display',
-        defaultMessage: 'Objective',
-    },
-    'app.lab.command-generator.arg.execute.store-success-score.objective.desc': {
-        id: 'app.lab.command-generator.arg.execute.store-success-score.objective.desc',
         defaultMessage: 'Objective name',
     },
     'app.lab.command-generator.arg.execute.store-result-bossbar.id.display': {
@@ -4495,6 +4443,10 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.execute.variant.field.condition',
         defaultMessage: 'Condition',
     },
+    'app.lab.command-generator.execute.variant.field.destination': {
+        id: 'app.lab.command-generator.execute.variant.field.destination',
+        defaultMessage: 'Destination',
+    },
     'app.lab.command-generator.execute.variant.field.positioning': {
         id: 'app.lab.command-generator.execute.variant.field.positioning',
         defaultMessage: 'Positioning',
@@ -4606,6 +4558,26 @@ const commandCatalogMessages = defineMessages({
     'app.lab.command-generator.execute.variant.form.facing-entity.label': {
         id: 'app.lab.command-generator.execute.variant.form.facing-entity.label',
         defaultMessage: 'Toward an entity',
+    },
+    'app.lab.command-generator.execute.variant.form.store-score.label': {
+        id: 'app.lab.command-generator.execute.variant.form.store-score.label',
+        defaultMessage: 'Scoreboard',
+    },
+    'app.lab.command-generator.execute.variant.form.store-bossbar.label': {
+        id: 'app.lab.command-generator.execute.variant.form.store-bossbar.label',
+        defaultMessage: 'Boss bar',
+    },
+    'app.lab.command-generator.execute.variant.form.store-block.label': {
+        id: 'app.lab.command-generator.execute.variant.form.store-block.label',
+        defaultMessage: 'Block NBT',
+    },
+    'app.lab.command-generator.execute.variant.form.store-entity.label': {
+        id: 'app.lab.command-generator.execute.variant.form.store-entity.label',
+        defaultMessage: 'Entity NBT',
+    },
+    'app.lab.command-generator.execute.variant.form.store-storage.label': {
+        id: 'app.lab.command-generator.execute.variant.form.store-storage.label',
+        defaultMessage: 'Command storage',
     },
 })
 

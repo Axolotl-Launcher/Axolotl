@@ -18,14 +18,16 @@ export function resolveVariant(
     return variants.options.find((option) => option.id === chosen)
 }
 
-/** 步骤要渲染的参数：有变体时取选中变体的参数。 */
+/** 步骤要渲染的参数：子命令自己的参数在前，再跟选中写法的参数。 */
 export function stepArguments(
     sub: ExecuteChainSubcommand | undefined,
     values: ChainValues,
 ): CommandArgument[] {
     if (!sub) return []
     if (!sub.variants) return sub.arguments
-    return resolveVariant(sub, values)?.arguments ?? []
+    const option = resolveVariant(sub, values)
+    if (!option) return []
+    return [...sub.arguments, ...option.arguments]
 }
 
 /** 步骤要渲染的模板：有变体时取选中变体的模板，未选择时为空。 */
@@ -63,6 +65,8 @@ export function activeStepArguments(
 /**
  * 换一个写法：只保留新写法下同名的参数，其余丢弃。
  * 否则从 `block` 换到 `score` 会把 `pos` 留在步骤里，渲染时被拼进命令。
+ *
+ * 子命令自己的参数（`store` 的 `mode`）与写法无关，换写法时留着。
  */
 export function switchVariant(
     sub: ExecuteChainSubcommand,
@@ -71,7 +75,13 @@ export function switchVariant(
 ): ChainValues {
     const variants = sub.variants
     if (!variants) return values
-    const next: ChainValues = { [variants.argument]: optionId }
+    const next: ChainValues = {}
+    for (const arg of sub.arguments) {
+        const previous = values[arg.name]
+        if (previous !== undefined && previous !== '') next[arg.name] = previous
+        else if (arg.defaultValue !== undefined) next[arg.name] = arg.defaultValue
+    }
+    next[variants.argument] = optionId
     const option = variants.options.find((candidate) => candidate.id === optionId)
     if (!option) return next
     for (const arg of option.arguments) {

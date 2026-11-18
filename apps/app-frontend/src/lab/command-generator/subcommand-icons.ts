@@ -2,11 +2,13 @@ import {
     ArrowUpDownIcon,
     BoxesIcon,
     BracesIcon,
+    ChartAreaIcon,
     ChartColumnBigIcon,
     CircleUserIcon,
     CodeIcon,
     CompassIcon,
     CubeIcon,
+    DatabaseIcon,
     EyeIcon,
     FilterIcon,
     FilterXIcon,
@@ -27,6 +29,7 @@ import {
     TimerIcon,
     UnknownIcon,
     UserPlusIcon,
+    UserRoundIcon,
     UsersIcon,
     WorldIcon,
 } from '@modrinth/assets'
@@ -54,6 +57,9 @@ const SUBCOMMAND_ICONS: Record<string, Component> = {
     // 条件子命令（判断的正负）
     if: FilterIcon,
     unless: FilterXIcon,
+
+    // 存储子命令
+    store: ChartColumnBigIcon,
 }
 
 /**
@@ -85,6 +91,12 @@ const VARIANT_ICONS: Record<string, Component> = {
     'rotated.as': RotateCounterClockwiseIcon,
     'facing.pos': CompassIcon,
     'facing.entity': MousePointer2Icon,
+
+    'store.score': ChartColumnBigIcon,
+    'store.bossbar': ChartAreaIcon,
+    'store.block': CubeIcon,
+    'store.entity': UserRoundIcon,
+    'store.storage': DatabaseIcon,
 }
 
 export function subcommandIcon(id: string): Component {

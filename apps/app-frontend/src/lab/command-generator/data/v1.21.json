@@ -1532,337 +1532,291 @@
           "labelKey": "app.lab.command-generator.execute.category.store",
           "subcommands": [
             {
-              "id": "store-result-score",
-              "labelKey": "app.lab.command-generator.execute.store-result-score.label",
-              "descriptionKey": "app.lab.command-generator.execute.store-result-score.desc",
-              "template": "store result score {target} {objective}",
+              "id": "store",
+              "labelKey": "app.lab.command-generator.execute.store.label",
+              "descriptionKey": "app.lab.command-generator.execute.store.desc",
+              "template": "",
               "arguments": [
                 {
-                  "name": "target",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-result-score.target.display",
-                  "type": "entity-selector",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-result-score.target.desc",
-                  "placeholder": "@s",
-                  "presets": [
-                    {
-                      "labelKey": "app.lab.command-generator.preset.common.self",
-                      "value": "@s"
-                    }
-                  ]
-                },
-                {
-                  "name": "objective",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-result-score.objective.display",
-                  "type": "objective",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-result-score.objective.desc",
-                  "placeholder": "kills"
-                }
-              ]
-            },
-            {
-              "id": "store-success-score",
-              "labelKey": "app.lab.command-generator.execute.store-success-score.label",
-              "descriptionKey": "app.lab.command-generator.execute.store-success-score.desc",
-              "template": "store success score {target} {objective}",
-              "arguments": [
-                {
-                  "name": "target",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-success-score.target.display",
-                  "type": "entity-selector",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-success-score.target.desc",
-                  "placeholder": "@s"
-                },
-                {
-                  "name": "objective",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-success-score.objective.display",
-                  "type": "objective",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-success-score.objective.desc",
-                  "placeholder": "found"
-                }
-              ]
-            },
-            {
-              "id": "store-result-bossbar",
-              "labelKey": "app.lab.command-generator.execute.store-result-bossbar.label",
-              "descriptionKey": "app.lab.command-generator.execute.store-result-bossbar.desc",
-              "template": "store result bossbar {id} {valueOrMax}",
-              "arguments": [
-                {
-                  "name": "id",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-result-bossbar.id.display",
-                  "type": "string",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-result-bossbar.id.desc",
-                  "placeholder": "minecraft:my_boss"
-                },
-                {
-                  "name": "valueOrMax",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-result-bossbar.valueOrMax.display",
+                  "name": "mode",
+                  "displayNameKey": "app.lab.command-generator.arg.execute.store.mode.display",
                   "type": "enum",
                   "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-result-bossbar.valueOrMax.desc",
-                  "enumValues": ["value", "max"],
-                  "defaultValue": "value",
-                  "presets": [
-                    {
-                      "labelKey": "app.lab.command-generator.preset.bossbar-value.value",
-                      "value": "value"
-                    },
-                    {
-                      "labelKey": "app.lab.command-generator.preset.bossbar-value.max",
-                      "value": "max"
-                    }
-                  ]
+                  "descriptionKey": "app.lab.command-generator.arg.execute.store.mode.desc",
+                  "enumValues": ["result", "success"],
+                  "defaultValue": "result"
                 }
-              ]
-            },
-            {
-              "id": "store-result-block",
-              "labelKey": "app.lab.command-generator.execute.store-result-block.label",
-              "descriptionKey": "app.lab.command-generator.execute.store-result-block.desc",
-              "template": "store result block {pos} {path} {type} {scale}",
-              "arguments": [
-                {
-                  "name": "pos",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.pos.display",
-                  "type": "coordinates",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.pos.desc",
-                  "placeholder": "~ ~ ~"
-                },
-                {
-                  "name": "path",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.path.display",
-                  "type": "string",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.path.desc",
-                  "placeholder": "Health"
-                },
-                {
-                  "name": "type",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.type.display",
-                  "type": "enum",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.type.desc",
-                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
-                  "defaultValue": "int"
-                },
-                {
-                  "name": "scale",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.scale.display",
-                  "type": "number",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.scale.desc",
-                  "defaultValue": 1
-                }
-              ]
-            },
-            {
-              "id": "store-success-block",
-              "labelKey": "app.lab.command-generator.execute.store-success-block.label",
-              "descriptionKey": "app.lab.command-generator.execute.store-success-block.desc",
-              "template": "store success block {pos} {path} {type} {scale}",
-              "arguments": [
-                {
-                  "name": "pos",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.pos.display",
-                  "type": "coordinates",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.pos.desc",
-                  "placeholder": "~ ~ ~"
-                },
-                {
-                  "name": "path",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.path.display",
-                  "type": "string",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.path.desc",
-                  "placeholder": "Health"
-                },
-                {
-                  "name": "type",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.type.display",
-                  "type": "enum",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.type.desc",
-                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
-                  "defaultValue": "int"
-                },
-                {
-                  "name": "scale",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-block.scale.display",
-                  "type": "number",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-block.scale.desc",
-                  "defaultValue": 1
-                }
-              ]
-            },
-            {
-              "id": "store-result-entity",
-              "labelKey": "app.lab.command-generator.execute.store-result-entity.label",
-              "descriptionKey": "app.lab.command-generator.execute.store-result-entity.desc",
-              "template": "store result entity {target} {path} {type} {scale}",
-              "arguments": [
-                {
-                  "name": "target",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.target.display",
-                  "type": "entity-selector",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.target.desc"
-                },
-                {
-                  "name": "path",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.path.display",
-                  "type": "string",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.path.desc",
-                  "placeholder": "Health"
-                },
-                {
-                  "name": "type",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.type.display",
-                  "type": "enum",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.type.desc",
-                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
-                  "defaultValue": "int"
-                },
-                {
-                  "name": "scale",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.scale.display",
-                  "type": "number",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.scale.desc",
-                  "defaultValue": 1
-                }
-              ]
-            },
-            {
-              "id": "store-success-entity",
-              "labelKey": "app.lab.command-generator.execute.store-success-entity.label",
-              "descriptionKey": "app.lab.command-generator.execute.store-success-entity.desc",
-              "template": "store success entity {target} {path} {type} {scale}",
-              "arguments": [
-                {
-                  "name": "target",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.target.display",
-                  "type": "entity-selector",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.target.desc"
-                },
-                {
-                  "name": "path",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.path.display",
-                  "type": "string",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.path.desc",
-                  "placeholder": "Health"
-                },
-                {
-                  "name": "type",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.type.display",
-                  "type": "enum",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.type.desc",
-                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
-                  "defaultValue": "int"
-                },
-                {
-                  "name": "scale",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.scale.display",
-                  "type": "number",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.scale.desc",
-                  "defaultValue": 1
-                }
-              ]
-            },
-            {
-              "id": "store-result-storage",
-              "labelKey": "app.lab.command-generator.execute.store-result-storage.label",
-              "descriptionKey": "app.lab.command-generator.execute.store-result-storage.desc",
-              "template": "store result storage {storage} {path} {type} {scale}",
-              "arguments": [
-                {
-                  "name": "storage",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.storage.display",
-                  "type": "string",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.storage.desc",
-                  "placeholder": "minecraft:temp"
-                },
-                {
-                  "name": "path",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.path.display",
-                  "type": "string",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.path.desc",
-                  "placeholder": "Health"
-                },
-                {
-                  "name": "type",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.type.display",
-                  "type": "enum",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.type.desc",
-                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
-                  "defaultValue": "int"
-                },
-                {
-                  "name": "scale",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.scale.display",
-                  "type": "number",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.scale.desc",
-                  "defaultValue": 1
-                }
-              ]
-            },
-            {
-              "id": "store-success-storage",
-              "labelKey": "app.lab.command-generator.execute.store-success-storage.label",
-              "descriptionKey": "app.lab.command-generator.execute.store-success-storage.desc",
-              "template": "store success storage {storage} {path} {type} {scale}",
-              "arguments": [
-                {
-                  "name": "storage",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.storage.display",
-                  "type": "string",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.storage.desc",
-                  "placeholder": "minecraft:temp"
-                },
-                {
-                  "name": "path",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.path.display",
-                  "type": "string",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.path.desc",
-                  "placeholder": "Health"
-                },
-                {
-                  "name": "type",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.type.display",
-                  "type": "enum",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.type.desc",
-                  "enumValues": ["byte", "short", "int", "long", "float", "double"],
-                  "defaultValue": "int"
-                },
-                {
-                  "name": "scale",
-                  "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.scale.display",
-                  "type": "number",
-                  "required": true,
-                  "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.scale.desc",
-                  "defaultValue": 1
-                }
-              ]
+              ],
+              "variants": {
+                "argument": "destination",
+                "labelKey": "app.lab.command-generator.execute.variant.field.destination",
+                "layout": "card",
+                "options": [
+                  {
+                    "id": "score",
+                    "legacy": [
+                      {
+                        "id": "store-result-score",
+                        "values": {
+                          "mode": "result"
+                        }
+                      },
+                      {
+                        "id": "store-success-score",
+                        "values": {
+                          "mode": "success"
+                        }
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.store-score.label",
+                    "descriptionKey": "app.lab.command-generator.execute.store-score.desc",
+                    "template": "store {mode} score {target} {objective}",
+                    "arguments": [
+                      {
+                        "name": "target",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-result-score.target.display",
+                        "type": "entity-selector",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-result-score.target.desc",
+                        "placeholder": "@s",
+                        "presets": [
+                          {
+                            "labelKey": "app.lab.command-generator.preset.common.self",
+                            "value": "@s"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "objective",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-result-score.objective.display",
+                        "type": "objective",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-result-score.objective.desc",
+                        "placeholder": "kills"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "bossbar",
+                    "legacy": [
+                      {
+                        "id": "store-result-bossbar",
+                        "values": {
+                          "mode": "result"
+                        }
+                      },
+                      {
+                        "id": "store-success-bossbar",
+                        "values": {
+                          "mode": "success"
+                        }
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.store-bossbar.label",
+                    "descriptionKey": "app.lab.command-generator.execute.store-bossbar.desc",
+                    "template": "store {mode} bossbar {id} {valueOrMax}",
+                    "arguments": [
+                      {
+                        "name": "id",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-result-bossbar.id.display",
+                        "type": "string",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-result-bossbar.id.desc",
+                        "placeholder": "minecraft:my_boss"
+                      },
+                      {
+                        "name": "valueOrMax",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-result-bossbar.valueOrMax.display",
+                        "type": "enum",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-result-bossbar.valueOrMax.desc",
+                        "enumValues": ["value", "max"],
+                        "defaultValue": "value",
+                        "presets": [
+                          {
+                            "labelKey": "app.lab.command-generator.preset.bossbar-value.value",
+                            "value": "value"
+                          },
+                          {
+                            "labelKey": "app.lab.command-generator.preset.bossbar-value.max",
+                            "value": "max"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "block",
+                    "legacy": [
+                      {
+                        "id": "store-result-block",
+                        "values": {
+                          "mode": "result"
+                        }
+                      },
+                      {
+                        "id": "store-success-block",
+                        "values": {
+                          "mode": "success"
+                        }
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.store-block.label",
+                    "descriptionKey": "app.lab.command-generator.execute.store-block.desc",
+                    "template": "store {mode} block {pos} {path} {type} {scale}",
+                    "arguments": [
+                      {
+                        "name": "pos",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-block.pos.display",
+                        "type": "coordinates",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-block.pos.desc",
+                        "placeholder": "~ ~ ~"
+                      },
+                      {
+                        "name": "path",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-block.path.display",
+                        "type": "string",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-block.path.desc",
+                        "placeholder": "Health"
+                      },
+                      {
+                        "name": "type",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-block.type.display",
+                        "type": "enum",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-block.type.desc",
+                        "enumValues": ["byte", "short", "int", "long", "float", "double"],
+                        "defaultValue": "int"
+                      },
+                      {
+                        "name": "scale",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-block.scale.display",
+                        "type": "number",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-block.scale.desc",
+                        "defaultValue": 1
+                      }
+                    ]
+                  },
+                  {
+                    "id": "entity",
+                    "legacy": [
+                      {
+                        "id": "store-result-entity",
+                        "values": {
+                          "mode": "result"
+                        }
+                      },
+                      {
+                        "id": "store-success-entity",
+                        "values": {
+                          "mode": "success"
+                        }
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.store-entity.label",
+                    "descriptionKey": "app.lab.command-generator.execute.store-entity.desc",
+                    "template": "store {mode} entity {target} {path} {type} {scale}",
+                    "arguments": [
+                      {
+                        "name": "target",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.target.display",
+                        "type": "entity-selector",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.target.desc",
+                        "presets": [
+                          {
+                            "labelKey": "app.lab.command-generator.preset.common.self",
+                            "value": "@s"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "path",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.path.display",
+                        "type": "string",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.path.desc",
+                        "placeholder": "Health"
+                      },
+                      {
+                        "name": "type",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.type.display",
+                        "type": "enum",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.type.desc",
+                        "enumValues": ["byte", "short", "int", "long", "float", "double"],
+                        "defaultValue": "int"
+                      },
+                      {
+                        "name": "scale",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-entity.scale.display",
+                        "type": "number",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-entity.scale.desc",
+                        "defaultValue": 1
+                      }
+                    ]
+                  },
+                  {
+                    "id": "storage",
+                    "legacy": [
+                      {
+                        "id": "store-result-storage",
+                        "values": {
+                          "mode": "result"
+                        }
+                      },
+                      {
+                        "id": "store-success-storage",
+                        "values": {
+                          "mode": "success"
+                        }
+                      }
+                    ],
+                    "labelKey": "app.lab.command-generator.execute.variant.form.store-storage.label",
+                    "descriptionKey": "app.lab.command-generator.execute.store-storage.desc",
+                    "template": "store {mode} storage {storage} {path} {type} {scale}",
+                    "arguments": [
+                      {
+                        "name": "storage",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.storage.display",
+                        "type": "string",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.storage.desc",
+                        "placeholder": "minecraft:temp"
+                      },
+                      {
+                        "name": "path",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.path.display",
+                        "type": "string",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.path.desc",
+                        "placeholder": "Health"
+                      },
+                      {
+                        "name": "type",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.type.display",
+                        "type": "enum",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.type.desc",
+                        "enumValues": ["byte", "short", "int", "long", "float", "double"],
+                        "defaultValue": "int"
+                      },
+                      {
+                        "name": "scale",
+                        "displayNameKey": "app.lab.command-generator.arg.execute.store-storage.scale.display",
+                        "type": "number",
+                        "required": true,
+                        "descriptionKey": "app.lab.command-generator.arg.execute.store-storage.scale.desc",
+                        "defaultValue": 1
+                      }
+                    ]
+                  }
+                ]
+              }
             }
           ]
         }

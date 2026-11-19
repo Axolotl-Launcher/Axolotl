@@ -223,6 +223,9 @@ export function createTooltipLayer() {
             // A frame queued for the previous owner would swallow this one's first
             // measurement, so drop it before arming autoUpdate.
             cancelUpdate()
+            // The content and placement below are new, so a measurement still in
+            // flight describes the old ones. Drop it rather than let it land.
+            generation++
             stopAutoUpdate?.()
             clearDescription()
             if (owner !== trigger) positioner.removeAttribute('data-hidden')

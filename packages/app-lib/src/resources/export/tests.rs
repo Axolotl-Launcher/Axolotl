@@ -804,6 +804,9 @@ async fn fingerprint_and_hashes_use_current_bytes_and_cancel_before_network() {
 
 #[tokio::test]
 async fn three_formats_freeze_current_artifacts_paths_and_package_info() {
+    let primary = "https://edge.forgecdn.net/files/3406/3/File%20Name%2B.jar";
+    let fallback =
+        "https://mediafilez.forgecdn.net/files/3406/3/File%20Name%2B.jar";
     let (root, service, mr, cf) = setup(true).await;
     for path in [
         "mods/file.jar",
@@ -833,6 +836,13 @@ async fn three_formats_freeze_current_artifacts_paths_and_package_info() {
     };
     let mut cf_artifact = artifacts[0].clone();
     cf_artifact.reference.release.project.source = SourceId::curseforge();
+    cf_artifact.acquisition = ArtifactAcquisition::PublicDownload {
+        urls: vec![
+            primary.into(),
+            primary.into(),
+            format!("{primary}?token=private-test-token"),
+        ],
+    };
     let mut project = draft.projects.values().next().unwrap().clone();
     project.metadata.project = cf_artifact.reference.release.project.clone();
     draft
@@ -903,6 +913,19 @@ async fn three_formats_freeze_current_artifacts_paths_and_package_info() {
                 );
                 assert_eq!(manifest["files"][1]["path"], "mods/[中文]file.jar");
                 assert!(manifest["files"][0].get("env").is_none());
+                if format == ResourceExportFormat::GenericZip {
+                    assert_eq!(
+                        manifest["files"][0]["downloads"],
+                        serde_json::json!([primary, fallback]),
+                    );
+                } else {
+                    assert_eq!(
+                        manifest["files"][0]["downloads"],
+                        serde_json::json!([
+                            "https://cdn.modrinth.com/file.jar"
+                        ]),
+                    );
+                }
                 let parsed: crate::pack::install_from::PackFormat =
                     serde_json::from_value(manifest).unwrap();
                 assert_eq!(parsed.files.len(), 2);

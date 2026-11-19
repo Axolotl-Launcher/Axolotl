@@ -1,4 +1,5 @@
 use super::refresh::ExportDraft;
+use crate::api::curseforge::curseforge_candidate_urls;
 use crate::resources::{identity::exact_integrity, providers::public_url, *};
 use std::{collections::HashSet, sync::Arc};
 
@@ -111,6 +112,57 @@ fn cf_path(draft: &ExportDraft, artifact: &ResourceArtifact) -> Option<String> {
     Some(format!("{folder}/{filename}"))
 }
 
+fn is_portable_forge_download(url: &url::Url) -> bool {
+    if url.scheme() != "https"
+        || url.port().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || !matches!(
+            url.host_str(),
+            Some("edge.forgecdn.net" | "mediafilez.forgecdn.net")
+        )
+    {
+        return false;
+    }
+    let Some(path) = url.path().strip_prefix("/files/") else {
+        return false;
+    };
+    let mut segments = path.split('/');
+    let (Some(group), Some(file), Some(name), None) = (
+        segments.next(),
+        segments.next(),
+        segments.next(),
+        segments.next(),
+    ) else {
+        return false;
+    };
+    !group.is_empty()
+        && group.bytes().all(|byte| byte.is_ascii_digit())
+        && !file.is_empty()
+        && file.bytes().all(|byte| byte.is_ascii_digit())
+        && !name.is_empty()
+}
+
+fn add_curseforge_export_fallbacks(urls: &mut Vec<String>) {
+    let mut seen = HashSet::new();
+    urls.retain(|url| seen.insert(url.clone()));
+    let fallbacks: Vec<_> = urls
+        .iter()
+        .filter(|url| {
+            url::Url::parse(url)
+                .is_ok_and(|url| is_portable_forge_download(&url))
+        })
+        .filter_map(|url| curseforge_candidate_urls(url).ok())
+        .flatten()
+        .filter(|url| {
+            url::Url::parse(url)
+                .is_ok_and(|url| is_portable_forge_download(&url))
+        })
+        .filter(|url| seen.insert(url.clone()))
+        .collect();
+    urls.extend(fallbacks);
+}
+
 pub fn build(
     draft: &ExportDraft,
     revision: u32,
@@ -198,6 +250,11 @@ pub fn build(
                 &mut a.acquisition
             {
                 urls.retain(|url| public_url(url).is_some());
+                if format == ResourceExportFormat::GenericZip
+                    && source == &SourceId::curseforge()
+                {
+                    add_curseforge_export_fallbacks(urls);
+                }
                 if !urls.is_empty() {
                     return Some(a);
                 }

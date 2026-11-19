@@ -713,10 +713,9 @@ fn create_main_window(app: &AppHandle, route: &str) -> Result<(), String> {
 }
 
 fn show_main_window(app: &AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-        window.show().map_err(|error| error.to_string())?;
-        window.unminimize().map_err(|error| error.to_string())?;
-        window.set_focus().map_err(|error| error.to_string())?;
+    if let Some(window) = app.get_window(MAIN_WINDOW_LABEL) {
+        crate::window_frame::present_main_window(&window, true)
+            .map_err(|error| error.to_string())?;
     }
     Ok(())
 }

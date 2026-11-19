@@ -498,7 +498,7 @@ async fn set_discord_activity(activity: String) -> api::Result<()> {
 #[tauri::command]
 fn show_window(app: tauri::AppHandle) {
     let win = app.get_window("main").unwrap();
-    if let Err(e) = win.show() {
+    if let Err(e) = window_frame::present_main_window(&win, true) {
         DialogBuilder::message()
             .set_level(MessageLevel::Error)
             .set_title("Initialization error")
@@ -509,8 +509,6 @@ fn show_window(app: tauri::AppHandle) {
             .show()
             .unwrap();
         panic!("cannot display application window")
-    } else {
-        let _ = win.set_focus();
     }
 }
 
@@ -1008,6 +1006,12 @@ fn main() {
                             | tauri_plugin_window_state::StateFlags::MAXIMIZED,
                     );
 
+            #[cfg(windows)]
+            {
+                window_state_builder =
+                    window_state_builder.skip_initial_state("main");
+            }
+
             // Use THESEUS_CONFIG_DIR for window state if set (portable mode)
             if let Some(config_dir) = std::env::var_os("THESEUS_CONFIG_DIR") {
                 window_state_builder =
@@ -1041,9 +1045,10 @@ fn main() {
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(std::time::Duration::from_secs(4)).await;
                 if let Some(window) = app_handle.get_window("main")
-                    && !window.is_visible().unwrap_or(true)
+                    && let Err(error) =
+                        window_frame::present_main_window(&window, false)
                 {
-                    let _ = window.show();
+                    tracing::warn!(%error, "Could not schedule the fallback main window presentation");
                 }
             });
 

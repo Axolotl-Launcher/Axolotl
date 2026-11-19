@@ -1,5 +1,53 @@
 use serde::Serialize;
 
+pub(crate) fn present_main_window(
+    window: &tauri::Window,
+    activate: bool,
+) -> tauri::Result<()> {
+    let target = window.clone();
+    window.run_on_main_thread(move || {
+        if let Err(error) = present_main_window_on_ui_thread(&target, activate)
+        {
+            tracing::warn!(%error, "Could not present the main window");
+        }
+    })
+}
+
+fn present_main_window_on_ui_thread(
+    window: &tauri::Window,
+    activate: bool,
+) -> tauri::Result<()> {
+    if !window.is_visible()? {
+        #[cfg(windows)]
+        {
+            use tauri_plugin_window_state::{StateFlags, WindowExt};
+
+            if let Err(error) =
+                window.restore_state(StateFlags::POSITION | StateFlags::SIZE)
+            {
+                tracing::warn!(%error, "Could not restore the main window geometry");
+            }
+            // Maximizing a hidden window on Windows shows and then hides its
+            // HWND. Mark it visible first, and maximize in the same UI dispatch.
+            window.show()?;
+            if let Err(error) = window.restore_state(StateFlags::MAXIMIZED) {
+                tracing::warn!(%error, "Could not restore the main window maximization");
+            }
+        }
+        #[cfg(not(windows))]
+        window.show()?;
+
+        crate::startup_phase("main_window_presented");
+    }
+    if activate {
+        if window.is_minimized()? {
+            window.unminimize()?;
+        }
+        window.set_focus()?;
+    }
+    Ok(())
+}
+
 #[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrameResult {

@@ -211,6 +211,44 @@ it('hides the surface while its trigger is scrolled out of its container', async
     })
 })
 
+it('keeps a handed-off surface hidden until the new owner has been measured', async () => {
+    applyTheme('dark')
+    const group = document.createElement('div')
+    group.dataset.tooltipGroup = 'handoff'
+    group.style.cssText = 'position:fixed;top:120px;left:120px;width:220px;height:400px'
+    const scroller = document.createElement('div')
+    scroller.style.cssText = 'height:200px;overflow-y:auto'
+    const content = document.createElement('div')
+    content.style.cssText = 'position:relative;height:900px'
+    scroller.append(content)
+    group.append(scroller)
+    document.body.append(group)
+    cleanup.push(() => group.remove())
+
+    const clipped = mountTrigger(ref<unknown>('Clipped away'), {}, content)
+    clipped.trigger.style.cssText = 'position:absolute;top:40px;left:20px;width:80px;height:32px'
+    const visible = mountTrigger(ref<unknown>('Visible again'), {}, group)
+    visible.trigger.style.cssText = 'position:absolute;top:240px;left:20px;width:80px;height:32px'
+
+    clipped.trigger.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    const positioner = popper()!.parentElement as HTMLElement
+
+    scroller.scrollTop = 300
+    await waitFor(() => positioner.hasAttribute('data-hidden'), {
+        label: 'the clipped trigger to hide its surface',
+    })
+
+    visible.trigger.focus()
+    expect(
+        positioner.hasAttribute('data-hidden'),
+        'the surface must not reappear at the clipped trigger before it is measured',
+    ).toBe(true)
+    await waitFor(() => !positioner.hasAttribute('data-hidden'), {
+        label: 'the measured handoff to reveal the surface',
+    })
+})
+
 it('transfers descriptions on keyboard focus without deleting existing descriptions', async () => {
     const { items } = mountGroup()
     const [a, b] = items.map((item) => item.trigger)

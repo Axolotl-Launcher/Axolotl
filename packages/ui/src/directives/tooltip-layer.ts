@@ -73,6 +73,7 @@ export function createTooltipLayer() {
         positioner.remove()
         positioner.dataset.state = 'closed'
         positioner.dataset.positioned = 'false'
+        positioner.removeAttribute('data-hidden')
         positioned = false
     }
 
@@ -228,7 +229,6 @@ export function createTooltipLayer() {
             generation++
             stopAutoUpdate?.()
             clearDescription()
-            if (owner !== trigger) positioner.removeAttribute('data-hidden')
             owner = trigger
             popper.removeAttribute('aria-hidden')
             popper.className = resolved.options.popperClass

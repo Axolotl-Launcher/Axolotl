@@ -15,6 +15,8 @@ import i18nPlugin from '@/plugins/i18n'
 import i18nDebugPlugin from '@/plugins/i18n-debug'
 import router from '@/routes'
 
+performance.mark('axolotl:entry-evaluated')
+
 const pinia = createPinia()
 
 const app = createApp(App)
@@ -52,5 +54,7 @@ app.use(i18nDebugPlugin)
 app.directive('overlay-scrollbars', overlayScrollbarsDirective)
 app.directive('tooltip', tooltipDirective)
 
+performance.mark('axolotl:mount-started')
 app.mount('#app')
+performance.mark('axolotl:mount-finished')
 void initializeLocale().catch(console.error)

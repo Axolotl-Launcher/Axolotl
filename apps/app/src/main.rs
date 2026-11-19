@@ -11,6 +11,8 @@ use std::{
     env, fs,
     io::Read,
     path::{Component, Path, PathBuf},
+    sync::OnceLock,
+    time::Instant,
 };
 use tauri::{
     Emitter, Listener, Manager,
@@ -52,6 +54,31 @@ mod updater_impl;
 mod updater_impl_noop;
 
 const BLOCKBENCH_SKIN_RESOURCE_DIR: &str = "resources/blockbench-skin";
+
+static PROCESS_STARTED: OnceLock<Instant> = OnceLock::new();
+
+fn startup_phase(phase: &'static str) {
+    if let Some(started) = PROCESS_STARTED.get() {
+        tracing::info!(
+            phase,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Startup timing"
+        );
+    }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FrontendStartupTiming {
+    navigation_start_unix_ms: u64,
+    document_response_start_ms: Option<u64>,
+    document_response_end_ms: Option<u64>,
+    dom_interactive_ms: Option<u64>,
+    entry_evaluated_ms: Option<u64>,
+    mount_started_ms: Option<u64>,
+    mount_finished_ms: Option<u64>,
+    initialize_sent_ms: u64,
+}
 
 /// A toast trigger writes settings through the pool, whose SQLite
 /// `busy_timeout` is 30 s — longer than the exit hard cap. Bound the write so
@@ -216,7 +243,24 @@ fn is_skin_editor_referer(
 // Should be called in launcher initialization
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
-async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
+async fn initialize_state(
+    app: tauri::AppHandle,
+    frontend_timing: Option<FrontendStartupTiming>,
+) -> api::Result<()> {
+    startup_phase("initialize_received");
+    if let Some(timing) = frontend_timing {
+        tracing::info!(
+            navigation_start_unix_ms = timing.navigation_start_unix_ms,
+            document_response_start_ms = ?timing.document_response_start_ms,
+            document_response_end_ms = ?timing.document_response_end_ms,
+            dom_interactive_ms = ?timing.dom_interactive_ms,
+            entry_evaluated_ms = ?timing.entry_evaluated_ms,
+            mount_started_ms = ?timing.mount_started_ms,
+            mount_finished_ms = ?timing.mount_finished_ms,
+            initialize_sent_ms = timing.initialize_sent_ms,
+            "Webview startup timing (offsets from navigation start)"
+        );
+    }
     tracing::info!("Initializing app event state...");
     theseus::EventState::init(app.clone()).await?;
 
@@ -316,6 +360,7 @@ async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
     app.fs_scope()
         .allow_directory(state.directories.servers_dir(), true)?;
 
+    startup_phase("initialize_completed");
     Ok(())
 }
 
@@ -475,6 +520,7 @@ fn show_window(app: tauri::AppHandle) {
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn frontend_ready() {
+    startup_phase("frontend_first_initialized_frame_reported");
     State::mark_frontend_ready();
 }
 
@@ -768,6 +814,7 @@ fn raise_file_descriptor_limit() {
 // if Tauri app is called with arguments, then those arguments will be treated as commands
 // ie: deep links or filepaths for .mrpacks
 fn main() {
+    let _ = PROCESS_STARTED.set(Instant::now());
     #[cfg(windows)]
     if let Err(error) = std::env::current_exe()
         .map_err(|error| error.to_string())
@@ -969,7 +1016,21 @@ fn main() {
 
             window_state_builder.build()
         })
+        .on_page_load(|webview, payload| {
+            if webview.label() == "main" {
+                startup_phase(match payload.event() {
+                    tauri::webview::PageLoadEvent::Started => {
+                        "webview_page_load_started"
+                    }
+                    tauri::webview::PageLoadEvent::Finished => {
+                        "webview_page_load_finished"
+                    }
+                });
+            }
+        })
         .setup(|app| {
+            // Tauri creates the configured windows before calling setup.
+            startup_phase("configured_windows_created");
             lightweight_mode::init(app.handle());
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
@@ -1114,11 +1175,16 @@ fn main() {
         ]);
 
     tracing::info!("Initializing app...");
+    startup_phase("tauri_build_started");
     let app = builder.build(tauri_context);
 
     match app {
         Ok(app) => {
+            startup_phase("tauri_build_completed");
             app.run(|app, event| {
+                if matches!(&event, tauri::RunEvent::Ready) {
+                    startup_phase("tauri_event_loop_ready");
+                }
                 #[cfg(not(any(feature = "updater", target_os = "macos")))]
                 let _ = app;
 

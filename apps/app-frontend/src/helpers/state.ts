@@ -36,10 +36,27 @@ export interface OpeningCommand {
     path?: string
 }
 
-// Initialize the theseus API state
-// This should be called during the initializion/opening of the launcher
+function startupMark(name: string): number | undefined {
+    const entry = performance.getEntriesByName(name, 'mark').at(-1)
+    return entry ? Math.round(entry.startTime) : undefined
+}
+
 export async function initialize_state() {
-    return await invoke<void>('initialize_state')
+    const navigation = performance.getEntriesByType('navigation')[0] as
+        PerformanceNavigationTiming | undefined
+
+    return await invoke<void>('initialize_state', {
+        frontendTiming: {
+            navigationStartUnixMs: Math.round(performance.timeOrigin),
+            documentResponseStartMs: Math.round(navigation?.responseStart ?? 0) || undefined,
+            documentResponseEndMs: Math.round(navigation?.responseEnd ?? 0) || undefined,
+            domInteractiveMs: Math.round(navigation?.domInteractive ?? 0) || undefined,
+            entryEvaluatedMs: startupMark('axolotl:entry-evaluated'),
+            mountStartedMs: startupMark('axolotl:mount-started'),
+            mountFinishedMs: startupMark('axolotl:mount-finished'),
+            initializeSentMs: Math.round(performance.now()),
+        },
+    })
 }
 
 export async function set_discord_activity(activity: string) {

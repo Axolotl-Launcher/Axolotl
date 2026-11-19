@@ -109,6 +109,26 @@ export function migratePresetState(
 }
 
 /**
+ * 开发构建里插进列表的旧版示例：条件、定位、存储各取一个旧 id，
+ * 迁移后应拼成
+ * `if biome ~ ~ ~ minecraft:plains positioned as @p store success entity @s Health int 1`。
+ */
+export const LEGACY_SAMPLE_STATE: ExecuteChainState = {
+    chain: [
+        { subcommandId: 'if-biome', values: { pos: '~ ~ ~', biome: 'minecraft:plains' } },
+        { subcommandId: 'positioned-as', values: { target: '@p' } },
+        {
+            subcommandId: 'store-success-entity',
+            values: { target: '@s', path: 'Health', type: 'int', scale: 1 },
+        },
+    ],
+    finalCommand: 'say migrated',
+}
+
+/** 旧版回退形态：只剩一段命令字符串，没有步骤可以还原。 */
+export const LEGACY_SAMPLE_CHAIN_STRING = 'as @a at @s run say hi'
+
+/**
  * 完全替换语义：预设里有的用预设值，没有的回退到 defaultValue 或清空。
  */
 export function applyPresetToValues(

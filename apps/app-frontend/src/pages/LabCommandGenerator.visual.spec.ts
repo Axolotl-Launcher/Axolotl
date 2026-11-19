@@ -364,6 +364,29 @@ it('marks a preset saved with the old step ids and upgrades it in place', async 
     expect(stored[0].chainString).toBe(undefined)
 })
 
+it('seeds two legacy samples from the development-only button', async () => {
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.get('.global-presets-button').trigger('click')
+    const seed = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Insert legacy samples')!
+    await seed.trigger('click')
+    await flushPromises()
+    const cards = wrapper.findAll('.global-preset-item')
+    expect(cards).toHaveLength(2)
+    // 两条都是旧版，但只有存了步骤的那条能迁移
+    expect(cards.filter((card) => card.text().includes('Legacy'))).toHaveLength(2)
+    expect(wrapper.findAll('button').filter((button) => button.text() === 'Migrate')).toHaveLength(
+        1,
+    )
+    // 再点一次是替换而不是追加
+    await seed.trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.global-preset-item')).toHaveLength(2)
+})
+
 it.each(['give', 'execute'])(
     'opens a %s preset from another version and generates the restored command',
     async (commandId) => {

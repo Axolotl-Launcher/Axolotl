@@ -52,6 +52,8 @@ import {
     applyPresetToValues,
     deleteUserPreset,
     getUserPresets,
+    LEGACY_SAMPLE_CHAIN_STRING,
+    LEGACY_SAMPLE_STATE,
     migratePresetState,
     presetNeedsMigration,
     replaceUserPreset,
@@ -216,6 +218,22 @@ const messages = defineMessages({
     toastPresetNotMigratable: {
         id: 'app.lab.command-generator.preset.toast.not-migratable',
         defaultMessage: 'This preset cannot be upgraded automatically',
+    },
+    legacySampleInsert: {
+        id: 'app.lab.command-generator.preset.sample.insert',
+        defaultMessage: 'Insert legacy samples',
+    },
+    legacySampleMigratable: {
+        id: 'app.lab.command-generator.preset.sample.migratable',
+        defaultMessage: 'Legacy sample (migratable)',
+    },
+    legacySampleStringOnly: {
+        id: 'app.lab.command-generator.preset.sample.string-only',
+        defaultMessage: 'Legacy sample (string only)',
+    },
+    legacySampleInserted: {
+        id: 'app.lab.command-generator.preset.sample.inserted',
+        defaultMessage: 'Inserted two legacy presets',
     },
     executeBuildFirst: {
         id: 'app.lab.command-generator.execute.build-first',
@@ -468,6 +486,22 @@ function migratePreset(preset: UserPreset) {
     replaceUserPreset({ ...preset, executeState: state, chainString: undefined })
     userPresets.value = getUserPresets()
     showToast(formatMessage(messages.toastPresetMigrated, { name: preset.name }))
+}
+
+/** 开发构建才有：造两条旧版预置，检查列表里的标记与迁移按钮。 */
+const isDevBuild = import.meta.env.DEV
+
+function seedLegacySamples() {
+    const migratable = formatMessage(messages.legacySampleMigratable)
+    const stringOnly = formatMessage(messages.legacySampleStringOnly)
+    // 重复点就重来一遍，避免列表里堆同名条目
+    for (const preset of getUserPresets()) {
+        if (preset.name === migratable || preset.name === stringOnly) deleteUserPreset(preset.id)
+    }
+    saveUserPreset(migratable, 'execute', '1.21', {}, { executeState: LEGACY_SAMPLE_STATE })
+    saveUserPreset(stringOnly, 'execute', '1.21', {}, { chainString: LEGACY_SAMPLE_CHAIN_STRING })
+    userPresets.value = getUserPresets()
+    showToast(formatMessage(messages.legacySampleInserted))
 }
 
 onMounted(() => {
@@ -724,14 +758,19 @@ async function openWiki() {
                 <h2 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
                     {{ formatMessage(messages.globalPresets) }}
                 </h2>
-                <Button
-                    v-tooltip="formatMessage(messages.close)"
-                    type="quiet"
-                    icon-only
-                    :label="formatMessage(messages.close)"
-                    @click="showGlobalPresets = false"
-                    ><XIcon
-                /></Button>
+                <div class="flex items-center gap-2">
+                    <Button v-if="isDevBuild" type="quiet" size="sm" @click="seedLegacySamples">{{
+                        formatMessage(messages.legacySampleInsert)
+                    }}</Button>
+                    <Button
+                        v-tooltip="formatMessage(messages.close)"
+                        type="quiet"
+                        icon-only
+                        :label="formatMessage(messages.close)"
+                        @click="showGlobalPresets = false"
+                        ><XIcon
+                    /></Button>
+                </div>
             </div>
             <p v-if="!allPresets.length" class="m-0 text-sm text-[var(--color-text-tertiary)]">
                 {{ formatMessage(messages.globalPresetsEmpty) }}

@@ -8876,6 +8876,18 @@
   "app.lab.command-generator.preset.rotation.west": {
     "message": "West (-90)"
   },
+  "app.lab.command-generator.preset.sample.insert": {
+    "message": "Insert legacy samples"
+  },
+  "app.lab.command-generator.preset.sample.inserted": {
+    "message": "Inserted two legacy presets"
+  },
+  "app.lab.command-generator.preset.sample.migratable": {
+    "message": "Legacy sample (migratable)"
+  },
+  "app.lab.command-generator.preset.sample.string-only": {
+    "message": "Legacy sample (string only)"
+  },
   "app.lab.command-generator.preset.save": {
     "message": "Save as preset"
   },

@@ -191,6 +191,26 @@ it('lands a scrolled surface on its trigger instead of animating towards it', as
     expect(Math.abs(surface.bottom - (triggerBox.top - 5))).toBeLessThanOrEqual(1)
 })
 
+it('hides the surface while its trigger is scrolled out of its container', async () => {
+    applyTheme('dark')
+    const { scroller, trigger } = mountScrollingTrigger(ref<unknown>('Scrolled away'))
+
+    trigger.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    const positioner = popper()!.parentElement as HTMLElement
+    expect(getComputedStyle(positioner).visibility).toBe('visible')
+
+    scroller.scrollTop = 400
+    await waitFor(() => getComputedStyle(positioner).visibility === 'hidden', {
+        label: 'the surface to hide with its clipped trigger',
+    })
+
+    scroller.scrollTop = 160
+    await waitFor(() => getComputedStyle(positioner).visibility === 'visible', {
+        label: 'the surface to return with its trigger',
+    })
+})
+
 it('transfers descriptions on keyboard focus without deleting existing descriptions', async () => {
     const { items } = mountGroup()
     const [a, b] = items.map((item) => item.trigger)

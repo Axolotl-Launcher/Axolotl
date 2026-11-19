@@ -3,6 +3,7 @@ import {
     autoUpdate,
     computePosition,
     flip,
+    hide,
     offset,
     type Placement,
     shift,
@@ -101,6 +102,9 @@ export function createTooltipLayer() {
                 flip({ padding: 8 }),
                 shift({ padding: 8 }),
                 arrow({ element: arrowElement, padding: 7 }),
+                // `referenceHidden` measures the trigger against its own clipping
+                // ancestors, which is the scroll container it lives in.
+                hide(),
             ],
         })
         if (
@@ -139,6 +143,12 @@ export function createTooltipLayer() {
             }
         }
         positioner.style.transform = `translate(${Math.round(result.x)}px, ${Math.round(result.y)}px)`
+        // A trigger scrolled out of its container keeps a stale anchor. The
+        // surface must not be left floating where the trigger used to be.
+        positioner.toggleAttribute(
+            'data-hidden',
+            result.middlewareData.hide?.referenceHidden === true,
+        )
         const side = result.placement.split('-')[0] as 'top' | 'bottom' | 'left' | 'right'
         arrowElement.dataset.side = side
         const horizontal = side === 'top' || side === 'bottom'
@@ -182,6 +192,7 @@ export function createTooltipLayer() {
             cancelExit()
             stopAutoUpdate?.()
             clearDescription()
+            if (owner !== trigger) positioner.removeAttribute('data-hidden')
             owner = trigger
             popper.removeAttribute('aria-hidden')
             popper.className = resolved.options.popperClass

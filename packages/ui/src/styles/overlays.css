@@ -28,6 +28,12 @@
     transition: none;
 }
 
+/* A trigger scrolled out of its container must not leave its surface behind,
+   anchored where the trigger used to be. */
+.tooltip-positioner[data-positioned='true'][data-hidden] {
+    visibility: hidden;
+}
+
 .tooltip-positioner > .tooltip-popper {
     position: relative;
     opacity: 0;

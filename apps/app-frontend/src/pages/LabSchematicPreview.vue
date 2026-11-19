@@ -1617,6 +1617,12 @@ function externalFilePath() {
 // also listens for hand-offs delivered directly while it is mounted.
 let stopSchematicOpenRequests: (() => void) | undefined
 
+// The route value read at mount time is a snapshot of the first hand-off. A
+// request that arrives before mounting finishes is newer, so it retires that
+// snapshot: without this the mount path would open the older file after the
+// newer one and cancel the request the user just made.
+let routeSnapshotSuperseded = false
+
 // A navigation that names a different file still has to load it, which mounting
 // cannot observe.
 watch(
@@ -1625,12 +1631,14 @@ watch(
         const path = externalFilePath()
         const current = currentSource.value
         if (!path || (current?.kind === 'external' && current.path === path)) return
+        routeSnapshotSuperseded = true
         void openSource({ kind: 'external', path })
     },
 )
 
 onMounted(async () => {
     stopSchematicOpenRequests = onSchematicOpenRequest((path) => {
+        routeSnapshotSuperseded = true
         void openSource({ kind: 'external', path })
     })
     await loadInstances()
@@ -1642,7 +1650,12 @@ onMounted(async () => {
 
     const externalPath = externalFilePath()
     if (externalPath) {
-        await openSource({ kind: 'external', path: externalPath })
+        // A request that arrived while this function was awaiting is the file
+        // the user wants; the route still names the one the page was opened
+        // with, and loading it now would cancel the newer request.
+        if (!routeSnapshotSuperseded) {
+            await openSource({ kind: 'external', path: externalPath })
+        }
         return
     }
 

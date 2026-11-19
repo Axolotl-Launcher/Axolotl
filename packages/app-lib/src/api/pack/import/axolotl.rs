@@ -7,8 +7,8 @@ use crate::{
     install::{InstallPhaseDetails, InstallProgressReporter},
     state::{
         AppliedContentSetPatch, ContentSourceKind, EditInstance,
-        InstanceInstallStage, InstanceLaunchOverridesPatch, ModLoader,
-        ReleaseChannel, instances::InstanceLaunchOverridesData,
+        InstanceInstallStage, InstanceLaunchOverridesPatch, InstanceLink,
+        ModLoader, ReleaseChannel, instances::InstanceLaunchOverridesData,
     },
     util::io,
 };
@@ -118,22 +118,45 @@ pub(crate) async fn import_axolotl(
         Some(path) => recache_icon(source_path.join(path)).await?,
         None => None,
     };
+    let state = State::get().await?;
+    apply_imported_config(&state, instance_id, config, icon).await?;
+
+    finish_import(
+        instance_id,
+        source_path,
+        &state.io_semaphore,
+        reporter,
+        details,
+        symlink,
+    )
+    .await
+}
+
+async fn apply_imported_config(
+    state: &State,
+    instance_id: &str,
+    config: AxolotlConfigFile,
+    icon_path: Option<PathBuf>,
+) -> crate::Result<()> {
     let source_kind =
         ContentSourceKind::from_str(&config.content_set.source_kind)
             .unwrap_or(ContentSourceKind::Local);
     let loader = ModLoader::try_from_string(&config.content_set.loader)?;
     let update_channel = ReleaseChannel::from_key(&config.update_channel);
+    let link = match config.link {
+        InstanceLink::Unmanaged => None,
+        link => Some(link),
+    };
 
-    let state = State::get().await?;
     crate::state::edit_instance(
         instance_id,
         EditInstance {
             install_stage: Some(InstanceInstallStage::PackInstalling),
             name: Some(config.name.clone()),
-            icon_path: Some(icon.map(|p| p.to_string_lossy().to_string())),
+            icon_path: Some(icon_path.map(|p| p.to_string_lossy().to_string())),
             update_channel: Some(update_channel),
             groups: Some(config.groups.clone()),
-            link: Some(config.link.clone()),
+            link,
             content_set_patch: Some(AppliedContentSetPatch {
                 source_kind: Some(source_kind),
                 game_version: Some(config.content_set.game_version.clone()),
@@ -168,14 +191,107 @@ pub(crate) async fn import_axolotl(
         &state.pool,
     )
     .await?;
+    Ok(())
+}
 
-    finish_import(
-        instance_id,
-        source_path,
-        &state.io_semaphore,
-        reporter,
-        details,
-        symlink,
-    )
-    .await
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        install::{
+            InstallJobStatus, InstallRequest,
+            model::{InstallJobState, InstallTarget},
+        },
+        state::{CreateInstance, DirectoryInfo},
+    };
+
+    #[tokio::test]
+    async fn axolotl_import_keeps_unmanaged_link_during_its_active_job() {
+        let root = tempfile::tempdir().unwrap();
+        let directories = DirectoryInfo {
+            settings_dir: root.path().join("settings"),
+            config_dir: root.path().join("config"),
+            app_identifier: "test".into(),
+        };
+        let pool =
+            crate::state::store::databases::open(&directories.settings_dir)
+                .await
+                .unwrap();
+        let state = crate::state::test_state(directories, pool).await.unwrap();
+        let instance = crate::state::create_instance(
+            CreateInstance {
+                name: "Pending import".into(),
+                path: None,
+                game_version: "unknown".into(),
+                loader: ModLoader::Vanilla,
+                loader_version: None,
+                icon_path: None,
+                link: InstanceLink::Unmanaged,
+                symlink_target: None,
+                game_dir_override: None,
+            },
+            &state,
+        )
+        .await
+        .unwrap();
+        let mut job = InstallJobState::new(InstallRequest::ImportInstance {
+            launcher_type: super::super::ImportLauncherType::Axolotl,
+            base_path: root.path().into(),
+            instance_folder: "old-instance".into(),
+            instance_path: None,
+            symlink: false,
+            game_version: None,
+            loader: None,
+            loader_version: None,
+            game_dir_override: None,
+        });
+        job.target = InstallTarget::NewInstance {
+            instance_id: Some(instance.id.clone()),
+        };
+        crate::install::store::insert(
+            uuid::Uuid::new_v4(),
+            &job,
+            InstallJobStatus::Running,
+            &state,
+        )
+        .await
+        .unwrap();
+
+        let config = serde_json::from_value(serde_json::json!({
+            "schema_version": 1,
+            "instance_id": "local:old-instance",
+            "path": "old-instance",
+            "generated_at": "2026-09-27T00:00:00Z",
+            "name": "Old instance",
+            "update_channel": "release",
+            "groups": [],
+            "content_set": {"source_kind": "local", "game_version": "1.21.1", "loader": "fabric", "loader_version": "0.19.3"},
+            "link": "unmanaged",
+            "launch_overrides": {}
+        }))
+        .unwrap();
+        apply_imported_config(&state, &instance.id, config, None)
+            .await
+            .unwrap();
+        let imported = crate::state::get_instance(&instance.id, &state.pool)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(imported.instance.name, "Old instance");
+        assert_eq!(imported.applied_content_set.game_version, "1.21.1");
+        assert_eq!(imported.applied_content_set.loader, ModLoader::Fabric);
+        assert!(matches!(imported.link, InstanceLink::Unmanaged));
+
+        let error = crate::state::edit_instance(
+            &instance.id,
+            EditInstance {
+                link: Some(InstanceLink::Unmanaged),
+                ..EditInstance::default()
+            },
+            &state.pool,
+        )
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("active instance task"));
+    }
 }

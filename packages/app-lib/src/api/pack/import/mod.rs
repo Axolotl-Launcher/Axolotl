@@ -283,7 +283,8 @@ async fn get_hmcl_instances(
 
 /// Collects Axolotl instances from a base path. A base path holding
 /// `axolotl_config.json` is itself an instance; otherwise direct child
-/// folders with their own config are treated as instances.
+/// folders with their own config are treated as instances. An Axolotl data
+/// directory keeps those folders under `profiles`.
 async fn get_axolotl_instances(
     base_path: &Path,
 ) -> crate::Result<Vec<ImportableInstance>> {
@@ -300,6 +301,20 @@ async fn get_axolotl_instances(
         }]);
     }
 
+    let instances = scan_axolotl_instances(base_path).await?;
+    if !instances.is_empty() {
+        return Ok(instances);
+    }
+    let profiles = base_path.join(crate::state::INSTANCES_FOLDER_NAME);
+    if profiles.is_dir() {
+        return scan_axolotl_instances(&profiles).await;
+    }
+    Ok(instances)
+}
+
+async fn scan_axolotl_instances(
+    base_path: &Path,
+) -> crate::Result<Vec<ImportableInstance>> {
     let mut instances = Vec::new();
     let mut dir = io::read_dir(base_path).await?;
     while let Some(entry) = dir.next_entry().await? {
@@ -1945,6 +1960,37 @@ mod default_minecraft_path_tests {
 mod generic_instance_scan_tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn axolotl_data_root_scans_profiles_not_runtime_metadata() {
+        use crate::api::drop_classifier::{
+            DroppedItemType, classify_dropped_item,
+        };
+
+        let root = tempdir().unwrap();
+        let profiles = root.path().join(crate::state::INSTANCES_FOLDER_NAME);
+        let instance = profiles.join("old-instance");
+        std::fs::create_dir_all(&instance).unwrap();
+        std::fs::write(instance.join("axolotl_config.json"), "{}").unwrap();
+        let metadata = root.path().join("meta").join("versions").join("1.21.1");
+        std::fs::create_dir_all(&metadata).unwrap();
+        std::fs::write(metadata.join("1.21.1.json"), "{}").unwrap();
+
+        for base in [root.path(), profiles.as_path(), instance.as_path()] {
+            assert!(matches!(
+                classify_dropped_item(base),
+                DroppedItemType::Launcher {
+                    launcher_type: ImportLauncherType::Axolotl,
+                    base_path,
+                    inner_base: None,
+                } if base_path == base
+            ));
+            let instances = get_axolotl_instances(base).await.unwrap();
+            assert_eq!(instances.len(), 1);
+            assert_eq!(instances[0].name, "old-instance");
+            assert_eq!(instances[0].path, instance.to_string_lossy());
+        }
+    }
 
     #[tokio::test]
     async fn finds_versions_inside_a_selected_folders_minecraft_directory() {

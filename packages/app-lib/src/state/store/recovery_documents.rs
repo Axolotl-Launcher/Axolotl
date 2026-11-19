@@ -46,7 +46,7 @@ fn invalid(message: &str) -> crate::Error {
 /// A committed publication decision detached from its SQL connection. Payloads
 /// have unique immutable paths, so a later replacement or tombstone cannot
 /// change what this selection reads. Online publication retains old objects.
-#[derive(sqlx::FromRow)]
+#[derive(PartialEq, Eq, sqlx::FromRow)]
 pub(crate) struct SelectedRecord {
     pub(crate) key: String,
     kind: String,
@@ -58,6 +58,17 @@ pub(crate) struct SelectedRecord {
 }
 
 impl SelectedRecord {
+    pub(crate) async fn is_current(
+        &self,
+        pool: &sqlx::SqlitePool,
+    ) -> crate::Result<bool> {
+        Ok(snapshot_records(pool, &self.kind, Some(&self.key), None)
+            .await?
+            .and_then(|records| records.into_iter().next())
+            .as_ref()
+            == Some(self))
+    }
+
     pub(crate) async fn decode<T: DeserializeOwned>(&self) -> crate::Result<T> {
         if self.opaque {
             return Err(invalid(

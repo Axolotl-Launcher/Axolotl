@@ -46,7 +46,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 mod adjunct;
-mod admission;
+pub(super) mod admission;
 mod content_change;
 mod export;
 mod init;

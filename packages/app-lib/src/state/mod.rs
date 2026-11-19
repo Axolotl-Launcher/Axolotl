@@ -199,7 +199,7 @@ static FRONTEND_READY: FrontendReadiness = FrontendReadiness::new();
 /// Guards the process-wide startup work. Recreating the main webview calls
 /// `State::init` again; a second recovery pass can interrupt install workers
 /// that are still running, and a second copy of the loops would double their
-/// work. A later caller waits for the first run through this cell.
+/// work. The cell records registration, not completion of the workers.
 static STARTUP_WORK: OnceCell<()> = OnceCell::const_new();
 
 /// Bounds how long deferred startup work waits for the frontend. A window
@@ -342,6 +342,7 @@ pub struct State {
     install_db_permit_timeout: AtomicU64,
     pub(crate) install_admission_locks: DashMap<String, Arc<AsyncMutex<()>>>,
     pub(crate) install_execution_locks: DashMap<String, Arc<AsyncMutex<()>>>,
+    startup_install_jobs: Vec<store::recovery_documents::SelectedRecord>,
     pub(crate) install_job_cancellations: DashMap<Uuid, CancellationToken>,
     pub(crate) install_job_operation_locks:
         DashMap<Uuid, Arc<AsyncMutex<InstallJobOperationState>>>,
@@ -850,33 +851,40 @@ impl State {
         drop(initialization);
 
         STARTUP_WORK
-            .get_or_try_init(|| Self::start_background(Arc::clone(state)))
-            .await?;
+            .get_or_init(|| async { Self::start_background(Arc::clone(state)) })
+            .await;
         Ok(())
     }
 
     /// Performs the recovery and background work that must happen once per
     /// process. `STARTUP_WORK` serializes this for a recreated webview instead
     /// of running recovery while the previous webview's workers are alive.
-    async fn start_background(state: Arc<Self>) -> crate::Result<()> {
+    fn start_background(state: Arc<Self>) {
         if store::recovery_mode::root(&state.pool).is_some() {
             // Recovery copies permit existing runtime launch, never journal
             // replay, adoption, cleanup, directory migration or watcher writes.
-            return Ok(());
+            return;
         }
-        recovery::coordinator::start(Arc::clone(&state)).await;
-        if let Err(e) =
-            crate::api::curseforge::reconcile_persisted_curseforge_waiting_jobs(
-                &state,
-            )
-            .await
-        {
-            tracing::error!(
-                "Error reconciling persisted CurseForge waiting install jobs: {e}"
-            );
-        }
-        crate::scheduler::reconcile::at_startup(&state).await;
         crate::scheduler::quota::check_at_startup();
+
+        state.spawn_background({
+            let state = Arc::clone(&state);
+            async move {
+                wait_for_frontend_ready("startup recovery and reconciliation")
+                    .await;
+                recovery::coordinator::start(Arc::clone(&state));
+                crate::scheduler::reconcile::at_startup(&state).await;
+                crate::telemetry::start(Arc::clone(&state));
+                if let Err(error) =
+                    crate::api::curseforge::reconcile_persisted_curseforge_waiting_jobs(
+                        &state,
+                    )
+                    .await
+                {
+                    tracing::error!(%error, "Could not reconcile persisted CurseForge waiting install jobs");
+                }
+            }
+        });
 
         state.spawn_background({
             let state = Arc::clone(&state);
@@ -892,8 +900,6 @@ impl State {
                 state.run_auto_concurrency_controller().await;
             }
         });
-
-        crate::telemetry::start(Arc::clone(&state));
 
         state.spawn_background(async move {
             wait_for_frontend_ready("Google Translate IP preload").await;
@@ -941,8 +947,6 @@ impl State {
                 }
             }
         });
-
-        Ok(())
     }
 
     #[cfg(all(test, not(feature = "tauri")))]
@@ -1607,6 +1611,27 @@ impl State {
 
         let process_manager = ProcessManager::new();
 
+        // Freeze only the committed references before State is visible. The
+        // background worker must never classify a new install as interrupted.
+        let startup_install_jobs = if recovery_mode {
+            Vec::new()
+        } else {
+            match store::recovery_documents::snapshot_records(
+                &pool,
+                "install_jobs",
+                None,
+                None,
+            )
+            .await
+            {
+                Ok(records) => records.unwrap_or_default(),
+                Err(error) => {
+                    tracing::warn!(%error, "Could not select prior install records; leaving them for recovery on a later start");
+                    Vec::new()
+                }
+            }
+        };
+
         Ok(Arc::new(Self {
             persistence: persistence::Persistence::new(
                 directories.settings_dir.clone(),
@@ -1657,6 +1682,7 @@ impl State {
             install_job_semaphore: Semaphore::new(MAX_CONCURRENT_INSTALL_JOBS),
             install_admission_locks: DashMap::new(),
             install_execution_locks: DashMap::new(),
+            startup_install_jobs,
             install_db_semaphore: Semaphore::new(1),
             #[cfg(test)]
             install_db_permit_timeout: AtomicU64::new(20_000),
@@ -1885,6 +1911,7 @@ pub(crate) async fn test_state(
         install_job_semaphore: Semaphore::new(MAX_CONCURRENT_INSTALL_JOBS),
         install_admission_locks: DashMap::new(),
         install_execution_locks: DashMap::new(),
+        startup_install_jobs: Vec::new(),
         install_db_semaphore: Semaphore::new(1),
         #[cfg(test)]
         install_db_permit_timeout: AtomicU64::new(20_000),

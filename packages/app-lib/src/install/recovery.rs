@@ -21,6 +21,7 @@ use crate::state::instances::adapters::sqlite::{
     content_entries, files, pack_members,
 };
 use crate::state::instances::commands::materialization_path_key;
+use crate::state::store::recovery_documents::SelectedRecord;
 
 pub async fn recover_interrupted_jobs(state: &State) -> crate::Result<()> {
     if let Err(error) =
@@ -30,30 +31,47 @@ pub async fn recover_interrupted_jobs(state: &State) -> crate::Result<()> {
     }
     let jobs = store::list_interrupted_candidates(state).await?;
 
+    recover_jobs(jobs.into_iter().map(|job| (job, None)), state).await
+}
+
+pub(crate) async fn recover_published_jobs(
+    state: &State,
+    publications: &[SelectedRecord],
+    instance_id: Option<&str>,
+) -> crate::Result<()> {
+    let mut jobs = Vec::new();
+    for selected in publications {
+        match store::read_interrupted_publication(selected).await {
+            Ok(Some(job))
+                if instance_id.is_none_or(|owner| {
+                    job.instance_id.as_deref() == Some(owner)
+                        || job.state.source_instance_id().as_deref()
+                            == Some(owner)
+                }) =>
+            {
+                jobs.push((job, Some(selected)));
+            }
+            Ok(_) => {}
+            Err(error) => {
+                tracing::warn!(job_id=%selected.key,%error,"Could not read prior install record; original retained");
+            }
+        }
+    }
     recover_jobs(jobs, state).await
 }
 
-pub(crate) async fn recover_interrupted_jobs_for_instance(
-    state: &State,
-    instance_id: &str,
-) -> crate::Result<()> {
-    let jobs = store::list_interrupted_candidates(state)
-        .await?
-        .into_iter()
-        .filter(|job| {
-            job.instance_id.as_deref() == Some(instance_id)
-                || job.state.source_instance_id().as_deref()
-                    == Some(instance_id)
-        })
-        .collect();
-    recover_jobs(jobs, state).await
-}
-
-async fn recover_jobs(
-    jobs: Vec<store::InstallJobRecord>,
+async fn recover_jobs<'a>(
+    jobs: impl IntoIterator<
+        Item = (store::InstallJobRecord, Option<&'a SelectedRecord>),
+    >,
     state: &State,
 ) -> crate::Result<()> {
-    for job in jobs {
+    for (job, selected) in jobs {
+        let Some(_execution) =
+            super::runner::admission::try_execution_lock(state, &job)
+        else {
+            continue;
+        };
         let mut owners = job
             .instance_id
             .clone()
@@ -80,6 +98,11 @@ async fn recover_jobs(
                 .await?;
         }
         if running {
+            continue;
+        }
+        if let Some(selected) = selected
+            && !selected.is_current(&state.pool).await?
+        {
             continue;
         }
         let Some(current) = store::get(job.id, state).await? else {
@@ -154,14 +177,17 @@ async fn recover_job(
             phase,
         });
         job.state.progress.parallel = None;
-        let record = store::update_status(
+        if let Some(record) = store::update_status_if(
             job.id,
+            job.status,
             InstallJobStatus::Failed,
             &job.state,
             state,
         )
-        .await?;
-        emit_install_job(&record.snapshot()).await?;
+        .await?
+        {
+            emit_install_job(&record.snapshot()).await?;
+        }
         return Ok(());
     }
     let interrupted_phase = job.state.progress.phase;
@@ -207,14 +233,18 @@ async fn recover_job(
         clear_deleted_new_instance_id(&mut job.state);
     }
 
-    let record = store::update_status(
+    // A cancellation accepted while recovery was cleaning up takes priority.
+    if let Some(record) = store::update_status_if(
         job.id,
+        job.status,
         InstallJobStatus::Interrupted,
         &job.state,
         state,
     )
-    .await?;
-    emit_install_job(&record.snapshot()).await?;
+    .await?
+    {
+        emit_install_job(&record.snapshot()).await?;
+    }
 
     Ok(())
 }

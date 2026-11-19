@@ -1,5 +1,11 @@
 //! Record interpretation has a separate budget from file recovery execution.
+use crate::install::recovery::recover_published_jobs;
 use crate::state::State;
+use crate::state::instances::commands::{
+    recover_content_file_operations,
+    recover_content_file_operations_for_instance, recover_legacy_rollbacks,
+};
+use crate::state::store::recovery_documents;
 use dashmap::DashSet;
 use std::{
     sync::{
@@ -9,11 +15,8 @@ use std::{
     time::Duration,
 };
 const RECORD_BUDGET: Duration = Duration::from_secs(15);
-static INITIAL_STARTED_AT: OnceLock<tokio::time::Instant> = OnceLock::new();
 static STARTED: AtomicBool = AtomicBool::new(false);
 static IMPORT_DONE: AtomicBool = AtomicBool::new(false);
-static IMPORT_FAILED: AtomicBool = AtomicBool::new(false);
-static IMPORT_READY: tokio::sync::Notify = tokio::sync::Notify::const_new();
 static FAIL_OK: OnceLock<DashSet<String>> = OnceLock::new();
 pub(crate) fn fail_ok(instance_id: &str) -> bool {
     FAIL_OK.get_or_init(DashSet::new).contains(instance_id)
@@ -28,26 +31,22 @@ pub(crate) async fn before_launch(state: Arc<State>, instance_id: &str) {
     if crate::state::store::recovery_mode::root(&state.pool).is_some() {
         return;
     }
-    ensure_started(Arc::clone(&state));
-    let deadline = interpretation_deadline(
-        IMPORT_DONE.load(Ordering::Acquire),
-        INITIAL_STARTED_AT.get().copied(),
-        tokio::time::Instant::now(),
-    );
+    let deadline = tokio::time::Instant::now() + RECORD_BUDGET;
     let id = instance_id.to_owned();
     let (send, receive) = tokio::sync::oneshot::channel();
     let worker = Arc::clone(&state);
     state.spawn_background(async move {
-        phases(async {
-            loop {let notified=IMPORT_READY.notified();if IMPORT_DONE.load(Ordering::Acquire){break}notified.await;}
-            let result=if IMPORT_FAILED.load(Ordering::Acquire){Err(crate::ErrorKind::InputError("Legacy recovery interpretation remains unavailable".into()).into())}else{crate::state::store::recovery_documents::interpret_instance(&worker.pool,&id).await};
-            if let Err(error)=&result {tracing::warn!(instance_id=%id,%error,"Recovery record unavailable; launch allowed and original retained");release(&id);}
-            result
-        },send,async {}).await;
+        let result =
+            recovery_documents::interpret_instance(&worker.pool, &id).await;
+        let _ = send.send(result);
     });
     match tokio::time::timeout_at(deadline, receive).await {
         Ok(Ok(Ok(()))) => {
             FAIL_OK.get_or_init(DashSet::new).remove(instance_id);
+        }
+        Ok(Ok(Err(error))) => {
+            release(instance_id);
+            tracing::warn!(instance_id, %error, "Recovery record unavailable; launch allowed and original retained");
         }
         _ => {
             release(instance_id);
@@ -59,60 +58,33 @@ pub(crate) async fn before_launch(state: Arc<State>, instance_id: &str) {
     }
 }
 
-pub(crate) async fn start(state: Arc<State>) {
-    ensure_started(state);
-    let deadline = interpretation_deadline(
-        IMPORT_DONE.load(Ordering::Acquire),
-        INITIAL_STARTED_AT.get().copied(),
-        tokio::time::Instant::now(),
-    );
-    if tokio::time::timeout_at(deadline, wait_ready())
-        .await
-        .is_err()
-    {
-        tracing::warn!(
-            "Recovery record interpretation continues in background; startup allowed"
-        );
-    }
-}
-
-async fn wait_ready() {
-    loop {
-        let notified = IMPORT_READY.notified();
-        if IMPORT_DONE.load(Ordering::Acquire) {
-            return;
-        }
-        notified.await;
-    }
-}
-fn ensure_started(state: Arc<State>) {
+pub(crate) fn start(state: Arc<State>) {
     if STARTED
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
         .is_err()
     {
         return;
     }
-    let _ = INITIAL_STARTED_AT.set(tokio::time::Instant::now());
-    let (send, _receive) = tokio::sync::oneshot::channel();
     let worker = Arc::clone(&state);
     state.spawn_background(async move {
-        struct Completion;
-        impl Drop for Completion {fn drop(&mut self){if !IMPORT_DONE.load(Ordering::Acquire){IMPORT_FAILED.store(true,Ordering::Release);IMPORT_DONE.store(true,Ordering::Release);IMPORT_READY.notify_waiters();}}}
-        let _completion=Completion;
-        phases(async {
-            // First legacy takeover completed before State was published.
-            // Only ordinary record interpretation shares this 15-second budget.
-            if let Err(error)=crate::state::store::recovery_documents::interpret_all(&worker.pool).await{tracing::warn!(%error,"Some recovery records remain opaque; other records continue");}
-            IMPORT_DONE.store(true,Ordering::Release);IMPORT_READY.notify_waiters();
-        },send,async {
-            // Hashing, downloads and rollback start after interpretation is
-            // reported. They are never subject to the record budget.
-            if let Err(error)=crate::state::instances::commands::recover_content_file_operations(&worker).await {tracing::warn!(%error,"Some file recoveries remain pending");}
-            if let Err(error)=crate::install::recovery::recover_interrupted_jobs(&worker).await {tracing::warn!(%error,"Some install recoveries remain pending");}
-        }).await;
+        if let Err(error) = recovery_documents::interpret_all(&worker.pool).await {
+            tracing::warn!(%error, "Some recovery records remain opaque; other records continue");
+        }
+        IMPORT_DONE.store(true,Ordering::Release);
+        // Execution is independent of the per-instance launch budget.
+        if let Err(error) = recover_content_file_operations(&worker).await {
+            tracing::warn!(%error, "Some file recoveries remain pending");
+        }
+        if let Err(error) = recover_legacy_rollbacks(&worker).await {
+            tracing::warn!(%error, "Some legacy recovery records remain pending");
+        }
+        if let Err(error) = recover_published_jobs(&worker, &worker.startup_install_jobs, None).await {
+            tracing::warn!(%error, "Some install recoveries remain pending");
+        }
     });
 }
 
+#[cfg(test)]
 async fn phases<T, F, G>(
     interpret: F,
     report: tokio::sync::oneshot::Sender<T>,
@@ -136,17 +108,6 @@ async fn record_phase<F: std::future::Future>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[tokio::test(start_paused = true)]
-    async fn later_launch_gets_a_new_record_attempt_after_initial_completion() {
-        let initial = tokio::time::Instant::now();
-        tokio::time::sleep(Duration::from_secs(60)).await;
-        let now = tokio::time::Instant::now();
-        assert_eq!(
-            interpretation_deadline(true, Some(initial), now) - now,
-            RECORD_BUDGET
-        );
-        assert!(interpretation_deadline(false, Some(initial), now) < now);
-    }
     #[tokio::test(start_paused = true)]
     async fn interpretation_budget_does_not_time_out_later_execution() {
         let start = tokio::time::Instant::now();
@@ -174,18 +135,6 @@ mod tests {
     }
 }
 
-fn interpretation_deadline(
-    initial_complete: bool,
-    initial: Option<tokio::time::Instant>,
-    now: tokio::time::Instant,
-) -> tokio::time::Instant {
-    if initial_complete {
-        now + RECORD_BUDGET
-    } else {
-        initial.unwrap_or(now) + RECORD_BUDGET
-    }
-}
-
 /// One event-driven retry after the game leaves the process registry. The
 /// executors acquire maintenance and content locks and re-read observations.
 pub(crate) fn after_exit(state: Arc<State>, instance_id: &str) {
@@ -197,8 +146,14 @@ pub(crate) fn after_exit(state: Arc<State>, instance_id: &str) {
     let id = instance_id.to_owned();
     let worker = Arc::clone(&state);
     state.spawn_background(async move {
-        if let Err(error)=crate::state::instances::commands::recover_legacy_rollbacks(&worker).await{tracing::warn!(%error,"Legacy recovery remains pending after game exit");}
-        if let Err(error)=crate::state::instances::commands::recover_content_file_operations_for_instance(&worker,&id).await{tracing::warn!(instance_id=%id,%error,"File recovery remains pending after game exit");}
-        if let Err(error)=crate::install::recovery::recover_interrupted_jobs_for_instance(&worker,&id).await{tracing::warn!(instance_id=%id,%error,"Install recovery remains pending after game exit");}
+        if let Err(error) = recover_legacy_rollbacks(&worker).await {
+            tracing::warn!(%error, "Legacy recovery remains pending after game exit");
+        }
+        if let Err(error) = recover_content_file_operations_for_instance(&worker, &id).await {
+            tracing::warn!(instance_id=%id, %error, "File recovery remains pending after game exit");
+        }
+        if let Err(error) = recover_published_jobs(&worker, &worker.startup_install_jobs, Some(&id)).await {
+            tracing::warn!(instance_id=%id, %error, "Install recovery remains pending after game exit");
+        }
     });
 }

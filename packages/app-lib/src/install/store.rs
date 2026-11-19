@@ -263,6 +263,16 @@ pub async fn list_interrupted_candidates(
     records(rows)
 }
 
+pub(super) async fn read_interrupted_publication(
+    selected: &crate::state::store::recovery_documents::SelectedRecord,
+) -> crate::Result<Option<InstallJobRecord>> {
+    let row: StoredJob = selected.decode().await?;
+    if !matches!(row.status.as_str(), "queued" | "running" | "canceling") {
+        return Ok(None);
+    }
+    Ok(Some(row_to_record(&selected.key, row)?))
+}
+
 pub async fn update_state(
     id: Uuid,
     state: &InstallJobState,
@@ -823,6 +833,49 @@ mod tests {
         sqlx::query("INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified) VALUES ('first', 'first', 'installed', '1', 'first', 1, 1)").execute(&pool).await.unwrap();
         let state = crate::state::test_state(directories, pool).await.unwrap();
         (temp, state)
+    }
+
+    #[tokio::test]
+    async fn deferred_recovery_leaves_new_and_republished_install_jobs_alone() {
+        use crate::state::store::recovery_documents::{
+            install, snapshot_records,
+        };
+
+        let (_temp, state) = fixture_with_connections(4).await;
+        install(&mut *state.pool.acquire().await.unwrap())
+            .await
+            .unwrap();
+        let job = InstallJobState::new(creation_request());
+        let interrupted = Uuid::new_v4();
+        let republished = Uuid::new_v4();
+        let new = Uuid::new_v4();
+        for id in [interrupted, republished] {
+            insert(id, &job, InstallJobStatus::Queued, &state)
+                .await
+                .unwrap();
+        }
+        let startup = snapshot_records(&state.pool, "install_jobs", None, None)
+            .await
+            .unwrap()
+            .unwrap();
+        insert(new, &job, InstallJobStatus::Queued, &state)
+            .await
+            .unwrap();
+        update_status(republished, InstallJobStatus::Running, &job, &state)
+            .await
+            .unwrap();
+
+        super::super::recovery::recover_published_jobs(&state, &startup, None)
+            .await
+            .unwrap();
+
+        for (id, status) in [
+            (interrupted, InstallJobStatus::Interrupted),
+            (republished, InstallJobStatus::Running),
+            (new, InstallJobStatus::Queued),
+        ] {
+            assert_eq!(get_required(id, &state).await.unwrap().status, status);
+        }
     }
 
     #[tokio::test]

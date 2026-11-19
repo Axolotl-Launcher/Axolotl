@@ -611,8 +611,9 @@ defineExpose({ getState, setState, missingRunTarget, unresolvedStep })
                                 class="mt-2 block break-all text-xs leading-5 text-[var(--color-text-tertiary)]"
                                 >{{ renderStep(step) }}</code
                             >
+                            <!-- 展开时卡片里就有「选择一项」的下拉框，这里只在收起时提示 -->
                             <p
-                                v-else
+                                v-else-if="!step.expanded"
                                 class="m-0 mt-2 text-xs leading-5 text-[var(--color-text-tertiary)]"
                             >
                                 {{ formatMessage(messages.variantUnset) }}

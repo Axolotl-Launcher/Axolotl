@@ -290,6 +290,19 @@ it('refuses to generate an execute chain that never says what to run', async () 
     expect(wrapper.get('[role="alert"]').text()).toContain('Fill in the command to run')
 })
 
+it('prompts for an unpicked form only while the step is collapsed', async () => {
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.findAll('select')[3].setValue('execute')
+    const ifCard = wrapper.findAll('button').find((button) => button.text().startsWith('if'))!
+    await ifCard.trigger('click')
+    // 新加的步骤是展开的，卡片里的下拉框已经写着「Choose one」
+    expect(wrapper.text()).not.toContain('No form picked yet')
+    await wrapper.get('ol li button[aria-expanded]').trigger('click')
+    expect(wrapper.text()).toContain('No form picked yet')
+})
+
 it('refuses to generate a chain whose step has no form picked', async () => {
     saveUserPreset(
         'Chain without a form',

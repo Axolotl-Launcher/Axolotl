@@ -16,6 +16,7 @@ export const FOLLOW_DEFAULT_FONT = ''
 
 export interface SystemFontFamily {
     family: string
+    localized?: string
     monospaced: boolean
 }
 
@@ -93,12 +94,16 @@ function compareFamilies(first: SystemFontFamily, second: SystemFontFamily): num
 }
 
 function toOption(family: SystemFontFamily, monospaceLabel?: string): FontFamilyOption {
+    const label = family.localized ?? family.family
+    const subLabel = family.monospaced ? monospaceLabel : undefined
+    const searchTerms = label === family.family ? [] : [family.family]
+    if (subLabel) searchTerms.push(subLabel)
+
     return {
         value: family.family,
-        label: family.family,
-        ...(family.monospaced && monospaceLabel
-            ? { subLabel: monospaceLabel, searchTerms: [monospaceLabel] }
-            : {}),
+        label,
+        ...(subLabel ? { subLabel } : {}),
+        ...(searchTerms.length ? { searchTerms } : {}),
     }
 }
 
@@ -140,11 +145,19 @@ export function buildFontFamilyOptions(
 
         const key = family.toLowerCase()
         const known = families.get(key)
+        const localized = font.localized?.trim() || undefined
 
         if (known) {
             known.monospaced ||= font.monospaced
+            if (!known.localized && localized && localized !== known.family) {
+                known.localized = localized
+            }
         } else {
-            families.set(key, { family, monospaced: font.monospaced })
+            families.set(key, {
+                family,
+                monospaced: font.monospaced,
+                ...(localized && localized !== family ? { localized } : {}),
+            })
         }
     }
 

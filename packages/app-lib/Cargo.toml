@@ -1,7 +1,7 @@
 [package]
 name = "theseus"
 # The actual version is set by the theseus-build workflow on tagging
-version = "1.11.0-beta.5"
+version = "1.11.2-beta.1"
 edition.workspace = true
 
 [package.metadata.cargo-machete]
@@ -63,10 +63,26 @@ iana-time-zone = { workspace = true }
 indicatif = { workspace = true, optional = true }
 itertools = { workspace = true }
 keyring = { workspace = true }
+launcher-observability = { workspace = true }
 local-ip-address = { workspace = true }
 md5 = { workspace = true }
 notify = { workspace = true }
 notify-debouncer-mini = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-appender-tracing = { workspace = true }
+opentelemetry-otlp = { workspace = true, features = [
+  "http-proto",
+  "logs",
+  "metrics",
+  "reqwest-client",
+  "trace",
+] }
+opentelemetry_sdk = { workspace = true, features = [
+  "logs",
+  "metrics",
+  "rt-tokio",
+  "trace",
+] }
 p256 = { workspace = true, features = ["ecdsa"] }
 parking_lot = { workspace = true }
 paste = { workspace = true }
@@ -98,6 +114,7 @@ ring = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
 rustls-pki-types = { workspace = true }
+semver = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_cbor = { workspace = true }
 serde_ini = { workspace = true }
@@ -142,6 +159,7 @@ toml = { workspace = true }
 tower-service = { workspace = true }
 tracing = { workspace = true }
 tracing-error = { workspace = true }
+tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["chrono", "env-filter"] }
 unicode-normalization = { workspace = true }
 url = { workspace = true, features = ["serde"] }
@@ -156,8 +174,10 @@ zip = { workspace = true }
 [dev-dependencies]
 chrono-tz = "0.10.4"
 jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
+opentelemetry_sdk = { workspace = true, features = ["testing"] }
 rcgen = { version = "0.14.7", default-features = false, features = ["ring"] }
 rsa = "0.9.10"
+tokio = { workspace = true, features = ["test-util"] }
 
 [build-dependencies]
 dotenvy = { workspace = true }

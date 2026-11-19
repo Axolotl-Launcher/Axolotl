@@ -31,6 +31,17 @@ pub(crate) async fn get_instance_metadata(
     instance_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<Option<InstanceMetadata>> {
+    if crate::state::store::compatibility::unsupported_instance(
+        pool,
+        instance_id,
+    )
+    .await?
+    {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Instance {instance_id} uses unsupported persistent data"
+        ))
+        .into());
+    }
     let Some(record) =
         instance_rows::get_instance_metadata_by_id(instance_id, pool).await?
     else {
@@ -73,12 +84,25 @@ async fn hydrate_instance_records(
         .iter()
         .map(|record| record.instance.id.as_str())
         .collect::<Vec<_>>();
-    let mut components =
-        loader_component_rows::list_loader_components_many(&ids, pool).await?;
+    let unsupported =
+        crate::state::store::compatibility::unsupported_instances(pool).await?;
+    let supported_ids = ids
+        .into_iter()
+        .filter(|id| !unsupported.contains(*id))
+        .collect::<Vec<_>>();
+    let mut components = loader_component_rows::list_loader_components_many(
+        &supported_ids,
+        pool,
+    )
+    .await?;
     let preferences =
-        instance_rows::get_instance_synced_options_many(&ids, pool).await?;
+        instance_rows::get_instance_synced_options_many(&supported_ids, pool)
+            .await?;
     let mut metadata = Vec::with_capacity(records.len());
     for record in records {
+        if unsupported.contains(&record.instance.id) {
+            continue;
+        }
         // Clone for repeated ids in get_many; preserve the requested order and duplicates.
         let loader_components = components
             .entry(record.instance.id.clone())

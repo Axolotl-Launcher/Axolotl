@@ -179,9 +179,6 @@
   "button.reset": {
     "defaultMessage": "Återställ"
   },
-  "button.reset-server": {
-    "defaultMessage": "Återställ server"
-  },
   "button.retry": {
     "defaultMessage": "Försök igen"
   },
@@ -455,9 +452,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "Importera {count, plural, one {# instans} other {# instanser}}"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "Initiera server"
-  },
   "creation-flow.modal.custom-setup.game-version.placeholder": {
     "defaultMessage": "Välj spelversion"
   },
@@ -686,9 +680,6 @@
   "files.navbar.search-files": {
     "defaultMessage": "Sök filer"
   },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "Ladda upp .zip-fil"
-  },
   "files.rename-modal.header": {
     "defaultMessage": "Ändra namn på {name}"
   },
@@ -730,27 +721,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "Namn krävs."
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URL måste vara giltig."
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "Länk krävs."
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "Installera"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Installation misslyckades"
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Kopiera URL"
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Välj en version"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Ett okänt fel inträffade"
   },
   "form.label.address-line": {
     "defaultMessage": "Adresslinje"

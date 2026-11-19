@@ -17,7 +17,8 @@ fn java_selection_commands_match_frontend_and_main_window_permissions() {
     let capability: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
-    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert_eq!(capability["webviews"], serde_json::json!(["main"]));
+    assert!(capability.get("windows").is_none());
     assert!(
         capability["permissions"]
             .as_array()
@@ -41,7 +42,8 @@ fn complete_log_export_is_registered_for_the_main_window() {
     let capability: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
-    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert_eq!(capability["webviews"], serde_json::json!(["main"]));
+    assert!(capability.get("windows").is_none());
     assert!(
         capability["permissions"]
             .as_array()
@@ -62,7 +64,8 @@ fn third_party_account_commands_are_registered_and_limited_to_main_window() {
     let capability: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
-    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert_eq!(capability["webviews"], serde_json::json!(["main"]));
+    assert!(capability.get("windows").is_none());
     assert!(
         capability["permissions"]
             .as_array()
@@ -89,7 +92,8 @@ fn mcp_commands_are_registered_and_limited_to_the_main_window() {
     let capability: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
-    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert_eq!(capability["webviews"], serde_json::json!(["main"]));
+    assert!(capability.get("windows").is_none());
     assert!(
         capability["permissions"]
             .as_array()
@@ -139,8 +143,9 @@ fn player_skin_lookup_is_registered_and_allowed_for_main_window() {
     let capabilities: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
+    assert!(capabilities.get("windows").is_none());
     assert!(
-        capabilities["windows"]
+        capabilities["webviews"]
             .as_array()
             .unwrap()
             .iter()
@@ -192,8 +197,9 @@ fn resource_analysis_commands_are_registered_and_allowed_for_the_main_window() {
     let capabilities: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
+    assert!(capabilities.get("windows").is_none());
     assert!(
-        capabilities["windows"]
+        capabilities["webviews"]
             .as_array()
             .unwrap()
             .iter()
@@ -236,7 +242,8 @@ fn content_refresh_commands_match_callers_and_events_are_limited_to_the_main_win
     let capability: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
-    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert_eq!(capability["webviews"], serde_json::json!(["main"]));
+    assert!(capability.get("windows").is_none());
     assert!(
         capability["permissions"]
             .as_array()
@@ -297,8 +304,9 @@ fn server_log_delta_is_registered_and_allowed_for_the_main_window() {
     let capabilities: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
+    assert!(capabilities.get("windows").is_none());
     assert!(
-        capabilities["windows"]
+        capabilities["webviews"]
             .as_array()
             .unwrap()
             .iter()
@@ -335,8 +343,9 @@ fn mojang_monitor_commands_are_registered_and_allowed_for_the_main_window() {
     let capabilities: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
+    assert!(capabilities.get("windows").is_none());
     assert!(
-        capabilities["windows"]
+        capabilities["webviews"]
             .as_array()
             .unwrap()
             .iter()
@@ -412,7 +421,8 @@ fn download_diagnostics_is_registered_and_limited_to_the_main_window() {
     let capability: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
-    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert_eq!(capability["webviews"], serde_json::json!(["main"]));
+    assert!(capability.get("windows").is_none());
     assert!(
         capability["permissions"]
             .as_array()
@@ -444,7 +454,8 @@ fn settings_commands_are_registered_and_limited_to_the_main_window() {
     let capability: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
-    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert_eq!(capability["webviews"], serde_json::json!(["main"]));
+    assert!(capability.get("windows").is_none());
     assert!(
         capability["permissions"]
             .as_array()

@@ -256,7 +256,7 @@ impl ResourceHistory {
         Ok(rows)
     }
 
-    /// The backups of the instance that are still on disk.
+    /// The instance's tracked backup references that have not been retired.
     pub(crate) async fn backups_for_instance(
         handle: &Handle,
         instance_id: &str,
@@ -280,19 +280,28 @@ impl ResourceHistory {
         conn: &mut SqliteConnection,
         key: &str,
         instance_id: &str,
+        backup_path: &str,
     ) -> crate::Result<()> {
-        sqlx::query(
+        let result = sqlx::query(
             "
             UPDATE resource_history
             SET backup_available = 0
-            WHERE id = ? AND instance_id = ?
+            WHERE id = ? AND instance_id = ? AND backup_relative_path = ?
+                AND backup_available = 1
             ",
         )
         .bind(key)
         .bind(instance_id)
+        .bind(backup_path)
         .execute(&mut *conn)
         .await?;
 
+        if result.rows_affected() != 1 {
+            return Err(crate::ErrorKind::InputError(
+                "backup reference changed since cleanup review".into(),
+            )
+            .into());
+        }
         Ok(())
     }
 

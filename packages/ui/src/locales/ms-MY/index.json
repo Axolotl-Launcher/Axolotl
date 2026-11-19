@@ -173,9 +173,6 @@
   "button.reset": {
     "defaultMessage": "Tetap semula"
   },
-  "button.reset-server": {
-    "defaultMessage": "Tetap semula pelayan"
-  },
   "button.retry": {
     "defaultMessage": "Cuba semula"
   },
@@ -395,9 +392,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "Import {count, plural, other {# pemasangan}}"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "Sediakan pelayan"
-  },
   "creation-flow.modal.custom-setup.build-number.label": {
     "defaultMessage": "Nombor binaan"
   },
@@ -484,12 +478,6 @@
   },
   "creation-flow.title.import-instance": {
     "defaultMessage": "Import pemasangan"
-  },
-  "creation-flow.title.reset-server": {
-    "defaultMessage": "Tetap semula pelayan"
-  },
-  "creation-flow.title.set-up-server": {
-    "defaultMessage": "Sediakan pelayan"
   },
   "external-project-license-status.no": {
     "defaultMessage": "Tidak"
@@ -710,9 +698,6 @@
   "files.navbar.home": {
     "defaultMessage": "Laman utama"
   },
-  "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "Pasang pek CurseForge"
-  },
   "files.navbar.new-file": {
     "defaultMessage": "Fail baharu"
   },
@@ -721,12 +706,6 @@
   },
   "files.navbar.search-files": {
     "defaultMessage": "Cari fail"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "Muat naik daripada fail .zip"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Muat naik daripada URL .zip"
   },
   "files.rename-modal.header": {
     "defaultMessage": "Namakan semula {name}"
@@ -769,60 +748,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "Nama diperlukan."
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Pasang pek mod CurseForge"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Tidak dapat menemui pek mod CurseForge pada URL tersebut."
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "Pek mod CurseForge tidak ditemui"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Masukkan pautan"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "URL mestilah URL versi pek mod CurseForge."
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URL mestilah sah."
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "URL diperlukan."
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "Pasang"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Pemasangan gagal"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Salin URL laman versi dan tampalkannya di bawah."
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Salin URL"
-  },
-  "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Layari CurseForge dan cari pek mod yang anda inginkan."
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Cari pek mod"
-  },
-  "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Pergi ke tab \"Fail\" dan pilih versi untuk dipasang."
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Pilih versi"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Sebuah ralat yang tidak diketahui telah berlaku"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Salin dan tampal URL muat turun terus fail .zip."
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": "Memuat naik kandungan .zip daripada URL"
   },
   "form.label.address-line": {
     "defaultMessage": "Baris alamat"

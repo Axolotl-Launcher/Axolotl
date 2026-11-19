@@ -179,7 +179,12 @@ async fn persist_manual_modpack_archive(
         )
     })?;
     let now = chrono::Utc::now();
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     crate::state::instances::adapters::sqlite::pack_members::upsert_pending_manual_download_in_transaction(
         &crate::state::instances::PendingManualDownload {
             id: format!("manual-download:{}", uuid::Uuid::new_v4()),
@@ -217,7 +222,8 @@ async fn persist_manual_modpack_archive(
         &mut tx,
     )
     .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 
@@ -229,7 +235,12 @@ async fn persist_manual_world_archive(
     let state = State::get().await?;
     let _instance_lock = state.lock_instance_content(instance_id).await;
     let now = chrono::Utc::now();
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     crate::state::instances::adapters::sqlite::pack_members::upsert_pending_manual_download_in_transaction(
         &crate::state::instances::PendingManualDownload {
             id: format!("manual-download:{}", uuid::Uuid::new_v4()),
@@ -262,7 +273,8 @@ async fn persist_manual_world_archive(
         &mut tx,
     )
     .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 
@@ -272,7 +284,12 @@ pub(crate) async fn complete_manual_world_download(
 ) -> crate::Result<()> {
     let state = State::get().await?;
     let _instance_lock = state.lock_instance_content(instance_id).await;
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     crate::state::instances::adapters::sqlite::pack_members::complete_pending_manual_download(
         instance_id,
         &download.project_id.to_string(),
@@ -281,7 +298,8 @@ pub(crate) async fn complete_manual_world_download(
         &mut tx,
     )
     .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 
@@ -318,7 +336,12 @@ pub(crate) async fn persist_manual_download(
         download.project_id,
         project_type.get_name()
     );
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     let now = chrono::Utc::now();
     let pack_member_id = if download.ownership_kind
         == crate::state::instances::ContentOwnershipKind::PackManaged
@@ -409,6 +432,7 @@ pub(crate) async fn persist_manual_download(
         &mut tx,
     )
     .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }

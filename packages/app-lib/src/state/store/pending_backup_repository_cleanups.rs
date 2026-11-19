@@ -11,7 +11,9 @@ pub(crate) struct PendingBackupRepositoryCleanups;
 pub(crate) type CleanupPath = String;
 
 /// What a cleanup request carries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) struct CleanupRecord {
     pub created_at: i64,
 }
@@ -29,6 +31,15 @@ impl Collection for PendingBackupRepositoryCleanups {
         conn: &mut SqliteConnection,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::read(
+                conn,
+                "pending_backup_repository_cleanups",
+                key,
+            )
+            .await;
+        }
+
         let created_at: Option<i64> = sqlx::query_scalar(
             "
             SELECT created_at
@@ -48,6 +59,16 @@ impl Collection for PendingBackupRepositoryCleanups {
         key: &Self::Key,
         record: Option<&Self::Record>,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::write(
+                conn,
+                "pending_backup_repository_cleanups",
+                key,
+                record,
+            )
+            .await;
+        }
+
         let Some(record) = record else {
             sqlx::query(
                 "DELETE FROM pending_backup_repository_cleanups WHERE path = ?",
@@ -77,6 +98,14 @@ impl Collection for PendingBackupRepositoryCleanups {
     async fn read_all(
         conn: &mut SqliteConnection,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::all(
+                conn,
+                "pending_backup_repository_cleanups",
+            )
+            .await;
+        }
+
         let rows: Vec<(String, i64)> = sqlx::query_as(
             "
             SELECT path, created_at
@@ -97,6 +126,24 @@ impl Collection for PendingBackupRepositoryCleanups {
         conn: &mut SqliteConnection,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, _) in
+                super::recovery_documents::strict_all::<Self::Record>(
+                    conn,
+                    "pending_backup_repository_cleanups",
+                )
+                .await?
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         sqlx::query("DELETE FROM pending_backup_repository_cleanups")
             .execute(&mut *conn)
             .await?;
@@ -110,6 +157,14 @@ impl Collection for PendingBackupRepositoryCleanups {
         conn: &mut SqliteConnection,
         scope: &Self::Scope,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return Ok(Self::read_all(conn)
+                .await?
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+                .collect());
+        }
+
         Ok(Self::read(conn, scope)
             .await?
             .map(|record| vec![(scope.clone(), record)])
@@ -121,6 +176,32 @@ impl Collection for PendingBackupRepositoryCleanups {
         scope: &Self::Scope,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, record) in records {
+                if !(key == scope) {
+                    return Err(crate::ErrorKind::InputError(
+                        "Operation record outside replacement scope".into(),
+                    )
+                    .into());
+                }
+            }
+            for (key, _) in Self::read(conn, scope)
+                .await?
+                .map(|record| vec![(scope.clone(), record)])
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         Self::write(conn, scope, records.first().map(|(_, record)| record))
             .await
     }

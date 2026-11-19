@@ -501,7 +501,7 @@ where
     Ok(json)
 }
 
-#[tracing::instrument(skip(bytes, semaphore))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn write(
     path: &Path,
     bytes: &[u8],
@@ -546,7 +546,7 @@ pub async fn copy(
 
 // Writes a icon to the cache and returns the absolute path of the icon within the cache directory
 
-#[tracing::instrument(skip(bytes, semaphore))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn write_cached_icon(
     icon_path: &str,
     cache_dir: &Path,

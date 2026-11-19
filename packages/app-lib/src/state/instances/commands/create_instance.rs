@@ -2,9 +2,7 @@ use crate::launcher::get_loader_version_from_profile;
 use crate::state::instances::{
     ContentSet, ContentSetStatus, ContentSourceKind, Instance,
     InstanceLaunchOverrides, InstanceLink, LoaderComponent,
-    adapters::sqlite::{
-        config_sync_rows, instance_rows, loader_component_rows,
-    },
+    adapters::sqlite::{instance_rows, loader_component_rows},
     config_sync,
 };
 use crate::state::{
@@ -40,6 +38,7 @@ pub(crate) async fn create_instance(
     mut input: CreateInstance,
     state: &State,
 ) -> crate::Result<Instance> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _metadata_usage = crate::storage::usage::lease().await?;
     trace!("Creating new instance. {}", input.name);
 
@@ -71,46 +70,42 @@ pub(crate) async fn create_instance(
             input.link,
             InstanceLink::ModrinthModpack { .. }
                 | InstanceLink::CurseForgeModpack { .. }
-        ) {
-            if let Some(game_dir) =
-                input.game_dir_override.as_deref().map(PathBuf::from)
-            {
-                let isolated = is_version_isolated_game_dir(&game_dir);
-                let shared = game_dir
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| {
-                        name.eq_ignore_ascii_case(".minecraft")
-                    });
-                if isolated || shared {
-                    let target = if isolated {
-                        game_dir
-                    } else {
-                        let name = sanitize_instance_name(&input.name);
-                        let name = name.trim_end_matches(['.', ' ']);
-                        if name.is_empty() || matches!(name, "." | "..") {
-                            return Err(crate::ErrorKind::InputError(
-                                "Invalid modpack instance name".into(),
-                            )
-                            .into());
-                        }
-                        game_dir.join("versions").join(name)
-                    };
-                    let path = reserve_modpack_game_dir(&target).await?;
-                    if isolated {
-                        input.game_dir_override =
-                            Some(path.to_string_lossy().into_owned());
-                    } else {
-                        // Shared roots derive their version metadata path from the
-                        // instance name; keep that identity on the reserved directory.
-                        input.name = path
-                            .file_name()
-                            .unwrap()
-                            .to_string_lossy()
-                            .into_owned();
+        ) && let Some(game_dir) =
+            input.game_dir_override.as_deref().map(PathBuf::from)
+        {
+            let isolated = is_version_isolated_game_dir(&game_dir);
+            let shared = game_dir
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.eq_ignore_ascii_case(".minecraft"));
+            if isolated || shared {
+                let target = if isolated {
+                    game_dir
+                } else {
+                    let name = sanitize_instance_name(&input.name);
+                    let name = name.trim_end_matches(['.', ' ']);
+                    if name.is_empty() || matches!(name, "." | "..") {
+                        return Err(crate::ErrorKind::InputError(
+                            "Invalid modpack instance name".into(),
+                        )
+                        .into());
                     }
-                    reserved_game_dir = Some(path);
+                    game_dir.join("versions").join(name)
+                };
+                let path = reserve_modpack_game_dir(&target).await?;
+                if isolated {
+                    input.game_dir_override =
+                        Some(path.to_string_lossy().into_owned());
+                } else {
+                    // Shared roots derive their version metadata path from the
+                    // instance name; keep that identity on the reserved directory.
+                    input.name = path
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .into_owned();
                 }
+                reserved_game_dir = Some(path);
             }
         }
         if let Some(game_dir_override) = input.game_dir_override.as_deref() {
@@ -200,33 +195,64 @@ pub(crate) async fn create_instance(
                 &instance,
             )?;
 
-        let mut tx = state.pool.begin().await?;
-        instance_rows::insert_instance(&instance, &mut tx).await?;
-        instance_rows::insert_default_sync_preferences_in_transaction(
+        let mut unit = crate::state::store::atom(&state.data).await?;
+        instance_rows::insert_instance(&instance, unit.transaction())
+            .await
+            .map_err(|error| {
+                error.with_context("Creating instance: insert instance row")
+            })?;
+        crate::state::store::instance_sync_preferences::seed_instance_defaults(
+            &mut unit,
             &instance_id,
-            &mut tx,
         )
-        .await?;
-        content_sets::insert_content_set(&content_set, &mut tx).await?;
+        .await
+        .map_err(|error| {
+            error.with_context("Creating instance: initialize sync preferences")
+        })?;
+        content_sets::insert_content_set(&content_set, unit.transaction())
+            .await
+            .map_err(|error| {
+                error.with_context("Creating instance: insert content set")
+            })?;
         loader_component_rows::replace_loader_components(
             &instance_id,
             &loader_components,
-            &mut tx,
+            unit.transaction(),
         )
-        .await?;
-        links::upsert_instance_link(&instance_id, &input.link, &mut tx).await?;
-        instance_rows::replace_instance_groups(&instance_id, &[], &mut tx)
-            .await?;
+        .await
+        .map_err(|error| {
+            error.with_context("Creating instance: install loader components")
+        })?;
+        links::upsert_instance_link(
+            &instance_id,
+            &input.link,
+            unit.transaction(),
+        )
+        .await
+        .map_err(|error| {
+            error.with_context("Creating instance: insert source link")
+        })?;
         instance_rows::upsert_instance_launch_overrides(
             &launch_overrides,
-            &mut tx,
+            unit.transaction(),
         )
-        .await?;
-        config_sync_rows::upsert_config_updated_at(&instance_id, &mut *tx)
-            .await?;
-        crate::install::store::attach_initial_instance(&instance, &mut tx)
-            .await?;
-        tx.commit().await?;
+        .await
+        .map_err(|error| {
+            error.with_context("Creating instance: initialize launch overrides")
+        })?;
+        crate::install::store::attach_initial_instance(
+            &instance,
+            unit.transaction(),
+        )
+        .await
+        .map_err(|error| {
+            error.with_context("Creating instance: bind install recovery")
+        })?;
+        unit.commit().await.map_err(|error| {
+            crate::Error::from(error).with_context(
+                "Creating instance: commit database and JSON preferences",
+            )
+        })?;
 
         config_sync::mark_dirty(&instance_id);
 

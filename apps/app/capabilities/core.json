@@ -2,7 +2,7 @@
   "identifier": "core",
   "description": "",
   "local": true,
-  "windows": ["main"],
+  "webviews": ["main"],
   "permissions": [
     "core:default",
     "core:path:default",

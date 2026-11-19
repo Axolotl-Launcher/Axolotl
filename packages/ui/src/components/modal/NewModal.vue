@@ -23,18 +23,24 @@
                     ref="modalBodyRef"
                     role="dialog"
                     aria-modal="true"
-                    :aria-labelledby="headerId"
+                    :aria-labelledby="
+                        !hideHeader && (header || $slots.title) ? headerId : undefined
+                    "
+                    tabindex="-1"
                     class="modal-body flex flex-col bg-surface-3 rounded-2xl border border-solid border-surface-5"
                     :class="{ 'modal-body-fill': fillContent }"
                     v-bind="$attrs"
-                    @keydown="handleKeyDown"
+                    @keydown="trapTab"
                 >
                     <div
                         v-if="!hideHeader"
                         data-tauri-drag-region
                         class="grid grid-cols-[auto_min-content] items-center gap-4 p-6 border-solid border-0 border-b-[1px] border-surface-5 max-w-full"
                     >
-                        <div class="flex text-wrap break-words items-center gap-3 min-w-0">
+                        <div
+                            :id="$slots.title ? headerId : undefined"
+                            class="flex text-wrap break-words items-center gap-3 min-w-0"
+                        >
                             <slot name="title">
                                 <span
                                     v-if="header"
@@ -148,6 +154,7 @@ import { useBodyScrollLock } from '../../composables/body-scroll-lock'
 import { useVIntl } from '../../composables/i18n'
 import { useModalStack } from '../../composables/modal-stack'
 import { useScrollIndicator } from '../../composables/scroll-indicator'
+import { useModalFocus } from '../../composables/use-modal-focus'
 import { injectModalBehavior } from '../../providers'
 import { commonMessages } from '../../utils/common-messages'
 import Button from '../base/buttons/Button.vue'
@@ -237,7 +244,9 @@ const { lock: lockBodyScroll, unlock: unlockBodyScroll } = useBodyScrollLock()
 const visible = ref(false)
 const stackDepth = ref(0)
 const modalBodyRef = ref<HTMLElement | null>(null)
-let previousFocusEl: Element | null = null
+const { captureFocus, focusInitial, restoreFocus, trapTab } = useModalFocus(modalBodyRef, {
+    isTopmost: isTopmostModal,
+})
 let phase: 'closed' | 'opening' | 'open' | 'closing' | 'disposed' = 'closed'
 let transitionGeneration = 0
 let showTimer: ReturnType<typeof setTimeout> | undefined
@@ -256,14 +265,6 @@ function cancelTransitionTimers() {
 const scrollContainer = ref<HTMLElement | null>(null)
 const { showTopFade, showBottomFade, checkScrollState } = useScrollIndicator(scrollContainer)
 
-const FOCUSABLE_SELECTOR =
-    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-
-function getFocusableElements(): HTMLElement[] {
-    if (!modalBodyRef.value) return []
-    return Array.from(modalBodyRef.value.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-}
-
 function show(event?: MouseEvent) {
     if (phase === 'disposed' || phase === 'opening' || phase === 'open') return
     cancelTransitionTimers()
@@ -272,7 +273,7 @@ function show(event?: MouseEvent) {
     const wasEmpty = modalStackSize() === 0
     stackDepth.value = modalStackSize()
     open.value = true
-    previousFocusEl = document.activeElement
+    captureFocus()
     pushModal()
 
     lockBodyScroll()
@@ -291,12 +292,7 @@ function show(event?: MouseEvent) {
         visible.value = true
         nextTick(() => {
             if (generation !== transitionGeneration || phase !== 'open') return
-            const focusable = getFocusableElements()
-            if (focusable.length > 0) {
-                focusable[0].focus()
-            } else {
-                modalBodyRef.value?.focus()
-            }
+            focusInitial()
         })
     }, 50)
     if (wasEmpty) modalBehavior?.onShow?.()
@@ -323,10 +319,7 @@ async function hide() {
     }
     window.removeEventListener('keydown', handleWindowKeyDown)
     window.removeEventListener('mousedown', updateMousePosition)
-    if (previousFocusEl instanceof HTMLElement) {
-        previousFocusEl.focus()
-    }
-    previousFocusEl = null
+    restoreFocus()
     const completion = new Promise<boolean>((resolve) => {
         resolveHide = resolve
         hideTimer = setTimeout(() => {
@@ -411,28 +404,6 @@ function handleWindowKeyDown(event: KeyboardEvent) {
             event.preventDefault()
             hide()
         }, 0)
-    }
-}
-
-function handleKeyDown(event: KeyboardEvent) {
-    if (event.key === 'Tab') {
-        const focusable = getFocusableElements()
-        if (focusable.length === 0) return
-
-        const first = focusable[0]
-        const last = focusable[focusable.length - 1]
-
-        if (event.shiftKey) {
-            if (document.activeElement === first) {
-                event.preventDefault()
-                last.focus()
-            }
-        } else {
-            if (document.activeElement === last) {
-                event.preventDefault()
-                first.focus()
-            }
-        }
     }
 }
 

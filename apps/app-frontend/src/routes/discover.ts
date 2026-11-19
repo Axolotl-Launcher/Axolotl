@@ -8,13 +8,14 @@ export const discoverRoutes: RouteRecordRaw[] = [
         path: '/resource/:id',
         name: 'ResourceProject',
         component: () => import('@/pages/project/ResourceRoute.vue'),
-        meta: { useContext: true, pageTransitionGroup: 'project' },
+        meta: { requiresNetwork: true, useContext: true, pageTransitionGroup: 'project' },
     },
     {
         path: '/browse/favorites',
         name: 'Favorites',
         component: () => import('@/pages/Favorites.vue'),
         meta: {
+            requiresNetwork: true,
             useContext: true,
             breadcrumb: [{ name: '?FavoritesTitle' }],
             discordActivity: 'Browsing favorites...',
@@ -26,6 +27,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
         name: 'DiscoverSchematics',
         component: () => import('@/pages/Schematics.vue'),
         meta: {
+            requiresNetwork: true,
             useContext: true,
             breadcrumb: [{ name: '?BrowseTitle' }],
             pageTransitionGroup: 'browse',
@@ -36,6 +38,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
         name: 'DiscoverContent',
         component: () => import('@/pages/Browse.vue'),
         meta: {
+            requiresNetwork: true,
             useContext: true,
             breadcrumb: [{ name: '?BrowseTitle' }],
             discordActivity: 'Browsing mods...',
@@ -57,6 +60,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/project/CurseForge.vue'),
         props: true,
         meta: {
+            requiresNetwork: true,
             useContext: true,
             breadcrumb: [{ name: '?Project' }],
             discordActivity: 'Browsing mods...',
@@ -69,6 +73,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/project/CurseForge.vue'),
         props: true,
         meta: {
+            requiresNetwork: true,
             useContext: true,
             breadcrumb: [
                 { name: '?Project', link: '/project/curseforge/{id}' },
@@ -83,7 +88,11 @@ export const discoverRoutes: RouteRecordRaw[] = [
         name: 'CurseForgeProjectChangelog',
         component: () => import('@/pages/project/CurseForge.vue'),
         props: true,
-        meta: { useContext: true, pageTransitionGroup: 'curseforge-project' },
+        meta: {
+            requiresNetwork: true,
+            useContext: true,
+            pageTransitionGroup: 'curseforge-project',
+        },
     },
     {
         path: '/project/curseforge/:id/gallery',
@@ -91,6 +100,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/project/CurseForge.vue'),
         props: true,
         meta: {
+            requiresNetwork: true,
             useContext: true,
             breadcrumb: [
                 { name: '?Project', link: '/project/curseforge/{id}' },
@@ -106,6 +116,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/project/McArchive.vue'),
         props: true,
         meta: {
+            requiresNetwork: true,
             useContext: true,
             breadcrumb: [{ name: '?Project' }],
             discordActivity: 'Browsing mods...',
@@ -118,6 +129,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/project/PlanetMinecraft.vue'),
         props: true,
         meta: {
+            requiresNetwork: true,
             useContext: true,
             breadcrumb: [{ name: '?Project' }],
             discordActivity: 'Browsing mods...',
@@ -129,6 +141,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
         name: 'SchematicProject',
         component: () => import('@/pages/project/Schematic.vue'),
         meta: {
+            requiresNetwork: true,
             useContext: true,
             breadcrumb: [{ name: '?Project' }],
             pageTransitionGroup: 'shimu-project',
@@ -140,6 +153,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/project/Index.vue'),
         props: true,
         meta: {
+            requiresNetwork: true,
             discordActivity: 'Browsing mods...',
             pageTransitionGroup: 'project',
         },
@@ -149,6 +163,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
                 name: 'Description',
                 component: () => import('@/pages/project/Description.vue'),
                 meta: {
+                    requiresNetwork: true,
                     useContext: true,
                     breadcrumb: [{ name: '?Project' }],
                 },
@@ -158,6 +173,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
                 name: 'Versions',
                 component: () => import('@/pages/project/Versions.vue'),
                 meta: {
+                    requiresNetwork: true,
                     useContext: true,
                     breadcrumb: [
                         { name: '?Project', link: '/project/{id}/' },
@@ -171,6 +187,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
                 component: () => import('@/pages/project/Version.vue'),
                 props: true,
                 meta: {
+                    requiresNetwork: true,
                     useContext: true,
                     breadcrumb: [
                         { name: '?Project', link: '/project/{id}/' },
@@ -183,13 +200,14 @@ export const discoverRoutes: RouteRecordRaw[] = [
                 path: 'changelog',
                 name: 'Changelog',
                 component: () => import('@/pages/project/Changelog.vue'),
-                meta: { useContext: true },
+                meta: { requiresNetwork: true, useContext: true },
             },
             {
                 path: 'gallery',
                 name: 'Gallery',
                 component: () => import('@/pages/project/Gallery.vue'),
                 meta: {
+                    requiresNetwork: true,
                     useContext: true,
                     breadcrumb: [{ name: '?Project', link: '/project/{id}/' }, { name: 'Gallery' }],
                 },

@@ -1,6 +1,7 @@
 import type { ContentItem } from '@modrinth/ui'
 import { queryOptions } from '@tanstack/vue-query'
-import { invoke } from '@tauri-apps/api/core'
+
+import { invoke } from '@/helpers/invoke'
 
 import { adaptContentItems, isSyncedOptionAvailable } from './instance'
 

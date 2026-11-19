@@ -5,7 +5,7 @@ use crate::state::store::settings::{
     DownloadSource as StoredDownloadSource, HomeLayout as StoredHomeLayout,
     Settings as StoredSettings, SettingsRecord, Singleton,
 };
-use crate::state::store::{Atom, Handle};
+use crate::state::store::{Atom, Handle, atom};
 use crate::util::download::constants::{
     AUTO_DOWNLOAD_CONCURRENCY_INITIAL, DOWNLOAD_CONCURRENCY_HARD_MAX,
     FORCED_DOWNLOAD_CONCURRENCY_DEFAULT, FORCED_DOWNLOAD_CONCURRENCY_MAX,
@@ -136,7 +136,7 @@ pub struct Settings {
     pub max_concurrent_writes: usize,
     #[serde(default)]
     pub auto_concurrent_downloads: bool,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub force_multiconnection_downloads: bool,
     #[serde(default = "default_forced_max_concurrent_downloads")]
     pub forced_max_concurrent_downloads: usize,
@@ -164,6 +164,10 @@ pub struct Settings {
     legacy_use_curseforge_mirror: Option<bool>,
 
     pub theme: Theme,
+    #[serde(default)]
+    pub theme_source: ThemeSource,
+    #[serde(default)]
+    pub custom_theme_colors: Option<CustomThemeColors>,
     pub accent_color: AccentColor,
     pub locale: String,
     #[serde(default)]
@@ -373,7 +377,7 @@ impl Default for Settings {
             max_concurrent_downloads: 10,
             max_concurrent_writes: 10,
             auto_concurrent_downloads: true,
-            force_multiconnection_downloads: false,
+            force_multiconnection_downloads: true,
             forced_max_concurrent_downloads:
                 FORCED_DOWNLOAD_CONCURRENCY_DEFAULT,
             minecraft_metadata_source: DownloadSourceMode::Auto,
@@ -388,6 +392,8 @@ impl Default for Settings {
             legacy_use_modrinth_mirror: None,
             legacy_use_curseforge_mirror: None,
             theme: Theme::Dark,
+            theme_source: ThemeSource::Builtin,
+            custom_theme_colors: None,
             accent_color: AccentColor::Pink,
             locale: String::new(),
             default_page: DefaultPage::Home,
@@ -496,7 +502,22 @@ impl Settings {
         let Some(documents) = handle.settings_documents() else {
             return Self::read_row(handle).await;
         };
-        super::documents::settings::cached(&documents, handle).await
+        let mut settings =
+            super::documents::settings::cached(&documents, handle).await?;
+        if let Some(id) = settings.minimal_home_instance_id.as_deref()
+            && super::instances::adapters::sqlite::instance_rows::get_instance_path_by_id(
+                id,
+                documents.pool(),
+            )
+            .await?
+            .is_none()
+        {
+            // The documents are shared by update channels, but an instance ID
+            // belongs to the database this handle opens. Keep the raw choice
+            // in the document/cache so another channel can still honour it.
+            settings.minimal_home_instance_id = None;
+        }
+        Ok(settings)
     }
 
     /// The settings the row alone holds: the whole answer while no document
@@ -565,6 +586,22 @@ impl Settings {
             });
         self.ui_font = sanitize_font_family(self.ui_font.take());
         self.mono_font = sanitize_font_family(self.mono_font.take());
+        if let ThemeSource::Pack(id) = &self.theme_source {
+            if id.trim().is_empty() {
+                self.theme_source = ThemeSource::Builtin;
+            }
+        }
+        self.custom_theme_colors = self
+            .custom_theme_colors
+            .take()
+            .map(CustomThemeColors::normalized);
+        if self
+            .custom_theme_colors
+            .as_ref()
+            .is_some_and(CustomThemeColors::is_empty)
+        {
+            self.custom_theme_colors = None;
+        }
         self
     }
 
@@ -574,7 +611,7 @@ impl Settings {
     /// the range check below then reads as the upper bound. Clamping in the
     /// column's own domain keeps such a value at the lower bound, where a
     /// number below the range belongs; `normalize` then applies the real range.
-    fn from_record(record: SettingsRecord) -> Self {
+    pub(crate) fn from_record(record: SettingsRecord) -> Self {
         let hidden_nav_items: Vec<String> =
             serde_json::from_str(&record.hidden_nav_items).unwrap_or_default();
 
@@ -606,6 +643,11 @@ impl Settings {
             legacy_use_modrinth_mirror: None,
             legacy_use_curseforge_mirror: None,
             theme: Theme::from_string(&record.theme),
+            theme_source: ThemeSource::from_string(&record.theme_source),
+            custom_theme_colors: record
+                .custom_theme_colors
+                .as_deref()
+                .and_then(|value| serde_json::from_str(value).ok()),
             accent_color: AccentColor::from_string(&record.accent_color),
             locale: record.locale,
             default_game_language: record.default_game_language,
@@ -718,40 +760,45 @@ impl Settings {
         .normalize()
     }
 
+    /// Persists only the directory state settled during startup. The effective
+    /// settings can carry document values that belong to another channel.
+    pub(crate) async fn update_launcher_directory(
+        &self,
+        handle: &Handle,
+    ) -> crate::Result<()> {
+        let mut unit = atom(handle).await?;
+        StoredSettings::update_in(&mut unit, |record| {
+            record.custom_dir.clone_from(&self.custom_dir);
+            record.prev_custom_dir.clone_from(&self.prev_custom_dir);
+        })
+        .await?;
+        unit.settings_changed([
+            "custom_dir".to_string(),
+            "prev_custom_dir".to_string(),
+        ]);
+        unit.commit().await
+    }
+
     pub async fn update(&self, handle: &Handle) -> crate::Result<()> {
-        StoredSettings::set(handle, &Singleton, Some(&self.to_record()?))
-            .await?;
-        // A read composes the row with the documents, so the row changing is a
-        // reason for the next read to compose again. `set` commits the unit it
-        // writes inside before it answers, so this invalidation already lands
-        // after that commit: unlike a caller's own unit, there is no window
-        // between the write and the commit to defer it for.
-        super::documents::settings::invalidate();
-        // The row has landed, so the domains that read from their documents are
-        // written after it: a start stopped between the two finds a document
-        // behind the row, and a commit that failed never reached this. The row
-        // is read again there rather than taken from `self`, so a writer that
-        // landed in between is not undone by this one.
-        //
-        // This writer cannot say which keys it changed — it states a whole
-        // `Settings` — so every domain is stated, and the keys a deployment
-        // answers are left out of the local documents as they always are.
-        //
-        // A document that cannot be written costs that domain and is left in
-        // the log: this is the whole-row writer a start reaches through the
-        // directory move and the settings migrations, so it must not keep a
-        // start from coming up.
-        super::documents::settings::store_cut_over(handle, None).await;
+        let mut unit = atom(handle).await?;
+        self.save_in(&mut unit).await?;
+        unit.commit().await?;
         Ok(())
     }
 
-    fn to_record(&self) -> crate::Result<SettingsRecord> {
+    pub(crate) fn to_record(&self) -> crate::Result<SettingsRecord> {
         let settings = self.clone().normalize();
         let auto_prefers_mirror = settings.auto_prefers_mirror();
         Ok(SettingsRecord {
             max_concurrent_downloads: settings.max_concurrent_downloads as i64,
             max_concurrent_writes: settings.max_concurrent_writes as i64,
             theme: settings.theme.as_str().to_string(),
+            theme_source: settings.theme_source.as_str(),
+            custom_theme_colors: settings
+                .custom_theme_colors
+                .as_ref()
+                .map(serde_json::to_string)
+                .transpose()?,
             default_page: settings.default_page.as_str().to_string(),
             collapsed_navigation: settings.collapsed_navigation,
             advanced_rendering: settings.advanced_rendering,
@@ -980,6 +1027,14 @@ impl Settings {
                 .any(|value| locale_prefers_mirror(&value))
     }
 
+    /// Import runs before state is published. Migrate only the historical row,
+    /// never settings already handed to a document by another launcher channel.
+    pub(crate) async fn migrate_legacy_row(
+        handle: &Handle,
+    ) -> crate::Result<()> {
+        StoredSettings::migrate_import_row(handle, Self::CURRENT_VERSION).await
+    }
+
     pub async fn migrate(handle: &Handle) -> crate::Result<()> {
         // Migration states the whole settings row. Serialize with the
         // field-level writers (including the startup log-level patch) so its
@@ -1193,6 +1248,118 @@ impl Theme {
     }
 }
 
+/// Where the launcher's surface colors come from.
+///
+/// `theme` still names the base palette (light, dark, OLED), so a custom accent
+/// layer can sit on top of any of them. `Pack` names an installed theme pack by
+/// its manifest id.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum ThemeSource {
+    #[default]
+    Builtin,
+    Custom,
+    Pack(String),
+}
+
+impl ThemeSource {
+    pub fn as_str(&self) -> String {
+        match self {
+            Self::Builtin => "builtin".to_string(),
+            Self::Custom => "custom".to_string(),
+            Self::Pack(id) => format!("pack:{id}"),
+        }
+    }
+
+    pub fn from_string(value: &str) -> Self {
+        if value == "custom" {
+            return Self::Custom;
+        }
+        if let Some(id) = value.strip_prefix("pack:") {
+            let id = id.trim();
+            if !id.is_empty() {
+                return Self::Pack(id.to_string());
+            }
+        }
+        Self::Builtin
+    }
+}
+
+impl Serialize for ThemeSource {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for ThemeSource {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        Ok(Self::from_string(&value))
+    }
+}
+
+/// The three colors issue #976 asks for, for one base palette.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CustomThemePalette {
+    /// `--surface-1`: the page background.
+    pub background: String,
+    /// `--surface-3`: cards and panels.
+    pub surface: String,
+    /// `--color-text-primary`: body text.
+    pub text: String,
+}
+
+/// Per-palette overrides applied on top of the selected built-in theme.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+pub struct CustomThemeColors {
+    #[serde(default)]
+    pub light: Option<CustomThemePalette>,
+    #[serde(default)]
+    pub dark: Option<CustomThemePalette>,
+}
+
+impl CustomThemeColors {
+    /// Lowercases the colors and drops palettes that are not six-digit hex, so
+    /// a hand-edited document converges instead of failing the whole read.
+    pub fn normalized(self) -> Self {
+        Self {
+            light: self.light.and_then(CustomThemePalette::normalized),
+            dark: self.dark.and_then(CustomThemePalette::normalized),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.light.is_none() && self.dark.is_none()
+    }
+}
+
+impl CustomThemePalette {
+    pub fn normalized(self) -> Option<Self> {
+        let background = normalize_hex_color(&self.background)?;
+        let surface = normalize_hex_color(&self.surface)?;
+        let text = normalize_hex_color(&self.text)?;
+        Some(Self {
+            background,
+            surface,
+            text,
+        })
+    }
+}
+
+/// Accepts `#rrggbb` in either case and returns it lowercased.
+pub fn normalize_hex_color(value: &str) -> Option<String> {
+    let value = value.trim();
+    let hex = value.strip_prefix('#')?;
+    if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    Some(format!("#{}", hex.to_ascii_lowercase()))
+}
+
 /// Minecraft memory settings
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct MemorySettings {
@@ -1317,9 +1484,9 @@ mod tests {
     }
 
     #[test]
-    fn forced_download_mode_is_opt_in_and_preserves_manual_limits() {
+    fn forced_download_mode_defaults_on_and_preserves_manual_limits() {
         let mut settings = Settings::default();
-        assert!(!settings.force_multiconnection_downloads);
+        assert!(settings.force_multiconnection_downloads);
         let mut legacy = serde_json::to_value(&settings).unwrap();
         legacy
             .as_object_mut()
@@ -1330,7 +1497,7 @@ mod tests {
             .unwrap()
             .remove("forced_max_concurrent_downloads");
         let legacy = serde_json::from_value::<Settings>(legacy).unwrap();
-        assert!(!legacy.force_multiconnection_downloads);
+        assert!(legacy.force_multiconnection_downloads);
         assert_eq!(legacy.forced_max_concurrent_downloads, 72);
         settings.force_multiconnection_downloads = true;
         assert_eq!(
@@ -1352,6 +1519,13 @@ mod tests {
         assert_eq!(restored.forced_max_concurrent_downloads, 128);
         assert!(restored.force_multiconnection_downloads);
         assert_eq!(restored.max_concurrent_downloads, 32);
+
+        settings.force_multiconnection_downloads = false;
+        let saved = serde_json::to_value(&settings).unwrap();
+        let restored = serde_json::from_value::<Settings>(saved).unwrap();
+        assert!(!restored.force_multiconnection_downloads);
+        let restored = Settings::from_record(restored.to_record().unwrap());
+        assert!(!restored.force_multiconnection_downloads);
     }
 
     #[test]

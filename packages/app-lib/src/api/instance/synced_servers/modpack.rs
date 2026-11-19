@@ -4,7 +4,7 @@ use super::codec::{read_servers, servers_from_bytes};
 use super::operations::{compose_instance, effective};
 use super::storage::{load_local, write_local_rows};
 use super::types::{LocalServer, ServerSource};
-use crate::state::instances::adapters::sqlite::server_pack_state;
+use crate::state::sync_state::servers::{PackRecord, PackState};
 use crate::state::{CachedEntry, InstanceLink, InstanceMetadata};
 use crate::util::fetch::{DownloadMeta, DownloadReason, fetch};
 use crate::{ErrorKind, State};
@@ -66,13 +66,15 @@ async fn replace_modpack_servers(
         server.position = local.len() as i64;
         local.push(server.clone());
     }
-    let mut tx = state.pool.begin().await?;
+    let mut tx = crate::state::store::atom(&state.data).await?;
     write_local_rows(&mut tx, &metadata.instance.id, &local).await?;
     let version_id = modpack_version_id(&metadata.link);
-    server_pack_state::set_pack_state_version(
+    PackState::atom_set(
         &mut tx,
         &metadata.instance.id,
-        version_id,
+        Some(&PackRecord {
+            version_id: version_id.map(str::to_owned),
+        }),
     )
     .await?;
     tx.commit().await?;
@@ -83,13 +85,9 @@ pub(super) async fn pack_state_matches_link(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<bool> {
-    let stored = server_pack_state::get_pack_state_version(
-        &metadata.instance.id,
-        &state.pool,
-    )
-    .await?;
+    let stored = PackState::get(&state.data, &metadata.instance.id).await?;
     Ok(stored.is_some_and(|version_id| {
-        version_id.as_deref() == modpack_version_id(&metadata.link)
+        version_id.version_id.as_deref() == modpack_version_id(&metadata.link)
     }))
 }
 
@@ -97,7 +95,9 @@ pub(super) async fn pack_state_exists(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<bool> {
-    server_pack_state::pack_state_exists(instance_id, &state.pool).await
+    Ok(PackState::get(&state.data, &instance_id.to_owned())
+        .await?
+        .is_some())
 }
 
 pub(super) async fn reconstruct_modpack_servers(

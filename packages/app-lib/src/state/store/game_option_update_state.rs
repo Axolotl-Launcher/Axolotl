@@ -8,7 +8,7 @@ use super::Collection;
 pub(crate) struct GameOptionUpdateState;
 
 /// An instance's update state is identified by the instance.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct UpdateStateKey {
     pub instance_id: String,
 }
@@ -17,7 +17,7 @@ pub(crate) struct UpdateStateKey {
 ///
 /// A file the instance had is kept together with its bytes, so a state cannot
 /// claim one without them: restoring the previous options needs the document.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum UpdateStateRecord {
     Replaced { sha1: String, document: Vec<u8> },
     Absent,
@@ -181,3 +181,21 @@ fn to_record(
         }
     }
 }
+
+impl crate::state::sync_state::collection::Collection
+    for GameOptionUpdateState
+{
+    type Key = UpdateStateKey;
+    type Scope = UpdateStateKey;
+    type Record = UpdateStateRecord;
+    const NAME: &'static str = "game_option_update_state";
+    fn in_scope(scope: &Self::Scope, key: &Self::Key) -> bool {
+        scope == key
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    GameOptionUpdateState,
+    UpdateStateKey,
+    UpdateStateKey,
+    UpdateStateRecord
+);

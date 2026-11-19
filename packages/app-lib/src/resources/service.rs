@@ -153,6 +153,36 @@ pub struct ResourceService {
 }
 
 impl ResourceService {
+    pub(super) fn rejects_modrinth_identity(
+        &self,
+        project: &str,
+        release: Option<&str>,
+    ) -> bool {
+        let source = SourceId::modrinth();
+        let Ok(id) = SourceProjectId::new(project) else {
+            return true;
+        };
+        let query = if let Some(release) = release {
+            let Ok(release_id) = SourceReleaseId::new(release) else {
+                return true;
+            };
+            ProviderQuery::Release {
+                project_id: Some(id),
+                release_id,
+                slug: None,
+            }
+        } else {
+            ProviderQuery::Project { id, slug: None }
+        };
+        self.sources.get(&source).map_or_else(
+            || {
+                !stable_modrinth_id(project)
+                    || release.is_some_and(|id| !stable_modrinth_id(id))
+            },
+            |runtime| runtime.provider.validate_query(&query).is_err(),
+        )
+    }
+
     pub(crate) fn source_namespace(
         &self,
         source: &SourceId,
@@ -880,9 +910,12 @@ pub(crate) fn validate_value(
             ProviderValue::Release(document),
         ) => {
             document.release.reference.project.source == *source
-                && project_id.as_ref().is_none_or(|id| {
-                    document.release.reference.project.project_id == *id
-                })
+                && project_id.as_ref().map_or_else(
+                    || *source != SourceId::modrinth() || stable_modrinth_id(
+                        document.release.reference.project.project_id.as_str(),
+                    ),
+                    |id| document.release.reference.project.project_id == *id,
+                )
                 && document.release.reference.release_id == *release_id
                 && document.release.artifacts.iter().all(|artifact| {
                     artifact.reference.release == document.release.reference

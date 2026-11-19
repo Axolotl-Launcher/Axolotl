@@ -67,7 +67,7 @@ pub(super) fn entries() -> Vec<Entry> {
         ),
         entry(
             "resource_prepare_history_cleanup",
-            "Prepare deleting selected distinct backup_ids returned by resource_scan_backups, maximum 100. Native validation checks ownership, provenance, file integrity, current-content references and retained-history dependencies. Returns operation_id, then a session-owned plan_id/revision and reviewed files/byte count. Preparing does not perform the selected deletions, but native recovery may finish/undo an older journal. Cleaning these files can permanently remove rollback capability.",
+            "Prepare cleanup of selected distinct backup_ids returned by resource_scan_backups, maximum 100. Review exists for each item: existing backups are deleted, and missing tracked backups are retired without deleting files or update history. Native validation checks ownership, provenance, file integrity, current-content references and retained-history dependencies. Returns operation_id, then a session-owned plan_id/revision and reviewed files/byte count. Preparing does not apply the selected cleanup, but native recovery may finish/undo an older journal.",
             Controlled,
             false,
             false,
@@ -76,7 +76,7 @@ pub(super) fn entries() -> Vec<Entry> {
         ),
         entry(
             "resource_execute_history_cleanup",
-            "Execute a reviewed resource cleanup plan in this same control session using its exact revision. Requires full access. Handle expires after 10 minutes and is single-use. Rechecks instance revision, file hashes/provenance and remaining references through native rules; refuses active games/jobs/backups. Returns operation_id then removed_count/failure summaries; partial native failure may require recovery. Does not remove currently installed resource files or instance snapshot backups.",
+            "Execute a reviewed resource cleanup plan in this same control session using its exact revision. Requires full access. Handle expires after 10 minutes and is single-use. Rechecks instance revision, file hashes/provenance and remaining references; refuses a missing backup that reappeared and active games/jobs/backups. Returns operation_id then removed_count/failure summaries; partial native failure may require recovery. Does not remove update history, currently installed resource files or instance snapshot backups.",
             FullAccess,
             false,
             false,

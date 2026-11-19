@@ -21,6 +21,11 @@ use tracing::warn;
 /// Marker token the frontend persists to mean "auto-select GC".
 pub const AUTO_GC_PRESET_ARG: &str = "@axolotl:gc:auto";
 
+/// Lets Java choose its default collector if an automatic preset was not resolved.
+pub(super) fn remove_unresolved_auto_gc_marker(args: &mut Vec<String>) {
+    args.retain(|arg| arg != AUTO_GC_PRESET_ARG);
+}
+
 /// An `-XX:` flag whose key starts with `+Use` is a collector selector
 /// (`UseG1GC`, `UseShenandoahGC`, `UseZGC`). Dropping it silently changes the
 /// collector, so we never prune it — an unsupported selector means the whole
@@ -533,6 +538,23 @@ mod tests {
                 .iter()
                 .any(|r| r.contains("JVM default"))
         );
+    }
+
+    #[test]
+    fn removes_unresolved_auto_gc_markers_without_changing_user_arguments() {
+        let mut args = [
+            AUTO_GC_PRESET_ARG,
+            "-Xmx2G",
+            "-XX:+UseG1GC",
+            "@custom.args",
+            AUTO_GC_PRESET_ARG,
+        ]
+        .map(str::to_owned)
+        .to_vec();
+
+        remove_unresolved_auto_gc_marker(&mut args);
+
+        assert_eq!(args, ["-Xmx2G", "-XX:+UseG1GC", "@custom.args"]);
     }
 
     #[test]

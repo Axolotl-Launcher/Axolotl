@@ -5,10 +5,7 @@ use super::model::{
 };
 use super::store;
 use crate::state::State;
-use crate::state::store::Collection as _;
 use crate::state::store::Handle;
-use crate::state::store::minecraft_users;
-use crate::state::store::modrinth_users::ModrinthUsers;
 use regex::{Captures, Regex};
 use std::fmt::Write as _;
 use std::io::{Read, Seek, SeekFrom};
@@ -685,15 +682,7 @@ pub(crate) async fn censor_credentials(
     mut text: String,
     handle: &Handle,
 ) -> crate::Result<String> {
-    for (_, credentials) in ModrinthUsers::get_all(handle).await? {
-        replace_nonempty(
-            &mut text,
-            &credentials.session_id,
-            "{MODRINTH_ACCESS_TOKEN}",
-        );
-    }
-
-    for token in minecraft_users::tokens_for_redaction(handle).await? {
+    for token in handle.accounts().tokens_for_redaction().await? {
         replace_nonempty(&mut text, &token, "{MINECRAFT_TOKEN}");
     }
 
@@ -741,11 +730,9 @@ fn censor_ip_addresses(text: String) -> String {
 mod tests {
     use super::*;
     use crate::state::Credentials;
-    use crate::state::store::Collection as _;
     use crate::state::store::minecraft_users::{
-        AccountType as StoredAccountType, MinecraftUserRecord, MinecraftUsers,
+        AccountType as StoredAccountType, MinecraftUserRecord,
     };
-    use crate::state::store::modrinth_users::ModrinthUserRecord;
 
     async fn test_pool() -> sqlx::SqlitePool {
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
@@ -767,25 +754,26 @@ mod tests {
         access_token: &str,
         refresh_token: &str,
     ) {
-        MinecraftUsers::set(
-            handle,
-            &format!("{}:test", account_type.as_str()),
-            Some(&MinecraftUserRecord {
-                uuid: uuid::Uuid::new_v4().to_string(),
-                active: false,
-                username: "OnlineUser".to_string(),
-                account_type,
-                access_token: access_token.to_string(),
-                refresh_token: refresh_token.to_string(),
-                expires: 0,
-                yggdrasil_api_root: String::new(),
-                yggdrasil_server_name: String::new(),
-                yggdrasil_login: String::new(),
-                yggdrasil_client_token: String::new(),
-            }),
-        )
-        .await
-        .unwrap();
+        handle
+            .accounts()
+            .set(
+                &format!("{}:test", account_type.as_str()),
+                &MinecraftUserRecord {
+                    uuid: uuid::Uuid::new_v4().to_string(),
+                    active: false,
+                    username: "OnlineUser".to_string(),
+                    account_type,
+                    access_token: access_token.to_string(),
+                    refresh_token: refresh_token.to_string(),
+                    expires: 0,
+                    yggdrasil_api_root: String::new(),
+                    yggdrasil_server_name: String::new(),
+                    yggdrasil_login: String::new(),
+                    yggdrasil_client_token: String::new(),
+                },
+            )
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -897,25 +885,26 @@ mod tests {
             };
             let pool = test_pool().await;
             let handle = handle_of(&pool);
-            MinecraftUsers::set(
-                &handle,
-                &"yggdrasil:test".to_string(),
-                Some(&MinecraftUserRecord {
-                    uuid: uuid::Uuid::new_v4().to_string(),
-                    active: false,
-                    username: "OnlineUser".to_string(),
-                    account_type: StoredAccountType::Yggdrasil,
-                    access_token: "ygg-access".to_string(),
-                    refresh_token: "ygg-refresh".to_string(),
-                    expires: 0,
-                    yggdrasil_api_root: String::new(),
-                    yggdrasil_server_name: String::new(),
-                    yggdrasil_login: String::new(),
-                    yggdrasil_client_token: "ygg-client-secret".to_string(),
-                }),
-            )
-            .await
-            .unwrap();
+            handle
+                .accounts()
+                .set(
+                    &"yggdrasil:test".to_string(),
+                    &MinecraftUserRecord {
+                        uuid: uuid::Uuid::new_v4().to_string(),
+                        active: false,
+                        username: "OnlineUser".to_string(),
+                        account_type: StoredAccountType::Yggdrasil,
+                        access_token: "ygg-access".to_string(),
+                        refresh_token: "ygg-refresh".to_string(),
+                        expires: 0,
+                        yggdrasil_api_root: String::new(),
+                        yggdrasil_server_name: String::new(),
+                        yggdrasil_login: String::new(),
+                        yggdrasil_client_token: "ygg-client-secret".to_string(),
+                    },
+                )
+                .await
+                .unwrap();
             if let Some(store) = host.store() {
                 assert_eq!(store.keys().len(), 3);
             }
@@ -998,21 +987,10 @@ mod tests {
             "ygg-refresh",
         )
         .await;
-        ModrinthUsers::set(
-            &handle,
-            &"test-user".to_string(),
-            Some(&ModrinthUserRecord {
-                session_id: "modrinth-session".to_string(),
-                expires: chrono::Utc::now().timestamp(),
-                active: true,
-            }),
-        )
-        .await
-        .unwrap();
         let report = serde_json::json!({
             "resolved_ips": ["192.0.2.1", "2001:db8::1"],
             "peer_ip": "2001:db8::2",
-            "details": "ms-access ms-refresh ygg-access ygg-refresh modrinth-session",
+            "details": "ms-access ms-refresh ygg-access ygg-refresh",
         });
 
         let censored = censor_credentials(report.to_string(), &handle)
@@ -1025,7 +1003,7 @@ mod tests {
         assert_eq!(censored["peer_ip"], report["peer_ip"]);
         assert_eq!(
             censored["details"],
-            "{MINECRAFT_TOKEN} {MINECRAFT_TOKEN} {MINECRAFT_TOKEN} {MINECRAFT_TOKEN} {MODRINTH_ACCESS_TOKEN}"
+            "{MINECRAFT_TOKEN} {MINECRAFT_TOKEN} {MINECRAFT_TOKEN} {MINECRAFT_TOKEN}"
         );
 
         let log = censor_support_text(report.to_string(), &handle)

@@ -214,7 +214,7 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                     // sched-order: theseus::state::instances::watcher::FileWatcher.manual_import_directory temporary
                     let manual_import_directory =
                         event_manual_import_directory.read().await.clone();
-                    let mut visited_instances = Vec::new();
+                    let mut emitted_events = HashSet::new();
                     let mut screenshot_instances = HashSet::new();
                     let mut synced_option_files =
                         HashMap::<String, HashSet<String>>::new();
@@ -267,15 +267,27 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                             else {
                                 continue;
                             };
+                            let relative_path = direct_instances
+                                .as_ref()
+                                .and_then(|(root, _)| {
+                                    e.path.strip_prefix(root).ok()
+                                })
+                                .map(Path::to_path_buf)
+                                .unwrap_or_else(|| {
+                                    e.path
+                                        .components()
+                                        .skip_while(|component| {
+                                            component.as_os_str()
+                                                != instance_path
+                                        })
+                                        .skip(1)
+                                        .collect()
+                                });
+                            let first_file_name = relative_path.iter().next();
+                            let relative_path_string = relative_path
+                                .to_string_lossy()
+                                .replace('\\', "/");
                             for instance_id in instance_ids {
-                                let first_file_name = e
-                                    .path
-                                    .components()
-                                    .skip_while(|x| {
-                                        x.as_os_str() != instance_path
-                                    })
-                                    .nth(1)
-                                    .map(|x| x.as_os_str());
                                 if let Some(file_name) = first_file_name
                                     .as_ref()
                                     .and_then(|name| name.to_str())
@@ -296,18 +308,6 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                                         .or_default()
                                         .insert(file_name.to_owned());
                                 }
-                                let relative_path = e
-                                    .path
-                                    .components()
-                                    .skip_while(|x| {
-                                        x.as_os_str() != instance_path
-                                    })
-                                    .skip(1)
-                                    .map(|component| {
-                                        component.as_os_str().to_string_lossy()
-                                    })
-                                    .collect::<Vec<_>>()
-                                    .join("/");
                                 if first_file_name
                                     .as_ref()
                                     .is_some_and(|x| *x == "screenshots")
@@ -315,11 +315,11 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                                     screenshot_instances
                                         .insert(instance_id.clone());
                                 }
-                                if !relative_path.is_empty() {
+                                if !relative_path_string.is_empty() {
                                     record_upgrade_content_change(
                                         &event_content_changes,
                                         &instance_id,
-                                        &relative_path,
+                                        &relative_path_string,
                                     )
                                     .await;
                                 }
@@ -346,9 +346,7 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                                         .is_some_and(|x| *x == "log");
                                 if is_crash_report || is_jvm_crash {
                                     crash_task(instance_id);
-                                } else if !visited_instances
-                                    .contains(&instance_id)
-                                {
+                                } else {
                                     let event = if first_file_name
                                         .as_ref()
                                         .is_some_and(|x| *x == "servers.dat")
@@ -397,7 +395,7 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                                                     &instance_id,
                                                     WorldType::Singleplayer,
                                                     &world,
-                                                    &state.pool
+                                                    &state.persistence
                                                 ).await {
                                                     tracing::warn!("Failed to remove AttachedWorldData for '{world}': {e}")
                                                 }
@@ -411,12 +409,20 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                                     } else if first_file_name
                                         .as_ref()
                                         .is_none_or(|x| *x != "saves")
+                                        || affects_world_datapacks(
+                                            &relative_path_string,
+                                        )
                                     {
                                         Some(InstancePayloadType::Synced)
                                     } else {
                                         None
                                     };
-                                    if let Some(event) = event {
+                                    if let Some(event) = event
+                                        && emitted_events.insert((
+                                            instance_id.clone(),
+                                            watch_event_key(&event),
+                                        ))
+                                    {
                                         let emit_instance_id =
                                             instance_id.clone();
                                         tokio::spawn(async move {
@@ -426,7 +432,6 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                                             )
                                             .await;
                                         });
-                                        visited_instances.push(instance_id);
                                     }
                                 }
                             }
@@ -618,6 +623,7 @@ pub(crate) async fn watch_instances_init(
         return;
     };
 
+    let mut synced_instance_ids = Vec::with_capacity(instances.len());
     for instance in instances {
         let Ok(content_root) =
             crate::state::instances::commands::instance_content_root(
@@ -637,17 +643,21 @@ pub(crate) async fn watch_instances_init(
             watcher,
         )
         .await;
-        let synced_instance_id = instance.id.clone();
-        tokio::spawn(async move {
-            if let Err(error) =
-                crate::api::instance::synced_options::reconcile_instance(
-                    &synced_instance_id,
-                )
-                .await
-            {
-                tracing::debug!(%error, "Initial synced option reconciliation failed");
-            }
-        });
+        synced_instance_ids.push(instance.id);
+    }
+
+    // Register every watcher before reconciliation can wait on file or core
+    // transactions. The tracked startup task then reconciles serially instead
+    // of creating one competing database writer per installed instance.
+    for instance_id in synced_instance_ids {
+        if let Err(error) =
+            crate::api::instance::synced_options::reconcile_instance(
+                &instance_id,
+            )
+            .await
+        {
+            tracing::debug!(%instance_id, %error, "Initial synced option reconciliation failed");
+        }
     }
 }
 
@@ -845,6 +855,25 @@ fn is_upgrade_content_change(
         top_level,
         "mods" | "resourcepacks" | "shaderpacks" | "datapacks"
     ) || tracked_paths.contains(&normalized)
+}
+
+fn affects_world_datapacks(relative_path: &str) -> bool {
+    let mut components = relative_path.split('/');
+    components.next() == Some("saves")
+        && (components.next().is_none()
+            || matches!(components.next(), None | Some("datapacks")))
+}
+
+fn watch_event_key(
+    event: &InstancePayloadType,
+) -> (std::mem::Discriminant<InstancePayloadType>, Option<String>) {
+    (
+        std::mem::discriminant(event),
+        match event {
+            InstancePayloadType::WorldUpdated { world } => Some(world.clone()),
+            _ => None,
+        },
+    )
 }
 
 async fn record_upgrade_content_change(
@@ -1258,6 +1287,44 @@ mod content_event_tests {
     use notify::event::{
         CreateKind, DataChange, Flag, ModifyKind, RemoveKind, RenameMode,
     };
+
+    #[test]
+    fn save_folder_changes_only_refresh_content_for_worlds_and_datapacks() {
+        for path in [
+            "saves",
+            "saves/world",
+            "saves/world/datapacks",
+            "saves/world/datapacks/new.zip",
+        ] {
+            assert!(affects_world_datapacks(path));
+        }
+        for path in [
+            "mods/test.jar",
+            "saves/world/level.dat",
+            "saves/world/region/r.0.0.mca",
+        ] {
+            assert!(!affects_world_datapacks(path));
+        }
+    }
+
+    #[test]
+    fn mixed_events_do_not_hide_content_changes_in_the_same_batch() {
+        let mut seen = HashSet::new();
+        for event in [
+            InstancePayloadType::ScreenshotsUpdated,
+            InstancePayloadType::ServersUpdated,
+            InstancePayloadType::WorldUpdated {
+                world: "first".into(),
+            },
+            InstancePayloadType::WorldUpdated {
+                world: "second".into(),
+            },
+            InstancePayloadType::Synced,
+        ] {
+            assert!(seen.insert(watch_event_key(&event)));
+        }
+        assert!(!seen.insert(watch_event_key(&InstancePayloadType::Synced)));
+    }
 
     #[test]
     fn ignores_access_events_before_debouncing() {

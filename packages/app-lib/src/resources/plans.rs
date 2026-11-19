@@ -641,30 +641,45 @@ pub(crate) async fn installed(
         let links = links_by_entry.remove(&entry_id).unwrap_or_default();
         let mut resource_id = links
             .first()
-            .and_then(|link| ResourceId::new(link.resource_id.as_str()).ok());
-        if let Some(artifact) = &exact {
+            .and_then(|link| link.resource_id.as_deref())
+            .and_then(|id| ResourceId::new(id).ok());
+        if let Some(artifact) = &exact
+            && !super::installed::legacy_modrinth_project(
+                &artifact.reference.release.project,
+            )
+        {
+            let project = &artifact.reference.release.project;
             resource_id =
                 crate::state::resources::ResourceStore::new(pool.clone())
-                    .lookup(&artifact.reference.release.project)
-                    .await?
+                    .enrich_many(std::slice::from_ref(project))
+                    .await
+                    .remove(project)
                     .or(resource_id);
         }
         if resource_id.is_none() {
-            let refs = crate::state::instances::adapters::sqlite::content_entries::get_content_provider_refs(&entry_id, pool).await?;
+            let refs = match crate::state::instances::adapters::sqlite::content_entries::get_content_provider_refs(&entry_id, pool).await.map_err(ResourceError::from) {
+                Ok(refs) => refs,
+                Err(ResourceError::InvalidRequest(_)) => vec![],
+                Err(error) => return Err(error),
+            };
             let origin = crate::state::instances::adapters::sqlite::content_entries::get_content_origin_provider(&entry_id, pool).await?;
             if let Some(reference) = refs
                 .iter()
                 .find(|reference| Some(reference.provider()) == origin)
                 .or_else(|| refs.first())
             {
-                let project = SourceProjectRef {
-                    source: SourceId::new(reference.provider().as_str())?,
-                    project_id: SourceProjectId::new(
-                        reference.database_project_id(),
-                    )?,
-                };
-                if crate::state::instances::adapters::sqlite::resource_rows::validate_project(&project).is_ok() {
-                    resource_id = Some(crate::state::resources::ResourceStore::new(pool.clone()).ensure_project(&project, &[resource_type]).await?);
+                if let Some(project) = crate::state::instances::adapters::sqlite::resource_rows::project_key(
+                    reference.provider().as_str(),
+                    &reference.database_project_id(),
+                ) {
+                    resource_id = match crate::state::resources::ResourceStore::new(pool.clone()).ensure_project(&project, &[resource_type]).await {
+                        Ok(identity) => Some(identity),
+                        Err(ResourceError::Database(error)) => {
+                            tracing::warn!(%error, "Continuing with the installed platform project");
+                            None
+                        }
+                        Err(error) => return Err(error),
+                    };
                 }
             }
         }
@@ -996,11 +1011,22 @@ impl ResourceService {
             ));
         }
         let id = if let Some(store) = self.store() {
-            Some(
-                store
-                    .ensure_project(&metadata.project, &metadata.types)
-                    .await?,
-            )
+            match store
+                .ensure_project(&metadata.project, &metadata.types)
+                .await
+            {
+                Ok(identity) => Some(identity),
+                Err(ResourceError::Database(error))
+                    if matches!(
+                        &selection.resource,
+                        ResourceRef::Source { .. }
+                    ) =>
+                {
+                    tracing::warn!(%error, "Falling back to the selected platform project");
+                    None
+                }
+                Err(error) => return Err(error),
+            }
         } else {
             known_id
         };
@@ -3698,7 +3724,8 @@ pub(crate) async fn load(
                 && !record.queued
         })
         .ok_or_else(|| invalid("plan was revised or already queued"))?;
-    let mut draft: OperationDraft = serde_json::from_str(&record.payload)?;
+    let mut draft: OperationDraft =
+        crate::state::store::compatibility::decode_payload(&record.payload)?;
     // Pending plans can have been prepared before conflict formatting changed.
     for details in draft
         .plan

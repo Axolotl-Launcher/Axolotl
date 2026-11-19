@@ -127,7 +127,9 @@ function getBottomClearance() {
         return 0
     }
 
-    return 44
+    // Reserve the bar's full rendered height, including its padding, so floating
+    // controls clear it even when the centered toolbar reaches the right edge.
+    return barEl.value?.offsetHeight || 44
 }
 
 function updateFloatingActionBarState(isShown = shown.value) {

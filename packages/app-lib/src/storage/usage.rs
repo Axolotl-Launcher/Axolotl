@@ -40,14 +40,14 @@ async fn open_lock_file(config_dir: &Path) -> crate::Result<File> {
         .await
         .map_err(|error| storage_error(error, config_dir))?;
     let path = config_dir.join(".metadata-use.lock");
-    Ok(OpenOptions::new()
+    OpenOptions::new()
         .create(true)
         .truncate(false)
         .read(true)
         .write(true)
         .open(&path)
         .await
-        .map_err(|error| storage_error(error, &path))?)
+        .map_err(|error| storage_error(error, &path))
 }
 
 fn storage_error(error: std::io::Error, path: &Path) -> crate::Error {

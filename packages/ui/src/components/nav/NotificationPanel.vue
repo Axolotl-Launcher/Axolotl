@@ -1,6 +1,10 @@
 <template>
     <div
+        ref="groupEl"
         class="vue-notification-group"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
         :class="{
             'intercom-present': isIntercomPresent,
             'location-left': notificationLocation === 'left',
@@ -13,6 +17,7 @@
                 v-for="(item, index) in notifications"
                 :key="item.id"
                 class="vue-notification-wrapper"
+                :aria-live="item.type === 'error' ? 'off' : undefined"
                 @mouseenter="stopTimer(item)"
                 @mouseleave="setNotificationTimer(item)"
             >
@@ -116,6 +121,9 @@
             </div>
         </transition-group>
     </div>
+    <div class="sr-only" role="alert" aria-live="assertive" aria-atomic="true">
+        {{ latestErrorAnnouncement }}
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -129,12 +137,13 @@ import {
     XCircleIcon,
     XIcon,
 } from '@modrinth/assets'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useModalStack } from '#ui/composables/modal-stack.ts'
 
 import { defineMessages, useVIntl } from '../../composables/i18n'
 import { injectNotificationManager, type WebNotification } from '../../providers'
+import { commonMessages } from '../../utils/common-messages'
 import Button from '../base/buttons/Button.vue'
 
 const notificationManager = injectNotificationManager()
@@ -156,7 +165,48 @@ const notifications = computed<WebNotification[]>(() =>
         .filter((notification) => !notification.collapsed)
         .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
 )
+const latestErrorAnnouncement = ref('')
+const seenErrorCounts = new Map<string | number, number>()
+
+function formatErrorAnnouncement(item: WebNotification): string {
+    const title = item.title?.trim() ?? ''
+    const text = item.text?.trim() ?? ''
+    const count = item.count ?? 1
+    const message =
+        count > 1
+            ? commonMessages.notificationErrorRepeated
+            : title && text
+              ? commonMessages.notificationErrorTitleText
+              : title
+                ? commonMessages.notificationErrorTitleOnly
+                : commonMessages.notificationErrorTextOnly
+    return formatMessage(message, { title, text, count })
+}
+
+watch(
+    notifications,
+    (current) => {
+        const visibleIds = new Set<string | number>()
+        for (const item of current) {
+            if (item.type !== 'error') continue
+            visibleIds.add(item.id)
+            const count = item.count ?? 1
+            if (seenErrorCounts.get(item.id) === count) continue
+            seenErrorCounts.set(item.id, count)
+            const announcement = formatErrorAnnouncement(item)
+            latestErrorAnnouncement.value = ''
+            nextTick(() => {
+                latestErrorAnnouncement.value = announcement
+            })
+        }
+        for (const id of seenErrorCounts.keys()) {
+            if (!visibleIds.has(id)) seenErrorCounts.delete(id)
+        }
+    },
+    { deep: true, immediate: true },
+)
 const notificationLocation = computed(() => notificationManager.getNotificationLocation())
+const groupEl = ref<HTMLElement | null>(null)
 
 const isIntercomPresent = ref<boolean>(false)
 const copied = ref<Record<string, boolean>>({})
@@ -179,6 +229,21 @@ function getCopyKey(notif: WebNotification): string {
 
 function checkIntercomPresence(): void {
     isIntercomPresent.value = !!document.querySelector('.intercom-lightweight-app')
+}
+
+let appliedClearance: string | undefined
+
+function updateNotificationClearance(): void {
+    const rect = groupEl.value?.getBoundingClientRect()
+    const visible = notificationLocation.value === 'right' && rect && rect.height > 0
+    // Measure the panel's top edge rather than its height: the panel can be raised
+    // by the mobile navbar, notifications' own bottom offset or the intercom bubble.
+    const clearance = visible ? `${Math.ceil(window.innerHeight - rect.top + 16)}px` : '0px'
+    // Writing the custom property invalidates style for everything that reads it,
+    // so skip the write when the measured clearance has not changed.
+    if (clearance === appliedClearance) return
+    appliedClearance = clearance
+    document.documentElement.style.setProperty('--notification-panel-clearance', clearance)
 }
 
 function copyToClipboard(notif: WebNotification): void {
@@ -212,17 +277,67 @@ async function handleErrorAction(notification: WebNotification): Promise<void> {
 onMounted(() => {
     checkIntercomPresence()
 
-    const observer = new MutationObserver(() => {
-        checkIntercomPresence()
-    })
+    // Measuring the panel forces a synchronous layout flush, so coalesce every
+    // trigger into one read per frame instead of one per observed mutation.
+    let frame: number | undefined
+    const movingProperties = new Set<string>()
+    const handleLayoutChange = () => {
+        if (frame !== undefined) return
+        frame = requestAnimationFrame(() => {
+            frame = undefined
+            checkIntercomPresence()
+            updateNotificationClearance()
+            if (movingProperties.size > 0) handleLayoutChange()
+        })
+    }
+    const handleTransitionRun = (event: TransitionEvent) => {
+        if (
+            event.target !== groupEl.value ||
+            !['bottom', 'top', 'transform'].includes(event.propertyName)
+        )
+            return
+        movingProperties.add(event.propertyName)
+        handleLayoutChange()
+    }
+    const handleTransitionFinish = (event: TransitionEvent) => {
+        if (event.target === groupEl.value) movingProperties.delete(event.propertyName)
+        handleLayoutChange()
+    }
+    const observer = new MutationObserver(handleLayoutChange)
 
     observer.observe(document.body, {
         childList: true,
         subtree: true,
     })
 
+    // The panel and body classes (such as floating-action-bar-shown) can move it
+    // without resizing it. Observe their attributes, but not descendant attributes
+    // that would trigger measurements for unrelated changes throughout the app.
+    const layoutObserver = new MutationObserver(handleLayoutChange)
+    const layoutAttributes = { attributes: true, attributeFilter: ['class', 'style'] }
+    layoutObserver.observe(document.body, layoutAttributes)
+    if (groupEl.value) layoutObserver.observe(groupEl.value, layoutAttributes)
+
+    const resizeObserver = new ResizeObserver(handleLayoutChange)
+    if (groupEl.value) resizeObserver.observe(groupEl.value)
+    groupEl.value?.addEventListener('transitionrun', handleTransitionRun)
+    groupEl.value?.addEventListener('transitionend', handleTransitionFinish)
+    groupEl.value?.addEventListener('transitioncancel', handleTransitionFinish)
+    window.addEventListener('resize', handleLayoutChange)
+    watch(notificationLocation, handleLayoutChange)
+    updateNotificationClearance()
+
     onBeforeUnmount(() => {
+        if (frame !== undefined) cancelAnimationFrame(frame)
         observer.disconnect()
+        layoutObserver.disconnect()
+        resizeObserver.disconnect()
+        groupEl.value?.removeEventListener('transitionrun', handleTransitionRun)
+        groupEl.value?.removeEventListener('transitionend', handleTransitionFinish)
+        groupEl.value?.removeEventListener('transitioncancel', handleTransitionFinish)
+        window.removeEventListener('resize', handleLayoutChange)
+        appliedClearance = undefined
+        document.documentElement.style.removeProperty('--notification-panel-clearance')
     })
 })
 

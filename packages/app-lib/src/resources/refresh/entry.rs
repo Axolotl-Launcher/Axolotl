@@ -15,6 +15,7 @@ pub(super) struct EntryWork {
     pub check_due: bool,
     pub presentation_due: bool,
     pub origin: Option<SourceId>,
+    unreadable_modrinth_ref: bool,
 }
 
 pub(super) fn work<'a>(
@@ -70,6 +71,7 @@ pub(super) fn work<'a>(
                     )
             });
             let context = RefreshCheckContext {
+                content_revision: Some(records.content_set.revision),
                 location_key: location_key(&records.instance),
                 content_root: records
                     .fingerprints
@@ -228,6 +230,9 @@ pub(super) fn work<'a>(
                 content,
                 check_due,
                 presentation_due,
+                unreadable_modrinth_ref: records
+                    .unreadable_modrinth_refs
+                    .contains(&entry.id),
                 origin: records
                     .origins
                     .get(&entry.id)
@@ -287,14 +292,39 @@ pub(super) async fn run(
     )?;
     work.context.content_root = root.to_string_lossy().into_owned();
     let mut artifact_write = None;
-    if work.entry.artifact.is_none() {
-        let recognition =
-            recognize(state, &service, &root, &mut work, policy, cancel).await;
+    let legacy =
+        if work.entry.artifact.is_none() && work.unreadable_modrinth_ref {
+            Some(installed::LegacyModrinthIdentity::Ambiguous)
+        } else {
+            installed::legacy_modrinth_identity(
+                &service,
+                work.entry.artifact.as_ref(),
+                &work.content.provider_refs,
+                work.origin.as_ref(),
+            )
+        };
+    if work.entry.artifact.is_none() || legacy.is_some() {
+        let recognition = recognize(
+            state,
+            &service,
+            &root,
+            &mut work,
+            legacy.as_ref(),
+            policy,
+            cancel,
+        )
+        .await;
         match recognition {
             Ok(artifact) => artifact_write = artifact,
+            Err(ResourceError::Canceled) => {
+                return Err(ResourceError::Canceled);
+            }
             Err(error) => {
                 let mut check = record(&work);
-                check.failed(chrono::Utc::now().timestamp(), error.to_string());
+                if legacy.is_some() {
+                    check.last_success = None;
+                }
+                fail(&work, &mut check, error);
                 send(&tx, &work, Some(check), None, None).await?;
                 return Ok(());
             }
@@ -340,7 +370,7 @@ pub(super) async fn run(
                 return Err(ResourceError::Canceled);
             }
             Err(error) => {
-                check.failed(chrono::Utc::now().timestamp(), error.to_string())
+                fail(&work, &mut check, error);
             }
         }
         send(&tx, &work, Some(check.clone()), None, None).await?;
@@ -448,10 +478,21 @@ pub(super) async fn run(
             return Err(error);
         }
         let mut check = check.unwrap_or_else(|| record(&work));
-        check.failed(chrono::Utc::now().timestamp(), error.to_string());
+        fail(&work, &mut check, error);
         send(&tx, &work, Some(check), None, None).await?;
     }
     Ok(())
+}
+
+fn fail(
+    work: &EntryWork,
+    check: &mut RefreshCheckRecord,
+    error: ResourceError,
+) {
+    check.failed(
+        chrono::Utc::now().timestamp(),
+        format!("{}: {error}", work.entry.relative_path),
+    );
 }
 
 fn record(work: &EntryWork) -> RefreshCheckRecord {
@@ -534,6 +575,7 @@ async fn recognize(
     service: &Arc<ResourceService>,
     root: &std::path::Path,
     work: &mut EntryWork,
+    legacy: Option<&installed::LegacyModrinthIdentity>,
     policy: CachePolicy,
     cancel: &CancellationToken,
 ) -> ResourceResult<Option<crate::resources::installed::InstalledArtifactRecord>>
@@ -548,6 +590,12 @@ async fn recognize(
         cancel,
     )
     .await?;
+    let verified = match legacy {
+        Some(legacy) => {
+            Some(legacy.verify(service, &local, policy, cancel).await?)
+        }
+        None => None,
+    };
     let sources = service
         .sources()
         .into_iter()
@@ -558,23 +606,26 @@ async fn recognize(
         .map(|source| source.id)
         .collect::<Vec<_>>();
     let mut recognition = identity::FileRecognition {
-        matches: vec![],
+        matches: verified.iter().cloned().collect(),
         unresolved_sources: vec![],
         failures: vec![],
         ambiguous: false,
     };
-    for reference in &work.content.provider_refs {
+    for reference in work
+        .content
+        .provider_refs
+        .iter()
+        .filter(|_| legacy.is_none())
+    {
         let Some(release_id) = reference.database_release_id() else {
             continue;
         };
-        let reference = SourceReleaseRef {
-            project: SourceProjectRef {
-                source: SourceId::new(reference.provider().as_str())?,
-                project_id: SourceProjectId::new(
-                    reference.database_project_id(),
-                )?,
-            },
-            release_id: SourceReleaseId::new(release_id)?,
+        let Ok(reference) = providers::source_project(
+            SourceId::new(reference.provider().as_str())?,
+            reference.database_project_id(),
+        )
+        .and_then(|project| providers::release_ref(project, release_id)) else {
+            continue;
         };
         if let Ok(release) = service
             .release_with_policy(&reference, None, cancel, policy)
@@ -596,8 +647,9 @@ async fn recognize(
             &artifact.reference.release.project.source == origin
         })
     });
-    if recognition.matches.is_empty()
-        || (work.origin.is_some() && !origin_verified)
+    if legacy.is_none()
+        && (recognition.matches.is_empty()
+            || (work.origin.is_some() && !origin_verified))
     {
         let known = recognition.matches;
         recognition = service
@@ -633,7 +685,10 @@ async fn recognize(
     let selected = service
         .select_recognized_artifact(
             &recognition.matches,
-            work.entry.artifact.as_ref(),
+            verified
+                .as_ref()
+                .map(|artifact| &artifact.reference)
+                .or(work.entry.artifact.as_ref()),
             work.origin.as_ref(),
             &work.context.preferred_source,
             work.entry.resource_type,
@@ -646,6 +701,11 @@ async fn recognize(
         return Err(recognition.failures[0].1.clone());
     }
     let Some((artifact, project)) = selected else {
+        if legacy.is_some() {
+            return Err(ResourceError::InvalidResponse(
+                "cannot verify the recorded Modrinth project for this content type".into(),
+            ));
+        }
         return Ok(None);
     };
     if let Some(store) = service.store() {

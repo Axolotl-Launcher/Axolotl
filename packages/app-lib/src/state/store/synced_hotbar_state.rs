@@ -9,11 +9,13 @@ use super::{Collection, Handle};
 pub(crate) struct SyncedHotbarState;
 
 /// There is one state per launcher.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) struct Singleton;
 
 /// What the state carries.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct HotbarStateRecord {
     pub schema_version: i64,
     pub revision: i64,
@@ -131,3 +133,29 @@ async fn write_row(
 
     Ok(())
 }
+
+impl crate::state::sync_state::collection::Collection for SyncedHotbarState {
+    type Key = Singleton;
+    type Scope = Singleton;
+    type Record = HotbarStateRecord;
+    const NAME: &'static str = "synced_hotbar_state";
+    fn record_supported(raw: &serde_json::Value) -> bool {
+        raw.get("protocol").is_none()
+            && raw
+                .get("schemaVersion")
+                .is_none_or(|value| value.as_u64() == Some(1))
+            && raw
+                .get("schema_version")
+                .and_then(serde_json::Value::as_i64)
+                .is_some_and(|version| matches!(version, 1 | 2))
+    }
+    fn in_scope(_scope: &Self::Scope, _key: &Self::Key) -> bool {
+        true
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    SyncedHotbarState,
+    Singleton,
+    Singleton,
+    HotbarStateRecord
+);

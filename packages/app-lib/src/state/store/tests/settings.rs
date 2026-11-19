@@ -16,6 +16,11 @@ fn record() -> SettingsRecord {
         max_concurrent_downloads: 7,
         max_concurrent_writes: 5,
         theme: "oled".to_string(),
+        theme_source: "pack:example".to_string(),
+        custom_theme_colors: Some(
+            "{\"dark\":{\"background\":\"#101215\",\"surface\":\"#262b34\",\"text\":\"#ffffff\"}}"
+                .to_string(),
+        ),
         default_page: "library".to_string(),
         collapsed_navigation: true,
         advanced_rendering: false,

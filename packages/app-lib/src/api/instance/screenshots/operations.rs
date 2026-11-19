@@ -17,8 +17,9 @@ use crate::event::InstancePayloadType;
 use crate::event::emit::emit_instance;
 use crate::state::instances::adapters::sqlite::{
     instance_rows,
-    screenshot_rows::{self, InstanceScreenshotSource},
+    screenshot_sources::{self, InstanceScreenshotSource},
 };
+use crate::state::media::{Media, manifest::ScreenshotIdentity};
 use crate::util::fetch::sha1_file_async;
 use crate::util::io::{self, IOError};
 
@@ -61,7 +62,7 @@ pub async fn list_screenshots(
     instance_id: &str,
 ) -> crate::Result<Vec<InstanceScreenshot>> {
     let state = State::get().await?;
-    let source = screenshot_rows::get_instance_screenshot_source(
+    let source = screenshot_sources::get_instance_screenshot_source(
         instance_id,
         &state.pool,
     )
@@ -85,7 +86,8 @@ pub async fn list_all_screenshots() -> crate::Result<Vec<InstanceScreenshot>> {
 pub async fn list_all_screenshots_with_warnings()
 -> crate::Result<ScreenshotScanResult> {
     let state = State::get().await?;
-    let sources = screenshot_rows::list_screenshot_sources(&state.pool).await?;
+    let sources =
+        screenshot_sources::list_screenshot_sources(&state.pool).await?;
     list_source_screenshot_sets(&state, sources).await
 }
 
@@ -156,13 +158,21 @@ pub async fn delete_screenshots(keys: &[ScreenshotKey]) -> crate::Result<()> {
     let _locks = lock_instance_screenshots(&state, instance_ids).await;
 
     for key in keys {
+        let media = Media::new(&state.persistence);
+        let identity = media
+            .screenshots()
+            .await?
+            .into_iter()
+            .find(|row| {
+                row.instance_id == key.instance_id
+                    && row.file_name == key.file_name
+            })
+            .unwrap_or_else(|| {
+                ScreenshotIdentity::for_file(&key.instance_id, &key.file_name)
+            });
+        media.anchor(vec![identity]).await?;
         io::remove_file(get_screenshot_path(key).await?).await?;
-        screenshot_rows::delete_screenshot_by_key(
-            &key.instance_id,
-            &key.file_name,
-            &state.pool,
-        )
-        .await?;
+        media.forget(&key.instance_id, &key.file_name).await?;
     }
 
     Ok(())
@@ -190,14 +200,17 @@ pub async fn export_screenshots(
         let source = match sources.get(&key.instance_id) {
             Some(source) => source,
             None => {
-                let source = screenshot_rows::get_instance_screenshot_source(
-                    &key.instance_id,
-                    &state.pool,
-                )
-                .await?
-                .ok_or_else(|| {
-                    crate::ErrorKind::InputError("Unknown instance".to_string())
-                })?;
+                let source =
+                    screenshot_sources::get_instance_screenshot_source(
+                        &key.instance_id,
+                        &state.pool,
+                    )
+                    .await?
+                    .ok_or_else(|| {
+                        crate::ErrorKind::InputError(
+                            "Unknown instance".to_string(),
+                        )
+                    })?;
                 sources.insert(key.instance_id.clone(), source);
                 &sources[&key.instance_id]
             }
@@ -259,7 +272,7 @@ pub async fn move_screenshots(
     instance_ids.sort_unstable();
     instance_ids.dedup();
     let _locks = lock_instance_screenshots(&state, instance_ids).await;
-    let target_source = screenshot_rows::get_instance_screenshot_source(
+    let target_source = screenshot_sources::get_instance_screenshot_source(
         target_instance_id,
         &state.pool,
     )
@@ -280,6 +293,19 @@ pub async fn move_screenshots(
         let source_path = get_screenshot_path(key).await?;
         let target_path =
             available_target_path(&target_dir, &key.file_name).await?;
+        let media = Media::new(&state.persistence);
+        let identity = media
+            .screenshots()
+            .await?
+            .into_iter()
+            .find(|row| {
+                row.instance_id == key.instance_id
+                    && row.file_name == key.file_name
+            })
+            .unwrap_or_else(|| {
+                ScreenshotIdentity::for_file(&key.instance_id, &key.file_name)
+            });
+        media.anchor(vec![identity.clone()]).await?;
         io::rename_or_move(&source_path, &target_path)
             .await
             .map_err(|error| {
@@ -297,14 +323,18 @@ pub async fn move_screenshots(
                 )
             })?
             .to_string();
-        screenshot_rows::move_screenshot(
-            &key.instance_id,
-            &key.file_name,
-            target_instance_id,
-            &file_name,
-            &state.pool,
-        )
-        .await?;
+        if let Err(error) = media
+            .relocate(&identity.id, target_instance_id, &file_name)
+            .await
+        {
+            // Preserve the old relationship if publication fails after moving.
+            if let Err(rollback) =
+                io::rename_or_move(&target_path, &source_path).await
+            {
+                tracing::warn!(%rollback, "Moved screenshot remains at its destination; old identity retained");
+            }
+            return Err(error);
+        }
         moved_keys.push(ScreenshotKey {
             instance_id: target_instance_id.to_string(),
             file_name,
@@ -320,7 +350,7 @@ pub async fn get_screenshot_path(
     validate_file_name(&key.file_name)?;
 
     let state = State::get().await?;
-    let source = screenshot_rows::get_instance_screenshot_source(
+    let source = screenshot_sources::get_instance_screenshot_source(
         &key.instance_id,
         &state.pool,
     )
@@ -366,7 +396,7 @@ pub async fn save_edited_screenshot(
     validate_file_name(&key.file_name)?;
 
     let state = State::get().await?;
-    let source = screenshot_rows::get_instance_screenshot_source(
+    let source = screenshot_sources::get_instance_screenshot_source(
         &key.instance_id,
         &state.pool,
     )
@@ -385,15 +415,20 @@ pub async fn save_edited_screenshot(
         .ok_or_else(|| {
             crate::ErrorKind::InputError("Unknown screenshot".to_string())
         })?;
-    let source_row = screenshot_rows::get_screenshot_by_key(
-        &key.instance_id,
-        &key.file_name,
-        &state.pool,
-    )
-    .await?
-    .ok_or_else(|| {
-        crate::ErrorKind::InputError("Unknown screenshot".to_string())
-    })?;
+    let media = Media::new(&state.persistence);
+    let mut source_row = media
+        .screenshots()
+        .await?
+        .into_iter()
+        .find(|row| {
+            row.instance_id == key.instance_id && row.file_name == key.file_name
+        })
+        .unwrap_or_else(|| {
+            ScreenshotIdentity::for_file(&key.instance_id, &key.file_name)
+        });
+    source_row.authored_at =
+        Some(source_screenshot.created_at.timestamp_millis());
+    media.anchor(vec![source_row.clone()]).await?;
 
     let png_bytes = tokio::task::spawn_blocking(move || {
         validate_png_dimensions(&png_bytes)?;
@@ -423,86 +458,32 @@ pub async fn save_edited_screenshot(
         .to_string();
 
     io::write(&target_path, png_bytes).await?;
-    if !copy_group {
-        let (file_size, content_hash) = sha1_file_async(&target_path).await?;
-        let file_size = i64::try_from(file_size).map_err(|_| {
-            crate::ErrorKind::InputError(
-                "Screenshot is too large to index".to_string(),
-            )
-        })?;
-        let mut source_row = source_row.clone();
-        source_row.content_hash = content_hash;
-        source_row.file_size = file_size;
-        let mut tx = state.pool.begin().await?;
-        screenshot_rows::update_screenshot(&source_row, &mut tx).await?;
-        tx.commit().await?;
+    let (_, hash) = sha1_file_async(&target_path).await?;
+    let mut saved_identity = if copy_group {
+        let mut identity =
+            ScreenshotIdentity::for_file(&source.id, &target_file_name);
+        identity.group_id = source_row.group_id.clone();
+        identity
+    } else {
+        source_row.clone()
+    };
+    saved_identity.fingerprint = Some(hash);
+    if let Err(error) = media.anchor(vec![saved_identity]).await {
+        if copy_group {
+            let _ = io::remove_file(&target_path).await;
+        }
+        return Err(error);
     }
     let scanned = scan_source_screenshots(&state, &source).await?;
-    let reconciled =
-        reconcile_source_screenshots(&state, &source, scanned).await?;
-    let mut saved = reconciled
+    let saved = reconcile_source_screenshots(&state, &source, scanned)
+        .await?
         .into_iter()
         .find(|screenshot| screenshot.file_name == target_file_name)
         .ok_or_else(|| {
             crate::ErrorKind::InputError(
-                "Could not index edited screenshot".to_string(),
+                "Could not find edited screenshot".into(),
             )
         })?;
-
-    if copy_group {
-        let result: crate::Result<()> = async {
-            let mut tx = state.pool.begin().await?;
-            screenshot_rows::copy_group_membership(
-                &source_row.id,
-                &saved.id,
-                &mut tx,
-            )
-            .await?;
-            tx.commit().await?;
-            Ok(())
-        }
-        .await;
-        if let Err(error) = result {
-            let _ = io::remove_file(&target_path).await;
-            let _ = screenshot_rows::delete_screenshot_by_key(
-                &source.id,
-                &target_file_name,
-                &state.pool,
-            )
-            .await;
-            return Err(error);
-        }
-    }
-
-    let mut saved_row = screenshot_rows::get_screenshot_by_key(
-        &saved.instance_id,
-        &saved.file_name,
-        &state.pool,
-    )
-    .await?
-    .ok_or_else(|| {
-        crate::ErrorKind::InputError(
-            "Could not load edited screenshot".to_string(),
-        )
-    })?;
-    if !copy_group {
-        let mut tx = state.pool.begin().await?;
-        if saved_row.created_at != source_row.created_at {
-            saved_row.created_at = source_row.created_at;
-            screenshot_rows::update_screenshot(&saved_row, &mut tx).await?;
-            saved.created_at =
-                DateTime::from_timestamp_millis(source_row.created_at)
-                    .ok_or_else(|| {
-                        crate::ErrorKind::InputError(
-                            "Screenshot creation time is out of range"
-                                .to_string(),
-                        )
-                    })?;
-        }
-        tx.commit().await?;
-    }
-    saved.modified_at = saved_row.modified_at;
-    saved.group_id = saved_row.group_id;
 
     let _ = emit_instance(
         &saved.instance_id,

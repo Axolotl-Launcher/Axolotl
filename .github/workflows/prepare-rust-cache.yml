@@ -59,7 +59,7 @@ jobs:
         run: |
           sudo apt-get -o Acquire::ForceIPv4=true update
           sudo apt-get -o Acquire::ForceIPv4=true install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
-      - uses: cargo-bins/cargo-binstall@851112458b5f28a29e5bc14a690c3f283d9dcc6f # v1.26.2
+      - uses: cargo-bins/cargo-binstall@5885714d0a40a14b2535c6ffc051fd8e49aa9665 # v1.27.0
       - run: cargo binstall --no-confirm --locked cargo-chef@0.1.71
       - name: Compile release dependencies in a disposable recipe workspace
         shell: bash

@@ -65,7 +65,7 @@ fn error_chain(error: &crate::Error) -> String {
 /// Streams a download to a sibling `.part` file, verifies it, then atomically
 /// moves it into place.
 
-#[tracing::instrument(skip(semaphore, progress, request, destination))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn download_to_path(
     mut request: DownloadRequest,
     destination: impl AsRef<Path>,

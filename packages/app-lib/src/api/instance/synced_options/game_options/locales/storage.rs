@@ -15,7 +15,7 @@ pub(super) struct OriginRow {
     pub origin: Option<Origin>,
 }
 
-#[tracing::instrument(skip_all, fields(scope), err)]
+#[tracing::instrument(skip_all, level = "info", fields(scope), err)]
 pub(super) async fn load(
     handle: &Handle,
     scope: Option<&str>,
@@ -69,6 +69,7 @@ pub(super) async fn load(
 
 #[tracing::instrument(
     skip_all,
+    level = "info",
     fields(scope, option_id, instance_id, game_version),
     err
 )]
@@ -117,7 +118,7 @@ pub(super) async fn observe(
     GameOptionLocaleOrigins::atom_set(unit, &key, Some(&record)).await
 }
 
-#[tracing::instrument(skip_all, fields(scope = row.scope, option_id = row.option_id), err)]
+#[tracing::instrument(skip_all, level = "info", fields(scope = row.scope, option_id = row.option_id), err)]
 pub(super) async fn pin(
     handle: &Handle,
     row: &OriginRow,

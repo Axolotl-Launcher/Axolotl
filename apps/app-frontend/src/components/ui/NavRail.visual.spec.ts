@@ -1,5 +1,5 @@
 import { flushPromises } from '@vue/test-utils'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -12,6 +12,51 @@ import NavRail from './NavRail.vue'
 
 const cleanup: (() => void)[] = []
 afterEach(() => cleanup.splice(0).forEach((fn) => fn()))
+
+it.each(['link', 'disabled', 'action'] as const)(
+    'prevents dragging navigation buttons (%s) or their icons while preserving clicks',
+    async (kind) => {
+        const router = basicRouter()
+        await router.push('/library')
+        const action = vi.fn()
+        const wrapper = await mountThemed(
+            NavButton,
+            { to: kind === 'action' ? action : '/lab', disabled: kind === 'disabled' },
+            'dark',
+            {
+                global: { plugins: [router] },
+                slots: {
+                    default: () => [
+                        h('svg', {}, [h('path')]),
+                        h('img', {
+                            src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+                            alt: 'Instance',
+                        }),
+                    ],
+                },
+            },
+        )
+        cleanup.push(() => wrapper.unmount())
+
+        for (const target of [
+            wrapper.element,
+            wrapper.get('path').element,
+            wrapper.get('img').element,
+        ]) {
+            const event = new DragEvent('dragstart', { bubbles: true, cancelable: true })
+            target.dispatchEvent(event)
+            expect(event.defaultPrevented).toBe(true)
+        }
+        expect((wrapper.element as HTMLElement).draggable).toBe(false)
+        expect(router.currentRoute.value.path).toBe('/library')
+        expect(action).not.toHaveBeenCalled()
+
+        await wrapper.trigger('click', { button: 0 })
+        await flushPromises()
+        expect(router.currentRoute.value.path).toBe(kind === 'link' ? '/lab' : '/library')
+        expect(action).toHaveBeenCalledTimes(kind === 'action' ? 1 : 0)
+    },
+)
 
 it('keeps the library parent selected through every child route and switches the rail between regions', async () => {
     const router = createRouter({
@@ -235,6 +280,56 @@ it('moves the slider on pointerdown before the router commits', async () => {
 
     expect(slider.element.style.top).toBe(`${(lab.element as HTMLElement).offsetTop}px`)
     expect(library.classes()).not.toContain('router-link-active')
+})
+
+it('moves the slider for a press in the same millisecond the rail mounted', async () => {
+    // Vue skips a listener attached in or after the millisecond in which an
+    // event first reached a Vue listener. A frozen clock puts the mount and the
+    // press in one millisecond, as a coarse clock or a fast test can, so a Vue
+    // pointerdown listener on the item would hide the press from the rail.
+    const frozen = Date.now()
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(frozen)
+    cleanup.push(() => clock.mockRestore())
+    const router = basicRouter()
+    await router.push('/library')
+    const wrapper = await mountBasicRail(router)
+    const lab = wrapper.get('a[href="/lab"]')
+    const slider = wrapper.get<HTMLElement>('.nav-rail-slider')
+
+    pointerDown(lab.element)
+    await nextTick()
+
+    await waitFor(() => slider.element.style.top === `${(lab.element as HTMLElement).offsetTop}px`)
+    expect(lab.classes()).toContain('router-link-active')
+})
+
+it('styles the pressed item as selected while its navigation is pending', async () => {
+    let release!: () => void
+    let hold = false
+    const router = basicRouter()
+    router.beforeEach((to) => {
+        if (hold && to.path === '/lab') {
+            return new Promise<void>((resolve) => {
+                release = resolve
+            })
+        }
+    })
+    await router.push('/library')
+    const wrapper = await mountBasicRail(router)
+    const lab = wrapper.get('a[href="/lab"]')
+
+    hold = true
+    pointerDown(lab.element)
+    await nextTick()
+
+    expect(router.currentRoute.value.path).toBe('/library')
+    await waitFor(() => lab.classes().includes('router-link-active'))
+
+    await lab.trigger('click', { button: 0 })
+    await flushPromises()
+    release()
+    await flushPromises()
+    await waitFor(() => router.currentRoute.value.path === '/lab')
 })
 
 it('rolls the slider back when navigation is aborted', async () => {

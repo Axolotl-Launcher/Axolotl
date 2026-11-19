@@ -1,3 +1,5 @@
+import { type HomeMinimalOptions, normalizeHomeMinimalOptions } from './home-minimal'
+
 export const HOME_DASHBOARD_VERSION = 1 as const
 export const HOME_WIDGET_LAYOUTS = ['grid', 'free'] as const
 export const HOME_WIDGET_STANDARD_SIZES = ['1x1', '2x1', '1x2', '2x2'] as const
@@ -29,6 +31,7 @@ export type HomeRecentLimit = (typeof HOME_RECENT_LIMIT_OPTIONS)[number]
 export type HomeGreetingMode = (typeof HOME_GREETING_MODES)[number]
 export type HomeGreetingFont = (typeof HOME_GREETING_FONTS)[number]
 export type HomeWidgetKind =
+    | 'launch'
     | 'greeting'
     | 'recent'
     | 'calendar'
@@ -83,7 +86,20 @@ export type HomeDashboardConfig = {
     version: typeof HOME_DASHBOARD_VERSION
     layout: HomeWidgetLayout
     widgets: HomeWidgetPlacement[]
+    /**
+     * Widget kinds this layout has already been offered. A kind added after a
+     * layout was saved is placed into it once; removing it afterwards sticks.
+     */
+    introduced?: HomeWidgetKind[]
+    /**
+     * How the minimal Home looks. It shares this value with the widgets so it
+     * needs no column of its own; absent means the standard layout.
+     */
+    minimal?: HomeMinimalOptions
 }
+
+/** Kinds every saved layout receives once, in the order they shipped. */
+export const HOME_INTRODUCED_WIDGET_KINDS = ['launch'] as const satisfies readonly HomeWidgetKind[]
 
 export type PackedHomeWidget = HomeWidgetPlacement & {
     column: number
@@ -98,9 +114,10 @@ export type HomeDashboardSaveQueue = {
 }
 
 export const HOME_WIDGET_SIZE_OPTIONS: Record<HomeWidgetKind, readonly HomeWidgetSize[]> = {
+    launch: ['2x2', '3x2', '2x1', '3x1'],
     greeting: ['2x1'],
     recent: ['2x1', '2x2', '2x3', '3x1', '3x2'],
-    calendar: ['1x2'],
+    calendar: ['1x2', '1x1', '2x1', '2x2'],
     'pinned-instances': HOME_WIDGET_STANDARD_SIZES,
     'pinned-worlds': HOME_WIDGET_STANDARD_SIZES,
     'pinned-servers': HOME_WIDGET_STANDARD_SIZES,
@@ -110,6 +127,7 @@ export const HOME_WIDGET_SIZE_OPTIONS: Record<HomeWidgetKind, readonly HomeWidge
 }
 
 export const HOME_WIDGET_DEFAULT_SIZE: Record<HomeWidgetKind, HomeWidgetSize> = {
+    launch: '2x2',
     greeting: '2x1',
     recent: '2x2',
     calendar: '1x2',
@@ -129,6 +147,14 @@ export function getHomeWidgetCardDensity(
     return columns <= 2 ? 'compact' : 'comfortable'
 }
 
+/**
+ * Kinds that show the greeting and keep its options and per-account text. The
+ * launch card heads Home, so it carries the greeting in its own header.
+ */
+export function homeWidgetCarriesGreeting(kind: HomeWidgetKind): boolean {
+    return kind === 'greeting' || kind === 'launch'
+}
+
 const HOME_WIDGET_KINDS = new Set<HomeWidgetKind>(
     Object.keys(HOME_WIDGET_DEFAULT_SIZE) as HomeWidgetKind[],
 )
@@ -142,7 +168,7 @@ function createPlacement(
         kind,
         size,
         ...(kind === 'recent' ? { options: { recentLimit: HOME_RECENT_DEFAULT_LIMIT } } : {}),
-        ...(kind === 'greeting'
+        ...(homeWidgetCarriesGreeting(kind)
             ? {
                   options: {
                       greetingMode: HOME_GREETING_DEFAULT_MODE,
@@ -154,19 +180,75 @@ function createPlacement(
     }
 }
 
+/**
+ * The launch card leads as a 2x2 hero with the greeting in its header, next to
+ * the 1x2 calendar. The collections below are one row tall, which fits the
+ * handful of items they usually hold; each pair fills three or four columns
+ * without gaps.
+ */
 export function createDefaultHomeDashboard(includeRecent = true): HomeDashboardConfig {
     return {
         version: HOME_DASHBOARD_VERSION,
         layout: 'grid',
         widgets: [
-            createPlacement('greeting'),
+            createPlacement('launch'),
             createPlacement('calendar'),
-            ...(includeRecent ? [createPlacement('recent')] : []),
-            createPlacement('pinned-worlds'),
-            createPlacement('pinned-servers', '2x2'),
-            createPlacement('pinned-instances', '2x1'),
+            ...(includeRecent ? [createPlacement('recent', '2x1')] : []),
+            createPlacement('pinned-worlds', '1x1'),
+            createPlacement('pinned-servers', '2x1'),
+            createPlacement('pinned-instances', '1x1'),
         ],
+        introduced: [...HOME_INTRODUCED_WIDGET_KINDS],
     }
+}
+
+/**
+ * Places each kind from `HOME_INTRODUCED_WIDGET_KINDS` that this layout has not
+ * been offered yet. The launch card takes over the greeting's place, keeping
+ * its options and per-account text, because it now shows the greeting itself;
+ * without a greeting it goes first. In the free layout the widgets below it
+ * move down by the extra rows it needs.
+ */
+export function introduceHomeWidgets(
+    layout: HomeWidgetLayout,
+    widgets: readonly HomeWidgetPlacement[],
+    introduced: readonly HomeWidgetKind[],
+): HomeWidgetPlacement[] {
+    let result = [...widgets]
+    for (const kind of HOME_INTRODUCED_WIDGET_KINDS) {
+        if (introduced.includes(kind) || result.some((widget) => widget.kind === kind)) continue
+        const placement = createPlacement(kind)
+        const greetingIndex = result.findIndex((widget) => widget.kind === 'greeting')
+        const greeting = greetingIndex >= 0 ? result[greetingIndex] : null
+        const replacement: HomeWidgetPlacement = greeting
+            ? { ...placement, id: greeting.id, options: greeting.options ?? placement.options }
+            : placement
+
+        if (layout === 'free') {
+            const origin = greeting?.position ?? { column: 0, row: 0 }
+            const takenRows = greeting ? getHomeWidgetSpan(greeting.size, 1).rows : 0
+            const extraRows = getHomeWidgetSpan(placement.size, 1).rows - takenRows
+            const moved = result.map((widget) =>
+                widget !== greeting &&
+                widget.position &&
+                widget.position.row >= origin.row + takenRows
+                    ? {
+                          ...widget,
+                          position: { ...widget.position, row: widget.position.row + extraRows },
+                      }
+                    : widget,
+            )
+            const placed = { ...replacement, position: { ...origin } }
+            result = greeting
+                ? moved.map((widget) => (widget === greeting ? placed : widget))
+                : [placed, ...moved]
+        } else {
+            result = greeting
+                ? result.map((widget) => (widget === greeting ? replacement : widget))
+                : [replacement, ...result]
+        }
+    }
+    return result
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -207,7 +289,7 @@ function normalizeOptions(kind: HomeWidgetKind, value: unknown): HomeWidgetOptio
         return { recentLimit }
     }
 
-    if (kind === 'greeting') {
+    if (homeWidgetCarriesGreeting(kind)) {
         const greetingMode =
             isRecord(value) && HOME_GREETING_MODES.includes(value.greetingMode as HomeGreetingMode)
                 ? (value.greetingMode as HomeGreetingMode)
@@ -329,7 +411,29 @@ export function normalizeHomeDashboard(value: unknown): HomeDashboardConfig | nu
         ]
     })
 
-    return { version: HOME_DASHBOARD_VERSION, layout, widgets }
+    const introduced = Array.isArray(value.introduced)
+        ? value.introduced.filter((kind): kind is HomeWidgetKind =>
+              HOME_WIDGET_KINDS.has(kind as HomeWidgetKind),
+          )
+        : []
+
+    return {
+        version: HOME_DASHBOARD_VERSION,
+        layout,
+        widgets: introduceHomeWidgets(layout, widgets, introduced),
+        introduced: [...new Set([...introduced, ...HOME_INTRODUCED_WIDGET_KINDS])],
+        ...(value.minimal !== undefined
+            ? { minimal: normalizeHomeMinimalOptions(value.minimal) }
+            : {}),
+    }
+}
+
+/** Saves the minimal Home options; the widgets are left as they are. */
+export function setHomeMinimalOptions(
+    config: HomeDashboardConfig,
+    minimal: HomeMinimalOptions,
+): HomeDashboardConfig {
+    return { ...config, minimal }
 }
 
 export function replaceHomeDashboardWidgets(
@@ -416,10 +520,13 @@ export function setHomeGreetingOptions(
     return replaceHomeDashboardWidgets(
         config,
         config.widgets.map((widget) =>
-            widget.id === id && widget.kind === 'greeting'
+            widget.id === id && homeWidgetCarriesGreeting(widget.kind)
                 ? {
                       ...widget,
                       options: {
+                          // Keep what the settings dialog does not edit, such as
+                          // the text each account saved for itself.
+                          ...withoutGreetingText(widget.options),
                           greetingMode,
                           ...(normalizedText ? { greetingText: normalizedText } : {}),
                           greetingFont: normalizedFont,
@@ -429,6 +536,12 @@ export function setHomeGreetingOptions(
                 : widget,
         ),
     )
+}
+
+/** The options minus the shared greeting text, which an empty save clears. */
+function withoutGreetingText(options: HomeWidgetOptions | undefined): HomeWidgetOptions {
+    const { greetingText: _greetingText, ...rest } = options ?? {}
+    return rest
 }
 
 /** The text this account saved for the greeting, or null when it uses the automatic one. */
@@ -450,7 +563,7 @@ export function setHomeGreetingOverride(
     return replaceHomeDashboardWidgets(
         config,
         config.widgets.map((widget) => {
-            if (widget.id !== id || widget.kind !== 'greeting') return widget
+            if (widget.id !== id || !homeWidgetCarriesGreeting(widget.kind)) return widget
 
             const { greetingOverrides: _existing, ...restOptions } = widget.options ?? {}
             const overrides: Record<string, HomeGreetingOverride> = Object.fromEntries(
@@ -484,7 +597,7 @@ export function pruneHomeGreetingOverrides(
 
     const widgets = config.widgets.map((widget) => {
         const overrides = widget.options?.greetingOverrides
-        if (widget.kind !== 'greeting' || !overrides) return widget
+        if (!homeWidgetCarriesGreeting(widget.kind) || !overrides) return widget
 
         const kept = Object.fromEntries(
             Object.entries(overrides).filter(([accountId]) => known.has(accountId)),

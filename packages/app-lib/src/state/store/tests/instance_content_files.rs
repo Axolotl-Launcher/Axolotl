@@ -98,6 +98,10 @@ async fn reconcile(
     instance_content_files::set_scanned(
         handle,
         instance_content_files::ScannedFiles {
+            cache_generation: super::super::content_evidence::generation(
+                handle,
+            )
+            .await,
             complete,
             create_entries: false,
             instance_id: "instance",

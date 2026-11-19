@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
     getOutput: vi.fn(),
     clear: vi.fn(),
     append: vi.fn(async () => {}),
+    logUnlisten: vi.fn(),
+    processUnlisten: vi.fn(),
+    processRegistration: vi.fn<() => Promise<() => void> | undefined>(),
     processListener: null as ((event: { instance_id: string; event: string }) => void) | null,
 }))
 
@@ -52,10 +55,10 @@ vi.mock('@/composables/useInstanceConsole', async () => {
     }
 })
 vi.mock('@/helpers/events.js', () => ({
-    log_listener: async () => () => {},
+    log_listener: async () => mocks.logUnlisten,
     process_listener: async (listener: (event: { instance_id: string; event: string }) => void) => {
         mocks.processListener = listener
-        return () => {}
+        return mocks.processRegistration() ?? mocks.processUnlisten
     },
 }))
 vi.mock('@/helpers/logs.js', () => ({
@@ -95,6 +98,26 @@ async function mountLogs() {
     await flushPromises()
     return wrapper
 }
+
+it('removes the live log listener while process listener registration is still pending', async () => {
+    vi.clearAllMocks()
+    mocks.getHistoricalLogs.mockResolvedValueOnce([])
+    const registration = deferred<() => void>()
+    mocks.processRegistration.mockReturnValueOnce(registration.promise)
+    const wrapper = await mountLogs()
+    wrapper.unmount()
+
+    expect(mocks.processRegistration).toHaveBeenCalledOnce()
+    expect(mocks.logUnlisten).toHaveBeenCalledOnce()
+    expect(mocks.processUnlisten).not.toHaveBeenCalled()
+    expect(mocks.processListener).not.toBeNull()
+    mocks.processListener?.({ instance_id: 'instance', event: 'launched' })
+    expect(mocks.clear).not.toHaveBeenCalled()
+
+    registration.resolve(mocks.processUnlisten)
+    await flushPromises()
+    expect(mocks.processUnlisten).toHaveBeenCalledOnce()
+})
 
 it('exports the selected source instead of the retained display buffer', async () => {
     vi.clearAllMocks()

@@ -4,9 +4,9 @@
  *  and deserialized into a usable JS object.
  */
 import { queryOptions } from '@tanstack/vue-query'
-import { invoke } from '@tauri-apps/api/core'
 
 import type { HomeDashboardConfig } from '@/components/home/home-dashboard'
+import { invoke } from '@/helpers/invoke'
 import type { Hooks, MemorySettings } from '@/helpers/types'
 import type { AccentColorSetting, ColorTheme, FeatureFlag, HomeLayout } from '@/store/theme.ts'
 import { DEFAULT_FEATURE_FLAGS } from '@/store/theme.ts'
@@ -75,25 +75,6 @@ export async function setUpdateChannel(channel: UpdateChannel): Promise<void> {
     await invoke('set_update_channel', { channel })
 }
 
-export async function copyReleaseDatabaseToBeta(): Promise<void> {
-    await invoke('copy_release_database_to_beta')
-}
-
-export async function betaDatabaseExists(): Promise<boolean> {
-    return await invoke('beta_database_exists')
-}
-
-export async function getCurrentAppDatabasePath(): Promise<string> {
-    return await invoke('get_current_app_database_path')
-}
-
-export async function copyDatabaseBetweenChannels(
-    sourceChannel: UpdateChannel,
-    targetChannel: UpdateChannel,
-): Promise<void> {
-    await invoke('copy_database_between_channels', { sourceChannel, targetChannel })
-}
-
 export async function getUpdatePreferences(): Promise<UpdatePreferences> {
     return await invoke('get_update_preferences')
 }
@@ -152,6 +133,11 @@ export type AppSettings = DohSettings & {
     mojang_auth_source: DownloadSourceMode
 
     theme: ColorTheme
+    theme_source?: 'builtin' | 'custom' | `pack:${string}`
+    custom_theme_colors?: {
+        light?: { background: string; surface: string; text: string }
+        dark?: { background: string; surface: string; text: string }
+    } | null
     accent_color: AccentColorSetting
     locale: string
     default_game_language: string

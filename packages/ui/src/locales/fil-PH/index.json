@@ -299,12 +299,6 @@
   "files.validation.name-label": {
     "defaultMessage": "Pangalan"
   },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "I-install"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Isang di-kilalang error na naganap"
-  },
   "form.label.address-line": {
     "defaultMessage": "Address line"
   },

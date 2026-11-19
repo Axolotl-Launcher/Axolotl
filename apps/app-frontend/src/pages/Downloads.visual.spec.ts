@@ -22,14 +22,11 @@ vi.mock('@tanstack/vue-query', async () => {
     const { ref } = await import('vue')
     return {
         useQuery: () => ({ data: ref(fixture.instances) }),
-        useQueryClient: () => ({ invalidateQueries: vi.fn() }),
     }
 })
 vi.mock('@/pages/instance/query-options', () => ({
-    instanceKeys: { list: () => ['instances', 'list'] },
     instanceListQueryOptions: () => ({}),
 }))
-vi.mock('@/composables/use-app-event', () => ({ useAppEvent: () => {} }))
 
 // Keep the actual page and ProgressBar; isolate native APIs and unrelated controls.
 vi.mock('@/providers/download-manager', () => ({
@@ -145,6 +142,12 @@ vi.mock('@modrinth/ui', async () => {
         defineMessage: (message: unknown) => message,
         injectNotificationManager: () => ({ handleError: vi.fn() }),
         useFormatBytes: () => (value: number) => String(value),
+        useFormatDateTime: (options?: Intl.DateTimeFormatOptions) => {
+            return (date: Date | number | string) =>
+                new Intl.DateTimeFormat(fixture.locale, options).format(
+                    date instanceof Date ? date : new Date(date),
+                )
+        },
         useVIntl: () => ({
             formatMessage: (
                 message: { id?: string; defaultMessage: string },

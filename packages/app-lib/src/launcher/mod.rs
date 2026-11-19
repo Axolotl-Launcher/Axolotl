@@ -1,5 +1,4 @@
 //! Logic for launching Minecraft
-use crate::api::pack::import::direct_link::direct_link_group;
 use crate::data::ModLoader;
 use crate::event::emit::{emit_instance, emit_loading, init_loading};
 use crate::event::{InstancePayloadType, LoadingBarType};
@@ -23,7 +22,7 @@ use crate::launcher::quick_play_version::{
 };
 use crate::server_address::{ServerAddress, parse_server_address};
 use crate::state::store::Collection as _;
-use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
+use crate::state::user_state::joins::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::state::{
     CacheBehaviour, Credentials, Instance, InstanceInstallStage,
     InstanceLaunchContext, InstanceLink, JavaVersion, MemorySettings,
@@ -69,6 +68,7 @@ pub(crate) mod external_version;
 pub(crate) mod instance_runtime;
 mod local_artifact;
 mod natives;
+mod version_json;
 
 pub mod download;
 pub mod jvm_args;
@@ -201,7 +201,7 @@ async fn switcheroo_gpu_environment() -> crate::Result<Vec<(String, String)>> {
 
 /// Mojang/HMCL ordered rule semantics: an empty list allows, a non-empty list
 /// starts disallowed, and each matching rule replaces the previous decision.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn parse_rules(
     rules: &[d::minecraft::Rule],
     java_version: &str,
@@ -220,7 +220,7 @@ pub fn parse_rules(
 
 /// Returns this rule's action only when every declared OS and feature
 /// restriction matches. OS and features on the same rule are conjunctive.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn parse_rule(
     rule: &d::minecraft::Rule,
     java_version: &str,
@@ -1061,7 +1061,12 @@ async fn promote_external_instance_link(
         .map(io::canonicalize)
         .transpose()?
         .map(|path| path.to_string_lossy().to_string());
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     crate::state::instances::adapters::sqlite::instance_rows::set_direct_link_fields(
         &instance.id,
         &crate::state::instances::adapters::sqlite::instance_rows::DirectLinkFields {
@@ -1075,15 +1080,8 @@ async fn promote_external_instance_link(
         &mut tx,
     )
     .await?;
-    if let Some(group) = direct_link_group(&direct.dot_minecraft) {
-        crate::state::instances::adapters::sqlite::instance_rows::replace_instance_groups(
-            &instance.id,
-            &[group],
-            &mut tx,
-        )
-        .await?;
-    }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     emit_instance(&instance.id, InstancePayloadType::Edited).await?;
     Ok(())
 }
@@ -1418,7 +1416,8 @@ async fn install_minecraft_with_local_source(
     {
         (std::path::PathBuf::from(java_version.path), false)
     } else if let Some(discovered) =
-        crate::api::jre::find_java_for_version(key).await?
+        crate::api::jre::find_java_for_install(key, &database_cancellation)
+            .await?
     {
         tracing::info!(
             "Reusing discovered Java {} at {}",
@@ -2063,7 +2062,7 @@ fn link_project_and_version(
     }
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub async fn launch_minecraft(
     java_args: &[String],
@@ -2087,8 +2086,10 @@ pub async fn launch_minecraft(
     let instance = &context.instance;
     let content_set = &context.applied_content_set;
 
-    if instance.install_stage == InstanceInstallStage::PackInstalling
-        || instance.install_stage == InstanceInstallStage::MinecraftInstalling
+    if !crate::state::recovery::coordinator::fail_ok(&instance.id)
+        && (instance.install_stage == InstanceInstallStage::PackInstalling
+            || instance.install_stage
+                == InstanceInstallStage::MinecraftInstalling)
     {
         return Err(crate::ErrorKind::LauncherError(
             "Instance is still installing".to_string(),
@@ -2096,7 +2097,9 @@ pub async fn launch_minecraft(
         .into());
     }
 
-    if instance.install_stage != InstanceInstallStage::Installed {
+    if instance.install_stage != InstanceInstallStage::Installed
+        && !crate::state::recovery::coordinator::fail_ok(&instance.id)
+    {
         return Err(crate::ErrorKind::LauncherError(
             "Instance is not installed; start an install job first".to_string(),
         )
@@ -2104,11 +2107,17 @@ pub async fn launch_minecraft(
     }
 
     let state = State::get().await?;
+    let recovery_mode =
+        crate::state::store::recovery_mode::root(&state.pool).is_some();
+    // Storage recovery restricts repair/downloads; authentication keeps the
+    // caller's chosen online/offline mode.
+    let local_runtime_only = offline_mode || recovery_mode;
 
     let runtime =
         InstanceRuntimeAdapter::for_instance(instance, &state.directories)?;
     let direct_launch = runtime.direct_link().cloned();
-    if direct_launch.is_some() && !instance.is_direct_linked() {
+    if !recovery_mode && direct_launch.is_some() && !instance.is_direct_linked()
+    {
         // Instances created before direct-link metadata was introduced retain
         // their external `game_dir_override`. Their adapter above already
         // launches them in place; persist the resolved identity now so future
@@ -2141,7 +2150,8 @@ pub async fn launch_minecraft(
         .await?
     };
 
-    let cache_behaviour = offline_mode.then_some(CacheBehaviour::CacheOnly);
+    let cache_behaviour =
+        local_runtime_only.then_some(CacheBehaviour::CacheOnly);
     let mut linked_libraries = None;
     let mut mmc_profile = None;
 
@@ -2259,7 +2269,7 @@ pub async fn launch_minecraft(
         .await;
         let (minecraft, version_index) = match cached_minecraft {
             Ok(value) => value,
-            Err(error) if offline_mode => return Err(error),
+            Err(error) if local_runtime_only => return Err(error),
             Err(_) => {
                 resolve_minecraft_manifest_with_cache(
                     &content_set.game_version,
@@ -2293,7 +2303,7 @@ pub async fn launch_minecraft(
             version,
             metadata_loader,
             content_set.loader_version.as_deref(),
-            offline_mode,
+            local_runtime_only,
         )
         .await?;
 
@@ -2309,7 +2319,7 @@ pub async fn launch_minecraft(
                     .iter()
                     .position(|x| x.id == "13w39a")
                     .unwrap_or(0);
-            if requires_logging_info && !offline_mode {
+            if requires_logging_info && !local_runtime_only {
                 // Logging belongs to the base game; recovering it must not
                 // reintroduce an online loader catalog dependency.
                 let (_, vanilla) = load_managed_launch_profile(
@@ -2328,7 +2338,7 @@ pub async fn launch_minecraft(
             let vanilla = if profile.replaces_minecraft()
                 && metadata_loader != ModLoader::Vanilla
             {
-                Some(if offline_mode {
+                Some(if local_runtime_only {
                     download::load_local_version_info(
                         &state,
                         version,
@@ -2382,7 +2392,7 @@ pub async fn launch_minecraft(
     };
 
     if direct_launch.is_none() {
-        if offline_mode {
+        if local_runtime_only {
             download::ensure_local_log_config(&state, &version_info)?;
         } else {
             let _ = download_log_config(
@@ -2456,7 +2466,8 @@ pub async fn launch_minecraft(
     // that will run Minecraft. The frontend supplies an ordered candidate
     // chain; we keep the preferred strategy only if this JVM understands it,
     // pruning unsupported tuning flags and falling back down the chain as
-    // needed. A `None` keeps the args passed in untouched.
+    // needed. Without an intent, keep the user's arguments but do not pass
+    // the launcher's automatic-preset marker to Java.
     let mut resolved_java_args = java_args.to_vec();
     // Custom JVM arguments from the linked launcher enter the same GC
     // compatibility pipeline below: unsupported tuning flags are pruned
@@ -2532,6 +2543,7 @@ pub async fn launch_minecraft(
         }
         extra_game_args.extend(pcl.extra_game_args());
     }
+    jvm_args::remove_unresolved_auto_gc_marker(&mut resolved_java_args);
 
     let settings = crate::state::Settings::get(&state.data).await?;
     let minecraft_java = java_environment::minecraft_java_executable(
@@ -2583,7 +2595,7 @@ pub async fn launch_minecraft(
                     &vanilla_client_path,
                     &java_version.architecture,
                     minecraft_updated,
-                    offline_mode,
+                    local_runtime_only,
                 )
                 .await?
                 .assemble(&vanilla_client_path, &instance_path)
@@ -2641,7 +2653,7 @@ pub async fn launch_minecraft(
     // config in the standard shared locations. Version JSONs, launcher
     // private configuration, and game data are never written. Offline mode
     // forbids network fetches, so it keeps the previous strict behavior.
-    if !offline_mode
+    if !local_runtime_only
         && let (Some(direct), Some(libraries)) =
             (&direct_launch, linked_libraries.as_deref())
     {
@@ -2689,7 +2701,7 @@ pub async fn launch_minecraft(
         })
         .await??;
     } else if direct_launch.is_none() {
-        if offline_mode {
+        if local_runtime_only {
             natives::prepare_native_libraries(
                 &state.directories.natives_dir(),
                 &state.directories.libraries_dir(),

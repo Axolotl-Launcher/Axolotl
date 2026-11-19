@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
-
+import { invoke } from '@/helpers/invoke'
 import type { SingleplayerWorld } from '@/helpers/worlds'
 
 export type DatapackKind = 'folder' | 'zip'

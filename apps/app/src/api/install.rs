@@ -87,6 +87,7 @@ impl InstallPostInstallEditRequest {
     }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_get_modpack_preview(
     location: CreatePackLocation,
@@ -94,6 +95,7 @@ pub async fn install_get_modpack_preview(
     Ok(theseus::pack::install_from::get_instance_from_pack(location).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_create_instance(
     request: InstallCreateInstanceRequest,
@@ -114,6 +116,7 @@ pub async fn install_create_instance(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_create_modpack_instance(
     location: CreatePackLocation,
@@ -128,6 +131,7 @@ pub async fn install_create_modpack_instance(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_import_instance(
     launcher_type: ImportLauncherType,
@@ -174,6 +178,7 @@ pub async fn install_import_instance(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_start_import_plan(
     request: ImportPlanRequest,
@@ -181,11 +186,13 @@ pub async fn install_start_import_plan(
     Ok(theseus::install::start_import_plan(request)?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_cancel_import_plan(request_id: String) -> Result<()> {
     Ok(theseus::install::cancel_import_plan(&request_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_duplicate_instance(
     source_instance_id: String,
@@ -193,6 +200,7 @@ pub async fn install_duplicate_instance(
     Ok(theseus::install::duplicate_instance(source_instance_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_existing_instance(
     instance_id: String,
@@ -201,6 +209,7 @@ pub async fn install_existing_instance(
     Ok(theseus::install::install_existing_instance(instance_id, force).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_pack_to_existing_instance(
     instance_id: String,
@@ -215,6 +224,7 @@ pub async fn install_pack_to_existing_instance(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_list(
     include_finished: bool,
@@ -222,16 +232,19 @@ pub async fn install_job_list(
     Ok(theseus::install::list_jobs(include_finished).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_get(job_id: Uuid) -> Result<InstallJobSnapshot> {
     Ok(theseus::install::get_job(job_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_retry(job_id: Uuid) -> Result<InstallJobSnapshot> {
     Ok(theseus::install::retry_job(job_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_repair_cache_and_retry(
     job_id: Uuid,
@@ -239,11 +252,13 @@ pub async fn install_job_repair_cache_and_retry(
     Ok(theseus::install::repair_cache_and_retry_job(job_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_resume(job_id: Uuid) -> Result<InstallJobSnapshot> {
     Ok(theseus::install::resume_job(job_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_skip_missing_content(
     job_id: Uuid,
@@ -251,6 +266,7 @@ pub async fn install_job_skip_missing_content(
     Ok(theseus::install::skip_missing_content_and_resume_job(job_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_missing_files(
     job_id: Uuid,
@@ -258,6 +274,7 @@ pub async fn install_job_missing_files(
     Ok(theseus::install::list_missing_modpack_files(job_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_scan_missing_files(
     job_id: Uuid,
@@ -269,6 +286,7 @@ pub async fn install_job_scan_missing_files(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_retry_missing_file(
     job_id: Uuid,
@@ -277,6 +295,7 @@ pub async fn install_job_retry_missing_file(
     Ok(theseus::install::retry_missing_modpack_file(job_id, item_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_import_missing_file(
     job_id: Uuid,
@@ -291,16 +310,19 @@ pub async fn install_job_import_missing_file(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_cancel(job_id: Uuid) -> Result<InstallJobSnapshot> {
     Ok(theseus::install::cancel_job(job_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_dismiss(job_id: Uuid) -> Result<()> {
     Ok(theseus::install::dismiss_job(job_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn install_job_support_details(job_id: String) -> Result<String> {
     let Ok(uuid) = Uuid::parse_str(&job_id) else {
@@ -328,6 +350,7 @@ pub struct DownloadJobPage {
     pub next_cursor: Option<String>,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_job_list(
     request: Option<DownloadJobListRequest>,
@@ -372,6 +395,7 @@ pub async fn download_job_list(
     Ok(DownloadJobPage { jobs, next_cursor })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_diagnostics(
     job_id: String,
@@ -388,36 +412,43 @@ pub async fn download_diagnostics(
     )
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_job_get(job_id: Uuid) -> Result<InstallJobSnapshot> {
     install_job_get(job_id).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_job_retry(job_id: Uuid) -> Result<InstallJobSnapshot> {
     Ok(theseus::install::retry_job_as_new(job_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_job_resume(job_id: Uuid) -> Result<InstallJobSnapshot> {
     install_job_resume(job_id).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_job_cancel(job_id: Uuid) -> Result<InstallJobSnapshot> {
     install_job_cancel(job_id).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_job_delete(job_id: Uuid) -> Result<()> {
     install_job_dismiss(job_id).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_history_clear() -> Result<u64> {
     Ok(theseus::install::clear_job_history().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_job_support_details(job_id: String) -> Result<String> {
     install_job_support_details(job_id).await

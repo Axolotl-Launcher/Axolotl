@@ -5,6 +5,7 @@ mod expected;
 mod local;
 mod members;
 
+#[cfg(test)]
 pub(crate) use self::entry::{
     finalize_disabled_pack_files, original_disabled_pack_files,
 };

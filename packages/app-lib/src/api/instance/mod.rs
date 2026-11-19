@@ -93,7 +93,9 @@ pub use self::lifecycle::{
     cache_icon, create_with_direct_link, edit, edit_icon, remove,
     sync_direct_links,
 };
-pub use self::paths::{get_full_path, get_mod_full_path};
+pub use self::paths::{
+    full_path_for_instance, get_full_path, get_mod_full_path,
+};
 pub(crate) use self::projects::emit_content_changed;
 pub use self::projects::{
     ContentToggleResult, InstallContentBatchRequest, add_project_from_path,

@@ -641,3 +641,78 @@ async fn staged_publish_reconciliation() {
     assert_eq!(journal_count(&reopened).await, 0);
     reopened.pool.close().await;
 }
+
+#[tokio::test]
+async fn future_file_journals_never_restore_or_delete_files() {
+    for committed in [false, true] {
+        let (_temp, state, root, _) = fixture().await;
+        prepare(
+            &state,
+            "instance",
+            &root,
+            vec![("mods/a.jar".into(), "mods/a.removing".into())],
+            true,
+            test_access(),
+        )
+        .await
+        .unwrap();
+        publish(&state, "instance", &root, test_access())
+            .await
+            .unwrap();
+        let (payload, _) = journals::get(&state.data, "instance")
+            .await
+            .unwrap()
+            .unwrap();
+        let mut value: serde_json::Value =
+            serde_json::from_str(&payload).unwrap();
+        value["schema_version"] = serde_json::json!(2);
+        let payload = value.to_string();
+        sqlx::query("UPDATE content_file_operations SET payload=?,committed=? WHERE instance_id='instance'").bind(&payload).bind(committed).execute(&state.pool).await.unwrap();
+        assert!(recover(&state, "instance", &root).await.is_err());
+        assert!(!root.join("mods/a.jar").exists());
+        assert_eq!(
+            tokio::fs::read(root.join("mods/a.removing")).await.unwrap(),
+            b"a bytes"
+        );
+        assert_eq!(
+            journals::get(&state.data, "instance")
+                .await
+                .unwrap()
+                .unwrap()
+                .0,
+            payload
+        );
+    }
+}
+
+#[tokio::test]
+async fn headerless_legacy_file_journals_still_restore_files() {
+    let (_temp, state, root, _) = fixture().await;
+    prepare(
+        &state,
+        "instance",
+        &root,
+        vec![("mods/a.jar".into(), "mods/a.jar.disabled".into())],
+        false,
+        test_access(),
+    )
+    .await
+    .unwrap();
+    publish(&state, "instance", &root, test_access())
+        .await
+        .unwrap();
+    let (payload, _) = journals::get(&state.data, "instance")
+        .await
+        .unwrap()
+        .unwrap();
+    let mut value: serde_json::Value = serde_json::from_str(&payload).unwrap();
+    value.as_object_mut().unwrap().remove("schema_version");
+    sqlx::query("UPDATE content_file_operations SET payload=? WHERE instance_id='instance'").bind(value.to_string()).execute(&state.pool).await.unwrap();
+    recover(&state, "instance", &root).await.unwrap();
+    assert_eq!(
+        tokio::fs::read(root.join("mods/a.jar")).await.unwrap(),
+        b"a bytes"
+    );
+    assert!(!root.join("mods/a.jar.disabled").exists());
+    assert_eq!(journal_count(&state).await, 0);
+}

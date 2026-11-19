@@ -143,9 +143,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "Ved at tilføje indhold kan der opstå kompatibilitetsproblemer, når du tilslutter dig serveren. Alt tilføjet indhold går desuden tabt, når du opdaterer indholdet på din server instance."
   },
-  "app.browse.server.installing": {
-    "message": "Installere"
-  },
   "app.content-install.no-compatible-versions": {
     "message": "Ingen tilgængelige versioner passer til {compatibilityLabel}. Vælg en version for at installere. Afhængigheder bliver ikke installeret automatisk."
   },
@@ -409,69 +406,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count} online"
-  },
-  "friends.action.add-friend": {
-    "message": "Tilføj en ven"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} venne{count, plural, one {anmodning} other {anmodninger}}"
-  },
-  "friends.add-friend.submit": {
-    "message": "Send en venneanmodning"
-  },
-  "friends.add-friend.title": {
-    "message": "Tilføjer en ven"
-  },
-  "friends.add-friend.username.description": {
-    "message": "Det er muligvis anderledes end deres Minecraft brugernavn!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Indskriv Modrinth brugernavn..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "Hvad er din vens Modrinth brugernavn?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Tilføj venner</link> for at se hvad de spiller!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Annuller anmodning"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Fjern ven"
-  },
-  "friends.friend.request-sent": {
-    "message": "Venneanmodning sendt"
-  },
-  "friends.friend.view-profile": {
-    "message": "Vis profil"
-  },
-  "friends.heading": {
-    "message": "Venner"
-  },
-  "friends.heading.active": {
-    "message": "Aktiv"
-  },
-  "friends.heading.offline": {
-    "message": "Offline"
-  },
-  "friends.heading.online": {
-    "message": "Online"
-  },
-  "friends.heading.pending": {
-    "message": "Afventer"
-  },
-  "friends.no-friends-match": {
-    "message": "Ingen venner som matcher \"{query}\""
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Søg venner..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Log ind på en Modrinth konto</link> for at tilføje venner og se hvad de spiller!"
   },
   "instance.add-server.add-and-play": {
     "message": "Tilføj og spil"

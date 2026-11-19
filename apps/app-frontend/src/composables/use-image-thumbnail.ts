@@ -1,5 +1,6 @@
-import { invoke } from '@tauri-apps/api/core'
 import { type MaybeRefOrGetter, ref, toValue, watch } from 'vue'
+
+import { invoke } from '@/helpers/invoke'
 
 import { createThumbnailQueue } from './thumbnail-queue'
 

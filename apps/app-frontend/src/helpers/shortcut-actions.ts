@@ -233,7 +233,6 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
         label: messages.navDiscover,
         description: messages.navDiscoverDescription,
         target: (route) => discoverContentTarget(route),
-        unavailable: (context) => context.offline,
     },
     {
         id: 'shortcutNavSkins',
@@ -288,7 +287,6 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
         label: messages.navCreate,
         description: messages.navCreateDescription,
         target: () => '/create',
-        unavailable: (context) => context.offline,
     },
     {
         id: 'shortcutNavSettings',

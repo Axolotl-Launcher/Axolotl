@@ -14,7 +14,7 @@ pub(crate) type EntryGraphKey = String;
 ///
 /// The graph is kept as the text it is stored as: what the text says is the
 /// caller's business.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct EntryGraphRecord {
     pub nodes: String,
     pub edges: String,
@@ -33,6 +33,15 @@ impl Collection for ResourceEntryGraphs {
         conn: &mut SqliteConnection,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::read(
+                conn,
+                "resource_entry_graphs",
+                key,
+            )
+            .await;
+        }
+
         let row: Option<(String, String)> = sqlx::query_as(
             "
             SELECT nodes, edges
@@ -52,6 +61,16 @@ impl Collection for ResourceEntryGraphs {
         key: &Self::Key,
         record: Option<&Self::Record>,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::write(
+                conn,
+                "resource_entry_graphs",
+                key,
+                record,
+            )
+            .await;
+        }
+
         let Some(record) = record else {
             sqlx::query("DELETE FROM resource_entry_graphs WHERE entry_id = ?")
                 .bind(key)
@@ -67,6 +86,14 @@ impl Collection for ResourceEntryGraphs {
     async fn read_all(
         conn: &mut SqliteConnection,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::all(
+                conn,
+                "resource_entry_graphs",
+            )
+            .await;
+        }
+
         let rows: Vec<(String, String, String)> = sqlx::query_as(
             "
             SELECT entry_id, nodes, edges
@@ -88,6 +115,24 @@ impl Collection for ResourceEntryGraphs {
         conn: &mut SqliteConnection,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, _) in
+                super::recovery_documents::strict_all::<Self::Record>(
+                    conn,
+                    "resource_entry_graphs",
+                )
+                .await?
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         sqlx::query("DELETE FROM resource_entry_graphs")
             .execute(&mut *conn)
             .await?;
@@ -101,6 +146,14 @@ impl Collection for ResourceEntryGraphs {
         conn: &mut SqliteConnection,
         scope: &Self::Scope,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return Ok(Self::read_all(conn)
+                .await?
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+                .collect());
+        }
+
         Ok(Self::read(conn, scope)
             .await?
             .map(|record| vec![(scope.clone(), record)])
@@ -112,6 +165,32 @@ impl Collection for ResourceEntryGraphs {
         scope: &Self::Scope,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, record) in records {
+                if !(key == scope) {
+                    return Err(crate::ErrorKind::InputError(
+                        "Operation record outside replacement scope".into(),
+                    )
+                    .into());
+                }
+            }
+            for (key, _) in Self::read(conn, scope)
+                .await?
+                .map(|record| vec![(scope.clone(), record)])
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         Self::write(conn, scope, records.first().map(|(_, record)| record))
             .await
     }
@@ -125,6 +204,13 @@ impl ResourceEntryGraphs {
         key: &str,
         record: &EntryGraphRecord,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            if Self::read(conn, &key.to_owned()).await?.is_some() {
+                Self::write(conn, &key.to_owned(), Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         sqlx::query(
             "
             UPDATE resource_entry_graphs

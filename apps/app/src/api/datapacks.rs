@@ -14,6 +14,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn list_datapacks<R: Runtime>(
     app_handle: AppHandle<R>,
@@ -29,6 +30,7 @@ pub async fn list_datapacks<R: Runtime>(
     Ok(result)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn delete_datapack(
     instance_id: String,
@@ -44,6 +46,7 @@ pub async fn delete_datapack(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn set_datapack_enabled(
     instance_id: String,

@@ -199,14 +199,15 @@ pub async fn begin_yggdrasil_login(
     .await?;
 
     if let Some(profile) = response.selected_profile {
-        let credentials = create_credentials(
+        let mut credentials = create_credentials(
             profile,
             response.access_token,
             response.client_token,
             metadata,
             login,
         );
-        credentials.upsert(handle).await?;
+        credentials.credential_persistence =
+            Some(credentials.upsert(handle).await?);
         return Ok(YggdrasilLoginResult::Complete { credentials });
     }
 
@@ -234,14 +235,15 @@ pub async fn begin_yggdrasil_login(
             )
             .as_error()
         })?;
-        let credentials = create_credentials(
+        let mut credentials = create_credentials(
             selected_profile,
             refreshed.access_token,
             refreshed.client_token,
             metadata,
             login,
         );
-        credentials.upsert(handle).await?;
+        credentials.credential_persistence =
+            Some(credentials.upsert(handle).await?);
         return Ok(YggdrasilLoginResult::Complete { credentials });
     }
 
@@ -313,7 +315,7 @@ pub async fn finish_yggdrasil_login(
         )
         .as_error()
     })?;
-    let credentials = create_credentials(
+    let mut credentials = create_credentials(
         selected_profile,
         refreshed.access_token,
         refreshed.client_token,
@@ -324,7 +326,8 @@ pub async fn finish_yggdrasil_login(
         },
         &login.login,
     );
-    credentials.upsert(handle).await?;
+    credentials.credential_persistence =
+        Some(credentials.upsert(handle).await?);
     Ok(credentials)
 }
 
@@ -355,7 +358,8 @@ pub async fn refresh_yggdrasil_credentials(
 
     if response.status().is_success() {
         credentials.expires = Utc::now() + Duration::minutes(5);
-        credentials.upsert(handle).await?;
+        credentials.credential_persistence =
+            Some(credentials.upsert_existing(handle).await?);
         return Ok(());
     }
     if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
@@ -364,7 +368,8 @@ pub async fn refresh_yggdrasil_credentials(
             account.server_name
         );
         credentials.expires = Utc::now() + Duration::minutes(1);
-        credentials.upsert(handle).await?;
+        credentials.credential_persistence =
+            Some(credentials.upsert_existing(handle).await?);
         return Ok(());
     }
     if response.status().as_u16() != 403 && response.status().as_u16() != 401 {
@@ -395,7 +400,8 @@ pub async fn refresh_yggdrasil_credentials(
         account.client_token = refreshed.client_token;
     }
     credentials.expires = Utc::now() + Duration::minutes(5);
-    credentials.upsert(handle).await?;
+    credentials.credential_persistence =
+        Some(credentials.upsert_existing(handle).await?);
     Ok(())
 }
 
@@ -620,6 +626,7 @@ fn create_credentials(
         profile.id.as_hyphenated()
     );
     Credentials {
+        credential_persistence: None,
         account_id: Some(account_id),
         offline_profile: MinecraftProfile {
             id: profile.id,
@@ -715,7 +722,7 @@ mod tests {
         sqlx::migrate!().run(&pool).await.unwrap();
         let handle = Handle::new(pool);
         let profile_id = Uuid::new_v4();
-        let credentials = create_credentials(
+        let mut credentials = create_credentials(
             YggdrasilProfile {
                 id: profile_id,
                 name: "Player".to_string(),

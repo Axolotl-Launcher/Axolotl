@@ -1,5 +1,7 @@
 //! Database maintenance statements stay behind the storage boundary.
+mod restore;
 use super::Handle;
+pub(crate) use restore::{finish_restore, restore_snapshot};
 use serde::Serialize;
 #[cfg(test)]
 mod tests {
@@ -47,20 +49,108 @@ pub struct IntegrityReport {
     pub foreign_key_issue_count: usize,
 }
 pub(crate) async fn check(handle: &Handle) -> crate::Result<IntegrityReport> {
-    let integrity = sqlx::query_scalar::<_, String>("PRAGMA integrity_check")
-        .fetch_all(handle.pool())
+    let mut connection = handle.pool().acquire().await?;
+    let schemas: Vec<String> = sqlx::query_scalar(
+        "SELECT name FROM pragma_database_list WHERE name <> 'temp'",
+    )
+    .fetch_all(&mut *connection)
+    .await?;
+    let mut issues = 0;
+    let mut foreign_issues = 0;
+    for schema in schemas {
+        let schema = schema.replace('"', "\"\"");
+        let integrity: Vec<String> = sqlx::query_scalar(sqlx::AssertSqlSafe(
+            format!("PRAGMA \"{schema}\".integrity_check").as_str(),
+        ))
+        .fetch_all(&mut *connection)
         .await?;
-    let foreign = sqlx::query("PRAGMA foreign_key_check")
-        .fetch_all(handle.pool())
-        .await?;
-    let issues = integrity.iter().filter(|v| v.as_str() != "ok").count();
+        issues += integrity
+            .iter()
+            .filter(|value| value.as_str() != "ok")
+            .count();
+        foreign_issues += sqlx::query(sqlx::AssertSqlSafe(
+            format!("PRAGMA \"{schema}\".foreign_key_check").as_str(),
+        ))
+        .fetch_all(&mut *connection)
+        .await?
+        .len();
+    }
+    if handle
+        .pool()
+        .connect_options()
+        .get_filename()
+        .file_name()
+        .is_some_and(|name| name == "system.db")
+    {
+        foreign_issues +=
+            super::databases::cross_domain_issues(&mut connection).await?;
+    }
     Ok(IntegrityReport {
         integrity_ok: issues == 0,
         integrity_issue_count: issues,
-        foreign_key_issue_count: foreign.len(),
+        foreign_key_issue_count: foreign_issues,
     })
 }
 
 pub(crate) fn database_path(handle: &Handle) -> std::path::PathBuf {
     handle.pool().connect_options().get_filename().to_path_buf()
+}
+
+pub(crate) async fn launch_override_documents(
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<Vec<String>> {
+    Ok(sqlx::query_scalar(
+        "SELECT json(overrides) FROM instance_launch_overrides",
+    )
+    .fetch_all(pool)
+    .await?)
+}
+pub(crate) async fn legacy_launch_arguments(
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<Vec<String>> {
+    Ok(
+        sqlx::query_scalar("SELECT json(extra_launch_args) FROM settings")
+            .fetch_all(pool)
+            .await?,
+    )
+}
+pub(crate) async fn content_versions(
+    pool: &sqlx::SqlitePool,
+    instance: &str,
+) -> crate::Result<Vec<(String, String, Option<String>)>> {
+    Ok(sqlx::query_as("SELECT game_version,loader,loader_version FROM instance_content_sets WHERE instance_id=?").bind(instance).fetch_all(pool).await?)
+}
+
+/// Structural contract shared by listing and retention. The completion marker
+/// alone cannot attest that the required snapshot members still exist.
+pub(crate) async fn complete_bundle(
+    path: &std::path::Path,
+) -> crate::Result<bool> {
+    for name in [
+        "complete",
+        "snapshot.json",
+        "system.db",
+        "instances.db",
+        "storage.db",
+    ] {
+        match tokio::fs::symlink_metadata(path.join(name)).await {
+            Ok(metadata) if metadata.is_file() => {}
+            Ok(_) => return Ok(false),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(false);
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+    let Some(bytes) = crate::state::persistence::document::snapshot_json(
+        &path.join("snapshot.json"),
+    )?
+    else {
+        return Ok(false);
+    };
+    let manifest: serde_json::Value = serde_json::from_slice(&bytes)?;
+    Ok(manifest["protocol"] == "axolotl-storage-snapshot"
+        && manifest["version"] == crate::state::layout::SNAPSHOT_VERSION
+        && manifest["core"]
+            == serde_json::json!(["system.db", "instances.db", "storage.db"]))
 }

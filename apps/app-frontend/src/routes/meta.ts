@@ -14,6 +14,8 @@ declare module 'vue-router' {
         pageTransitionGroup?: string
         useContext?: boolean
         useRootContext?: boolean
+        /** Render connection recovery before mounting pages that require remote resources. */
+        requiresNetwork?: boolean
         /** Hide instance tabs while this route is active (upgrade shell). */
         hideInstanceTabs?: boolean
         renderMode?: 'fixed'

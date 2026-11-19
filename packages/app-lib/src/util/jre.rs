@@ -84,7 +84,7 @@ const EXCLUDED_DIR_NAMES: &[&str] = &[
 // OS-specific locations (registry keys, common install directories), other
 // launchers' bundled runtimes and a bounded keyword search of likely
 // directories
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_all_jre(
     full_scan: bool,
     exhaustive: bool,
@@ -467,7 +467,7 @@ fn get_registry_paths() -> HashSet<PathBuf> {
 
 // Gets paths rather than search directly as RegKeys should not be passed asynchronously (do not impl Send)
 #[cfg(target_os = "windows")]
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn get_paths_from_jre_winregkey(jre_key: RegKey) -> HashSet<PathBuf> {
     let mut jre_paths = HashSet::new();
 
@@ -674,7 +674,7 @@ pub(crate) fn is_java_install_staging_path(path: &Path) -> bool {
 }
 
 // Gets all JREs from the launcher's own auto-installed Java directory
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 async fn get_all_autoinstalled_jre_path() -> Result<HashSet<PathBuf>, JREError>
 {
     Box::pin(async move {
@@ -715,7 +715,7 @@ async fn get_all_autoinstalled_jre_path() -> Result<HashSet<PathBuf>, JREError>
 }
 
 // Gets all JREs from the PATH env variable
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 async fn get_all_jre_path() -> HashSet<PathBuf> {
     // Iterate over values in PATH variable, where accessible JREs are referenced
     let paths =
@@ -731,7 +731,7 @@ pub const JAVA_BIN: &str = if cfg!(target_os = "windows") {
 
 // For each example filepath in 'paths', perform check_java_at_filepath, checking each one concurrently
 // and returning a JavaVersion for every valid path that points to a java bin
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn check_java_at_filepaths(
     paths: HashSet<PathBuf>,
 ) -> HashSet<JavaVersion> {
@@ -747,7 +747,7 @@ pub async fn check_java_at_filepaths(
 
 // For example filepath 'path', attempt to resolve it and get a Java version at this path
 // If no such path exists, or no such valid java at this path exists, returns None
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn check_java_at_filepath(path: &Path) -> crate::Result<JavaVersion> {
     // Attempt to canonicalize the potential java filepath
     // If it fails, this path does not exist and None is returned (no Java here)

@@ -23,6 +23,11 @@ struct FileMove {
 
 #[derive(Serialize, Deserialize)]
 struct Journal {
+    #[serde(
+        default = "crate::state::store::compatibility::legacy_protocol",
+        alias = "schemaVersion"
+    )]
+    schema_version: u32,
     #[serde(default)]
     schematic: Option<super::install_schematic::Publication>,
     root: String,
@@ -43,6 +48,8 @@ pub(super) async fn prepare(
     delete: bool,
     _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
+    let cache_generation = state.resource_cache().generation().await;
     recover(state, instance_id, root).await?;
     let mut files = Vec::new();
     for (original, destination) in paths {
@@ -73,10 +80,11 @@ pub(super) async fn prepare(
             .await
             .map_err(crate::ErrorKind::ResourceError)?;
         if let Some(record) = &resolved.record {
-            ContentFileFingerprints::set_current(
+            ContentFileFingerprints::set_current_at(
                 &state.data,
                 instance_id,
                 record,
+                cache_generation,
             )
             .await?;
         }
@@ -87,6 +95,7 @@ pub(super) async fn prepare(
         });
     }
     let journal = Journal {
+        schema_version: 1,
         schematic: None,
         root: io::canonicalize(root)?.to_string_lossy().into_owned(),
         delete,
@@ -104,7 +113,9 @@ pub(super) async fn prepare_schematic(
     root: &Path,
     publication: &super::install_schematic::Publication,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let journal = Journal {
+        schema_version: 1,
         root: io::canonicalize(root)?.to_string_lossy().into_owned(),
         delete: false,
         files: Vec::new(),
@@ -122,7 +133,8 @@ pub(super) async fn discard_schematic(
     if let Some((payload, false)) =
         journals::get(&state.data, instance_id).await?
     {
-        let journal: Journal = serde_json::from_str(&payload)?;
+        let journal: Journal =
+            crate::state::store::compatibility::decode_payload(&payload)?;
         if journal.schematic.is_some() {
             journals::remove(&state.data, instance_id, &payload).await?;
         }
@@ -136,12 +148,14 @@ pub(super) async fn publish(
     root: &Path,
     _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let (payload, _) = journals::get(&state.data, instance_id)
         .await?
         .ok_or_else(|| {
             recovery_error("Content operation journal disappeared")
         })?;
-    let journal: Journal = serde_json::from_str(&payload)?;
+    let journal: Journal =
+        crate::state::store::compatibility::decode_payload(&payload)?;
     for file in journal.files {
         let original = checked_path(root, &file.original)?;
         let destination = checked_path(root, &file.destination)?;
@@ -186,11 +200,18 @@ pub(super) async fn recover(
     instance_id: &str,
     root: &Path,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
+    if crate::state::instance_has_running_process(instance_id, state).await? {
+        return Err(recovery_error(
+            "File recovery deferred while the instance is running",
+        ));
+    }
     let row = journals::get(&state.data, instance_id).await?;
     let Some((payload, committed)) = row else {
         return Ok(());
     };
-    let journal: Journal = serde_json::from_str(&payload)?;
+    let journal: Journal =
+        crate::state::store::compatibility::decode_payload(&payload)?;
     if io::canonicalize(root)? != io::canonicalize(&journal.root)? {
         return Err(recovery_error(
             "Instance directory changed before content recovery",
@@ -278,6 +299,7 @@ pub(super) async fn recover_before_instance_removal(
     root: &Path,
     missing_managed_profile: bool,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     if !missing_managed_profile {
         return recover(state, instance_id, root).await;
     }
@@ -291,7 +313,8 @@ pub(super) async fn recover_before_instance_removal(
             "The instance has unfinished file recovery. Restore its directory before deleting it.",
         ));
     }
-    let journal: Journal = serde_json::from_str(&payload)?;
+    let journal: Journal =
+        crate::state::store::compatibility::decode_payload(&payload)?;
     let recorded = Path::new(&journal.root);
     let same_root = match (root.parent(), recorded.parent()) {
         (Some(parent), Some(recorded_parent)) => {
@@ -329,33 +352,43 @@ pub(super) async fn finish(state: &State, instance_id: &str, root: &Path) {
     }
 }
 
+pub(crate) async fn recover_content_file_operations_for_instance(
+    state: &State,
+    instance_id: &str,
+) -> crate::Result<()> {
+    let _maintenance =
+        crate::api::instance::lock_instance_maintenance(instance_id).await;
+    if crate::state::instance_has_running_process(instance_id, state).await? {
+        return Ok(());
+    }
+    let expected = journals::get(&state.data, instance_id).await?;
+    if expected.is_none() {
+        return Ok(());
+    }
+    let _lock = state
+        .lock_instance_content_with_timeout(
+            instance_id,
+            std::time::Duration::from_secs(20),
+        )
+        .await?;
+    let scope = super::resolve_content_scope(instance_id, None, state).await?;
+    let root = instance_content_root(&state.directories, &scope.instance)?;
+    if journals::get(&state.data, instance_id).await? != expected {
+        return Ok(());
+    }
+    recover(state, instance_id, &root).await
+}
+
 pub(crate) async fn recover_content_file_operations(
     state: &State,
 ) -> crate::Result<()> {
-    let instances = journals::get_instance_ids(&state.data).await?;
-    let mut errors = Vec::new();
-    for instance_id in instances {
-        let result = async {
-            let _lock = state
-                .lock_instance_content_with_timeout(
-                    &instance_id,
-                    std::time::Duration::from_secs(20),
-                )
-                .await?;
-            let scope =
-                super::resolve_content_scope(&instance_id, None, state).await?;
-            let root =
-                instance_content_root(&state.directories, &scope.instance)?;
-            recover(state, &instance_id, &root).await
-        }
-        .await;
-        if let Err(error) = result {
-            errors.push(format!("{instance_id}: {error}"));
+    for instance_id in journals::get_instance_ids(&state.data).await? {
+        if let Err(error) =
+            recover_content_file_operations_for_instance(state, &instance_id)
+                .await
+        {
+            tracing::warn!(%instance_id,%error,"One file recovery remains pending; other instances continue");
         }
     }
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(recovery_error(errors.join("; ")))
-    }
+    Ok(())
 }

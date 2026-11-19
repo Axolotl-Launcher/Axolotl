@@ -128,9 +128,6 @@
   "button.reset": {
     "defaultMessage": "Redefinir"
   },
-  "button.reset-server": {
-    "defaultMessage": "Redefinir servidor"
-  },
   "button.retry": {
     "defaultMessage": "Tentar outra vez"
   },

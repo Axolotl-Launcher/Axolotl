@@ -173,69 +173,6 @@
   "app.world.world-item.players-online": {
     "message": "{count} מחוברים"
   },
-  "friends.action.add-friend": {
-    "message": "הוספת חבר"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count, plural, one {בקשת חברות אחת} other {# בקשות חברות}}"
-  },
-  "friends.add-friend.submit": {
-    "message": "שליחת בקשת חברות"
-  },
-  "friends.add-friend.title": {
-    "message": "הוספת חבר"
-  },
-  "friends.add-friend.username.description": {
-    "message": "זה יכול להיות שונה מהמשתמש Minecraft!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "שם משתמש Modrinth..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "מה השם משתמש של החבר שלך בModrinth?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "ניתן <link>להוסיף חברים</link> כדי לראות במה הם משחקים!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "ביטול בקשה"
-  },
-  "friends.friend.remove-friend": {
-    "message": "הסרת חבר"
-  },
-  "friends.friend.request-sent": {
-    "message": "בקשת חברות נשלחה"
-  },
-  "friends.friend.view-profile": {
-    "message": "הצגת פרופיל"
-  },
-  "friends.heading": {
-    "message": "חברים"
-  },
-  "friends.heading.active": {
-    "message": "פעיל"
-  },
-  "friends.heading.offline": {
-    "message": "לא מקוון"
-  },
-  "friends.heading.online": {
-    "message": "מחובר"
-  },
-  "friends.heading.pending": {
-    "message": "ממתין"
-  },
-  "friends.no-friends-match": {
-    "message": "אין חברים התואמים ל \"{query}\""
-  },
-  "friends.search-friends-placeholder": {
-    "message": "חיפוש חברים..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "אפשר <link>להתחבר לחשבון Modrinth</link> כדי להוסיף חברים ולראות במה הם משחקים!"
-  },
   "instance.add-server.add-and-play": {
     "message": "הוסף ושחק"
   },

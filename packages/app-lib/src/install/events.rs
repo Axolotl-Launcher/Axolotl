@@ -2708,9 +2708,30 @@ mod tests {
             )
             .await
             .unwrap();
-        tokio::time::sleep(Duration::from_millis(250)).await;
         let stored_after_interval =
-            store::get_required(job_id, &app_state).await.unwrap();
+            tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    let stored =
+                        store::get_required(job_id, &app_state).await.unwrap();
+                    if stored
+                        .state
+                        .events
+                        .iter()
+                        .filter(|event| {
+                            is_content_settlement_event(&event.kind)
+                        })
+                        .count()
+                        == 26
+                    {
+                        break stored;
+                    }
+                    tokio::time::sleep(Duration::from_millis(25)).await;
+                }
+            })
+            .await
+            .expect(
+                "the timed checkpoint must eventually reach durable storage",
+            );
         assert_eq!(
             stored_after_interval
                 .state

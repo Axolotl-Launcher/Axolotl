@@ -53,9 +53,6 @@
   "browse.filter-results": {
     "defaultMessage": "Filter results..."
   },
-  "browse.loading-results": {
-    "defaultMessage": "Loading results…"
-  },
   "browse.no-results": {
     "defaultMessage": "No results found for your query!"
   },
@@ -176,6 +173,9 @@
   "button.close": {
     "defaultMessage": "Close"
   },
+  "button.collapse": {
+    "defaultMessage": "Collapse"
+  },
   "button.confirm": {
     "defaultMessage": "Confirm"
   },
@@ -206,6 +206,9 @@
   "button.disable": {
     "defaultMessage": "Disable"
   },
+  "button.dismiss-notification": {
+    "defaultMessage": "Dismiss notification"
+  },
   "button.download": {
     "defaultMessage": "Download"
   },
@@ -217,6 +220,9 @@
   },
   "button.enable": {
     "defaultMessage": "Enable"
+  },
+  "button.expand": {
+    "defaultMessage": "Expand"
   },
   "button.extract": {
     "defaultMessage": "Extract"
@@ -283,9 +289,6 @@
   },
   "button.reset": {
     "defaultMessage": "Reset"
-  },
-  "button.reset-server": {
-    "defaultMessage": "Reset server"
   },
   "button.retry": {
     "defaultMessage": "Retry"
@@ -806,6 +809,9 @@
   "console.log-viewport.scroll-to-bottom": {
     "defaultMessage": "Scroll to bottom"
   },
+  "console.log.export": {
+    "defaultMessage": "Save complete log"
+  },
   "console.log.toggle-wrap": {
     "defaultMessage": "Toggle line wrapping"
   },
@@ -1244,9 +1250,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "Import {count, plural, one {# instance} other {# instances}}"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "Setup server"
-  },
   "creation-flow.modal.custom-setup.adjunct.checking-compatibility": {
     "defaultMessage": "Checking compatibility..."
   },
@@ -1426,12 +1429,6 @@
   },
   "creation-flow.title.import-instance": {
     "defaultMessage": "Import instance"
-  },
-  "creation-flow.title.reset-server": {
-    "defaultMessage": "Reset server"
-  },
-  "creation-flow.title.set-up-server": {
-    "defaultMessage": "Set up server"
   },
   "drop.confirm.as-data-pack": {
     "defaultMessage": "Data Pack"
@@ -1925,9 +1922,6 @@
   "files.navbar.home": {
     "defaultMessage": "Home"
   },
-  "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "Install CurseForge pack"
-  },
   "files.navbar.new-file": {
     "defaultMessage": "New file"
   },
@@ -1939,12 +1933,6 @@
   },
   "files.navbar.share-log": {
     "defaultMessage": "Share log"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "Upload from .zip file"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Upload from .zip URL"
   },
   "files.rename-modal.header": {
     "defaultMessage": "Rename {name}"
@@ -1993,60 +1981,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "Name is required."
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Install a CurseForge modpack"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Could not find CurseForge modpack at that URL."
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "CurseForge modpack not found"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Enter link"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "URL must be a CurseForge modpack version URL."
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URL must be valid."
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "URL is required."
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "Install"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Installation failed"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Copy the version page URL and paste it below."
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Copy the URL"
-  },
-  "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Browse CurseForge and locate the modpack you want."
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Find the modpack"
-  },
-  "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Go to the \"Files\" tab and pick the version to install."
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Select a version"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "An unknown error occurred"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Copy and paste the direct download URL of a .zip file."
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": "Uploading .zip contents from URL"
   },
   "form.label.address-line": {
     "defaultMessage": "Address line"
@@ -2204,14 +2138,14 @@
   "image-crop.oversized-bytes": {
     "defaultMessage": "The source is {size} MB; the usual limit is {limit} MB. Continuing may use a lot of memory."
   },
+  "image-crop.oversized-keep-original-hint": {
+    "defaultMessage": "Keep original keeps the source resolution and frame rate; the animation may use more memory and CPU."
+  },
   "image-crop.oversized-pixels": {
     "defaultMessage": "The image is {width} × {height} pixels; the usual limit is {limit} megapixels. Continuing may use a lot of memory."
   },
   "image-crop.oversized-title": {
     "defaultMessage": "This file is larger than the usual limit"
-  },
-  "image-crop.oversized-keep-original-hint": {
-    "defaultMessage": "Keep original keeps the source resolution and frame rate; the animation may use more memory and CPU."
   },
   "image-crop.preview": {
     "defaultMessage": "Result preview"
@@ -2509,6 +2443,9 @@
   },
   "instance.confirm-repair.server-label": {
     "defaultMessage": "server"
+  },
+  "instance.files.studio.editor-loading": {
+    "defaultMessage": "Loading editor..."
   },
   "instance.worlds.game_mode.adventure": {
     "defaultMessage": "Adventure mode"
@@ -3053,6 +2990,18 @@
   "multiselect.selection-actions.label": {
     "defaultMessage": "{count, number} selected"
   },
+  "notification.error-announcement.repeated": {
+    "defaultMessage": "{title}. {text} ({count, plural, one {# occurrence} other {# occurrences}})"
+  },
+  "notification.error-announcement.text-only": {
+    "defaultMessage": "{text}"
+  },
+  "notification.error-announcement.title-only": {
+    "defaultMessage": "{title}"
+  },
+  "notification.error-announcement.title-text": {
+    "defaultMessage": "{title}. {text}"
+  },
   "notification.error.title": {
     "defaultMessage": "An error occurred"
   },
@@ -3137,11 +3086,20 @@
   "omorphia.component.loading-indicator.label": {
     "defaultMessage": "Loading"
   },
+  "pagination.first-page": {
+    "defaultMessage": "First page"
+  },
   "pagination.go-to-page": {
     "defaultMessage": "Go to page"
   },
   "pagination.go-to-page.placeholder": {
     "defaultMessage": "Page"
+  },
+  "pagination.jump-limit": {
+    "defaultMessage": "One jump covers up to {count, plural, one {# page} other {# pages}} ahead."
+  },
+  "pagination.last-page": {
+    "defaultMessage": "Last page"
   },
   "pagination.loading-page": {
     "defaultMessage": "Loading page…"

@@ -249,7 +249,12 @@ async fn cleanup_materialization(
         }
     }
 
-    let mut transaction = state.pool.begin().await?;
+    let (mut transaction, transaction_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     pack_members::delete_shared_member_in_transaction(
         &row.id,
         &metadata.instance.id,
@@ -268,7 +273,10 @@ async fn cleanup_materialization(
         &mut transaction,
     )
     .await?;
-    transaction.commit().await?;
+    transaction_diagnostics
+        .observe("commit_wait", transaction.commit())
+        .await?;
+    transaction_diagnostics.complete("committed");
     Ok(())
 }
 
@@ -434,7 +442,12 @@ async fn materialize(
         &state.pool,
     )
     .await?;
-    let mut transaction = state.pool.begin().await?;
+    let (mut transaction, transaction_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     pack_members::upsert_shared_pack_member_in_transaction(
         &row.id,
         &metadata.applied_content_set.id,
@@ -447,7 +460,10 @@ async fn materialize(
         &mut transaction,
     )
     .await?;
-    transaction.commit().await?;
+    transaction_diagnostics
+        .observe("commit_wait", transaction.commit())
+        .await?;
+    transaction_diagnostics.complete("committed");
     record_materialization(
         state,
         &row.id,

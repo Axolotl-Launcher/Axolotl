@@ -58,6 +58,10 @@ allow('runtime-set', [
         'packages/ui/src/components/project/card/ProjectCard.vue :style `--_project-color`',
     ],
     [
+        'badge-width',
+        'apps/app-frontend/src/components/home/HomeGameDirectoryBadge.vue :style `--badge-width` measured from the directory badge width',
+    ],
+    [
         'biome-color',
         'apps/app-frontend/src/components/lab/seed-map/SeedMapBiomePicker.vue :style `--biome-color`',
     ],
@@ -97,6 +101,10 @@ allow('runtime-set', [
         'packages/ui/src/components/base/FloatingActionBar.vue :style `--floating-action-bar-right-offset`',
     ],
     [
+        'notification-panel-clearance',
+        'packages/ui/src/components/nav/NotificationPanel.vue updateNotificationClearance setProperty `--notification-panel-clearance` on document.documentElement',
+    ],
+    [
         'favorites-sidebar-top',
         'apps/app-frontend/src/pages/Favorites.vue :style `--favorites-sidebar-top` measured from the sticky favorites toolbar height',
     ],
@@ -119,6 +127,10 @@ allow('runtime-set', [
     [
         'home-widget-bg-opacity',
         'apps/app-frontend/src/store/theme.ts setProperty `--home-widget-bg-opacity`',
+    ],
+    [
+        'home-widget-bg-alpha',
+        'apps/app-frontend/src/store/theme.ts setProperty `--home-widget-bg-alpha`',
     ],
     [
         'minecraft-text-color',

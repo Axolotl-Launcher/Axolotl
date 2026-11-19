@@ -83,7 +83,7 @@
             </div>
             <ProjectCardStats
                 v-if="downloads !== undefined"
-                class="project-card--compact__downloads gap-1 text-[13px] [&>svg]:size-4"
+                class="project-card--compact__downloads gap-1 whitespace-nowrap text-[13px] [&>svg]:size-4"
                 :downloads="downloads"
             />
             <ProjectCardDate
@@ -94,7 +94,7 @@
             />
             <div
                 v-if="!!$slots.actions"
-                class="col-start-[-2] flex justify-end gap-1 empty:hidden smart-clickable:allow-pointer-events"
+                class="project-card--compact__actions col-start-[-2] flex justify-end gap-1 empty:hidden smart-clickable:allow-pointer-events"
             >
                 <slot name="actions" />
             </div>
@@ -430,7 +430,7 @@ const baseCardStyle =
     'w-full h-full border-[1px] border-solid border-surface-4 overflow-hidden bg-surface-3 rounded-2xl transition-all smart-clickable:outline-on-focus smart-clickable:highlight-on-hover'
 
 const compactCardStyle =
-    'w-full h-16 border-[1px] border-solid border-surface-4 overflow-hidden bg-surface-2 rounded-lg px-2 py-[7px] grid grid-cols-[48px_minmax(0,1fr)_5rem_10rem_4.5rem_4.5rem_5.5rem] items-center gap-3 transition-all smart-clickable:outline-on-focus smart-clickable:highlight-on-hover'
+    'w-full h-16 border-[1px] border-solid border-surface-4 overflow-hidden bg-surface-2 rounded-lg px-2 py-[7px] grid grid-cols-[48px_minmax(0,1fr)_5rem_10rem_5rem_4.5rem_auto] items-center gap-3 transition-all smart-clickable:outline-on-focus smart-clickable:highlight-on-hover'
 
 const updatedDate = computed(() =>
     props.dateUpdated ? dayjs(props.dateUpdated).toDate() : undefined,
@@ -547,12 +547,12 @@ const cssColor = computed(() => {
 }
 
 .project-card--compact-server {
-    grid-template-columns: 48px minmax(0, 1fr) minmax(0, auto) auto;
+    grid-template-columns: 48px minmax(0, 1fr) minmax(0, auto) auto auto;
 }
 
 @container (width < 720px) {
     .project-card--compact {
-        grid-template-columns: 48px minmax(0, 1fr) 5rem 4.5rem 4.5rem 5.5rem;
+        grid-template-columns: 48px minmax(0, 1fr) 5rem 5rem 4.5rem auto;
     }
 
     .project-card--compact__tags {
@@ -562,7 +562,7 @@ const cssColor = computed(() => {
 
 @container (width < 600px) {
     .project-card--compact {
-        grid-template-columns: 48px minmax(0, 1fr) 5rem 4.5rem 5.5rem;
+        grid-template-columns: 48px minmax(0, 1fr) 5rem 5rem auto;
     }
 
     .project-card--compact__date {
@@ -572,7 +572,7 @@ const cssColor = computed(() => {
 
 @container (width < 520px) {
     .project-card--compact {
-        grid-template-columns: 48px minmax(0, 1fr) 5rem 5.5rem;
+        grid-template-columns: 48px minmax(0, 1fr) 5rem auto;
     }
 
     .project-card--compact__downloads {
@@ -582,7 +582,7 @@ const cssColor = computed(() => {
 
 @container (width < 440px) {
     .project-card--compact {
-        grid-template-columns: 48px minmax(0, 1fr) 5.5rem;
+        grid-template-columns: 48px minmax(0, 1fr) auto;
     }
 
     .project-card--compact__provider {
@@ -592,7 +592,7 @@ const cssColor = computed(() => {
 
 @container (width < 720px) {
     .project-card--compact-server {
-        grid-template-columns: 48px minmax(0, 1fr) auto;
+        grid-template-columns: 48px minmax(0, 1fr) auto auto;
     }
 }
 

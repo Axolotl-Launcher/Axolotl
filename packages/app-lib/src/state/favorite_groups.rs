@@ -8,8 +8,9 @@
 use crate::state::State;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+#[cfg(test)]
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{OnceLock, RwLock};
 use tracing::warn;
 
@@ -18,7 +19,7 @@ pub const FAVORITE_GROUPS_FILE_NAME: &str = "favorite_groups.json";
 /// Current `favorite_groups.json` schema version.
 pub const FAVORITE_GROUPS_SCHEMA_VERSION: u32 = 1;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FavoriteGroupDefinition {
     pub id: String,
     pub name: String,
@@ -26,7 +27,7 @@ pub struct FavoriteGroupDefinition {
 
 /// On-disk shape. The order of `groups` *is* the display order, so no
 /// `display_order` field is needed.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FavoriteGroupsFile {
     #[serde(default)]
     pub schema_version: u32,
@@ -120,7 +121,9 @@ impl FavoriteGroupsFile {
     }
 }
 
-static STORE: OnceLock<RwLock<FavoriteGroupsFile>> = OnceLock::new();
+static FILE_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+static STORE: OnceLock<RwLock<Option<FavoriteGroupsFile>>> = OnceLock::new();
 
 fn file_path() -> Option<PathBuf> {
     let state = State::get_if_initialized()?;
@@ -128,68 +131,94 @@ fn file_path() -> Option<PathBuf> {
         state
             .directories
             .settings_dir
-            .join(FAVORITE_GROUPS_FILE_NAME),
+            .join(crate::state::layout::FAVORITE_GROUPS),
     )
 }
 
-/// Reads the store from disk, or `None` when it has never been written.
-fn read_from_disk() -> Option<FavoriteGroupsFile> {
-    let path = file_path()?;
-    if !path.exists() {
-        return None;
-    }
-    match fs::read_to_string(&path)
-        .map_err(|e| e.to_string())
-        .and_then(|content| {
-            serde_json::from_str::<FavoriteGroupsFile>(&content)
-                .map_err(|e| e.to_string())
-        }) {
-        Ok(mut file) => {
-            file.normalize();
-            Some(file)
-        }
+fn read_from_disk(path: &Path) -> crate::Result<Option<FavoriteGroupsFile>> {
+    let file = crate::state::persistence::read_group_file::<FavoriteGroupsFile>(
+        path,
+        FAVORITE_GROUPS_SCHEMA_VERSION,
+    )?;
+    Ok(file.map(|mut file| {
+        file.normalize();
+        file
+    }))
+}
+
+fn load_for_display(path: &Path) -> Option<FavoriteGroupsFile> {
+    match read_from_disk(path) {
+        Ok(file) => Some(file.unwrap_or_default()),
         Err(error) => {
-            // A corrupt file must not wipe the user's groups silently on the
-            // next write, so bail out to an empty store without touching disk.
-            warn!("Failed to read {FAVORITE_GROUPS_FILE_NAME}: {error}");
+            warn!(%error, file = FAVORITE_GROUPS_FILE_NAME, "Could not load groups");
             None
         }
     }
 }
 
-fn write_to_disk(file: &FavoriteGroupsFile) -> crate::Result<()> {
-    let state = State::get_if_initialized().ok_or_else(|| {
-        crate::ErrorKind::InputError(
-            "Favorite group store is not initialized".to_string(),
-        )
-    })?;
-    let path = state
-        .directories
-        .settings_dir
-        .join(FAVORITE_GROUPS_FILE_NAME);
-    fs::write(path, serde_json::to_string_pretty(file)?)?;
-    Ok(())
+/// Freeze the on-disk authority under the same lock used by every writer.
+/// Preserve the original bytes, including fields from newer readers.
+pub(crate) fn snapshot(
+    root: &std::path::Path,
+) -> crate::Result<Option<Vec<u8>>> {
+    let _guard = FILE_ACCESS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let path = root.join(crate::state::layout::FAVORITE_GROUPS);
+    match crate::state::persistence::document::snapshot_json(&path)? {
+        Some(bytes) => Ok(Some(bytes)),
+        None => crate::state::persistence::document::snapshot_json(&root.join(
+            format!("{}.previous", crate::state::layout::FAVORITE_GROUPS),
+        )),
+    }
 }
 
-fn store() -> &'static RwLock<FavoriteGroupsFile> {
-    STORE.get_or_init(|| RwLock::new(read_from_disk().unwrap_or_default()))
+fn store(path: &Path) -> &'static RwLock<Option<FavoriteGroupsFile>> {
+    STORE.get_or_init(|| RwLock::new(load_for_display(path)))
 }
 
 fn with_read<T>(f: impl FnOnce(&FavoriteGroupsFile) -> T) -> T {
-    let guard = store().read().unwrap_or_else(|e| e.into_inner());
-    f(&guard)
+    if let Some(path) = file_path() {
+        let guard = store(&path).read().unwrap_or_else(|e| e.into_inner());
+        if let Some(file) = guard.as_ref() {
+            return f(file);
+        }
+    }
+    f(&FavoriteGroupsFile::default())
 }
 
-/// Mutates the store and persists the whole file. `f` returns the favorite
-/// keys whose membership changed, so callers can emit the change event.
-fn with_write<T>(f: impl FnOnce(&mut FavoriteGroupsFile) -> T) -> T {
-    let mut guard = store().write().unwrap_or_else(|e| e.into_inner());
-    let result = f(&mut guard);
-    guard.normalize();
-    if let Err(error) = write_to_disk(&guard) {
-        warn!("Failed to save {FAVORITE_GROUPS_FILE_NAME}: {error}");
-    }
-    result
+fn with_write<T>(
+    f: impl FnOnce(&mut FavoriteGroupsFile) -> T,
+) -> crate::Result<T> {
+    try_with_write(|file| Ok(f(file)))
+}
+
+fn try_with_write<T>(
+    f: impl FnOnce(&mut FavoriteGroupsFile) -> crate::Result<T>,
+) -> crate::Result<T> {
+    crate::state::store::recovery_mode::ensure_state_writable()?;
+    let path = file_path();
+    let uninitialized = RwLock::new(None);
+    let cache = match &path {
+        Some(path) => store(path),
+        None => &uninitialized,
+    };
+    write_group_file(cache, path.as_deref(), f)
+}
+
+fn write_group_file<T>(
+    cache: &RwLock<Option<FavoriteGroupsFile>>,
+    path: Option<&Path>,
+    f: impl FnOnce(&mut FavoriteGroupsFile) -> crate::Result<T>,
+) -> crate::Result<T> {
+    crate::state::persistence::edit_group_file(
+        cache,
+        &FILE_ACCESS,
+        path,
+        read_from_disk,
+        FavoriteGroupsFile::normalize,
+        f,
+    )
 }
 
 // ── Reads ───────────────────────────────────────────────────────────────────
@@ -241,7 +270,7 @@ fn favorites_in_group(
 // ── Writes ──────────────────────────────────────────────────────────────────
 
 /// Adds a group at the top of the list, matching instance groups.
-pub fn create(id: &str, name: &str) {
+pub fn create(id: &str, name: &str) -> crate::Result<()> {
     with_write(|file| {
         file.groups.insert(
             0,
@@ -250,12 +279,12 @@ pub fn create(id: &str, name: &str) {
                 name: name.to_string(),
             },
         );
-    });
+    })
 }
 
 /// Renames a group, returning the affected favorite keys, or `None` when the
 /// group does not exist.
-pub fn rename(id: &str, name: &str) -> Option<Vec<String>> {
+pub fn rename(id: &str, name: &str) -> crate::Result<Option<Vec<String>>> {
     with_write(|file| {
         let group = file.groups.iter_mut().find(|group| group.id == id)?;
         group.name = name.to_string();
@@ -265,7 +294,7 @@ pub fn rename(id: &str, name: &str) -> Option<Vec<String>> {
 
 /// Deletes a group and strips it from every favorite, returning the affected
 /// favorite keys, or `None` when the group does not exist.
-pub fn delete(id: &str) -> Option<Vec<String>> {
+pub fn delete(id: &str) -> crate::Result<Option<Vec<String>>> {
     with_write(|file| {
         let index = file.groups.iter().position(|group| group.id == id)?;
         let affected = favorites_in_group(file, id);
@@ -276,7 +305,7 @@ pub fn delete(id: &str) -> Option<Vec<String>> {
 }
 
 /// Replaces the group list of each given favorite wholesale.
-pub fn set_memberships(updates: &[(String, Vec<String>)]) {
+pub fn set_memberships(updates: &[(String, Vec<String>)]) -> crate::Result<()> {
     with_write(|file| {
         for (favorite_key, group_ids) in updates {
             if group_ids.is_empty() {
@@ -286,7 +315,7 @@ pub fn set_memberships(updates: &[(String, Vec<String>)]) {
                     .insert(favorite_key.clone(), group_ids.clone());
             }
         }
-    });
+    })
 }
 
 /// Applies relationship changes under the store's write lock, preserving all
@@ -294,23 +323,34 @@ pub fn set_memberships(updates: &[(String, Vec<String>)]) {
 pub fn update_memberships(
     updates: &[(String, Vec<String>, Vec<String>)],
 ) -> crate::Result<()> {
-    let mut guard = store().write().unwrap_or_else(|e| e.into_inner());
-    let mut file = guard.clone();
-    file.apply_membership_updates(updates)?;
-    file.normalize();
-    write_to_disk(&file)?;
-    *guard = file;
-    Ok(())
+    try_with_write(|file| file.apply_membership_updates(updates))
 }
 
 /// Drops a favorite's membership entry, e.g. after the favorite is removed.
-pub fn forget(favorite_key: &str) {
-    with_write(|file| file.forget(favorite_key));
+pub fn forget(favorite_key: &str) -> crate::Result<()> {
+    with_write(|file| file.forget(favorite_key))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unchanged_membership_needs_no_publication_but_real_changes_need_a_store()
+    {
+        assert!(State::get_if_initialized().is_none());
+        let before = with_read(Clone::clone);
+        forget("modrinth:ungrouped-favorite").unwrap();
+        update_memberships(&[(
+            "modrinth:ungrouped-favorite".into(),
+            vec![],
+            vec![],
+        )])
+        .unwrap();
+        assert_eq!(with_read(Clone::clone), before);
+        assert!(create("new-group", "Needs persistence").is_err());
+        assert_eq!(with_read(Clone::clone), before);
+    }
 
     fn file_with_groups(ids: &[&str]) -> FavoriteGroupsFile {
         FavoriteGroupsFile {
@@ -328,6 +368,87 @@ mod tests {
 
     fn group_ids(groups: &[FavoriteGroupDefinition]) -> Vec<String> {
         groups.iter().map(|group| group.id.clone()).collect()
+    }
+
+    #[test]
+    fn edit_checks_the_live_document_even_after_groups_were_cached() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(crate::state::layout::FAVORITE_GROUPS);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let original =
+            serde_json::to_vec(&file_with_groups(&["keep"])).unwrap();
+        fs::write(&path, &original).unwrap();
+        let cache = RwLock::new(load_for_display(&path));
+        assert!(cache.read().unwrap().as_ref().unwrap().has_group("keep"));
+
+        for malformed in [
+            br#"{"groups":"wrong type"}"#.as_slice(),
+            br#"{"schema_version":99,"future":"preserve"}"#.as_slice(),
+        ] {
+            fs::write(&path, malformed).unwrap();
+            let result = write_group_file(&cache, Some(&path), |file| {
+                file.apply_membership_updates(&[(
+                    "modrinth:sodium".into(),
+                    vec!["keep".into()],
+                    vec![],
+                )])
+            });
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("editing is disabled")
+            );
+            assert_eq!(fs::read(&path).unwrap(), malformed);
+        }
+
+        fs::write(&path, original).unwrap();
+        write_group_file(&cache, Some(&path), |file| {
+            file.apply_membership_updates(&[(
+                "modrinth:sodium".into(),
+                vec!["keep".into()],
+                vec![],
+            )])
+        })
+        .unwrap();
+        let file = read_from_disk(&path).unwrap().unwrap();
+        assert_eq!(file.memberships["modrinth:sodium"], ["keep"]);
+    }
+
+    #[test]
+    fn snapshot_waits_for_the_complete_standalone_write() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(crate::state::layout::FAVORITE_GROUPS);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let guard = FILE_ACCESS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        fs::write(&path, b"{").unwrap();
+        let (sent, received) = std::sync::mpsc::channel();
+        let (started, start) = std::sync::mpsc::channel();
+        let directory = root.path().to_owned();
+        let reader = std::thread::spawn(move || {
+            started.send(()).unwrap();
+            sent.send(snapshot(&directory).unwrap()).unwrap();
+        });
+        start.recv().unwrap();
+        assert!(
+            received
+                .recv_timeout(std::time::Duration::from_millis(50))
+                .is_err()
+        );
+        fs::write(&path, br#"{"schema_version":99,"future":"retained"}"#)
+            .unwrap();
+        drop(guard);
+        let bytes = received
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&bytes).unwrap()["future"],
+            "retained"
+        );
+        reader.join().unwrap();
     }
 
     #[test]

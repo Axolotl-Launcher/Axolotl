@@ -23,8 +23,15 @@ async fn remove_instance_with_policy(
     state: &State,
     preserve_external_files: bool,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _maintenance_guard =
         crate::api::instance::lock_instance_maintenance(instance_id).await;
+    if crate::state::instance_has_running_process(instance_id, state).await? {
+        return Err(crate::ErrorKind::InputError(
+            "Cannot remove files while the instance is running".into(),
+        )
+        .into());
+    }
     crate::api::instance::begin_instance_deletion(instance_id).await?;
     state.content_refresh.invalidate(instance_id).await;
     let result = remove_instance_files_and_state(
@@ -64,7 +71,8 @@ async fn remove_instance_files_and_state(
         // idempotent, so finish cleanup successfully instead of surfacing a
         // spurious "Unknown instance" error.
         tracing::debug!(instance_id, "Instance was already removed");
-        forget_derived_rows(instance_id, &state.derived).await;
+        forget_sync_rows(instance_id, state).await;
+        forget_derived_rows(instance_id, state.resource_cache()).await;
         return Ok(());
     };
 
@@ -77,6 +85,22 @@ async fn remove_instance_files_and_state(
             &state.directories.instances_dir(),
         )
         .await?;
+    // Fence both recovery copies before the first destructive file operation.
+    // A failed deletion retains its intent and the previous shards for inspection.
+    let revision =
+        crate::state::instances::adapters::sqlite::manifest_rows::revision(
+            &state.pool,
+            instance_id,
+        )
+        .await?;
+    crate::state::instances::manifest::tombstone(
+        &state.directories,
+        &state.pool,
+        instance_id,
+        revision,
+    )
+    .await?;
+
     super::content_file_operations::recover_before_instance_removal(
         state,
         instance_id,
@@ -124,12 +148,19 @@ async fn remove_instance_files_and_state(
     .await;
     crate::api::instance::remove_generated_instance_files(instance_id, state)
         .await?;
+    crate::state::store::recovery_documents::preserve_instance_before_removal(
+        &state.pool,
+        instance_id,
+        &path,
+    )
+    .await?;
     io::remove_dir_all(&path).await?;
 
     let jobs = crate::install::store::mark_instance_deleted(instance_id, state)
         .await?;
     instance_rows::delete_instance_by_id(&instance.id, &state.pool).await?;
-    forget_derived_rows(&instance.id, &state.derived).await;
+    forget_sync_rows(&instance.id, state).await;
+    forget_derived_rows(&instance.id, state.resource_cache()).await;
     config_sync::remove_config_file(&state.directories, &instance.path).await?;
     for job in jobs {
         if let Err(error) =
@@ -142,6 +173,14 @@ async fn remove_instance_files_and_state(
     }
 
     Ok(())
+}
+
+async fn forget_sync_rows(instance_id: &str, state: &State) {
+    if let Err(error) =
+        crate::state::sync_state::forget_instance(state, instance_id).await
+    {
+        tracing::warn!(instance_id, %error, "Independent sync cleanup deferred");
+    }
 }
 
 /// A missing profile can be forgotten only while its storage is reachable.
@@ -182,7 +221,7 @@ fn is_version_isolated_game_dir(path: &Path) -> bool {
 /// record is worth less than the deletion itself, so a failure is a warning.
 pub(crate) async fn forget_derived_rows(
     instance_id: &str,
-    derived: &crate::state::store::derived_db::DerivedDb,
+    derived: &crate::resources::cache::ResourceCache,
 ) {
     use crate::state::store::content_refresh_pack::ContentRefreshPacks;
     use crate::state::store::content_refresh_scan_failures::ContentRefreshScanFailures;
@@ -227,20 +266,12 @@ mod tests {
         };
         std::fs::create_dir_all(directories.instances_dir().join("example"))
             .unwrap();
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(
-                sqlx::sqlite::SqliteConnectOptions::new()
-                    .filename(temp.path().join("app.db"))
-                    .create_if_missing(true)
-                    .foreign_keys(true),
-            )
+        let pool = crate::state::store::databases::open(temp.path())
             .await
             .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
         sqlx::raw_sql(
             "INSERT INTO instances(id, path, name, install_stage, launcher_feature_version, created, modified)
-                VALUES ('instance', 'example', 'Example', 'installed', '1', 1, 1);
+                VALUES ('instance', 'example', 'Example', 'installed', 'none', 1, 1);
              INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified)
                 VALUES ('set', 'instance', 'Main', 'local', 'available', '1.21', 'fabric', 1, 1);
              UPDATE instances SET applied_content_set_id = 'set' WHERE id = 'instance';",
@@ -290,6 +321,16 @@ mod tests {
                 .unwrap();
             let profile = state.directories.instances_dir().join("example");
             assert!(profile.join(config_sync::CONFIG_FILE_NAME).is_file());
+            if periodic {
+                // Periodic sync follows pending recovery revisions, rather than
+                // the optional compatibility config file's presence.
+                crate::state::instances::adapters::sqlite::manifest_rows::force_dirty(
+                    &state.pool,
+                    "instance",
+                )
+                .await
+                .unwrap();
+            }
 
             let deleting = state.lock_instance_content("instance").await;
             std::fs::remove_file(profile.join(config_sync::CONFIG_FILE_NAME))
@@ -366,6 +407,14 @@ mod tests {
             let (_temp, state) = state_with_one_instance().await;
             let profile = state.directories.instances_dir().join("example");
             record_file_journal(&state, &profile, committed).await;
+            // Model missing game files with the durable journal still available.
+            crate::state::store::recovery_documents::preserve_instance_before_removal(
+                &state.pool,
+                "instance",
+                &profile,
+            )
+            .await
+            .unwrap();
             std::fs::remove_dir_all(&profile).unwrap();
             let result =
                 remove_instance_files_and_state("instance", &state, false)
@@ -466,6 +515,14 @@ mod tests {
         let different = temp.path().join("different");
         std::fs::create_dir_all(&different).unwrap();
         record_file_journal(&state, &different, true).await;
+        // Retain the evidence while making the recorded profile unavailable.
+        crate::state::store::recovery_documents::preserve_instance_before_removal(
+            &state.pool,
+            "instance",
+            &state.directories.instances_dir().join("example"),
+        )
+        .await
+        .unwrap();
         std::fs::remove_dir_all(
             state.directories.instances_dir().join("example"),
         )
@@ -498,7 +555,7 @@ mod tests {
             content_set_id: "set".into(),
         };
         ContentRefreshPacks::upsert(
-            &state.derived,
+            state.resource_cache(),
             &pack,
             &PackRecord {
                 location_key: "root".into(),
@@ -512,7 +569,7 @@ mod tests {
         .await
         .unwrap();
         ContentRefreshScanFailures::upsert(
-            &state.derived,
+            state.resource_cache(),
             &ScanFailureKey {
                 instance_id: "instance".into(),
                 location_key: "root".into(),
@@ -538,16 +595,19 @@ mod tests {
             "the deletion step removes the instance itself"
         );
         assert!(
-            ContentRefreshPacks::saved(&state.derived, &pack)
+            ContentRefreshPacks::saved(state.resource_cache(), &pack)
                 .await
                 .unwrap()
                 .is_none()
         );
         assert!(
-            ContentRefreshScanFailures::failed(&state.derived, "instance")
-                .await
-                .unwrap()
-                .is_empty()
+            ContentRefreshScanFailures::failed(
+                state.resource_cache(),
+                "instance"
+            )
+            .await
+            .unwrap()
+            .is_empty()
         );
         state.pool.close().await;
     }
@@ -559,7 +619,7 @@ mod tests {
     async fn deleting_an_instance_that_is_gone_still_drops_its_derived_rows() {
         let (_temp, state) = state_with_one_instance().await;
         ContentRefreshScanFailures::upsert(
-            &state.derived,
+            state.resource_cache(),
             &ScanFailureKey {
                 instance_id: "instance".into(),
                 location_key: "root".into(),
@@ -581,10 +641,13 @@ mod tests {
             .unwrap();
 
         assert!(
-            ContentRefreshScanFailures::failed(&state.derived, "instance")
-                .await
-                .unwrap()
-                .is_empty()
+            ContentRefreshScanFailures::failed(
+                state.resource_cache(),
+                "instance"
+            )
+            .await
+            .unwrap()
+            .is_empty()
         );
         state.pool.close().await;
     }

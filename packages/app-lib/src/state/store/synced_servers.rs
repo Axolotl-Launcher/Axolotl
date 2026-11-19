@@ -15,7 +15,7 @@ pub(crate) struct SyncedServers;
 pub(crate) type SyncedServerKey = String;
 
 /// What a server carries beyond its id.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct SyncedServerRecord {
     /// Where the server sits in the list.
     pub position: i64,
@@ -124,20 +124,18 @@ impl SyncedServers {
         handle: &Handle,
         id: &str,
     ) -> crate::Result<i64> {
-        let mut connection = handle.connection().await?;
-        let position: i64 = sqlx::query_scalar(
-            "
-            SELECT COALESCE(
-                (SELECT position FROM synced_servers WHERE id = ?),
-                (SELECT COALESCE(MAX(position), -1) + 1 FROM synced_servers)
-            )
-            ",
-        )
-        .bind(id)
-        .fetch_one(&mut *connection)
-        .await?;
-
-        Ok(position)
+        let rows = Self::get_all(handle).await?;
+        Ok(rows
+            .iter()
+            .find(|(key, _)| key == id)
+            .map(|(_, record)| record.position)
+            .unwrap_or_else(|| {
+                rows.iter()
+                    .map(|(_, record)| record.position)
+                    .max()
+                    .unwrap_or(-1)
+                    .saturating_add(1)
+            }))
     }
 
     /// Moves every server well past the list's length, so the list can be
@@ -146,11 +144,10 @@ impl SyncedServers {
         atom: &mut Atom,
         offset: i64,
     ) -> crate::Result<()> {
-        sqlx::query("UPDATE synced_servers SET position = position + ?")
-            .bind(offset)
-            .execute(atom.connection())
-            .await?;
-
+        for (key, mut record) in Self::atom_get_all(atom).await? {
+            record.position = record.position.saturating_add(offset);
+            Self::atom_set(atom, &key, Some(&record)).await?;
+        }
         Ok(())
     }
 
@@ -159,15 +156,22 @@ impl SyncedServers {
     pub(crate) async fn stored_size(
         handle: &Handle,
     ) -> crate::Result<(usize, usize)> {
-        let mut connection = handle.connection().await?;
-        stored_size_rows(&mut connection).await
+        let rows = Self::get_all(handle).await?;
+        Ok((
+            rows.len(),
+            rows.iter().map(|(_, record)| record.nbt.len()).sum(),
+        ))
     }
 
     /// [`Self::stored_size`] inside `atom`.
     pub(crate) async fn stored_size_in(
         atom: &mut Atom,
     ) -> crate::Result<(usize, usize)> {
-        stored_size_rows(atom.connection()).await
+        let rows = Self::atom_get_all(atom).await?;
+        Ok((
+            rows.len(),
+            rows.iter().map(|(_, record)| record.nbt.len()).sum(),
+        ))
     }
 }
 
@@ -211,3 +215,24 @@ async fn write_row(
 
     Ok(())
 }
+
+impl crate::state::sync_state::collection::Collection for SyncedServers {
+    type Key = SyncedServerKey;
+    type Scope = SyncedServerKey;
+    type Record = SyncedServerRecord;
+    const NAME: &'static str = "synced_servers";
+    fn in_scope(scope: &Self::Scope, key: &Self::Key) -> bool {
+        scope == key
+    }
+    fn ordered(rows: &mut Vec<(Self::Key, Self::Record)>) {
+        rows.sort_by(|a, b| {
+            a.1.position.cmp(&b.1.position).then_with(|| a.0.cmp(&b.0))
+        });
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    SyncedServers,
+    SyncedServerKey,
+    SyncedServerKey,
+    SyncedServerRecord
+);

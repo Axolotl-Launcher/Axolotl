@@ -17,43 +17,29 @@ import {
     StyledInput,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-import steveSkinTexture from '@/assets/skins/steve.png?inline'
 import {
     isOfflineAccountRestrictedError,
     useAntiPiracyStatus,
 } from '@/composables/useAntiPiracyStatus'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
-import { accountSelectionRevision } from '@/helpers/account-state'
-import { compareMinecraftAccounts } from '@/helpers/accounts'
 import {
     add_offline_user,
     begin_yggdrasil_login,
     delete_yggdrasil_password,
     finish_yggdrasil_login,
-    get_default_user,
     login as loginToMinecraft,
     set_default_user,
     set_yggdrasil_password,
-    users,
 } from '@/helpers/auth'
-import {
-    getPlayerHeadUrl,
-    retainPlayerHeadTextures,
-} from '@/helpers/rendering/batch-skin-renderer.ts'
-import { createSkinHeadDataUrl, getAccountSkin } from '@/helpers/rendering/skin-head'
 import { handleSevereError, useError } from '@/store/error.js'
 
 import { useOobeStep } from '../../context'
 import OobeChoice from '../../parts/OobeChoice.vue'
+import { type OobeAccount, pickSaved, showPicked, useOobeAccounts } from './accounts'
 
-type Account = {
-    account_id: string
-    account_type: 'microsoft' | 'offline' | 'yggdrasil'
-    profile: { id: string; name: string; skins?: Array<{ state: string; url: string }> }
-    yggdrasil?: { server_name: string }
-}
+type Account = OobeAccount
 type YggdrasilProfile = { id: string; name: string }
 type YggdrasilLoginResult =
     | { status: 'complete'; credentials: Account }
@@ -61,7 +47,6 @@ type YggdrasilLoginResult =
 type Method = 'microsoft' | 'yggdrasil' | 'offline'
 
 const LITTLE_SKIN_API_ROOT = 'https://littleskin.cn/api/yggdrasil'
-const steveHead = createSkinHeadDataUrl(steveSkinTexture)
 
 const { formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
@@ -154,8 +139,9 @@ const messages = defineMessages({
     },
 })
 
-const accounts = ref<Account[]>([])
-const defaultAccount = ref<string | undefined>()
+const { accounts, defaultAccount, selected, refresh, headOf } = useOobeAccounts()
+// A pick left over from an earlier visit is stale; show what the launcher holds.
+showPicked(undefined)
 const open = ref<Exclude<Method, 'microsoft'> | null>(null)
 const working = ref<Method | null>(null)
 
@@ -182,47 +168,6 @@ watch(
     { immediate: true },
 )
 watch(working, (method) => step.setBusy(method !== null))
-watch(accountSelectionRevision, () => void refresh())
-
-onMounted(() => void refresh())
-
-async function refresh() {
-    try {
-        const [list, selected] = await Promise.all([
-            users(offline.value, true) as unknown as Promise<Account[]>,
-            get_default_user(offline.value) as Promise<string | undefined>,
-        ])
-        accounts.value = [...(list ?? [])].sort(compareMinecraftAccounts)
-        defaultAccount.value = selected ?? undefined
-    } catch (error) {
-        console.warn('Failed to list Minecraft accounts', error)
-    }
-}
-
-/** Rendered heads by skin texture; an account shows Steve until its head is ready. */
-const heads = ref(new Map<string, string>())
-
-watch(
-    accounts,
-    (list, _, onCleanup) => {
-        const skins = list.flatMap((account) => getAccountSkin(account) ?? [])
-        onCleanup(retainPlayerHeadTextures(skins.map((skin) => skin.texture_key)))
-        for (const skin of skins) {
-            if (heads.value.has(skin.texture_key)) continue
-            getPlayerHeadUrl(skin)
-                .then((url) => {
-                    heads.value = new Map(heads.value).set(skin.texture_key, url)
-                })
-                .catch((error) => console.warn('Failed to render an account head', error))
-        }
-    },
-    { immediate: true },
-)
-
-function headOf(account: Account) {
-    const skin = getAccountSkin(account)
-    return (skin && heads.value.get(skin.texture_key)) ?? steveHead
-}
 
 function badgeOf(account: Account) {
     if (account.account_type === 'offline') return formatMessage(messages.offlineBadge)
@@ -241,6 +186,7 @@ async function makeDefault(account: Account) {
         return
     }
     const mine = ++selection
+    showPicked(account.account_id)
     const changed = defaultAccount.value !== account.account_id
     // Writes run one at a time, as in the accounts menu, so the backend ends on the last pick.
     const write = defaultUserWrites.then(() => set_default_user(account.account_id))
@@ -251,12 +197,15 @@ async function makeDefault(account: Account) {
     try {
         await write
         if (changed) step.markChanged()
-        if (mine === selection) defaultAccount.value = account.account_id
+        if (mine === selection) pickSaved(account.account_id)
     } catch (error) {
         if (isOfflineAccountRestrictedError(error)) errorStore.showAntiPiracyNotice()
         else handleError(error as Error)
         // An earlier pick may have been stored meanwhile; show what the backend now holds.
-        if (mine === selection) await refresh()
+        if (mine === selection) {
+            showPicked(undefined)
+            await refresh()
+        }
     }
 }
 
@@ -386,7 +335,7 @@ async function chooseProfile(profile: YggdrasilProfile) {
                     v-for="account in accounts"
                     :key="account.account_id"
                     role="radio"
-                    :selected="account.account_id === defaultAccount"
+                    :selected="account.account_id === selected"
                     :class="{
                         'opacity-60': account.account_type === 'offline' && antiPiracy.restricted,
                     }"
@@ -403,7 +352,7 @@ async function chooseProfile(profile: YggdrasilProfile) {
                     </span>
                     <template #trailing>
                         <CheckIcon
-                            v-if="account.account_id === defaultAccount"
+                            v-if="account.account_id === selected"
                             class="size-5 shrink-0 text-brand"
                         />
                     </template>

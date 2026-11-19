@@ -2,69 +2,121 @@
 
 use crate::resources::{ContentHash, HashAlgorithm};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use sqlx::SqliteConnection;
 
+#[cfg(test)]
 use super::Collection;
 
 pub(crate) struct ContentFileFingerprints;
 
 impl ContentFileFingerprints {
-    pub(crate) async fn transfer(
+    #[cfg(test)]
+    pub(crate) async fn set(
         handle: &super::Handle,
-        instance_id: &str,
-        original: &str,
-        destination: &str,
-        root: &std::path::Path,
-        integrity: &crate::resources::ArtifactIntegrity,
+        key: &FingerprintKey,
+        record: Option<&FileFingerprintRecord>,
     ) -> crate::Result<()> {
-        let mut unit = super::atom(handle).await?;
-        let row: Option<(String, String)> = sqlx::query_as(
-            "SELECT file.id, fingerprint.payload FROM instance_files file
-             JOIN content_file_fingerprints fingerprint ON fingerprint.instance_id = file.instance_id AND fingerprint.file_id = file.id
-             WHERE file.instance_id = ? AND file.relative_path = ? AND file.missing = 0"
-        ).bind(instance_id).bind(destination).fetch_optional(unit.connection()).await?;
-        if let Some((file_id, payload)) = row
-            && let Some(mut record) = decode(&payload)
-            && record.relative_path == original
-            && record.content_root == root.to_string_lossy()
-            && integrity.size == Some(record.size)
-            && integrity.hashes.iter().any(|hash| {
-                hash.algorithm == HashAlgorithm::Sha1
-                    && hash.value.eq_ignore_ascii_case(record.sha1())
-            })
-        {
-            record.relative_path = destination.into();
-            Self::atom_set(
-                &mut unit,
-                &FingerprintKey {
-                    instance_id: instance_id.into(),
+        let Some(record) = record else {
+            super::content_evidence::remove(
+                handle,
+                "fingerprint",
+                &key.instance_id,
+                &key.file_id,
+            )
+            .await;
+            return Ok(());
+        };
+        let guards =
+            super::content_evidence::current(handle, &key.instance_id).await?;
+        let guard = guards.get(&key.file_id);
+        if let Some(guard) = guard {
+            super::content_evidence::write(
+                handle,
+                "fingerprint",
+                &key.file_id,
+                guard,
+                record,
+            )
+            .await;
+        }
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn set_scoped(
+        handle: &super::Handle,
+        instance: &String,
+        records: &[(FingerprintKey, FileFingerprintRecord)],
+    ) -> crate::Result<()> {
+        for (key, _) in Self::get_scoped(handle, instance).await? {
+            Self::set(handle, &key, None).await?;
+        }
+        for (key, record) in records {
+            Self::set(handle, key, Some(record)).await?;
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn get(
+        handle: &super::Handle,
+        key: &FingerprintKey,
+    ) -> crate::Result<Option<FileFingerprintRecord>> {
+        let guards =
+            super::content_evidence::current(handle, &key.instance_id).await?;
+        let Some(guard) = guards.get(&key.file_id) else {
+            return Ok(None);
+        };
+        Ok(super::content_evidence::read_for_transfer(
+            handle,
+            "fingerprint",
+            &key.instance_id,
+            &key.file_id,
+            guard,
+            &guard.relative_path,
+        )
+        .await)
+    }
+    pub(crate) async fn get_scoped(
+        handle: &super::Handle,
+        instance: &String,
+    ) -> crate::Result<Vec<(FingerprintKey, FileFingerprintRecord)>> {
+        let guards = super::content_evidence::current(handle, instance).await?;
+        Ok(super::content_evidence::read_scoped(
+            handle,
+            "fingerprint",
+            instance,
+            &guards,
+            None,
+        )
+        .await
+        .into_iter()
+        .map(|(file_id, record)| {
+            (
+                FingerprintKey {
+                    instance_id: instance.clone(),
                     file_id,
                 },
-                Some(&record),
+                record,
             )
-            .await?;
-        }
-        unit.commit().await
+        })
+        .collect())
     }
-
-    pub(crate) async fn get_current(
-        handle: &super::Handle,
-        instance_id: &str,
-        relative_path: &str,
-    ) -> crate::Result<Option<FileFingerprintRecord>> {
-        let payload: Option<String> = sqlx::query_scalar(
-            "SELECT fingerprint.payload FROM content_file_fingerprints fingerprint
-             JOIN instance_files file ON file.instance_id = fingerprint.instance_id AND file.id = fingerprint.file_id
-             WHERE file.instance_id = ? AND file.relative_path = ? AND file.missing = 0"
-        ).bind(instance_id).bind(relative_path).fetch_optional(handle.pool()).await?;
-        Ok(payload.and_then(|payload| decode(&payload)))
-    }
-
-    /// Recognition can finish after another operation replaced the tracked file.
+    #[cfg(test)]
     pub(crate) async fn set_current(
         handle: &super::Handle,
-        instance_id: &str,
+        instance: &str,
         record: &FileFingerprintRecord,
+    ) -> crate::Result<()> {
+        let generation = super::content_evidence::generation(handle).await;
+        Self::set_current_at(handle, instance, record, generation).await
+    }
+
+    pub(crate) async fn set_current_at(
+        handle: &super::Handle,
+        instance: &str,
+        record: &FileFingerprintRecord,
+        generation: i64,
     ) -> crate::Result<()> {
         if !record.valid() {
             return Err(crate::ErrorKind::InputError(
@@ -72,15 +124,139 @@ impl ContentFileFingerprints {
             )
             .into());
         }
-        let mut unit = super::atom(handle).await?;
-        sqlx::query(
-            "INSERT INTO content_file_fingerprints (instance_id, file_id, payload)
-             SELECT instance_id, id, ? FROM instance_files
-             WHERE instance_id = ? AND relative_path = ? AND sha1 = ? AND size = ? AND missing = 0
-             ON CONFLICT (instance_id, file_id) DO UPDATE SET payload = excluded.payload"
-        ).bind(serde_json::to_string(record)?).bind(instance_id).bind(&record.relative_path)
-            .bind(record.sha1()).bind(record.size as i64).execute(unit.connection()).await?;
-        unit.commit().await
+        let guards = super::content_evidence::current(handle, instance).await?;
+        if let Some(guard) = guards.values().find(|guard| {
+            guard.relative_path == record.relative_path
+                && guard.sha1.eq_ignore_ascii_case(record.sha1())
+                && u64::try_from(guard.size).ok() == Some(record.size)
+        }) {
+            super::content_evidence::write_at(
+                handle,
+                "fingerprint",
+                &guard.file_id,
+                guard,
+                record,
+                generation,
+            )
+            .await;
+        }
+        Ok(())
+    }
+    pub(crate) async fn get_current(
+        handle: &super::Handle,
+        instance: &str,
+        path: &str,
+    ) -> crate::Result<Option<FileFingerprintRecord>> {
+        let guards = super::content_evidence::current(handle, instance).await?;
+        let Some(guard) =
+            guards.values().find(|guard| guard.relative_path == path)
+        else {
+            return Ok(None);
+        };
+        Ok(super::content_evidence::read_for_transfer(
+            handle,
+            "fingerprint",
+            instance,
+            &guard.file_id,
+            guard,
+            &guard.relative_path,
+        )
+        .await)
+    }
+    pub(crate) async fn transfer(
+        handle: &super::Handle,
+        instance: &str,
+        original: &str,
+        destination: &str,
+        root: &std::path::Path,
+        integrity: &crate::resources::ArtifactIntegrity,
+    ) -> crate::Result<()> {
+        let generation = super::content_evidence::generation(handle).await;
+        let guards = super::content_evidence::current(handle, instance).await?;
+        if let Some(guard) = guards
+            .values()
+            .find(|guard| guard.relative_path == destination)
+        {
+            if let Some(mut record) =
+                super::content_evidence::read_for_transfer::<
+                    FileFingerprintRecord,
+                >(
+                    handle,
+                    "fingerprint",
+                    instance,
+                    &guard.file_id,
+                    guard,
+                    original,
+                )
+                .await
+            {
+                let original_path =
+                    crate::util::io::safe_relative_join(root, original)?;
+                let destination_path =
+                    crate::util::io::safe_relative_join(root, destination)?;
+                let original_is_absent = matches!(
+                    tokio::fs::symlink_metadata(&original_path).await,
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound
+                );
+                let metadata =
+                    tokio::fs::symlink_metadata(&destination_path).await.ok();
+                let modified = metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.modified().ok())
+                    .and_then(FileModifiedTime::from_system_time);
+                let contained = match (
+                    tokio::fs::canonicalize(root).await,
+                    tokio::fs::canonicalize(&destination_path).await,
+                ) {
+                    (Ok(root), Ok(destination)) => {
+                        destination.starts_with(root)
+                    }
+                    _ => false,
+                };
+                if record.valid()
+                    && original_is_absent
+                    && contained
+                    && metadata.as_ref().is_some_and(|metadata| {
+                        metadata.is_file()
+                            && !metadata.file_type().is_symlink()
+                            && metadata.len() == record.size
+                    })
+                    && record.matches(
+                        &root.to_string_lossy(),
+                        original,
+                        record.size,
+                        modified.as_ref(),
+                    )
+                    && u64::try_from(guard.size).ok() == Some(record.size)
+                    && guard.sha1.eq_ignore_ascii_case(record.sha1())
+                    && integrity.size == Some(record.size)
+                    && integrity.hashes.iter().any(|hash| {
+                        hash.algorithm == HashAlgorithm::Sha1
+                            && hash.value.eq_ignore_ascii_case(record.sha1())
+                    })
+                    && integrity.hashes.iter().all(|hash| {
+                        record.hashes.iter().any(|stored| {
+                            stored.algorithm == hash.algorithm
+                                && stored
+                                    .value
+                                    .eq_ignore_ascii_case(&hash.value)
+                        })
+                    })
+                {
+                    record.relative_path = destination.into();
+                    super::content_evidence::write_at(
+                        handle,
+                        "fingerprint",
+                        &guard.file_id,
+                        guard,
+                        &record,
+                        generation,
+                    )
+                    .await;
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -155,7 +331,7 @@ impl FileFingerprintRecord {
             && modified == Some(&self.modified)
     }
 
-    fn valid(&self) -> bool {
+    pub(crate) fn valid(&self) -> bool {
         !self.content_root.is_empty()
             && !self.relative_path.is_empty()
             && self.modified.nanos < 1_000_000_000
@@ -180,6 +356,7 @@ impl FileFingerprintRecord {
     }
 }
 
+#[cfg(test)]
 impl Collection for ContentFileFingerprints {
     type Key = FingerprintKey;
     type Scope = String;
@@ -293,6 +470,7 @@ impl Collection for ContentFileFingerprints {
     }
 }
 
+#[cfg(test)]
 fn decode(payload: &str) -> Option<FileFingerprintRecord> {
     match serde_json::from_str::<FileFingerprintRecord>(payload) {
         Ok(record) if record.valid() => Some(record),
@@ -301,6 +479,93 @@ fn decode(payload: &str) -> Option<FileFingerprintRecord> {
                 "Skipping an invalid content_file_fingerprints record"
             );
             None
+        }
+    }
+}
+
+#[cfg(test)]
+mod transfer_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn trusted_rename_reuses_only_the_unchanged_native_attribute_baseline()
+     {
+        for changed in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let root = directory.path().join("profiles/profile");
+            tokio::fs::create_dir_all(root.join("mods")).await.unwrap();
+            let original = root.join("mods/a.jar");
+            let destination = root.join("mods/a.jar.disabled");
+            tokio::fs::write(&original, b"original").await.unwrap();
+            let modified = tokio::fs::metadata(&original)
+                .await
+                .unwrap()
+                .modified()
+                .unwrap();
+            let sha1 = sha1_smol::Sha1::from(b"original").digest().to_string();
+            let pool = super::super::databases::open(directory.path())
+                .await
+                .unwrap();
+            sqlx::raw_sql("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES('instance','profile','installed','none','Example',0,0);INSERT INTO instance_content_sets(id,instance_id,name,source_kind,status,game_version,loader,created,modified) VALUES('set','instance','Main','local','available','1.21','vanilla',0,0);UPDATE instances SET applied_content_set_id='set' WHERE id='instance';").execute(&pool).await.unwrap();
+            sqlx::query("INSERT INTO instance_files(id,instance_id,relative_path,file_name,enabled,sha1,size,missing,added_at,modified_at) VALUES('file','instance','mods/a.jar','a.jar',1,?,8,0,0,0)").bind(&sha1).execute(&pool).await.unwrap();
+            let handle = super::super::Handle::new(pool.clone());
+            let record = FileFingerprintRecord {
+                content_root: root.to_string_lossy().into_owned(),
+                relative_path: "mods/a.jar".into(),
+                size: 8,
+                modified: FileModifiedTime::from_system_time(modified).unwrap(),
+                hashes: vec![ContentHash {
+                    algorithm: HashAlgorithm::Sha1,
+                    value: sha1,
+                }],
+                curseforge_fingerprint: None,
+            };
+            ContentFileFingerprints::set_current(&handle, "instance", &record)
+                .await
+                .unwrap();
+            tokio::fs::rename(&original, &destination).await.unwrap();
+            sqlx::raw_sql("UPDATE instance_files SET relative_path='mods/a.jar.disabled',file_name='a.jar.disabled',enabled=0 WHERE id='file';UPDATE instance_content_sets SET revision=revision+1 WHERE id='set';").execute(&pool).await.unwrap();
+            if changed {
+                tokio::fs::write(&destination, b"tampered").await.unwrap();
+                std::fs::OpenOptions::new()
+                    .write(true)
+                    .open(&destination)
+                    .unwrap()
+                    .set_modified(modified + std::time::Duration::from_secs(1))
+                    .unwrap();
+            }
+            ContentFileFingerprints::transfer(
+                &handle,
+                "instance",
+                "mods/a.jar",
+                "mods/a.jar.disabled",
+                &root,
+                &crate::resources::ArtifactIntegrity {
+                    size: Some(8),
+                    hashes: record.hashes.clone(),
+                },
+            )
+            .await
+            .unwrap();
+            let transferred = ContentFileFingerprints::get_current(
+                &handle,
+                "instance",
+                "mods/a.jar.disabled",
+            )
+            .await
+            .unwrap();
+            if changed {
+                assert!(
+                    transferred.is_none(),
+                    "changed attributes must force a byte verification"
+                );
+            } else {
+                let transferred = transferred.unwrap();
+                assert_eq!(transferred.hashes, record.hashes);
+                assert_eq!(transferred.modified, record.modified);
+                assert_eq!(transferred.relative_path, "mods/a.jar.disabled");
+            }
+            pool.close().await;
         }
     }
 }

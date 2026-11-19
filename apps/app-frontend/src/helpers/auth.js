@@ -3,9 +3,14 @@
  * So, for example, addDefaultInstance creates a blank instance object, where the Rust struct is serialized,
  *  and deserialized into a usable JS object.
  */
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@/helpers/invoke'
 
 import { notifyAccountSelectionChanged } from './account-state.ts'
+
+/** Whether this login must be repeated when the launcher restarts. */
+export function isSessionOnlyAccount(account) {
+    return account?.credential_persistence === 'session_only'
+}
 
 // Example function:
 // User goes to auth_url to complete flow, and when completed, authenticate_await_completion() returns the credentials
@@ -129,7 +134,7 @@ export async function set_default_user(user) {
 }
 
 /**
- * Remove a user account from the database
+ * Remove a saved user account
  * @param {UUID} user
  */
 export async function remove_user(user) {

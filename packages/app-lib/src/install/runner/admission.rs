@@ -140,6 +140,20 @@ pub(super) fn execution_lock_key(job: &store::InstallJobRecord) -> String {
         .unwrap_or_else(|| format!("job:{}", job.id))
 }
 
+/// Startup recovery yields to a worker that already owns this execution slot.
+pub(in crate::install) fn try_execution_lock(
+    state: &State,
+    job: &store::InstallJobRecord,
+) -> Option<tokio::sync::OwnedMutexGuard<()>> {
+    state
+        .install_execution_locks
+        .entry(execution_lock_key(job))
+        .or_default()
+        .clone()
+        .try_lock_owned()
+        .ok()
+}
+
 /// The execution lock alone, bounded like the queue wait: recovery uses it to
 /// prove that no worker can still publish the job's files, and must not wait
 /// forever behind one. `None` means the bounded wait expired.

@@ -8,7 +8,9 @@ use super::Collection;
 pub(crate) struct SyncedGameOptionValues;
 
 /// What kind of setting an option is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) enum GameOptionValueKind {
     Vanilla,
     External,
@@ -32,7 +34,9 @@ impl GameOptionValueKind {
 }
 
 /// Where a shared value came from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) enum GameOptionValueOrigin {
     AppEditor,
     Instance,
@@ -61,7 +65,7 @@ impl GameOptionValueOrigin {
 /// What a value carries beyond its key.
 ///
 /// The canonical value is opaque text: what it says is the caller's business.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct GameOptionValueRecord {
     pub kind: GameOptionValueKind,
     pub raw_key: Option<String>,
@@ -331,3 +335,21 @@ fn to_origin(origin: &str) -> Option<GameOptionValueOrigin> {
         None
     })
 }
+
+impl crate::state::sync_state::collection::Collection
+    for SyncedGameOptionValues
+{
+    type Key = String;
+    type Scope = String;
+    type Record = GameOptionValueRecord;
+    const NAME: &'static str = "synced_game_option_values";
+    fn in_scope(scope: &Self::Scope, key: &Self::Key) -> bool {
+        scope == key
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    SyncedGameOptionValues,
+    String,
+    String,
+    GameOptionValueRecord
+);

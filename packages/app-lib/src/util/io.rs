@@ -445,15 +445,30 @@ fn sync_write(
     data: impl AsRef<[u8]>,
     path: impl AsRef<Path>,
 ) -> Result<(), std::io::Error> {
+    let path = path.as_ref();
+    #[cfg(windows)]
+    let native_path = {
+        // TempPath::persist calls Win32 directly and needs extended paths
+        // for both the temporary file and the final filename.
+        let parent = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        let name = path.file_name().ok_or_else(|| {
+            std::io::Error::other("could not get filename for atomic write")
+        })?;
+        std::fs::canonicalize(parent)?.join(name)
+    };
+    #[cfg(windows)]
+    let path = native_path.as_path();
     let mut tempfile =
-        NamedTempFile::new_in(path.as_ref().parent().ok_or_else(|| {
+        NamedTempFile::new_in(path.parent().ok_or_else(|| {
             std::io::Error::other(
                 "could not get parent directory for temporary file",
             )
         })?)?;
     tempfile.write_all(data.as_ref())?;
     let tmp_path = tempfile.into_temp_path();
-    let path = path.as_ref();
     tmp_path.persist(path)?;
     std::io::Result::Ok(())
 }
@@ -535,6 +550,24 @@ pub(crate) fn atomically_replace_file(
     };
     use windows::core::PCWSTR;
 
+    // The native API does not apply Rust's extended-length path conversion.
+    // Resolve the existing parents, preserving the final components so a
+    // source symlink is moved rather than followed and a new target is valid.
+    fn native_path(path: &Path) -> std::io::Result<PathBuf> {
+        let name = path.file_name().ok_or_else(|| {
+            std::io::Error::new(
+                ErrorKind::InvalidInput,
+                "Replacement path needs a file name",
+            )
+        })?;
+        let parent = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        Ok(std::fs::canonicalize(parent)?.join(name))
+    }
+    let source = native_path(source)?;
+    let destination = native_path(destination)?;
     let source = source
         .as_os_str()
         .encode_wide()
@@ -1133,6 +1166,30 @@ mod atomic_replace_tests {
 
         assert_eq!(tokio::fs::read(&destination).await.expect("read"), b"new");
         assert!(!source.exists(), "the source file is consumed");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn atomically_replace_file_supports_deep_paths_and_new_destinations() {
+        let directory = tempdir().expect("temp dir");
+        let mut parent = directory.path().to_path_buf();
+        for index in 0..6 {
+            parent
+                .push(format!("backup-generation-{index}-{}", "a".repeat(32)));
+        }
+        std::fs::create_dir_all(&parent).expect("deep directory");
+        let source = parent.join("source.tmp");
+        let destination = parent.join("destination.bin");
+        assert!(destination.as_os_str().len() > 260);
+        std::fs::write(&source, b"first").expect("write source");
+        atomically_replace_file(&source, &destination)
+            .expect("publish new destination");
+        assert_eq!(std::fs::read(&destination).unwrap(), b"first");
+        std::fs::write(&source, b"second").expect("replace source");
+        atomically_replace_file(&source, &destination)
+            .expect("replace existing destination");
+        assert_eq!(std::fs::read(&destination).unwrap(), b"second");
+        assert!(!source.exists());
     }
 
     #[tokio::test]

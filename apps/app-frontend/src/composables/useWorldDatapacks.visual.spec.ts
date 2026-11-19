@@ -1,4 +1,6 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { createApp, effectScope, ref } from 'vue'
 
 import type { WorldWithDatapacks } from '@/helpers/datapacks'
 
@@ -24,6 +26,16 @@ vi.mock('@modrinth/ui', () => ({
 vi.mock('@/helpers/datapacks', () => backend)
 
 beforeEach(() => vi.resetAllMocks())
+const scopes: ReturnType<typeof effectScope>[] = []
+afterEach(() => scopes.splice(0).forEach((scope) => scope.stop()))
+
+function createState(getInstanceId: () => string, queryClient = new QueryClient()) {
+    const scope = effectScope()
+    scopes.push(scope)
+    const app = createApp({})
+    app.use(VueQueryPlugin, { queryClient })
+    return app.runWithContext(() => scope.run(() => useWorldDatapacks(getInstanceId)))!
+}
 
 const { listDatapacks, setDatapackEnabled } = backend
 
@@ -43,7 +55,7 @@ function world(path = 'world', enabled: boolean | undefined = true): WorldWithDa
 }
 
 it('keeps previous rows and reports failure, including on first load', async () => {
-    const state = useWorldDatapacks(() => 'instance')
+    const state = createState(() => 'instance')
     listDatapacks
         .mockRejectedValueOnce(new Error('offline'))
         .mockResolvedValueOnce([world()])
@@ -58,7 +70,7 @@ it('keeps previous rows and reports failure, including on first load', async () 
 })
 
 it('merges successful worlds while preserving failed worlds and disabling unknown state', async () => {
-    const state = useWorldDatapacks(() => 'instance')
+    const state = createState(() => 'instance')
     listDatapacks.mockResolvedValueOnce([world(), world('second')]).mockResolvedValueOnce([
         { ...world(), datapacks: [], read_error: 'denied' },
         world('second', false),
@@ -83,8 +95,8 @@ it('merges successful worlds while preserving failed worlds and disabling unknow
 })
 
 it('discards responses for a different instance and rolls back failed toggles', async () => {
-    let instanceId = 'first'
-    const state = useWorldDatapacks(() => instanceId)
+    const instanceId = ref('first')
+    const state = createState(() => instanceId.value)
     let complete!: (value: WorldWithDatapacks[]) => void
     listDatapacks
         .mockImplementationOnce(
@@ -95,7 +107,7 @@ it('discards responses for a different instance and rolls back failed toggles', 
         )
         .mockResolvedValueOnce([world('new')])
     const old = state.loadWorldDatapacks()
-    instanceId = 'second'
+    instanceId.value = 'second'
     await state.loadWorldDatapacks()
     complete([world('old')])
     await old
@@ -105,4 +117,18 @@ it('discards responses for a different instance and rolls back failed toggles', 
         state.toggleWorldDatapackItem(state.worldDatapackItems.value[0], false),
     ).rejects.toThrow('world locked')
     expect(state.worldDatapackItems.value[0].enabled).toBe(true)
+})
+
+it('restores datapacks across visits and removes an externally deleted file on refresh', async () => {
+    const client = new QueryClient()
+    const initial = createState(() => 'instance', client)
+    listDatapacks
+        .mockResolvedValueOnce([world()])
+        .mockResolvedValueOnce([{ ...world(), datapacks: [] }])
+    await initial.loadWorldDatapacks()
+
+    const returned = createState(() => 'instance', client)
+    expect(returned.worldDatapackItems.value).toHaveLength(1)
+    await returned.loadWorldDatapacks()
+    expect(returned.worldDatapackItems.value).toEqual([])
 })

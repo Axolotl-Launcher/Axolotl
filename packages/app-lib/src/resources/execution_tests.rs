@@ -2241,32 +2241,41 @@ async fn exact_cross_source_replace_and_rollback_preserve_entry_disabled_path_an
     let backups = super::history_cleanup::scan_with_state("instance", &state)
         .await
         .unwrap();
+    let retired_path = consumed.backup_relative_path.as_ref().unwrap();
+    assert!(backups.iter().all(|backup| backup.id != consumed.id));
     let retired = backups
         .iter()
-        .find(|backup| backup.id == consumed.id)
+        .find(|backup| &backup.relative_path == retired_path)
         .unwrap();
-    assert_eq!(retired.history_id.as_ref(), Some(&consumed.id));
-    assert!(retired.exists);
+    assert!(retired.history_id.is_none());
+    assert!(retired.exists && retired.recognized);
     assert!(!retired.rollback_available);
+    assert!(
+        super::history_cleanup::prepare_with_state(
+            "instance",
+            vec![consumed.id.clone()],
+            &state,
+        )
+        .await
+        .is_err()
+    );
     let cleanup = super::history_cleanup::prepare_with_state(
         "instance",
-        vec![consumed.id.clone()],
+        vec![retired.id.clone()],
         &state,
     )
     .await
     .unwrap();
-    super::history_cleanup::execute_with_state(
+    let result = super::history_cleanup::execute_with_state(
         cleanup.id,
         cleanup.revision,
         &state,
     )
     .await
     .unwrap();
-    assert!(
-        !root
-            .join(consumed.backup_relative_path.as_ref().unwrap())
-            .exists()
-    );
+    assert_eq!(result.removed, vec![retired.id.clone()]);
+    assert!(result.failures.is_empty());
+    assert!(!root.join(retired_path).exists());
     let retained: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM store_retained_refs WHERE reason = ?",
     )
@@ -2707,6 +2716,154 @@ async fn backup_cleanup_checks_selection_snapshot_tasks_references_and_rollback_
     .await
     .unwrap();
     assert_eq!(retained, 0);
+    state.pool.close().await;
+}
+
+#[tokio::test]
+async fn missing_backup_cleanup_preserves_history_and_releases_only_its_hold() {
+    use super::history_cleanup::{
+        execute_with_state, prepare_with_state, scan_with_state,
+    };
+
+    let (_temp, state, original, old, root) = fixture().await;
+    std::fs::write(root.join("new.zip"), b"new bytes").unwrap();
+    let plan = local_plan(
+        &state,
+        original.clone(),
+        artifact(SourceId::curseforge(), "123", "456", b"new bytes"),
+        "new.zip",
+        None,
+    )
+    .await;
+    execute("instance", &plan, None, &state).await.unwrap();
+    let tracked = scan_with_state("instance", &state).await.unwrap().remove(0);
+    let path = root.join(&tracked.relative_path);
+    let digest = &old.integrity.hashes[0].value;
+    sqlx::query("INSERT OR IGNORE INTO store_blobs (digest, size, state, created_at, last_used_at) VALUES (?, 9, 'ready', 1, 1)")
+        .bind(digest).execute(&state.pool).await.unwrap();
+    let reason = format!("resource-history:{}", tracked.id.as_str());
+    for hold in [reason.as_str(), "other-backup"] {
+        crate::state::store::store_retained_refs::retain(
+            &state.pool,
+            digest,
+            hold,
+            1,
+        )
+        .await
+        .unwrap();
+    }
+    let holds = || {
+        sqlx::query_scalar::<_, String>(
+            "SELECT reason FROM store_retained_refs WHERE digest = ? ORDER BY reason",
+        )
+        .bind(digest)
+        .fetch_all(&state.pool)
+    };
+
+    std::fs::remove_file(&path).unwrap();
+    let missing = scan_with_state("instance", &state).await.unwrap().remove(0);
+    assert_eq!(missing.history_id.as_ref(), Some(&tracked.id));
+    assert!(!missing.exists && !missing.rollback_available);
+    let mut expected = history::list_with_state("instance", None, &state)
+        .await
+        .unwrap()
+        .remove(0);
+    assert!(!expected.backup_retired);
+
+    let review =
+        prepare_with_state("instance", vec![tracked.id.clone()], &state)
+            .await
+            .unwrap();
+    assert!(!review.files[0].exists);
+    std::fs::create_dir(&path).unwrap();
+    assert!(scan_with_state("instance", &state).await.is_err());
+    assert!(
+        execute_with_state(review.id.clone(), review.revision, &state)
+            .await
+            .is_err()
+    );
+    std::fs::remove_dir(&path).unwrap();
+    std::fs::write(&path, b"old bytes").unwrap();
+    assert!(
+        execute_with_state(review.id, review.revision, &state)
+            .await
+            .is_err()
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), b"old bytes");
+    assert!(holds().await.unwrap().contains(&reason));
+
+    std::fs::remove_file(&path).unwrap();
+    let review =
+        prepare_with_state("instance", vec![tracked.id.clone()], &state)
+            .await
+            .unwrap();
+    sqlx::raw_sql("CREATE TRIGGER fail_missing_cleanup BEFORE UPDATE OF consumed ON resource_history_cleanup_plans BEGIN SELECT RAISE(ABORT, 'test failure'); END;")
+        .execute(&state.pool).await.unwrap();
+    assert!(matches!(
+        execute_with_state(review.id.clone(), review.revision, &state).await,
+        Err(ResourceError::Database(_))
+    ));
+    assert_eq!(
+        history::list_with_state("instance", None, &state)
+            .await
+            .unwrap(),
+        vec![expected.clone()]
+    );
+    assert!(holds().await.unwrap().contains(&reason));
+    sqlx::query("DROP TRIGGER fail_missing_cleanup")
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    let result = execute_with_state(review.id, review.revision, &state)
+        .await
+        .unwrap();
+    assert_eq!(result.removed, vec![tracked.id.clone()]);
+    assert!(result.failures.is_empty());
+    expected.backup_retired = true;
+    assert_eq!(
+        history::list_with_state("instance", None, &state)
+            .await
+            .unwrap(),
+        vec![expected]
+    );
+    assert_eq!(holds().await.unwrap(), vec!["other-backup".to_string()]);
+    assert!(
+        scan_with_state("instance", &state)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        prepare_with_state("instance", vec![tracked.id.clone()], &state)
+            .await
+            .is_err()
+    );
+    std::fs::write(&path, b"reappeared").unwrap();
+    let orphan = scan_with_state("instance", &state).await.unwrap().remove(0);
+    assert_ne!(orphan.id, tracked.id);
+    assert_eq!(orphan.history_id, None);
+    assert!(orphan.exists && orphan.recognized && !orphan.rollback_available);
+    assert!(
+        prepare_with_state("instance", vec![tracked.id], &state)
+            .await
+            .is_err()
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), b"reappeared");
+    let review =
+        prepare_with_state("instance", vec![orphan.id.clone()], &state)
+            .await
+            .unwrap();
+    assert!(review.entries.is_empty());
+    let result = execute_with_state(review.id, review.revision, &state)
+        .await
+        .unwrap();
+    assert_eq!(result.removed, vec![orphan.id]);
+    assert!(result.failures.is_empty());
+    assert!(!path.exists());
+    assert_eq!(
+        std::fs::read(root.join(&original.relative_path)).unwrap(),
+        b"new bytes"
+    );
     state.pool.close().await;
 }
 
@@ -3290,23 +3447,42 @@ async fn rollback_after_unlink_does_not_restore_pack_ownership_or_missing_member
 }
 
 #[tokio::test]
-async fn cleanup_recovery_restores_uncommitted_moves_and_finishes_committed_deletion()
- {
-    let (_temp, state, _, _, root) = fixture().await;
-    let path = "resourcepacks/current.zip_previous.zip.old";
+async fn mixed_backup_cleanup_recovers_only_staged_files() {
+    let (_temp, state, original, _, root) = fixture().await;
+    std::fs::write(root.join("new.zip"), b"new bytes").unwrap();
+    let plan = local_plan(
+        &state,
+        original,
+        artifact(SourceId::curseforge(), "123", "456", b"new bytes"),
+        "new.zip",
+        None,
+    )
+    .await;
+    execute("instance", &plan, None, &state).await.unwrap();
+    let tracked = super::history_cleanup::scan_with_state("instance", &state)
+        .await
+        .unwrap()
+        .remove(0);
+    let missing = root.join(&tracked.relative_path);
+    std::fs::remove_file(&missing).unwrap();
+    let path = "resourcepacks/zzzz-current.zip_previous.zip.old";
     std::fs::write(root.join(path), b"old bytes").unwrap();
     let files = super::history_cleanup::scan_with_state("instance", &state)
         .await
         .unwrap();
+    let ids = files.iter().map(|file| file.id.clone()).collect::<Vec<_>>();
     let review = super::history_cleanup::prepare_with_state(
         "instance",
-        vec![files[0].id.clone()],
+        ids.clone(),
         &state,
     )
     .await
     .unwrap();
+    assert!(!review.files[0].exists);
+    assert_eq!(review.files[1].relative_path, path);
     let temporary = "resourcepacks/.cleanup-test.old";
     let mut draft = super::history_cleanup::CleanupDraft {
+        schema_version: 1,
         plan: review.clone(),
         moves: vec![temporary.into()],
         committed: false,
@@ -3323,27 +3499,67 @@ async fn cleanup_recovery_restores_uncommitted_moves_and_finishes_committed_dele
     let recovered = super::history_cleanup::scan_with_state("instance", &state)
         .await
         .unwrap();
-    assert_eq!(recovered[0].relative_path, path);
+    assert_eq!(recovered[1].relative_path, path);
+    assert!(!recovered[0].exists);
     assert!(root.join(path).exists());
     assert!(!root.join(temporary).exists());
     let review = super::history_cleanup::prepare_with_state(
         "instance",
-        vec![files[0].id.clone()],
+        ids.clone(),
         &state,
     )
     .await
     .unwrap();
-    draft.plan = review.clone();
-    draft.committed = true;
-    sqlx::query("UPDATE resource_history_cleanup_plans SET payload = ?, consumed = 1 WHERE id = ?").bind(serde_json::to_string(&draft).unwrap()).bind(review.id.as_str()).execute(&state.pool).await.unwrap();
-    std::fs::rename(root.join(path), root.join(temporary)).unwrap();
-    assert!(
+    sqlx::raw_sql("CREATE TRIGGER fail_mixed_cleanup BEFORE UPDATE ON resource_history BEGIN SELECT RAISE(ABORT, 'test failure'); END;")
+        .execute(&state.pool).await.unwrap();
+    assert!(matches!(
+        super::history_cleanup::execute_with_state(
+            review.id,
+            review.revision,
+            &state
+        )
+        .await,
+        Err(ResourceError::Database(_))
+    ));
+    assert!(!missing.exists());
+    assert_eq!(std::fs::read(root.join(path)).unwrap(), b"old bytes");
+    assert_eq!(
         super::history_cleanup::scan_with_state("instance", &state)
             .await
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        recovered
     );
+    sqlx::query("DROP TRIGGER fail_mixed_cleanup")
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    let review =
+        super::history_cleanup::prepare_with_state("instance", ids, &state)
+            .await
+            .unwrap();
+    draft.plan = review.clone();
+    draft.committed = true;
+    let mut tx = state.pool.begin().await.unwrap();
+    sqlx::query("UPDATE resource_history_cleanup_plans SET payload = ?, consumed = 1 WHERE id = ?").bind(serde_json::to_string(&draft).unwrap()).bind(review.id.as_str()).execute(&mut *tx).await.unwrap();
+    sqlx::query(
+        "UPDATE resource_history SET backup_available = 0 WHERE id = ?",
+    )
+    .bind(tracked.id.as_str())
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    std::fs::rename(root.join(path), root.join(temporary)).unwrap();
+    std::fs::write(&missing, b"reappeared").unwrap();
+    let recovered = super::history_cleanup::scan_with_state("instance", &state)
+        .await
+        .unwrap();
+    assert_eq!(recovered.len(), 1);
+    assert_eq!(recovered[0].relative_path, tracked.relative_path);
+    assert_eq!(recovered[0].history_id, None);
+    assert!(recovered[0].exists && recovered[0].recognized);
     assert!(!root.join(temporary).exists());
+    assert_eq!(std::fs::read(missing).unwrap(), b"reappeared");
     state.pool.close().await;
 }
 
@@ -3528,4 +3744,143 @@ fn test_access() -> WriteAccess<'static> {
         critical_section::WhitelistSite::Tests,
     )
     .into()
+}
+
+#[tokio::test]
+async fn hydration_preserves_unknown_fields_in_unchanged_artifacts() {
+    use crate::resources::providers::*;
+    struct MetadataProvider;
+    #[async_trait::async_trait]
+    impl ResourceProvider for MetadataProvider {
+        fn source(&self) -> ResourceSource {
+            ResourceSource {
+                id: SourceId::modrinth(),
+                types: vec![ResourceType::ResourcePack],
+                capabilities: vec![
+                    SourceCapability::Project,
+                    SourceCapability::IdentifyHash,
+                ],
+                available: true,
+                supported_search_sorts: vec![],
+            }
+        }
+        fn namespace(&self) -> String {
+            "unknown-fields-hydration".into()
+        }
+        fn batch_limit(&self, _: &ProviderQuery) -> usize {
+            100
+        }
+        async fn fetch_many(
+            &self,
+            queries: &[ProviderQuery],
+        ) -> Vec<ResourceResult<ProviderValue>> {
+            queries
+                .iter()
+                .map(|query| {
+                    Ok(match query {
+                        ProviderQuery::Project { id, .. } => {
+                            let mut value =
+                                crate::resources::tests::project_value(
+                                    SourceId::modrinth(),
+                                    id.as_str(),
+                                    "Known pack",
+                                );
+                            if let ProviderValue::Project(document) = &mut value
+                            {
+                                document.metadata.types =
+                                    vec![ResourceType::ResourcePack];
+                            }
+                            value
+                        }
+                        ProviderQuery::Identify { .. } => {
+                            ProviderValue::Matches(Vec::new())
+                        }
+                        _ => ProviderValue::NotFound,
+                    })
+                })
+                .collect()
+        }
+    }
+    let (temporary, state, original, artifact, _) = fixture().await;
+    let mut payload = serde_json::to_value(&artifact).unwrap();
+    payload["futureMetadata"] = serde_json::json!({"keep": true});
+    payload["integrity"]["hashes"][0]["futureProof"] =
+        serde_json::json!("keep-hash-extension");
+    sqlx::query(
+        "UPDATE resource_installed_artifacts SET artifact=? WHERE entry_id=?",
+    )
+    .bind(payload.to_string())
+    .bind(original.entry_id.as_str())
+    .execute(&state.pool)
+    .await
+    .unwrap();
+    sqlx::raw_sql("CREATE TABLE hydration_write_observations (entry_id TEXT NOT NULL); CREATE TRIGGER observe_hydrated_artifact AFTER UPDATE ON resource_installed_artifacts BEGIN INSERT INTO hydration_write_observations VALUES(NEW.entry_id); END;")
+        .execute(&state.pool).await.unwrap();
+    let cache = Arc::new(
+        cache::ResourceCache::open(temporary.path().join("hydration-cache.db"))
+            .await,
+    );
+    let service =
+        ResourceService::new(cache, vec![Arc::new(MetadataProvider)]).unwrap();
+    let hydrated = super::installed::hydrate_selected_with_service(
+        &state,
+        "instance",
+        &CancellationToken::new(),
+        Some(&[original.entry_id.clone()]),
+        &service,
+    )
+    .await
+    .unwrap();
+    assert!(hydrated.failures.is_empty());
+    assert_eq!(hydrated.entries.len(), 1);
+    let raw: String = sqlx::query_scalar(
+        "SELECT artifact FROM resource_installed_artifacts WHERE entry_id=?",
+    )
+    .bind(original.entry_id.as_str())
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    let value: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    let writes: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM hydration_write_observations WHERE entry_id=?",
+    )
+    .bind(original.entry_id.as_str())
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert!(writes > 0, "hydration must actually persist the record");
+    assert_eq!(value["futureMetadata"]["keep"], true);
+    assert_eq!(
+        value["integrity"]["hashes"][0]["futureProof"],
+        "keep-hash-extension"
+    );
+}
+
+#[tokio::test]
+async fn future_execution_journal_does_not_move_or_remove_files() {
+    let (_temp, state, original, old, root) = fixture().await;
+    let plan =
+        local_plan(&state, original.clone(), old.clone(), "unused.zip", None)
+            .await;
+    let path = root.join(&original.relative_path);
+    let before = tokio::fs::read(&path).await.unwrap();
+    let payload = serde_json::json!({"schema_version": 2, "files": [{"path": original.relative_path, "previous_path": null, "backup": null, "old": null, "target": old.integrity}]}).to_string();
+    sqlx::query(
+        "INSERT INTO resource_execution_journals(plan_id,payload) VALUES(?,?)",
+    )
+    .bind(plan.id.as_str())
+    .bind(&payload)
+    .execute(&state.pool)
+    .await
+    .unwrap();
+    assert!(recover_plan(&plan, &state).await.is_err());
+    assert_eq!(tokio::fs::read(&path).await.unwrap(), before);
+    let stored: String = sqlx::query_scalar(
+        "SELECT payload FROM resource_execution_journals WHERE plan_id=?",
+    )
+    .bind(plan.id.as_str())
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(stored, payload);
 }

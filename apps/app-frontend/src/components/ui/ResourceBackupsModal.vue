@@ -38,7 +38,7 @@ const messages = defineMessages({
     old: { id: 'app.resources.backups.filter.old', defaultMessage: 'Other old files' },
     selectVisible: {
         id: 'app.resources.backups.select-visible',
-        defaultMessage: 'Select available files',
+        defaultMessage: 'Select eligible items',
     },
     noMatches: {
         id: 'app.resources.backups.no-matches',
@@ -55,6 +55,15 @@ const messages = defineMessages({
     reviewSize: {
         id: 'app.resources.backups.review-size',
         defaultMessage: '{count, plural, one {Delete # file} other {Delete # files}} · {size}',
+    },
+    reviewMissing: {
+        id: 'app.resources.backups.review-missing',
+        defaultMessage:
+            '{count, plural, one {Clear # missing backup} other {Clear # missing backups}} from this list. No files are deleted for these entries, and update history is kept.',
+    },
+    reviewChanged: {
+        id: 'app.resources.backups.review-changed',
+        defaultMessage: 'A selected backup changed. Scan again before reviewing cleanup.',
     },
     scan: { id: 'app.resources.backups.scan', defaultMessage: 'Scan again' },
     loading: { id: 'app.resources.backups.loading', defaultMessage: 'Checking old files…' },
@@ -88,11 +97,20 @@ const messages = defineMessages({
             'Deleting these files permanently removes {count, number} available rollback backups. Current installed files are kept.',
     },
     confirm: { id: 'app.resources.backups.confirm', defaultMessage: 'Delete these backups' },
+    confirmMissing: {
+        id: 'app.resources.backups.confirm-missing',
+        defaultMessage: 'Clear missing backups',
+    },
     back: { id: 'app.resources.backups.back', defaultMessage: 'Back to selection' },
     close: { id: 'app.resources.backups.close', defaultMessage: 'Close' },
     removed: {
         id: 'app.resources.backups.removed',
         defaultMessage: '{count, number} files deleted.',
+    },
+    removedMissing: {
+        id: 'app.resources.backups.removed-missing',
+        defaultMessage:
+            '{count, plural, one {Cleared # missing backup.} other {Cleared # missing backups.}}',
     },
     failed: {
         id: 'app.resources.backups.failed',
@@ -107,7 +125,7 @@ const plan = ref<ResourceHistoryCleanupPlan | null>(null)
 const busy = ref(false)
 const cleaning = ref(false)
 const error = ref<string | null>(null)
-const resultText = ref<string | null>(null)
+const resultText = ref<string[]>([])
 const search = ref('')
 const filter = ref<'all' | 'rollback' | 'old'>('all')
 const visibleFiles = computed(() =>
@@ -121,8 +139,10 @@ const visibleFiles = computed(() =>
                 (filter.value === 'rollback' ? file.rollbackAvailable : !file.rollbackAvailable)),
     ),
 )
-const selectable = computed(() =>
-    visibleFiles.value.filter((file) => file.recognized && file.exists),
+const selectable = computed(() => visibleFiles.value.filter(canSelect))
+const reviewedExisting = computed(() => plan.value?.files.filter((file) => file.exists) ?? [])
+const reviewedMissingCount = computed(
+    () => (plan.value?.files.length ?? 0) - reviewedExisting.value.length,
 )
 const visibleSelected = computed(
     () => selectable.value.filter((file) => selected.value.includes(file.id)).length,
@@ -135,6 +155,9 @@ function selectVisible(checked: boolean) {
 }
 function fileName(file: ResourceBackupFile) {
     return file.originalFileName ?? file.relativePath.split('/').pop() ?? file.relativePath
+}
+function canSelect(file: ResourceBackupFile) {
+    return file.recognized && (file.exists || !!file.historyId)
 }
 const size = computed(() =>
     files.value
@@ -152,7 +175,7 @@ function show(id: string) {
     files.value = []
     selected.value = []
     plan.value = null
-    resultText.value = null
+    resultText.value = []
     search.value = ''
     filter.value = 'all'
     modal.value?.show()
@@ -166,10 +189,13 @@ async function scan() {
     try {
         const value = await resourceScanBackups(instanceId)
         if (current !== generation) return
-        files.value = value
+        const previous = new Map(files.value.map((file) => [file.id, file.exists]))
         selected.value = selected.value.filter((id) =>
-            value.some((file) => file.id === id && file.exists && file.recognized),
+            value.some(
+                (file) => file.id === id && canSelect(file) && previous.get(id) === file.exists,
+            ),
         )
+        files.value = value
     } catch (failure) {
         if (current === generation) error.value = resourceOperationError(failure, formatMessage)
     } finally {
@@ -189,7 +215,13 @@ async function review() {
     const current = generation
     try {
         const value = await resourcePrepareHistoryCleanup(instanceId, [...selected.value])
-        if (current === generation) plan.value = value
+        if (current !== generation) return
+        const previous = new Map(files.value.map((file) => [file.id, file.exists]))
+        if (value.files.some((file) => previous.get(file.id) !== file.exists)) {
+            error.value = formatMessage(messages.reviewChanged)
+            return
+        }
+        plan.value = value
     } catch (failure) {
         if (current === generation) error.value = resourceOperationError(failure, formatMessage)
     } finally {
@@ -206,28 +238,24 @@ async function cleanup() {
     try {
         const result = await resourceExecuteHistoryCleanup(reviewed.id, reviewed.revision)
         if (current !== generation) return
-        resultText.value = formatMessage(
-            result.failures.length ? messages.failed : messages.removed,
-            {
-                count:
-                    result.failures.length ||
-                    reviewed.files.filter((file) => result.removed.includes(file.id)).length,
-            },
-        )
+        const removed = new Set(result.removed)
+        const completed = reviewed.files.filter((file) => removed.has(file.id))
+        const deletedFiles = completed.filter((file) => file.exists).length
+        const clearedMissing = completed.length - deletedFiles
+        resultText.value = []
+        if (deletedFiles)
+            resultText.value.push(formatMessage(messages.removed, { count: deletedFiles }))
+        if (clearedMissing)
+            resultText.value.push(formatMessage(messages.removedMissing, { count: clearedMissing }))
+        if (result.failures.length)
+            resultText.value.push(formatMessage(messages.failed, { count: result.failures.length }))
         if (result.failures.length)
             error.value = result.failures
                 .map(([, failure]) => resourceOperationError(failure, formatMessage))
                 .join('\n')
-        const affectedPaths = new Set(reviewed.files.map((file) => file.relativePath))
-        const affected = new Set(
-            files.value
-                .filter((file) => affectedPaths.has(file.relativePath))
-                .map((file) => file.id),
-        )
-        selected.value = selected.value.filter((id) => !affected.has(id))
-        files.value = files.value.map((file) =>
-            affected.has(file.id) ? { ...file, exists: false, rollbackAvailable: false } : file,
-        )
+        const affected = new Set([...selected.value, ...result.removed])
+        files.value = files.value.filter((file) => !affected.has(file.id))
+        selected.value = []
         plan.value = null
         emit('cleaned')
     } catch (failure) {
@@ -257,15 +285,18 @@ defineExpose({ show })
                 {{ formatMessage(messages.description) }}
             </p>
             <p v-if="error" class="m-0 whitespace-pre-wrap text-red" role="alert">{{ error }}</p>
-            <p v-if="resultText" class="m-0 text-brand" role="status">{{ resultText }}</p>
+            <p v-for="text in resultText" :key="text" class="m-0 text-brand" role="status">
+                {{ text }}
+            </p>
             <template v-if="plan">
                 <Admonition
+                    v-if="reviewedExisting.length"
                     type="warning"
                     :header="
                         formatMessage(messages.reviewSize, {
-                            count: plan.files.length,
+                            count: reviewedExisting.length,
                             size: formatBytes(
-                                plan.files.reduce(
+                                reviewedExisting.reduce(
                                     (total, file) => total + (file.integrity.size ?? 0),
                                     0,
                                 ),
@@ -275,10 +306,16 @@ defineExpose({ show })
                 >
                     {{
                         formatMessage(messages.warning, {
-                            count: plan.files.filter((file) => file.rollbackAvailable).length,
+                            count: reviewedExisting.filter((file) => file.rollbackAvailable).length,
                         })
                     }}
                 </Admonition>
+                <p
+                    v-if="reviewedMissingCount"
+                    class="m-0 text-sm text-[var(--color-text-tertiary)]"
+                >
+                    {{ formatMessage(messages.reviewMissing, { count: reviewedMissingCount }) }}
+                </p>
                 <div class="divide-y divide-divider rounded-xl border border-solid border-divider">
                     <div
                         v-for="file in plan.files"
@@ -293,7 +330,9 @@ defineExpose({ show })
                             </p>
                         </div>
                         <span class="shrink-0 text-sm tabular-nums">{{
-                            formatBytes(file.integrity.size ?? 0)
+                            file.exists
+                                ? formatBytes(file.integrity.size ?? 0)
+                                : formatMessage(messages.missing)
                         }}</span>
                     </div>
                 </div>
@@ -355,7 +394,7 @@ defineExpose({ show })
                         >
                             <Checkbox
                                 :model-value="selected.includes(file.id)"
-                                :disabled="busy || !file.recognized || !file.exists"
+                                :disabled="busy || !canSelect(file)"
                                 :description="file.relativePath"
                                 @update:model-value="select(file.id, $event)"
                             />
@@ -420,7 +459,15 @@ defineExpose({ show })
                         :loading="cleaning"
                         :disabled="busy"
                         @click="cleanup()"
-                        ><TrashIcon class="size-4" />{{ formatMessage(messages.confirm) }}</Button
+                        ><TrashIcon v-if="reviewedExisting.length" class="size-4" />{{
+                            formatMessage(
+                                !reviewedMissingCount
+                                    ? messages.confirm
+                                    : reviewedExisting.length
+                                      ? messages.reviewTitle
+                                      : messages.confirmMissing,
+                            )
+                        }}</Button
                     >
                     <Button
                         v-else

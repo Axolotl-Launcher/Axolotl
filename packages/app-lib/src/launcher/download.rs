@@ -7,6 +7,7 @@ use crate::install::{
 };
 use crate::instance::QuickPlayType;
 use crate::launcher::parse_rules;
+use crate::launcher::version_json::parse_version_json;
 use crate::util::download::constants::DERIVED_VERSION_CACHE_FORMAT;
 use crate::util::download::constants::FABRIC_MAVEN;
 use crate::util::download::constants::FORGE_MAVEN;
@@ -1069,7 +1070,7 @@ fn missing_initial_minecraft_bytes(
         )?)
 }
 
-#[tracing::instrument(skip_all, fields(version = version.id.as_str()))]
+#[tracing::instrument(skip_all, level = "info", fields(version = version.id.as_str()))]
 #[allow(clippy::too_many_arguments)]
 pub async fn download_minecraft(
     st: &State,
@@ -1155,7 +1156,7 @@ pub async fn download_minecraft(
     Ok(progress)
 }
 
-#[tracing::instrument(skip_all, fields(version = version.id.as_str(), loader = ?loader))]
+#[tracing::instrument(skip_all, level = "info", fields(version = version.id.as_str(), loader = ?loader))]
 
 pub async fn download_version_info(
     st: &State,
@@ -1177,10 +1178,8 @@ pub async fn download_version_info(
     let cache_is_current =
         loader.is_none() || derived_version_cache_is_current(&path).await;
     let res = if path.exists() && !force.unwrap_or(false) && cache_is_current {
-        let mut info: GameVersionInfo = io::read(&path)
-            .err_into::<crate::Error>()
-            .await
-            .and_then(|ref it| Ok(serde_json::from_slice(it)?))?;
+        let bytes = io::read(&path).err_into::<crate::Error>().await?;
+        let mut info = parse_client_version_json(&path, &bytes)?;
         let normalized_timestamps =
             normalize_version_timestamps(version, &mut info);
         let normalized =
@@ -1343,6 +1342,13 @@ pub async fn download_version_info(
     Ok(res)
 }
 
+fn parse_client_version_json(
+    path: &Path,
+    bytes: &[u8],
+) -> crate::Result<GameVersionInfo> {
+    parse_version_json(path, bytes, false)
+}
+
 pub async fn load_local_version_info(
     st: &State,
     version: &GameVersion,
@@ -1365,7 +1371,7 @@ pub async fn load_local_version_info(
     }
 
     let bytes = io::read(&path).err_into::<crate::Error>().await?;
-    let mut info: GameVersionInfo = serde_json::from_slice(&bytes)?;
+    let mut info = parse_client_version_json(&path, &bytes)?;
     let normalized_timestamps =
         normalize_version_timestamps(version, &mut info);
     let normalized =
@@ -1431,7 +1437,13 @@ async fn read_launch_profile(
         return None;
     }
     let bytes = tokio::fs::read(path).await.ok()?;
-    let info: GameVersionInfo = serde_json::from_slice(&bytes).ok()?;
+    let info = match parse_client_version_json(path, &bytes) {
+        Ok(info) => info,
+        Err(error) => {
+            tracing::warn!(%version_id, %error, "Local launch profile could not be parsed; resolving metadata online");
+            return None;
+        }
+    };
     if info.id != version_id
         || info.main_class.trim().is_empty()
         || info.asset_index.id.is_empty()
@@ -1511,7 +1523,7 @@ async fn restore_legacy_minecraft_arguments(
             return Ok(false);
         }
     };
-    let vanilla: GameVersionInfo = match serde_json::from_slice(&bytes) {
+    let vanilla = match parse_client_version_json(&vanilla_path, &bytes) {
         Ok(version_info) => version_info,
         Err(error) => {
             tracing::warn!(
@@ -1691,7 +1703,7 @@ async fn move_corrupt_client(path: &Path) -> Option<PathBuf> {
     }
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 
 pub async fn download_client(
     st: &State,
@@ -1810,7 +1822,7 @@ pub async fn download_client(
     Ok(())
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 
 pub async fn download_assets_index(
     st: &State,
@@ -2004,7 +2016,7 @@ fn coalesce_batch_assets(items: Vec<H2BatchAsset>) -> Vec<H2BatchAsset> {
     coalesced
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub async fn download_assets(
     st: &State,
@@ -2336,7 +2348,7 @@ fn fallback_progress_units(
     u32::from(fetched)..logical_items
 }
 
-#[tracing::instrument(skip_all, fields(version))]
+#[tracing::instrument(skip_all, level = "info", fields(version))]
 #[allow(clippy::too_many_arguments)]
 pub async fn download_libraries(
     st: &State,
@@ -2809,7 +2821,7 @@ fn native_libraries_to_download<'a>(
     Ok(result)
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn download_log_config(
     st: &State,
     local_source: Option<&LocalRuntimeSource>,
@@ -2966,6 +2978,25 @@ mod tests {
         .unwrap();
         info.java_version = java;
         info
+    }
+
+    #[test]
+    fn cached_client_json_reports_bad_argument_without_its_value() {
+        let mut document =
+            serde_json::to_value(version_info_with_java(None)).unwrap();
+        document["arguments"] = serde_json::json!({
+            "game": ["--username", {"value": ["private-test-token", false]}]
+        });
+        let path = Path::new("versions/client/client.json");
+        let error = parse_client_version_json(
+            path,
+            &serde_json::to_vec(&document).unwrap(),
+        )
+        .unwrap_err();
+        let message = error.to_string();
+        assert!(message.contains(&path.display().to_string()));
+        assert!(message.contains("arguments.game[1]"));
+        assert!(!message.contains("private-test-token"));
     }
 
     #[test]

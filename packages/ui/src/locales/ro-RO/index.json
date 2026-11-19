@@ -176,9 +176,6 @@
   "button.reset": {
     "defaultMessage": "Resetează"
   },
-  "button.reset-server": {
-    "defaultMessage": "Restartează serverul"
-  },
   "button.retry": {
     "defaultMessage": "Reîncearcă"
   },
@@ -541,54 +538,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "Numele este obligatoriu."
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Instalează un pachet de moduri CurseForge"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Nu s-a găsit un pachet de moduri CurseForge cu acel URL."
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "Pachet de moduri CurseForge negăsit"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Introduceți link"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "URL trebuie sa fie un URL de versiune de pachet de resurse CurseForge."
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URL trebuie sa fie valid."
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "URL este obligatoriu."
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "Instalează"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Instalarea a eșuat"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Copiază versiunea paginii URL si lipește-o mai jos."
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Copiază URL-ul"
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Caută pachetul de moduri"
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Selectează o versiune"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "A apărut o eroare neprevăzută"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Copiază si lipește URL-ul descărcării directe al unui fișier .zip."
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": "Se postează conținuturile .zip din URL"
   },
   "form.label.address-line": {
     "defaultMessage": "Adresă"

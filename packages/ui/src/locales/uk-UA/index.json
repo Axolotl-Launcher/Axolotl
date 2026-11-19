@@ -176,9 +176,6 @@
   "button.reset": {
     "defaultMessage": "Скинути"
   },
-  "button.reset-server": {
-    "defaultMessage": "Скинути сервер"
-  },
   "button.retry": {
     "defaultMessage": "Повторити"
   },
@@ -383,9 +380,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "Імпорт {count, plural, one {# профілю} few {# профілів} many {# профілів} other {# профілів}}"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "Налаштування сервера"
-  },
   "creation-flow.modal.custom-setup.build-number.label": {
     "defaultMessage": "Номер збірки"
   },
@@ -487,12 +481,6 @@
   },
   "creation-flow.title.import-instance": {
     "defaultMessage": "Імпорт профілю"
-  },
-  "creation-flow.title.reset-server": {
-    "defaultMessage": "Перезапустити сервер"
-  },
-  "creation-flow.title.set-up-server": {
-    "defaultMessage": "Налаштування сервера"
   },
   "external-project-license-status.no": {
     "defaultMessage": "Ні"
@@ -713,9 +701,6 @@
   "files.navbar.home": {
     "defaultMessage": "Головна"
   },
-  "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "Установити збірку CurseForge"
-  },
   "files.navbar.new-file": {
     "defaultMessage": "Новий файл"
   },
@@ -724,12 +709,6 @@
   },
   "files.navbar.search-files": {
     "defaultMessage": "Пошук файлів"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "Вивантажити з файлу .zip"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Вивантажити з посилання на .zip"
   },
   "files.rename-modal.header": {
     "defaultMessage": "Перейменувати «{name}»"
@@ -772,60 +751,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "Назва є обов’язковою."
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Установити збірку CurseForge"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Не вдалося знайти збірку CurseForge за цим посиланням."
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "Збірку CurseForge не знайдено"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Укажіть посилання"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "Посилання має вести на версію збірки CurseForge."
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "Посилання має бути дійсним."
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "Посилання є обов’язковим."
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "Установити"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Не вдалося встановити"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Скопіюйте посилання на сторінку версії та вкажіть його нижче."
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Скопіюйте посилання"
-  },
-  "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Перейдіть на CurseForge і знайдіть бажану збірку."
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Знайдіть збірку"
-  },
-  "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Перейдіть у вкладку «Файли» й виберіть версію, яку хочете встановити."
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Виберіть версію"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Виникла невідома помилка"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Скопіюйте й вставте пряме посилання на завантаження файлу .zip."
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": "Вивантаження вмісту .zip із посилання"
   },
   "form.label.address-line": {
     "defaultMessage": "Рядок адреси"

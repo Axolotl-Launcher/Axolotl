@@ -31,6 +31,7 @@ fn uses_fml_runtime(info: &VersionInfo) -> bool {
         "cpw.mods.bootstraplauncher.BootstrapLauncher"
             | "cpw.mods.modlauncher.Launcher"
             | "net.minecraftforge.bootstrap.BootstrapLauncher"
+            | "net.neoforged.fml.startup.Client"
     )
 }
 
@@ -281,6 +282,8 @@ pub(crate) fn project_manifest(
     version_name: &str,
     game_version: &str,
 ) -> crate::Result<PortableVersion> {
+    let neoforge_startup =
+        info.main_class == "net.neoforged.fml.startup.Client";
     let generated = generated_fml_runtime_libraries(info)?;
     let mut libraries = info
         .libraries
@@ -329,7 +332,7 @@ pub(crate) fn project_manifest(
     let mut document = serde_json::to_value(info)?;
     document["id"] = version_name.into();
     document["clientVersion"] = game_version.into();
-    if uses_fml_runtime(info) {
+    if uses_fml_runtime(info) && !neoforge_startup {
         exclude_fml_game_modules_from_bootstrap(
             &mut document,
             &libraries,
@@ -343,6 +346,15 @@ pub(crate) fn project_manifest(
     object.remove("processors");
     let portable_libraries = libraries
         .iter()
+        // New FML discovers these JARs through libraryDirectory. Putting them
+        // on the startup classpath makes it detect a development environment.
+        .filter(|library| {
+            !neoforge_startup
+                || !(is_fml_runtime_library(&library.library)
+                    || generated.iter().any(|generated| {
+                        generated.name == library.library.name
+                    }))
+        })
         .map(|library| {
             let mut value = serde_json::to_value(&library.library)?;
             let object = value
@@ -803,6 +815,32 @@ mod tests {
         info
     }
 
+    fn neoforge_startup_version_info() -> VersionInfo {
+        let mut info = version_info();
+        info.id = "26.3-26.3.0.103".to_string();
+        info.main_class = "net.neoforged.fml.startup.Client".to_string();
+        info.arguments.as_mut().unwrap().insert(
+            daedalus::minecraft::ArgumentType::Jvm,
+            vec![daedalus::minecraft::Argument::Normal(
+                "-DlibraryDirectory=${library_directory}".to_string(),
+            )],
+        );
+        info.libraries = serde_json::from_value(json!([
+            {"name": "net.neoforged.fancymodloader:loader:12.0.12"},
+            {"name": "net.neoforged:neoforge:26.3.0.103:universal", "include_in_classpath": false},
+            {"name": "net.neoforged.installertools:installertools:4.0.17:fatjar", "include_in_classpath": false}
+        ])).unwrap();
+        info.data.as_mut().unwrap().insert(
+            "PATCHED".to_string(),
+            daedalus::modded::SidedDataEntry {
+                client: "[net.neoforged:minecraft-client-patched:26.3.0.103]"
+                    .to_string(),
+                server: String::new(),
+            },
+        );
+        info
+    }
+
     async fn fixture() -> (TempDir, Arc<State>, DirectLinkedLaunch) {
         let temp = TempDir::new().unwrap();
         let dirs = DirectoryInfo {
@@ -1206,6 +1244,101 @@ mod tests {
             );
             assert_eq!(serde_json::to_value(&info).unwrap(), before);
         }
+    }
+
+    #[tokio::test]
+    async fn neoforge_startup_exports_patched_client_and_universal() {
+        let (_temp, state, direct) = fixture().await;
+        let info = neoforge_startup_version_info();
+        let before = serde_json::to_value(&info).unwrap();
+        let projected = project_manifest(&info, "Survival", "26.3").unwrap();
+        assert_eq!(projected.libraries.len(), 3);
+        assert_eq!(projected.document["arguments"], before["arguments"]);
+        assert_eq!(projected.document["mainClass"], before["mainClass"]);
+        assert_eq!(
+            projected.document["libraries"].as_array().unwrap().len(),
+            1
+        );
+        seed_cache(&state, &info);
+        finalize_version(
+            &direct,
+            &info.id,
+            "26.3",
+            &info,
+            &state,
+            std::env::consts::ARCH,
+            true,
+            None,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        for coordinate in [
+            "net.neoforged:minecraft-client-patched:26.3.0.103",
+            "net.neoforged:neoforge:26.3.0.103:universal",
+        ] {
+            let relative =
+                daedalus::get_path_from_artifact(coordinate).unwrap();
+            assert_eq!(
+                std::fs::read(direct.libraries_dir().join(&relative)).unwrap(),
+                std::fs::read(state.directories.libraries_dir().join(relative))
+                    .unwrap()
+            );
+            assert!(
+                !direct
+                    .resolve()
+                    .unwrap()
+                    .merged
+                    .libraries
+                    .iter()
+                    .any(|library| library.library.name == coordinate)
+            );
+        }
+        let resolved = direct.resolve().unwrap();
+        let classpath = super::super::args::get_linked_class_paths(
+            &direct,
+            &resolved.merged.libraries,
+            &[&direct.client_jar("Survival")],
+            std::env::consts::ARCH,
+            true,
+        )
+        .unwrap();
+        assert!(classpath.contains("loader-12.0.12.jar"), "{classpath}");
+        assert!(
+            !classpath.contains("minecraft-client-patched"),
+            "{classpath}"
+        );
+        assert!(!classpath.contains("-universal.jar"), "{classpath}");
+        assert!(
+            !direct
+                .libraries_dir()
+                .join("net/neoforged/installertools")
+                .exists()
+        );
+        assert_eq!(serde_json::to_value(&info).unwrap(), before);
+    }
+
+    #[tokio::test]
+    async fn missing_neoforge_startup_patched_client_blocks_publication() {
+        let (_temp, state, direct) = fixture().await;
+        let info = neoforge_startup_version_info();
+        seed_cache(&state, &info);
+        let patched = "net.neoforged:minecraft-client-patched:26.3.0.103";
+        std::fs::remove_file(
+            state
+                .directories
+                .libraries_dir()
+                .join(daedalus::get_path_from_artifact(patched).unwrap()),
+        )
+        .unwrap();
+        let json = direct.version_dir().join("Survival.json");
+        write(&json, b"previous manifest");
+        let error = finalize(&state, &direct, &info, &CancellationToken::new())
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains(patched), "{error}");
+        assert_eq!(std::fs::read(json).unwrap(), b"previous manifest");
     }
 
     #[tokio::test]

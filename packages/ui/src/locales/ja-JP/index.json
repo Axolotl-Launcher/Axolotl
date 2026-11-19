@@ -176,9 +176,6 @@
   "button.reset": {
     "defaultMessage": "リセット"
   },
-  "button.reset-server": {
-    "defaultMessage": "サーバーをリセット"
-  },
   "button.retry": {
     "defaultMessage": "再試行"
   },
@@ -410,9 +407,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "{count} 件のインスタンスをインポート"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "サーバーをセットアップ"
-  },
   "creation-flow.modal.custom-setup.build-number.label": {
     "defaultMessage": "ビルド番号"
   },
@@ -514,12 +508,6 @@
   },
   "creation-flow.title.import-instance": {
     "defaultMessage": "インスタンスをインポート"
-  },
-  "creation-flow.title.reset-server": {
-    "defaultMessage": "サーバーをリセット"
-  },
-  "creation-flow.title.set-up-server": {
-    "defaultMessage": "サーバーの設定"
   },
   "files.conflict-modal.header": {
     "defaultMessage": "概要を書き出す"
@@ -722,9 +710,6 @@
   "files.navbar.home": {
     "defaultMessage": "ホーム"
   },
-  "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "CurseForgeのmodpackをインストールする"
-  },
   "files.navbar.new-file": {
     "defaultMessage": "新しいファイル"
   },
@@ -733,12 +718,6 @@
   },
   "files.navbar.search-files": {
     "defaultMessage": "ファイルを探す"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": ".zipファイルからアップロード"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": ".zip URLからアップロード"
   },
   "files.rename-modal.header": {
     "defaultMessage": "名前変更 {name}"
@@ -781,60 +760,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "名前は必須です。"
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "CurseForgeのmodpackをインストールする"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "そのURLでCurseForge modpackが見つかりませんでした。"
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "CurseForge modpackが見つかりません"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "リンクを入力"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "URLはCurseForgeのmodpackバージョンのURLである必要があります。"
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URLは有効である必要があります。"
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "URLは必須です。"
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "インストール"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "インストールに失敗"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "バージョンページのURLをコピーして、以下に貼り付けてください。"
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "URLをコピー"
-  },
-  "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "CurseForgeを閲覧して、目的のMODパックを探してください。"
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Modパックを探す"
-  },
-  "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "「ファイル」タブを開き、インストールするバージョンを選択してください。"
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "バージョンを選択"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "不明なエラーが発生しました"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": ".zipファイルの直接ダウンロードURLをコピーして貼り付けてください。"
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": "URLから.zipコンテンツをアップロードしています"
   },
   "form.label.address-line": {
     "defaultMessage": "住所 1行目"

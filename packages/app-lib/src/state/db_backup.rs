@@ -8,12 +8,15 @@
 
 use sqlx::sqlite::{SqliteConnectOptions, SqliteConnection};
 use sqlx::{ConnectOptions, Connection};
+use std::borrow::Cow;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod startup;
-pub(crate) use startup::{mark_clean_shutdown, prepare_app_db};
+pub(crate) use startup::mark_clean_shutdown;
+#[cfg(test)]
+pub(crate) use startup::prepare_app_db;
 
 static SNAPSHOT_WRITE: tokio::sync::Mutex<()> =
     tokio::sync::Mutex::const_new(());
@@ -139,7 +142,7 @@ async fn check_database_integrity(
         "Checking app database integrity; large databases may take longer"
     );
     let options = SqliteConnectOptions::new()
-        .filename(db_path)
+        .filename(sqlite_native_path(db_path).await?.as_ref())
         .busy_timeout(Duration::from_secs(30))
         .read_only(true)
         .create_if_missing(false);
@@ -341,6 +344,7 @@ async fn cleanup_staged_database(db_path: &Path) {
     let _ = remove_database_sidecars(db_path).await;
 }
 
+#[cfg(test)]
 pub(crate) async fn maybe_backup_existing_app_db(
     db_path: &Path,
 ) -> crate::Result<()> {
@@ -500,6 +504,9 @@ pub(crate) async fn backup_app_db_for_update(
     db_path: &Path,
     target_version: &str,
 ) -> crate::Result<PathBuf> {
+    if db_path.file_name().is_some_and(|name| name == "system.db") {
+        return Err(crate::ErrorKind::InputError("A database domain set must be backed up through the opened launcher, not as a single SQLite file".into()).into());
+    }
     let _guard = SNAPSHOT_WRITE.lock().await;
     if !db_path.try_exists()? {
         return Err(crate::ErrorKind::FSError(format!(
@@ -576,11 +583,38 @@ async fn ensure_recent_recovery_snapshot(
     Ok(())
 }
 
+pub(super) async fn sqlite_native_path(
+    path: &Path,
+) -> std::io::Result<Cow<'_, Path>> {
+    #[cfg(windows)]
+    {
+        // SQLite calls Win32 directly, so Rust's long-path handling does
+        // not apply. Resolve the parent because the file may not exist yet.
+        let name = path.file_name().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "SQLite path needs a file name",
+            )
+        })?;
+        let parent = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        Ok(Cow::Owned(
+            tokio::fs::canonicalize(parent).await?.join(name),
+        ))
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(Cow::Borrowed(path))
+    }
+}
+
 pub(super) async fn open_read_only_db(
     db_path: &Path,
 ) -> crate::Result<SqliteConnection> {
     let conn_options = SqliteConnectOptions::new()
-        .filename(db_path)
+        .filename(sqlite_native_path(db_path).await?.as_ref())
         .busy_timeout(Duration::from_secs(30))
         .read_only(true)
         .create_if_missing(false);
@@ -608,10 +642,15 @@ pub fn app_db_backup_dir() -> crate::Result<PathBuf> {
                     .to_string(),
             ))?;
 
-    Ok(base.join("Backups").join("app-db"))
+    let family = if super::store::databases::exists(&base) {
+        "databases"
+    } else {
+        "app-db"
+    };
+    Ok(base.join("Backups").join(family))
 }
 
-fn app_db_backup_dir_for(db_path: &Path) -> crate::Result<PathBuf> {
+pub(crate) fn app_db_backup_dir_for(db_path: &Path) -> crate::Result<PathBuf> {
     let settings_dir =
         db_path.parent().and_then(Path::parent).ok_or_else(|| {
             crate::ErrorKind::FSError(format!(
@@ -620,9 +659,15 @@ fn app_db_backup_dir_for(db_path: &Path) -> crate::Result<PathBuf> {
             ))
         })?;
 
+    let family = if db_path.file_name().is_some_and(|name| name == "system.db")
+    {
+        "databases"
+    } else {
+        "app-db"
+    };
     let backup_dir = std::env::var_os("THESEUS_DB_BACKUP_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| settings_dir.join("Backups").join("app-db"));
+        .unwrap_or_else(|| settings_dir.join("Backups").join(family));
     match db_path
         .parent()
         .and_then(Path::file_name)
@@ -821,6 +866,7 @@ pub(super) async fn create_verified_sqlite_snapshot(
     conn: &mut SqliteConnection,
     backup_path: &Path,
 ) -> crate::Result<()> {
+    let backup_path = sqlite_native_path(backup_path).await?;
     let staging =
         backup_path.with_extension(format!("{}.partial", uuid::Uuid::new_v4()));
     let result = async {
@@ -840,7 +886,7 @@ pub(super) async fn create_verified_sqlite_snapshot(
             .await?
             .sync_all()
             .await?;
-        tokio::fs::rename(&staging, backup_path).await?;
+        tokio::fs::rename(&staging, backup_path.as_ref()).await?;
         Ok(())
     }
     .await;
@@ -976,6 +1022,41 @@ mod tests {
         source.close().await.unwrap();
         assert!(!target.exists());
         assert_eq!(read_marker(&database).await, "unchanged");
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn verified_snapshot_accepts_long_windows_paths() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut root = dunce::simplified(temp.path()).to_path_buf();
+        while root.as_os_str().len() <= 250 {
+            root.push("long-directory-".repeat(4));
+        }
+        let source = root.join("original/legacy.db");
+        let destination_dir = root.join("snapshots");
+        let destination = destination_dir.join("app.db");
+        tokio::fs::create_dir_all(source.parent().unwrap())
+            .await
+            .unwrap();
+        tokio::fs::create_dir_all(&destination_dir).await.unwrap();
+        let native_source = sqlite_native_path(&source).await.unwrap();
+        create_test_app_db(native_source.as_ref(), "from-legacy").await;
+        let original = tokio::fs::read(&source).await.unwrap();
+
+        let mut conn = open_read_only_db(&source).await.unwrap();
+        create_verified_sqlite_snapshot(&mut conn, &destination)
+            .await
+            .unwrap();
+        conn.close().await.unwrap();
+
+        assert_eq!(read_marker(&destination).await, "from-legacy");
+        assert_eq!(tokio::fs::read(&source).await.unwrap(), original);
+        let mut files = tokio::fs::read_dir(destination_dir).await.unwrap();
+        assert_eq!(
+            files.next_entry().await.unwrap().unwrap().file_name(),
+            "app.db"
+        );
+        assert!(files.next_entry().await.unwrap().is_none());
     }
 
     #[tokio::test]
@@ -1300,5 +1381,21 @@ mod tests {
             }
         }
         assert_eq!(snapshots, MAX_APP_DB_BACKUPS);
+    }
+
+    #[test]
+    fn attached_database_backup_folder_uses_the_shared_set_family() {
+        let temporary = tempfile::tempdir().unwrap();
+        let database = temporary.path().join("databases/system.db");
+        let expected = std::env::var_os("THESEUS_DB_BACKUP_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| temporary.path().join("Backups/databases"));
+        assert_eq!(app_db_backup_dir_for(&database).unwrap(), expected);
+        let legacy = temporary.path().join("beta/app.db");
+        let expected = std::env::var_os("THESEUS_DB_BACKUP_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| temporary.path().join("Backups/app-db"))
+            .join("beta");
+        assert_eq!(app_db_backup_dir_for(&legacy).unwrap(), expected);
     }
 }

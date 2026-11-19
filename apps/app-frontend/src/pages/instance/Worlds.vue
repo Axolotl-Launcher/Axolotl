@@ -366,6 +366,7 @@ const worldsQuery = useQuery({
     queryKey: computed(() => ['worlds', instance.value.id]),
     queryFn: () => refreshWorlds(instance.value.id),
     staleTime: 30_000,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
 })
@@ -530,7 +531,7 @@ async function loadServerContext() {
     }
 }
 
-await initWorldsTab()
+void initWorldsTab().catch(handleError)
 
 async function refreshServer(address: string) {
     if (!serverData.value[address]) {

@@ -10,7 +10,7 @@ use url::Url;
 use super::{
     SingleplayerGameMode, get_world_dir, get_world_session_lock,
     resolve_instance_data_dir, resolve_instance_identity,
-    try_get_world_session_lock,
+    try_get_world_read_lock,
 };
 use crate::util::io;
 use crate::{Error, ErrorKind, Result, State};
@@ -477,7 +477,8 @@ pub async fn get_world_level_data(
     .await?;
     let world_dir = get_world_dir(&instance_dir, world)?;
 
-    let locked = try_get_world_session_lock(&world_dir).await?.is_none();
+    let session_lock = try_get_world_read_lock(&world_dir).await?;
+    let locked = session_lock.is_none();
 
     let raw = io::read(world_dir.join("level.dat")).await?;
     let (root, _) = read_nbt_root(&raw)?;

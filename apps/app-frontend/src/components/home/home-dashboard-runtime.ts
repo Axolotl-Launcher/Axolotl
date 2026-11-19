@@ -2,6 +2,7 @@ import type { GameVersion } from '@modrinth/ui'
 import type { InjectionKey, Ref } from 'vue'
 import { inject, onUnmounted, provide, reactive, ref } from 'vue'
 
+import { createCoalescedRefresh } from '@/helpers/coalesced-refresh'
 import { instance_listener, process_listener } from '@/helpers/events'
 import { get_all } from '@/helpers/process'
 import { serverEventListener, type ServerInfoData, servers as serversApi } from '@/helpers/servers'
@@ -18,7 +19,7 @@ import {
     type WorldWithInstance,
 } from '@/helpers/worlds'
 
-import { createHomeRefresh, homeWorldsChanged } from './home-refresh'
+import { homeWorldsChanged } from './home-refresh'
 
 type ErrorHandler = (error: unknown) => void
 
@@ -31,6 +32,9 @@ export type HomeDashboardRuntime = {
     pinnedLocalServers: Ref<ServerInfoData[]>
     gameVersions: Ref<GameVersion[]>
     instanceRevision: Ref<number>
+    /** False until the first answer arrives, so widgets show a skeleton, not "empty". */
+    favoritesLoaded: Ref<boolean>
+    recentWorldsLoaded: Ref<boolean>
     refreshFavorites: () => Promise<void>
     refreshRecentWorlds: () => Promise<void>
     refreshPinnedLocalServers: () => Promise<void>
@@ -55,6 +59,8 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
     const pinnedLocalServers = ref<ServerInfoData[]>([])
     const gameVersions = ref<GameVersion[]>([])
     const instanceRevision = ref(0)
+    const favoritesLoaded = ref(false)
+    const recentWorldsLoaded = ref(false)
     const worldsByInstance = reactive<Record<string, World[]>>({})
     const serverData = reactive<Record<string, ServerData>>({})
     const protocolVersions = reactive<Record<string, ProtocolVersion | null>>({})
@@ -66,7 +72,7 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
     const unlisteners: Array<() => void> = []
     let disposed = false
 
-    const refreshRunningInstances = createHomeRefresh(
+    const refreshRunningInstances = createCoalescedRefresh(
         async () => {
             try {
                 const processes = await get_all()
@@ -122,7 +128,7 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
         }
     }
 
-    const refreshFavorites = createHomeRefresh(
+    const refreshFavorites = createCoalescedRefresh(
         async () => {
             try {
                 const worlds = await get_favorite_worlds()
@@ -131,12 +137,14 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
                 warmServerData(favoriteWorlds.value)
             } catch (error) {
                 handleError(error)
+            } finally {
+                if (!disposed) favoritesLoaded.value = true
             }
         },
         () => disposed,
     )
 
-    const refreshRecentWorlds = createHomeRefresh(
+    const refreshRecentWorlds = createCoalescedRefresh(
         async () => {
             try {
                 const worlds = await get_recent_worlds(8, ['normal', 'favorite'])
@@ -145,12 +153,14 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
                 warmServerData(recentWorlds.value)
             } catch (error) {
                 handleError(error)
+            } finally {
+                if (!disposed) recentWorldsLoaded.value = true
             }
         },
         () => disposed,
     )
 
-    const refreshPinnedLocalServers = createHomeRefresh(
+    const refreshPinnedLocalServers = createCoalescedRefresh(
         async () => {
             try {
                 const all = await serversApi.list()
@@ -247,6 +257,8 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
         pinnedLocalServers,
         gameVersions,
         instanceRevision,
+        favoritesLoaded,
+        recentWorldsLoaded,
         refreshFavorites,
         refreshRecentWorlds,
         refreshPinnedLocalServers,
@@ -263,4 +275,9 @@ export function useHomeDashboardRuntime() {
     const runtime = inject(HOME_DASHBOARD_RUNTIME_KEY)
     if (!runtime) throw new Error('Home dashboard runtime was not provided')
     return runtime
+}
+
+/** The dashboard runtime when Home shows widgets; null on the minimal Home. */
+export function useOptionalHomeDashboardRuntime() {
+    return inject(HOME_DASHBOARD_RUNTIME_KEY, null)
 }

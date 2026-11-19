@@ -104,6 +104,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn studio_trash(instance_id: &str, file_path: &str) -> Result<()> {
     let base = get_full_path(instance_id).await?;
@@ -130,6 +131,7 @@ pub async fn studio_trash(instance_id: &str, file_path: &str) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn studio_read_text(
     instance_id: &str,
@@ -176,6 +178,7 @@ async fn studio_file_path(
     Ok(source)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn studio_read_binary(
     instance_id: &str,
@@ -223,6 +226,7 @@ async fn replace_file_contents(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn studio_write_binary(
     instance_id: &str,
@@ -233,6 +237,7 @@ pub async fn studio_write_binary(
     replace_file_contents(&path, &bytes).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn studio_watch_register<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -319,6 +324,7 @@ pub async fn studio_watch_register<R: Runtime>(
     Ok(registration_id)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub fn studio_watch_unregister(
     state: tauri::State<'_, StudioWatchers>,
@@ -345,6 +351,7 @@ pub struct ExtractDryRunResult {
     conflicting_files: Vec<String>,
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn file_read_dragged_file(
     path: String,
@@ -366,6 +373,7 @@ pub async fn file_read_dragged_file(
 /// Decodes a screenshot and returns a downscaled thumbnail as raw image bytes,
 /// so the webview never decodes high-resolution originals in the screenshots grid.
 /// Files that already fit within `max_dimension` are returned unchanged.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn screenshot_thumbnail(
     instance_id: &str,
@@ -474,13 +482,12 @@ pub async fn screenshot_thumbnail(
 }
 
 pub(crate) async fn local_instance_icon_path(
-    instance_id: &str,
+    base: &Path,
     max_dimension: u32,
 ) -> Result<Option<String>> {
     const LOCAL_ICON_NAMES: [&str; 4] =
         ["icon.png", "icon.jpg", "icon.jpeg", "icon.webp"];
     const MAX_LOCAL_ICON_BYTES: usize = 2 * 1024 * 1024;
-    let base = get_full_path(instance_id).await?;
     let max_dimension = max_dimension.max(1);
 
     for file_name in LOCAL_ICON_NAMES {
@@ -601,12 +608,14 @@ pub(crate) async fn local_instance_icon_path(
     Ok(None)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn instance_icon_thumbnail(
     instance_id: &str,
     max_dimension: u32,
 ) -> Result<Option<String>> {
-    local_instance_icon_path(instance_id, max_dimension).await
+    let base = get_full_path(instance_id).await?;
+    local_instance_icon_path(&base, max_dimension).await
 }
 
 fn thumbnail_error(error: image::ImageError) -> theseus::Error {
@@ -615,6 +624,7 @@ fn thumbnail_error(error: image::ImageError) -> theseus::Error {
     )))
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn file_extract_zip(
     instance_id: &str,
@@ -726,6 +736,7 @@ pub async fn file_extract_zip(
     Ok(None)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn file_save_as<R: Runtime>(
     app: tauri::AppHandle<R>,

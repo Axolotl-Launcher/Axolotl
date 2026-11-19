@@ -3,7 +3,9 @@ import { WrenchIcon } from '@modrinth/assets'
 import { Button, defineMessages, injectNotificationManager, Toggle, useVIntl } from '@modrinth/ui'
 import { inject, ref, watch } from 'vue'
 
+import { networkMessages } from '@/components/ui/network/messages'
 import { useAntiPiracyStatus } from '@/composables/useAntiPiracyStatus'
+import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import McpDebugSettings from '@/features/mcp/McpDebugSettings.vue'
 import { get as getSettings, update as updateSettings } from '@/helpers/settings.ts'
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'
@@ -16,6 +18,7 @@ import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
 
 const themeStore = useTheming()
+const { simulatedOffline, setSimulatedOffline } = useNetworkStatus()
 const { formatMessage } = useVIntl()
 const { addNotification } = injectNotificationManager()
 const isDevEnvironment = await isDev()
@@ -224,6 +227,23 @@ watch(
 )
 </script>
 <template>
+    <SettingsSection v-if="themeStore.devMode" :title="formatMessage(messages.developerTools)">
+        <SettingsRow inline-control>
+            <template #label>
+                <label for="simulate-offline">{{ formatMessage(networkMessages.simulate) }}</label>
+            </template>
+            <template #description>{{
+                formatMessage(networkMessages.simulateDescription)
+            }}</template>
+            <template #control>
+                <Toggle
+                    id="simulate-offline"
+                    :model-value="simulatedOffline"
+                    @update:model-value="setSimulatedOffline"
+                />
+            </template>
+        </SettingsRow>
+    </SettingsSection>
     <SettingsSection
         :title="formatMessage(messages.featureFlagsSectionTitle)"
         title-id="settings-target-feature-flags"

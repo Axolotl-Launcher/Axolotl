@@ -37,7 +37,80 @@ async fn database_pool_retains_exclusive_file_ownership_until_dropped() {
 }
 
 #[tokio::test]
-async fn channel_copy_does_not_replay_the_previous_database_wal() {
+async fn startup_repairs_legacy_home_selection_without_modifying_its_source() {
+    use crate::state::{Settings, store::Handle};
+    use sqlx::ConnectOptions;
+
+    for (legacy_selection, expected_selection) in
+        [("absent-home", None), ("beta-home", Some("beta-home"))]
+    {
+        let directory = tempfile::tempdir().unwrap();
+        let database = directory.path().join("beta/app.db");
+        let pool = connect_app_db(&database).await.unwrap();
+        sqlx::query(
+            "INSERT INTO instances
+                (id, path, install_stage, launcher_feature_version, name, created, modified)
+             VALUES ('beta-home', 'beta-home', 'installed', 'none', 'Beta', 1, 1)",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        pool.close().await;
+        drop(pool);
+
+        let mut connection = SqliteConnectOptions::new()
+            .filename(&database)
+            .foreign_keys(false)
+            .connect()
+            .await
+            .unwrap();
+        sqlx::query(
+            "UPDATE settings SET minimal_home_instance_id = ?,
+                home_layout = 'minimal' WHERE id = 0",
+        )
+        .bind(legacy_selection)
+        .execute(&mut connection)
+        .await
+        .unwrap();
+        let foreign_key_errors =
+            sqlx::query("PRAGMA foreign_key_check(settings)")
+                .fetch_all(&mut connection)
+                .await
+                .unwrap();
+        assert_eq!(
+            foreign_key_errors.len(),
+            usize::from(expected_selection.is_none())
+        );
+        connection.close().await.unwrap();
+        let original = tokio::fs::read(&database).await.unwrap();
+
+        let core = connect_at(directory.path()).await.unwrap();
+        let appearance: serde_json::Value = serde_json::from_slice(
+            &tokio::fs::read(
+                directory.path().join("data/settings/appearance.json"),
+            )
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            appearance["data"]["minimal_home_instance_id"].as_str(),
+            expected_selection
+        );
+        let settings = Settings::get(&Handle::new(core.clone())).await.unwrap();
+        assert_eq!(settings.home_layout.as_str(), "minimal");
+        assert_eq!(
+            settings.minimal_home_instance_id.as_deref(),
+            expected_selection
+        );
+        assert_eq!(tokio::fs::read(&database).await.unwrap(), original);
+        core.close().await;
+    }
+}
+
+#[tokio::test]
+async fn verified_snapshot_replacement_does_not_replay_the_previous_database_wal()
+ {
     use sqlx::ConnectOptions;
     let directory = tempfile::tempdir().unwrap();
     let source = directory.path().join("source.db");
@@ -73,7 +146,21 @@ async fn channel_copy_does_not_replay_the_previous_database_wal() {
         .unwrap();
     connection.close().await.unwrap();
 
-    copy_channel_database(&source, &target, true).await.unwrap();
+    let _owner = files::Ownership::acquire(&target).await.unwrap();
+    files::recover(&target).await.unwrap();
+    let staged = directory.path().join("verified-snapshot.db");
+    let mut connection = super::super::db_backup::open_read_only_db(&source)
+        .await
+        .unwrap();
+    super::super::db_backup::create_verified_sqlite_snapshot(
+        &mut connection,
+        &staged,
+    )
+    .await
+    .unwrap();
+    connection.close().await.unwrap();
+    files::replace(&target, &staged).await.unwrap();
+    drop(_owner);
     let pool = open_app_db_pool(&target).await.unwrap();
     let tables: Vec<String> = sqlx::query_scalar(
         "SELECT name FROM sqlite_master WHERE type = 'table'",
@@ -96,17 +183,6 @@ async fn channel_copy_does_not_replay_the_previous_database_wal() {
         }
     }
     assert!(preserved_wal);
-}
-
-#[tokio::test]
-async fn channel_copy_refuses_an_owned_target_without_mutating_it() {
-    let directory = tempfile::tempdir().unwrap();
-    let source = directory.path().join("source.db");
-    let target = directory.path().join("target.db");
-    tokio::fs::write(&target, b"original").await.unwrap();
-    let _owner = files::Ownership::acquire(&target).await.unwrap();
-    assert!(copy_channel_database(&source, &target, true).await.is_err());
-    assert_eq!(tokio::fs::read(target).await.unwrap(), b"original");
 }
 
 #[tokio::test]
@@ -864,42 +940,216 @@ async fn update_channel_honors_explicit_selection() {
 }
 
 #[tokio::test]
-async fn reconcile_moves_database_without_explicit_choice() {
-    let channel = default_update_channel();
-    let other = if channel == "release" {
-        "beta"
-    } else {
-        "release"
-    };
+async fn initial_channel_keeps_the_only_existing_database() {
+    for (existing, build) in [("beta", "release"), ("release", "beta")] {
+        let directory = tempfile::tempdir().unwrap();
+        let settings_dir = directory.path();
+        let existing_dir = settings_dir.join(existing);
+        std::fs::create_dir_all(&existing_dir).unwrap();
+        std::fs::write(existing_dir.join(LEGACY_APP_DB_FILE), "existing data")
+            .unwrap();
+        std::fs::write(
+            existing_dir.join(format!("{LEGACY_APP_DB_FILE}-wal")),
+            "existing wal",
+        )
+        .unwrap();
+
+        initialize_update_channel(settings_dir, build)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            resolve_update_channel(settings_dir).await.unwrap(),
+            existing
+        );
+        assert_eq!(
+            app_db_path(settings_dir).await.unwrap(),
+            existing_dir.join(LEGACY_APP_DB_FILE),
+        );
+        assert_eq!(
+            std::fs::read_to_string(existing_dir.join(LEGACY_APP_DB_FILE))
+                .unwrap(),
+            "existing data",
+        );
+        assert_eq!(
+            std::fs::read_to_string(
+                existing_dir.join(format!("{LEGACY_APP_DB_FILE}-wal"))
+            )
+            .unwrap(),
+            "existing wal",
+        );
+        assert!(!settings_dir.join(build).join(LEGACY_APP_DB_FILE).exists());
+    }
+}
+
+#[tokio::test]
+async fn initial_channel_survives_beta_to_stable_upgrade() {
     let directory = tempfile::tempdir().unwrap();
     let settings_dir = directory.path();
-
-    let source_dir = settings_dir.join(other);
-    std::fs::create_dir_all(&source_dir).unwrap();
-    std::fs::write(source_dir.join(LEGACY_APP_DB_FILE), "existing data")
-        .unwrap();
-    std::fs::write(source_dir.join(format!("{LEGACY_APP_DB_FILE}-wal")), "wal")
-        .unwrap();
-
-    reconcile_default_channel_database(settings_dir)
+    std::fs::write(
+        settings_dir.join(UPDATE_CHANNEL_STATE_FILE),
+        r#"{"immediate_update_fetch":true,"updates_paused":false,"future_preference":"keep"}"#,
+    ).unwrap();
+    initialize_update_channel(settings_dir, "beta")
         .await
         .unwrap();
 
-    let target_dir = settings_dir.join(channel);
+    // Both channel databases can exist. A stable executable must keep opening
+    // the Beta database that this installation selected before the upgrade.
+    for (channel, label) in [
+        ("beta", "new beta instance"),
+        ("release", "old release instance"),
+    ] {
+        let path = settings_dir.join(channel).join(LEGACY_APP_DB_FILE);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let options = SqliteConnectOptions::new()
+            .filename(&path)
+            .create_if_missing(true);
+        let mut connection = sqlx::SqliteConnection::connect_with(&options)
+            .await
+            .unwrap();
+        sqlx::query("CREATE TABLE instance_fixture (name TEXT NOT NULL)")
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO instance_fixture VALUES (?)")
+            .bind(label)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        connection.close().await.unwrap();
+    }
+    initialize_update_channel(settings_dir, "release")
+        .await
+        .unwrap();
+    let selected = app_db_path(settings_dir).await.unwrap();
+    assert_eq!(selected, settings_dir.join("beta/app.db"));
+    let options = SqliteConnectOptions::new()
+        .filename(&selected)
+        .read_only(true);
+    let mut connection = sqlx::SqliteConnection::connect_with(&options)
+        .await
+        .unwrap();
+    let instance: String =
+        sqlx::query_scalar("SELECT name FROM instance_fixture")
+            .fetch_one(&mut connection)
+            .await
+            .unwrap();
+    assert_eq!(instance, "new beta instance");
+    connection.close().await.unwrap();
+    let state = read_update_channel_state(settings_dir).await.unwrap();
+    assert_eq!(state.active_channel.as_deref(), Some("beta"));
+    assert_eq!(state.immediate_update_fetch, Some(true));
+    assert_eq!(state.updates_paused, Some(false));
+    assert_eq!(state.extra["future_preference"], "keep");
+
+    // An intentional channel change retains the existing switch-on-restart
+    // behavior, even though automatic executable upgrades do not change it.
+    std::fs::write(
+        settings_dir.join(UPDATE_CHANNEL_STATE_FILE),
+        r#"{"active_channel":"release"}"#,
+    )
+    .unwrap();
+    initialize_update_channel(settings_dir, "beta")
+        .await
+        .unwrap();
     assert_eq!(
-        std::fs::read_to_string(target_dir.join(LEGACY_APP_DB_FILE)).unwrap(),
-        "existing data"
+        app_db_path(settings_dir).await.unwrap(),
+        settings_dir.join("release/app.db")
     );
-    assert_eq!(
-        std::fs::read_to_string(
-            target_dir.join(format!("{LEGACY_APP_DB_FILE}-wal"))
+}
+
+#[tokio::test]
+async fn initial_channel_uses_build_default_for_ambiguous_legacy_databases() {
+    for build in ["beta", "release"] {
+        let directory = tempfile::tempdir().unwrap();
+        let settings_dir = directory.path();
+        for channel in ["beta", "release"] {
+            let path = settings_dir.join(channel).join(LEGACY_APP_DB_FILE);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, channel).unwrap();
+        }
+        initialize_update_channel(settings_dir, build)
+            .await
+            .unwrap();
+        assert_eq!(resolve_update_channel(settings_dir).await.unwrap(), build);
+        for channel in ["beta", "release"] {
+            assert_eq!(
+                std::fs::read_to_string(
+                    settings_dir.join(channel).join(LEGACY_APP_DB_FILE)
+                )
+                .unwrap(),
+                channel
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn initial_channel_recovers_archived_database_before_selecting() {
+    for release_exists in [false, true] {
+        let directory = tempfile::tempdir().unwrap();
+        let settings_dir = directory.path();
+        let beta = settings_dir.join("beta/app.db");
+        std::fs::create_dir_all(beta.parent().unwrap()).unwrap();
+        let id = uuid::Uuid::new_v4();
+        let staged = files::sidecar(&beta, &format!(".replace-{id}.next"));
+        let archived =
+            files::sidecar(&beta, &format!(".replace-{id}.previous"));
+        let marker = files::sidecar(&beta, ".replacement.json");
+        std::fs::write(&staged, "unpublished replacement").unwrap();
+        std::fs::write(&archived, "original beta").unwrap();
+        std::fs::write(
+            &marker,
+            serde_json::to_vec(&serde_json::json!({
+                "id": id,
+                "original": [false, false, true],
+            }))
+            .unwrap(),
         )
-        .unwrap(),
-        "wal"
-    );
-    assert!(!source_dir.join(LEGACY_APP_DB_FILE).exists());
-    // The migration marker is removed once the move has completed.
-    assert!(!target_dir.join(CHANNEL_RECONCILE_MARKER_FILE).exists());
+        .unwrap();
+        let build = if release_exists {
+            let release = settings_dir.join("release/app.db");
+            std::fs::create_dir_all(release.parent().unwrap()).unwrap();
+            std::fs::write(release, "original release").unwrap();
+            "beta"
+        } else {
+            "release"
+        };
+
+        initialize_update_channel(settings_dir, build)
+            .await
+            .unwrap();
+
+        assert_eq!(app_db_path(settings_dir).await.unwrap(), beta);
+        assert_eq!(std::fs::read_to_string(&beta).unwrap(), "original beta");
+        assert!(!marker.exists());
+        assert!(!staged.exists());
+        if release_exists {
+            assert_eq!(
+                std::fs::read_to_string(settings_dir.join("release/app.db"))
+                    .unwrap(),
+                "original release"
+            );
+        } else {
+            assert!(!settings_dir.join("release/app.db").exists());
+        }
+    }
+}
+
+#[tokio::test]
+async fn initial_channel_does_not_replace_invalid_persisted_state() {
+    for contents in ["not json", r#"{"active_channel":"unknown"}"#] {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(UPDATE_CHANNEL_STATE_FILE);
+        std::fs::write(&path, contents).unwrap();
+        assert!(
+            initialize_update_channel(directory.path(), "release")
+                .await
+                .is_err()
+        );
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), contents);
+    }
 }
 
 #[tokio::test]
@@ -970,9 +1220,11 @@ async fn reconcile_resumes_after_an_interrupted_attempt() {
     std::fs::write(target_dir.join(format!("{LEGACY_APP_DB_FILE}-wal")), "wal")
         .unwrap();
 
-    reconcile_default_channel_database(settings_dir)
+    // Recovery follows the recorded move even if the executable channel changed.
+    initialize_update_channel(settings_dir, other)
         .await
         .unwrap();
+    assert_eq!(resolve_update_channel(settings_dir).await.unwrap(), channel);
 
     assert_eq!(
         std::fs::read_to_string(target_dir.join(LEGACY_APP_DB_FILE)).unwrap(),
@@ -1015,7 +1267,7 @@ async fn reconcile_aborts_on_foreign_orphan_sidecar() {
         .await
         .unwrap();
 
-    // Nothing is moved, created, or deleted.
+    // Neither database family is moved, created, or deleted.
     assert_eq!(
         std::fs::read_to_string(&source_db).unwrap(),
         "existing data"
@@ -1045,9 +1297,11 @@ async fn reconcile_aborts_on_mismatched_marker() {
     std::fs::write(target_dir.join(CHANNEL_RECONCILE_MARKER_FILE), channel)
         .unwrap();
 
-    reconcile_default_channel_database(settings_dir)
-        .await
-        .unwrap();
+    assert!(
+        reconcile_default_channel_database(settings_dir)
+            .await
+            .is_err()
+    );
 
     assert_eq!(
         std::fs::read_to_string(&source_db).unwrap(),
@@ -1087,9 +1341,11 @@ async fn reconcile_aborts_when_target_sidecar_appears_mid_flight() {
     let target_wal = target_dir.join(format!("{LEGACY_APP_DB_FILE}-wal"));
     std::fs::write(&target_wal, "target wal").unwrap();
 
-    reconcile_default_channel_database(settings_dir)
-        .await
-        .unwrap();
+    assert!(
+        reconcile_default_channel_database(settings_dir)
+            .await
+            .is_err()
+    );
 
     assert_eq!(
         std::fs::read_to_string(&source_db).unwrap(),
@@ -4066,4 +4322,573 @@ async fn content_dependency_backfill_marker_migration_upgrades_preserving_rows()
             .await
             .unwrap();
     assert!(foreign_key_errors.is_empty());
+}
+
+#[tokio::test]
+async fn initialized_domains_do_not_reconcile_or_open_legacy_channel_files() {
+    let temporary = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(temporary.path())
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO main.database_imports VALUES('app.db',1)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    crate::state::store::recovery_documents::import_legacy(
+        &pool,
+        temporary.path(),
+    )
+    .await
+    .unwrap();
+    pool.close().await;
+    drop(pool);
+    tokio::fs::write(temporary.path().join("app.db"), b"obsolete legacy file")
+        .await
+        .unwrap();
+    let pool = connect_at(temporary.path()).await.unwrap();
+    assert_eq!(
+        tokio::fs::read(temporary.path().join("app.db"))
+            .await
+            .unwrap(),
+        b"obsolete legacy file"
+    );
+    assert!(!temporary.path().join("release/app.db").exists());
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn legacy_startup_snapshot_keeps_pins_favorites_world_choices_and_daily_totals()
+ {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join("app.db");
+    let legacy = connect_app_db(&path).await.unwrap();
+    sqlx::query("INSERT INTO resources(id) VALUES('handover-resource')")
+        .execute(&legacy)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO resource_source_projects(source,project_id,resource_id) VALUES('modrinth','12345678','handover-resource')")
+        .execute(&legacy)
+        .await
+        .unwrap();
+    sqlx::raw_sql("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified,pinned_at) VALUES('handover','path','installed','none','Example',0,0,456);INSERT INTO resource_favorites(source,project_id,content_type,saved_at) VALUES('modrinth','12345678','mod',123);INSERT INTO attached_world_data(instance_id,world_type,world_id,display_status,project_id,content_kind) VALUES('handover','singleplayer','world','favorite','project','world_save');INSERT INTO instance_daily_playtime(played_on,instance_id,instance_name,played_seconds,session_count) VALUES('2026-11-15','handover','Example',77,1);").execute(&legacy).await.unwrap();
+    legacy.close().await;
+    drop(legacy);
+    let core = connect_at(temporary.path()).await.unwrap();
+    let persistence =
+        crate::state::persistence::Persistence::new(temporary.path());
+    assert_eq!(crate::state::user_state::favorites::pin_values(&persistence).await["handover"].timestamp(),456);
+    assert_eq!(
+        crate::state::user_state::favorites::all(&persistence)
+            .await
+            .unwrap()[0]
+            .saved_at,
+        123
+    );
+    assert_eq!(
+        crate::state::user_state::worlds::get_all(&persistence, "handover")
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    let day = "2026-11-15".parse().unwrap();
+    assert_eq!(crate::state::instances::adapters::sqlite::playtime::get_daily_playtime(day,day,&core).await.unwrap()[0].played_seconds,77);
+    let project = crate::resources::SourceProjectRef {
+        source: crate::resources::SourceId::modrinth(),
+        project_id: crate::resources::SourceProjectId::new("12345678").unwrap(),
+    };
+    let resources = crate::state::resources::ResourceStore::new(core.clone());
+    let identity = resources.lookup(&project).await.unwrap().unwrap();
+    assert_eq!(identity.as_str(), "handover-resource");
+    let cache_root = crate::state::layout::cache(temporary.path());
+    let cache_path = cache_root.join(crate::resources::cache::FILE_NAME);
+    let cache =
+        crate::resources::cache::ResourceCache::open(cache_path.clone()).await;
+    assert!(cache.available());
+    cache.close().await;
+    tokio::fs::rename(&cache_root, temporary.path().join("lost-cache"))
+        .await
+        .unwrap();
+    assert_eq!(resources.lookup(&project).await.unwrap(), Some(identity));
+    assert_eq!(
+        crate::state::user_state::favorites::all(&persistence)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT id FROM instances")
+            .fetch_one(&core)
+            .await
+            .unwrap(),
+        "handover"
+    );
+    let rebuilt =
+        crate::resources::cache::ResourceCache::open(cache_path.clone()).await;
+    assert!(rebuilt.available() && cache_path.is_file());
+    rebuilt.close().await;
+    core.close().await;
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn legacy_startup_imports_and_backs_up_at_long_windows_paths() {
+    let temporary = tempfile::tempdir().unwrap();
+    let legacy_path = temporary.path().join("legacy.db");
+    let legacy = connect_app_db(&legacy_path).await.unwrap();
+    let legacy_version = format!("fixture-{}", uuid::Uuid::new_v4());
+    sqlx::query("UPDATE app_metadata SET value=? WHERE key='app_version'")
+        .bind(&legacy_version)
+        .execute(&legacy)
+        .await
+        .unwrap();
+    sqlx::raw_sql(
+        "INSERT INTO resources(id) VALUES('long-path-resource');
+         INSERT INTO instance_daily_playtime VALUES('2026-11-15','deleted','History',77,1);",
+    )
+    .execute(&legacy)
+    .await
+    .unwrap();
+    legacy.close().await;
+
+    let mut root = dunce::simplified(temporary.path()).to_path_buf();
+    while root.as_os_str().len() <= 250 {
+        root.push("long-directory-".repeat(4));
+    }
+    tokio::fs::create_dir_all(&root).await.unwrap();
+    let source = root.join("app.db");
+    tokio::fs::copy(&legacy_path, &source).await.unwrap();
+    let core = connect_at(&root).await.unwrap();
+    let day = "2026-11-15".parse().unwrap();
+    let history = crate::state::instances::adapters::sqlite::playtime::get_daily_playtime(day, day, &core)
+        .await
+        .unwrap();
+    assert_eq!(history[0].played_seconds, 77);
+
+    let snapshot = crate::state::store::databases::backup(&core, &root)
+        .await
+        .unwrap();
+    let mut records = super::super::db_backup::open_read_only_db(
+        &snapshot.join("records.db"),
+    )
+    .await
+    .unwrap();
+    let seconds: i64 = sqlx::query_scalar(
+        "SELECT played_seconds FROM instance_daily_playtime",
+    )
+    .fetch_one(&mut records)
+    .await
+    .unwrap();
+    assert_eq!(seconds, 77);
+    records.close().await.unwrap();
+
+    let mut resources = super::super::db_backup::open_read_only_db(
+        &snapshot.join("resources.db"),
+    )
+    .await
+    .unwrap();
+    let id: String = sqlx::query_scalar("SELECT id FROM resources")
+        .fetch_one(&mut resources)
+        .await
+        .unwrap();
+    assert_eq!(id, "long-path-resource");
+    resources.close().await.unwrap();
+    assert_eq!(
+        tokio::fs::read(&source).await.unwrap(),
+        tokio::fs::read(&legacy_path).await.unwrap(),
+    );
+    let temp_backups = super::super::db_backup::app_db_backup_dir_for(
+        &temporary.path().join("app.db"),
+    )
+    .unwrap();
+    if let Ok(mut entries) = tokio::fs::read_dir(temp_backups).await {
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            assert!(
+                !entry
+                    .file_name()
+                    .to_string_lossy()
+                    .contains(&legacy_version)
+            );
+        }
+    }
+    core.close().await;
+}
+
+#[tokio::test]
+async fn startup_retries_pending_operation_takeover_without_opening_retired_channel()
+ {
+    let temporary = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(temporary.path())
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO main.database_imports VALUES('app.db',1)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    // Simulate a process interrupted after it took over only one category.
+    sqlx::query("INSERT INTO main.operation_imports VALUES('install_jobs')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    drop(pool);
+    tokio::fs::create_dir(temporary.path().join("databases"))
+        .await
+        .unwrap();
+    let source = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(
+            SqliteConnectOptions::new()
+                .filename(temporary.path().join("databases/operations.db"))
+                .create_if_missing(true),
+        )
+        .await
+        .unwrap();
+    // The already retired kind is deliberately malformed. Retrying must skip
+    // it, while preserving an unknown kind as an opaque attachment.
+    sqlx::raw_sql("CREATE TABLE install_jobs(broken TEXT); INSERT INTO install_jobs VALUES('retired'); CREATE TABLE resource_legacy_rollback_journals(instance_id TEXT,payload TEXT); CREATE TABLE future_operations(id TEXT,payload TEXT); INSERT INTO future_operations VALUES('future','{\"version\":2}');")
+        .execute(&source).await.unwrap();
+    source.close().await;
+    tokio::fs::write(
+        temporary.path().join("app.db"),
+        b"retired source must not open",
+    )
+    .await
+    .unwrap();
+    let pool = connect_at(temporary.path()).await.unwrap();
+    assert!(
+        !crate::state::store::recovery_documents::legacy_import_pending(&pool)
+            .await
+            .unwrap()
+    );
+    let receipts: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM main.operation_imports")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(receipts, 10);
+    let unknown: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM main.operation_publications WHERE kind='$legacy'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(unknown, 1);
+    assert_eq!(
+        tokio::fs::read(temporary.path().join("app.db"))
+            .await
+            .unwrap(),
+        b"retired source must not open"
+    );
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn failed_first_operation_takeover_does_not_fall_back_to_empty_recovery()
+{
+    let temporary = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(temporary.path())
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO main.database_imports VALUES('app.db',1)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    drop(pool);
+    tokio::fs::write(
+        temporary.path().join("app.db"),
+        b"preserved legacy source",
+    )
+    .await
+    .unwrap();
+    let error = connect_at(temporary.path()).await.unwrap_err();
+    assert!(error.to_string().contains("migration did not complete"));
+    assert!(!crate::state::store::recovery_mode::can_recover(&error));
+    assert_eq!(
+        tokio::fs::read(temporary.path().join("app.db"))
+            .await
+            .unwrap(),
+        b"preserved legacy source"
+    );
+}
+
+#[cfg(not(feature = "tauri"))]
+#[tokio::test]
+async fn startup_waits_for_hundreds_of_legacy_jobs_past_daily_recovery_budget()
+{
+    let temporary = tempfile::tempdir().unwrap();
+    let legacy = connect_app_db(&temporary.path().join("app.db"))
+        .await
+        .unwrap();
+    sqlx::query("WITH RECURSIVE jobs(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM jobs WHERE n<423) INSERT INTO install_jobs(id,kind,status,state,created,modified,dismissed) SELECT 'legacy-'||n,'create_instance','succeeded','{}',n,n,0 FROM jobs")
+        .execute(&legacy).await.unwrap();
+    legacy.close().await;
+    drop(legacy);
+    let events = crate::event::EventState::init().await.unwrap();
+    let root = temporary.path().to_owned();
+    let startup = tokio::spawn(async move { connect_at(&root).await });
+    // Observe the actual importer after it started preserving records. The
+    // startup future must remain pending across a daily interpretation budget.
+    tokio::time::timeout(Duration::from_secs(60), async {
+        loop {
+            let migrating = events.loading_bars.iter().any(|bar| matches!(
+                &bar.bar_type,
+                crate::event::LoadingBarType::DatabaseMigration { stage, completed, total }
+                    if stage == "recovery" && *completed > 1 && *completed < 423 && *completed < *total
+            ));
+            if migrating { break; }
+            assert!(!startup.is_finished(), "startup returned before operation takeover progress");
+            tokio::task::yield_now().await;
+        }
+    }).await.unwrap();
+    tokio::time::pause();
+    tokio::time::advance(Duration::from_secs(60)).await;
+    tokio::time::resume();
+    assert!(
+        !startup.is_finished(),
+        "a first takeover must not release startup on the 15-second recovery budget"
+    );
+    let pool = startup.await.unwrap().unwrap();
+    let counts: (i64, i64) = sqlx::query_as("SELECT (SELECT COUNT(*) FROM main.operation_imports),(SELECT COUNT(*) FROM main.operation_publications WHERE kind='install_jobs')")
+        .fetch_one(&pool).await.unwrap();
+    assert_eq!(counts, (10, 423));
+    let preserved: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM main.operation_publications WHERE kind='$legacy' AND id LIKE 'install_jobs:%'")
+        .fetch_one(&pool).await.unwrap();
+    assert_eq!(preserved, 423);
+    pool.close().await;
+    drop(pool);
+    tokio::fs::write(
+        temporary.path().join("app.db"),
+        b"obsolete source after takeover",
+    )
+    .await
+    .unwrap();
+    let reopened = connect_at(temporary.path()).await.unwrap();
+    assert_eq!(
+        tokio::fs::read(temporary.path().join("app.db"))
+            .await
+            .unwrap(),
+        b"obsolete source after takeover"
+    );
+    let counts: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM main.operation_publications WHERE kind='install_jobs'").fetch_one(&reopened).await.unwrap();
+    assert_eq!(counts, 423);
+    reopened.close().await;
+}
+
+#[tokio::test]
+async fn unavailable_legacy_keyring_completes_import_with_an_account_requiring_login()
+ {
+    let root = tempfile::tempdir().unwrap();
+    let legacy_path = root.path().join("release/app.db");
+    tokio::fs::create_dir_all(legacy_path.parent().unwrap())
+        .await
+        .unwrap();
+    let legacy = connect_app_db(&legacy_path).await.unwrap();
+    sqlx::query("INSERT INTO minecraft_users(account_id,uuid,active,username,access_token,refresh_token,expires,account_type,secrets_externalized) VALUES('microsoft:test','00000000-0000-4000-8000-000000000001',1,'Player','legacy-access','legacy-refresh',0,'microsoft',0)")
+        .execute(&legacy).await.unwrap();
+    legacy.close().await;
+    drop(legacy);
+    let original = tokio::fs::read(&legacy_path).await.unwrap();
+    let _unavailable = crate::state::store::secrets::testing::without_store();
+    let pool = connect_at(root.path()).await.unwrap();
+    assert!(
+        root.path()
+            .join("data/persistence/imports/accounts.json")
+            .exists()
+    );
+    let accounts = crate::state::accounts::Accounts::new(
+        &crate::state::persistence::Persistence::new(root.path()),
+    );
+    let accounts = accounts.get_all().await.unwrap();
+    assert_eq!(accounts[0].0, "microsoft:test");
+    assert!(accounts[0].1.active);
+    assert_eq!(accounts[0].1.username, "Player");
+    assert!(
+        accounts[0].1.access_token.is_empty()
+            && accounts[0].1.refresh_token.is_empty()
+    );
+    assert_eq!(
+        accounts[0].2,
+        crate::state::minecraft_auth::CredentialPersistence::RequiresLogin
+    );
+    let completed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM database_imports WHERE source='app.db' AND completed=1)").fetch_one(&pool).await.unwrap();
+    assert!(completed);
+    assert_eq!(tokio::fs::read(&legacy_path).await.unwrap(), original);
+    let document = tokio::fs::read_to_string(
+        root.path().join(crate::state::layout::ACCOUNTS),
+    )
+    .await
+    .unwrap();
+    assert!(
+        !document.contains("legacy-access")
+            && !document.contains("legacy-refresh")
+    );
+    let mut snapshot = crate::state::db_backup::open_read_only_db(
+        &root.path().join("data/persistence/legacy-app.db"),
+    )
+    .await
+    .unwrap();
+    let refresh: String = sqlx::query_scalar("SELECT refresh_token FROM minecraft_users WHERE account_id='microsoft:test'").fetch_one(&mut snapshot).await.unwrap();
+    assert!(refresh.is_empty());
+    snapshot.close().await.unwrap();
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn legacy_takeover_keeps_both_channels_and_preserves_local_documents() {
+    use crate::state::layout;
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path();
+    for channel in ["release", "beta"] {
+        let source = root.join(channel).join("app.db");
+        tokio::fs::create_dir_all(source.parent().unwrap())
+            .await
+            .unwrap();
+        let pool = connect_app_db(&source).await.unwrap();
+        sqlx::query("INSERT INTO instances(id,path,install_stage,launcher_feature_version,name,created,modified) VALUES(?,?,'installed','none',?,0,0)")
+            .bind(channel).bind(channel).bind(channel).execute(&pool).await.unwrap();
+        pool.close().await;
+    }
+    let old = ["release/app.db", "beta/app.db"];
+    let release = tokio::fs::read(root.join(old[0])).await.unwrap();
+    let beta = tokio::fs::read(root.join(old[1])).await.unwrap();
+    tokio::fs::write(
+        root.join("update-channel.json"),
+        br#"{"active_channel":"beta"}"#,
+    )
+    .await
+    .unwrap();
+    tokio::fs::create_dir(root.join("settings")).await.unwrap();
+    let local = br#"{"schema_version":1,"data":{"theme":"light","future_key":"preserve"}}"#;
+    tokio::fs::write(root.join("settings/appearance.json"), local)
+        .await
+        .unwrap();
+    let fallback = br#"{"schema_version":2,"data":{"preserve":true}}"#;
+    tokio::fs::write(root.join("settings/future.json.previous"), fallback)
+        .await
+        .unwrap();
+    let group =
+        br#"{"schema_version":1,"groups":[],"memberships":{"beta":[]}}"#;
+    tokio::fs::write(root.join("instance_groups.json"), group)
+        .await
+        .unwrap();
+    let pool = connect_at(root).await.unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT id FROM instances")
+            .fetch_all(&pool)
+            .await
+            .unwrap(),
+        ["beta"]
+    );
+    assert_eq!(tokio::fs::read(root.join(old[0])).await.unwrap(), release);
+    assert_eq!(tokio::fs::read(root.join(old[1])).await.unwrap(), beta);
+    assert_eq!(
+        tokio::fs::read(root.join("settings/appearance.json"))
+            .await
+            .unwrap(),
+        local
+    );
+    assert_eq!(
+        tokio::fs::read(root.join(layout::SETTINGS).join("appearance.json"))
+            .await
+            .unwrap(),
+        local
+    );
+    assert_eq!(
+        tokio::fs::read(root.join(layout::SETTINGS).join("future.json"))
+            .await
+            .unwrap(),
+        fallback
+    );
+    assert_eq!(
+        tokio::fs::read(root.join("instance_groups.json"))
+            .await
+            .unwrap(),
+        group
+    );
+    assert_eq!(
+        tokio::fs::read(root.join(layout::INSTANCE_GROUPS))
+            .await
+            .unwrap(),
+        group
+    );
+    assert!(root.join(layout::INSTALLATION).is_file());
+    assert!(!root.join("databases").exists());
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn core_loss_cannot_recreate_core_or_take_over_retired_source() {
+    use crate::state::layout;
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path();
+    let pool = connect_at(root).await.unwrap();
+    pool.close().await;
+    drop(pool);
+    assert!(root.join(layout::INSTALLATION).is_file());
+    tokio::fs::write(root.join("app.db"), b"retired source")
+        .await
+        .unwrap();
+    for name in ["instances.db", "storage.db", "system.db"] {
+        let path = layout::data(root).join(name);
+        tokio::fs::remove_file(&path).await.unwrap();
+        let error = connect_at(root).await.unwrap_err();
+        assert!(crate::state::store::recovery_mode::can_recover(&error));
+        assert!(!path.exists());
+    }
+    assert_eq!(
+        tokio::fs::read(root.join("app.db")).await.unwrap(),
+        b"retired source"
+    );
+    assert!(
+        crate::state::store::databases::open_recovery(root)
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
+async fn empty_replacement_of_any_core_file_is_preserved_without_reimport() {
+    use crate::state::layout;
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path();
+    let pool = connect_at(root).await.unwrap();
+    pool.close().await;
+    drop(pool);
+    tokio::fs::write(root.join("app.db"), b"retired source")
+        .await
+        .unwrap();
+    let empty = root.join("empty.db");
+    let mut connection = sqlx::SqliteConnection::connect_with(
+        &SqliteConnectOptions::new()
+            .filename(&empty)
+            .create_if_missing(true),
+    )
+    .await
+    .unwrap();
+    sqlx::query("VACUUM")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    connection.close().await.unwrap();
+    let empty_sqlite = tokio::fs::read(&empty).await.unwrap();
+    assert!(empty_sqlite.starts_with(b"SQLite format 3\0"));
+    for name in ["instances.db", "storage.db", "system.db"] {
+        let path = layout::data(root).join(name);
+        let original = tokio::fs::read(&path).await.unwrap();
+        for replacement in [b"".as_slice(), empty_sqlite.as_slice()] {
+            tokio::fs::write(&path, replacement).await.unwrap();
+            let error = connect_at(root).await.unwrap_err();
+            assert!(crate::state::store::recovery_mode::can_recover(&error));
+            assert_eq!(tokio::fs::read(&path).await.unwrap(), replacement);
+        }
+        tokio::fs::write(&path, original).await.unwrap();
+    }
+    assert_eq!(
+        tokio::fs::read(root.join("app.db")).await.unwrap(),
+        b"retired source"
+    );
+    connect_at(root).await.unwrap().close().await;
 }

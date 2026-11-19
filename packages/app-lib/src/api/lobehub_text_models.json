@@ -1,5 +1,5 @@
 {
-  "source": "LobeHub 47bd681c0b3f91edc5e1bc6ab5d634a4b1311d31 model-bank chat models",
+  "source": "LobeHub 4241324b9bd0c01eaea2b33a1360bafced7c20d5 model-bank chat models",
   "providers": {
     "ai21": [
       {
@@ -595,6 +595,11 @@
     ],
     "anthropic": [
       {
+        "id": "claude-fable-5-2",
+        "name": "Claude Fable 5.2",
+        "enabled": true
+      },
+      {
         "id": "claude-haiku-5-5",
         "name": "Claude Haiku 5.5",
         "enabled": true
@@ -1096,6 +1101,11 @@
       {
         "id": "gpt-6.1-sol",
         "name": "GPT-6.1 Sol",
+        "enabled": true
+      },
+      {
+        "id": "gpt-6.1-terra",
+        "name": "GPT-6.1 Terra",
         "enabled": true
       },
       {
@@ -1962,6 +1972,11 @@
         "id": "gemini-flash-lite-latest",
         "name": "Gemini Flash-Lite Latest",
         "enabled": false
+      },
+      {
+        "id": "gemini-4-carbon",
+        "name": "Gemini 4 Carbon",
+        "enabled": true
       },
       {
         "id": "gemini-4-argon",
@@ -3618,9 +3633,14 @@
     ],
     "minimaxcodingplan": [
       {
+        "id": "MiniMax-M3.1-Flash",
+        "name": "MiniMax M3.1 Flash",
+        "enabled": true
+      },
+      {
         "id": "MiniMax-M2.7",
         "name": "MiniMax M2.7",
-        "enabled": true
+        "enabled": false
       },
       {
         "id": "MiniMax-M2.7-highspeed",
@@ -3630,7 +3650,7 @@
       {
         "id": "MiniMax-M2.5",
         "name": "MiniMax M2.5",
-        "enabled": true
+        "enabled": false
       },
       {
         "id": "MiniMax-M2.5-highspeed",
@@ -4427,6 +4447,11 @@
         "enabled": true
       },
       {
+        "id": "gpt-6.1-terra",
+        "name": "GPT-6.1 Terra",
+        "enabled": true
+      },
+      {
         "id": "gpt-6-astra",
         "name": "GPT-6 Astra",
         "enabled": true
@@ -4956,6 +4981,11 @@
         "id": "deepseek/deepseek-chat-v3.1",
         "name": "DeepSeek V3.1",
         "enabled": false
+      },
+      {
+        "id": "google/gemini-4-carbon",
+        "name": "Gemini 4 Carbon",
+        "enabled": true
       },
       {
         "id": "google/gemini-3.1-flash-image-preview",
@@ -7212,6 +7242,11 @@
     ],
     "vertexai": [
       {
+        "id": "gemini-4-carbon",
+        "name": "Gemini 4 Carbon",
+        "enabled": true
+      },
+      {
         "id": "gemini-3.8-flash",
         "name": "Gemini 3.8 Flash",
         "enabled": true
@@ -8611,6 +8646,16 @@
       {
         "id": "gpt-6.1-terra",
         "name": "GPT-6.1 Terra",
+        "enabled": true
+      },
+      {
+        "id": "gpt-6.2-astra",
+        "name": "GPT-6.2 Astra",
+        "enabled": true
+      },
+      {
+        "id": "gpt-6.2-sol",
+        "name": "GPT-6.2 Sol",
         "enabled": true
       },
       {

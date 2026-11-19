@@ -1,7 +1,6 @@
 //! What the update state collection promises.
 
 use super::support;
-use crate::state::store::Collection as _;
 use crate::state::store::game_option_update_state::{
     GameOptionUpdateState, UpdateStateKey, UpdateStateRecord,
 };
@@ -21,7 +20,7 @@ fn replaced() -> UpdateStateRecord {
 
 #[tokio::test]
 async fn an_update_state_round_trips_and_clears() {
-    let handle = support::handle_with_instances(&["instance"]).await;
+    let handle = support::sync_handle_with_instances(&["instance"]).await;
 
     GameOptionUpdateState::set(&handle, &key("instance"), Some(&replaced()))
         .await
@@ -60,7 +59,8 @@ async fn an_update_state_round_trips_and_clears() {
 
 #[tokio::test]
 async fn writing_a_whole_collection_drops_what_it_leaves_out() {
-    let handle = support::handle_with_instances(&["kept", "dropped"]).await;
+    let handle =
+        support::sync_handle_with_instances(&["kept", "dropped"]).await;
     GameOptionUpdateState::set(&handle, &key("kept"), Some(&replaced()))
         .await
         .unwrap();
@@ -91,15 +91,20 @@ async fn a_state_that_lost_its_document_is_ignored() {
     .unwrap();
 
     assert_eq!(
-        GameOptionUpdateState::get(&handle, &key("instance"))
-            .await
-            .unwrap(),
+        <GameOptionUpdateState as crate::state::store::Collection>::get(
+            &handle,
+            &key("instance")
+        )
+        .await
+        .unwrap(),
         None
     );
     assert!(
-        GameOptionUpdateState::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <GameOptionUpdateState as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
 }

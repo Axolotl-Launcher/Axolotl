@@ -32,6 +32,10 @@ use super::hotbars::{
 use super::pending::{self, PendingAction, PendingChange};
 use super::{COMMAND_HISTORY_FILE, HOTBAR_FILE};
 
+#[cfg(test)]
+#[path = "startup_concurrency_tests.rs"]
+mod startup_concurrency_tests;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SyncedOptionJoinAction {
@@ -345,14 +349,21 @@ pub async fn set_global_option(
     let state = State::get().await?;
     let _guard = state.lock_synced_options().await;
     pending::cancel(option, None, &state).await?;
-    set_global_option_with_state(option, enabled, base_instance_id, &state)
-        .await
+    set_global_option_with_state(
+        option,
+        enabled,
+        base_instance_id,
+        None,
+        &state,
+    )
+    .await
 }
 
 async fn set_global_option_with_state(
     option: SyncedOption,
     enabled: bool,
     base_instance_id: Option<&str>,
+    pending_source: Option<&PendingChange>,
     state: &State,
 ) -> crate::Result<GlobalSyncedOptions> {
     if enabled
@@ -379,11 +390,12 @@ async fn set_global_option_with_state(
                 return queue_source(&source, option, state).await;
             }
             seed_from_instance(&source, option, state).await?;
-            complete_pending_source(base_instance_id, option, state).await?;
+            complete_pending_source(pending_source, state).await?;
         } else {
             return enable_global_option_from_base(
                 option,
                 base_instance_id,
+                pending_source,
                 state,
             )
             .await;
@@ -476,6 +488,7 @@ async fn set_global_option_enabled(
 async fn enable_global_option_from_base(
     option: SyncedOption,
     base_instance_id: &str,
+    pending_source: Option<&PendingChange>,
     state: &State,
 ) -> crate::Result<GlobalSyncedOptions> {
     let source = crate::state::get_instance(base_instance_id, &state.pool)
@@ -502,7 +515,7 @@ async fn enable_global_option_from_base(
         SyncedOption::ResourcePacks | SyncedOption::DataPacks
     ) {
         seed_from_instance(&source, option, state).await?;
-        complete_pending_source(base_instance_id, option, state).await?;
+        complete_pending_source(pending_source, state).await?;
         instance_rows::set_instance_sync_preference(
             base_instance_id,
             option,
@@ -550,7 +563,7 @@ async fn enable_global_option_from_base(
     }
 
     seed_from_instance(&source, option, state).await?;
-    complete_pending_source(base_instance_id, option, state).await?;
+    complete_pending_source(pending_source, state).await?;
     instance_rows::set_instance_sync_preference(
         base_instance_id,
         option,
@@ -589,19 +602,13 @@ async fn enable_global_option_from_base(
 }
 
 async fn complete_pending_source(
-    instance_id: &str,
-    option: SyncedOption,
+    observed: Option<&PendingChange>,
     state: &State,
 ) -> crate::Result<()> {
-    pending::remove(
-        &PendingChange {
-            instance_id: instance_id.to_string(),
-            option,
-            action: PendingAction::SelectSource,
-        },
-        state,
-    )
-    .await
+    if let Some(observed) = observed {
+        pending::remove(observed, state).await?;
+    }
+    Ok(())
 }
 
 async fn queue_source(
@@ -611,6 +618,7 @@ async fn queue_source(
 ) -> crate::Result<GlobalSyncedOptions> {
     pending::save(
         PendingChange {
+            observation_id: None,
             instance_id: metadata.instance.id.clone(),
             option,
             action: PendingAction::SelectSource,
@@ -715,6 +723,7 @@ pub async fn set_instance_option(
         } else {
             pending::save(
                 PendingChange {
+                    observation_id: None,
                     instance_id: instance_id.to_string(),
                     option,
                     action: PendingAction::Join { resolution },
@@ -892,6 +901,7 @@ async fn apply_pending_changes(state: &State) -> crate::Result<()> {
                 change.option,
                 true,
                 Some(&change.instance_id),
+                Some(&change),
                 state,
             )
             .await
@@ -1291,9 +1301,9 @@ pub(super) async fn seed_from_instance(
             } else {
                 String::new()
             };
-            io::write(
-                command_history_path(state),
-                normalize_command_history(&contents),
+            super::command_history::write_shared_command_history(
+                normalize_command_history(&contents).into_bytes(),
+                state,
             )
             .await?;
         }
@@ -1403,7 +1413,11 @@ async fn canonical_exists(
         SyncedOption::GameOptions => {
             super::game_options::canonical_exists(state).await?
         }
-        SyncedOption::CommandHistory => command_history_path(state).exists(),
+        SyncedOption::CommandHistory => {
+            crate::state::sync_state::native_text_read(state, "command_history")
+                .await?
+                .is_some()
+        }
         SyncedOption::CreativeHotbars => hotbar_state_exists(state).await?,
         SyncedOption::MultiplayerServers => {
             synced_servers::canonical_exists(state).await?

@@ -82,6 +82,8 @@ pub(crate) struct SettingsRecord {
     pub max_concurrent_downloads: i64,
     pub max_concurrent_writes: i64,
     pub theme: String,
+    pub theme_source: String,
+    pub custom_theme_colors: Option<String>,
     pub default_page: String,
     pub collapsed_navigation: bool,
     pub advanced_rendering: bool,
@@ -189,17 +191,115 @@ pub(crate) struct OwnedColumns {
 }
 
 impl Settings {
+    /// Transform only a disposable legacy source, without invoking document
+    /// publication or consulting the process-wide document root.
+    pub(crate) async fn migrate_import_row(
+        handle: &super::Handle,
+        current: usize,
+    ) -> crate::Result<()> {
+        let mut transaction =
+            handle.pool().begin_with("BEGIN IMMEDIATE").await?;
+        let record = <Self as Collection>::read(&mut transaction, &Singleton)
+            .await?
+            .ok_or_else(missing_row)?;
+        let mut settings = crate::state::Settings::from_record(record);
+        while settings.version < current {
+            settings.perform_migration()?;
+        }
+        <Self as Collection>::write(
+            &mut transaction,
+            &Singleton,
+            Some(&settings.to_record()?),
+        )
+        .await?;
+        transaction.commit().await?;
+        Ok(())
+    }
+    pub(crate) async fn get(
+        handle: &super::Handle,
+        key: &Singleton,
+    ) -> crate::Result<Option<SettingsRecord>> {
+        if !super::configuration_documents::runtime(handle.pool()) {
+            return <Self as Collection>::get(handle, key).await;
+        }
+        let documents = handle.settings_documents().expect("runtime documents");
+        Ok(Some(
+            crate::state::documents::settings::read(&documents, handle)
+                .await?
+                .to_record()?,
+        ))
+    }
+    pub(crate) async fn atom_get(
+        unit: &mut super::Atom,
+        key: &Singleton,
+    ) -> crate::Result<Option<SettingsRecord>> {
+        if !super::configuration_documents::runtime(unit.handle.pool()) {
+            return <Self as Collection>::atom_get(unit, key).await;
+        }
+        if let Some(record) = &unit.configuration().await?.settings {
+            return Ok(Some(record.clone()));
+        }
+        Self::get(&unit.handle, key).await
+    }
+    pub(crate) async fn atom_set(
+        unit: &mut super::Atom,
+        key: &Singleton,
+        record: Option<&SettingsRecord>,
+    ) -> crate::Result<()> {
+        if !super::configuration_documents::runtime(unit.handle.pool()) {
+            return <Self as Collection>::atom_set(unit, key, record).await;
+        }
+        let record = record.ok_or_else(|| {
+            crate::ErrorKind::InputError(
+                "Launcher settings cannot be deleted".into(),
+            )
+        })?;
+        unit.configuration().await?.settings = Some(record.clone());
+        unit.invalidate_settings_after_commit();
+        Ok(())
+    }
+    pub(crate) async fn set(
+        handle: &super::Handle,
+        key: &Singleton,
+        record: Option<&SettingsRecord>,
+    ) -> crate::Result<()> {
+        let mut unit = super::atom(handle).await?;
+        Self::atom_set(&mut unit, key, record).await?;
+        unit.commit().await
+    }
+
+    /// Repairs a dangling selection on the disposable legacy import snapshot.
+    pub(crate) async fn repair_dangling_home_instance(
+        pool: &SqlitePool,
+    ) -> crate::Result<bool> {
+        let result = sqlx::query(
+            "
+            UPDATE settings
+            SET minimal_home_instance_id = NULL
+            WHERE id = 0
+                AND minimal_home_instance_id IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM instances
+                    WHERE instances.id = settings.minimal_home_instance_id
+                )
+            ",
+        )
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected() != 0)
+    }
+
     /// Changes the settings row inside the caller's unit, so the row the
     /// change is applied to cannot be replaced between the read and the write.
     pub(crate) async fn update_in(
         unit: &mut super::Atom,
         change: impl FnOnce(&mut SettingsRecord),
     ) -> crate::Result<()> {
-        let mut record = <Self as Collection>::atom_get(unit, &Singleton)
+        let mut record = Self::atom_get(unit, &Singleton)
             .await?
             .ok_or_else(missing_row)?;
         change(&mut record);
-        <Self as Collection>::atom_set(unit, &Singleton, Some(&record)).await?;
+        Self::atom_set(unit, &Singleton, Some(&record)).await?;
         // The row a settings read composes with the documents has changed, and
         // `update`/`save_in` are not the only writer of it. Registered rather
         // than said here, so the invalidation lands when the caller's unit
@@ -213,6 +313,38 @@ impl Settings {
     pub(crate) async fn owned_columns(
         handle: &super::Handle,
     ) -> crate::Result<OwnedColumns> {
+        if super::configuration_documents::runtime(handle.pool()) {
+            let proxy =
+                super::configuration_documents::composed(handle, "proxy")
+                    .await?;
+            let providers = super::configuration_documents::composed(
+                handle,
+                "content_providers",
+            )
+            .await?;
+            let string = |key: &str| {
+                proxy
+                    .get(key)
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_owned()
+            };
+            return Ok(OwnedColumns {
+                proxy_mode: proxy
+                    .get("mode")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("system")
+                    .into(),
+                proxy_url: string("url"),
+                proxy_username: string("username"),
+                proxy_password: string("password"),
+                curseforge_api_key: providers
+                    .get("curseforge_api_key")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .into(),
+            });
+        }
         let mut connection = handle.connection().await?;
         read_owned_columns(&mut connection)
             .await?
@@ -225,6 +357,59 @@ impl Settings {
         unit: &mut super::Atom,
         change: impl FnOnce(&mut OwnedColumns),
     ) -> crate::Result<()> {
+        if super::configuration_documents::runtime(unit.handle.pool()) {
+            unit.configuration().await?;
+            let mut columns = Self::owned_columns(&unit.handle).await?;
+            let pending = unit.configuration().await?;
+            let proxy = super::configuration_documents::payload(
+                pending.document("proxy").await?,
+            )?;
+            for (name, target) in [
+                ("mode", &mut columns.proxy_mode),
+                ("url", &mut columns.proxy_url),
+                ("username", &mut columns.proxy_username),
+                ("password", &mut columns.proxy_password),
+            ] {
+                if let Some(value) =
+                    proxy.get(name).and_then(serde_json::Value::as_str)
+                {
+                    *target = value.into();
+                }
+            }
+            if let Some(value) = super::configuration_documents::payload(
+                pending.document("content_providers").await?,
+            )?
+            .get("curseforge_api_key")
+            .and_then(serde_json::Value::as_str)
+            {
+                columns.curseforge_api_key = value.into();
+            }
+            let previous = columns.clone();
+            change(&mut columns);
+            let proxy = super::configuration_documents::payload(
+                pending.document("proxy").await?,
+            )?;
+            for (name, value, old) in [
+                ("mode", columns.proxy_mode, previous.proxy_mode),
+                ("url", columns.proxy_url, previous.proxy_url),
+                ("username", columns.proxy_username, previous.proxy_username),
+                ("password", columns.proxy_password, previous.proxy_password),
+            ] {
+                if value != old {
+                    proxy.insert(name.into(), serde_json::json!(value));
+                }
+            }
+            if columns.curseforge_api_key != previous.curseforge_api_key {
+                super::configuration_documents::payload(
+                    pending.document("content_providers").await?,
+                )?
+                .insert(
+                    "curseforge_api_key".into(),
+                    serde_json::json!(columns.curseforge_api_key),
+                );
+            }
+            return Ok(());
+        }
         let mut columns = read_owned_columns(unit.connection())
             .await?
             .ok_or_else(missing_row)?;
@@ -312,6 +497,7 @@ impl Collection for Settings {
             "
             SELECT
                 max_concurrent_downloads, max_concurrent_writes, theme,
+                theme_source, custom_theme_colors,
                 default_page, collapsed_navigation, advanced_rendering,
                 native_decorations, telemetry, discord_rpc, developer_mode,
                 onboarded, json(extra_launch_args) AS extra_launch_args,
@@ -430,6 +616,8 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
         max_concurrent_downloads: row.try_get("max_concurrent_downloads")?,
         max_concurrent_writes: row.try_get("max_concurrent_writes")?,
         theme: row.try_get("theme")?,
+        theme_source: row.try_get("theme_source")?,
+        custom_theme_colors: row.try_get("custom_theme_colors")?,
         default_page: row.try_get("default_page")?,
         collapsed_navigation: row.try_get("collapsed_navigation")?,
         advanced_rendering: row.try_get("advanced_rendering")?,
@@ -581,7 +769,8 @@ async fn write_row(
             ui_font, mono_font, backup_repository_path, allow_external_scheme,
             allow_privileged_scheme, doh_enabled, resource_chinese_filenames,
             resource_preserve_filenames, default_game_language,
-            oobe_completed_steps, minecraft_use_console_java, force_multiconnection_downloads, forced_max_concurrent_downloads
+            oobe_completed_steps, minecraft_use_console_java, force_multiconnection_downloads, forced_max_concurrent_downloads,
+            theme_source, custom_theme_colors
         )
         VALUES (
             0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?),
@@ -591,12 +780,14 @@ async fn write_row(
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?), ?,
             jsonb(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT (id) DO UPDATE SET
             max_concurrent_downloads = excluded.max_concurrent_downloads,
             max_concurrent_writes = excluded.max_concurrent_writes,
             theme = excluded.theme,
+            theme_source = excluded.theme_source,
+            custom_theme_colors = excluded.custom_theme_colors,
             default_page = excluded.default_page,
             collapsed_navigation = excluded.collapsed_navigation,
             advanced_rendering = excluded.advanced_rendering,
@@ -793,6 +984,8 @@ async fn write_row(
     .bind(record.minecraft_use_console_java)
     .bind(record.force_multiconnection_downloads)
     .bind(record.forced_max_concurrent_downloads)
+    .bind(&record.theme_source)
+    .bind(&record.custom_theme_colors)
     .execute(&mut *conn)
     .await?;
 

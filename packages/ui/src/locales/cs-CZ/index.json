@@ -182,9 +182,6 @@
   "button.reset": {
     "defaultMessage": "Obnovit"
   },
-  "button.reset-server": {
-    "defaultMessage": "Resetovat server"
-  },
   "button.retry": {
     "defaultMessage": "Znovu zkusit"
   },
@@ -437,9 +434,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "Importovat {count, plural, one {# instanci} few {# instance} other {# instancí}}"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "Nastavit server"
-  },
   "creation-flow.modal.custom-setup.build-number.label": {
     "defaultMessage": "Číslo buildu"
   },
@@ -541,12 +535,6 @@
   },
   "creation-flow.title.import-instance": {
     "defaultMessage": "Importovat instanci"
-  },
-  "creation-flow.title.reset-server": {
-    "defaultMessage": "Resetovat server"
-  },
-  "creation-flow.title.set-up-server": {
-    "defaultMessage": "Nastavit server"
   },
   "external-project-license-status.no": {
     "defaultMessage": "Ne"
@@ -758,9 +746,6 @@
   "files.navbar.home": {
     "defaultMessage": "Domů"
   },
-  "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "Instalovat CurseForge pack"
-  },
   "files.navbar.new-file": {
     "defaultMessage": "Nový soubor"
   },
@@ -769,12 +754,6 @@
   },
   "files.navbar.search-files": {
     "defaultMessage": "Hledat soubory"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "Nahrát ze souboru .zip"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Nahrát ze souboru .zip URL"
   },
   "files.rename-modal.header": {
     "defaultMessage": "Přejmenovat {name}"
@@ -817,60 +796,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "Název je povinný."
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Instalace CurseForge modpacku"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Nepodařilo se najít CurseForge modpack na tomto URL."
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "CurseForge modpack nebyl nalezen"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Zadejte odkaz"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "URL musí být odkazem na verzi modpacku na CurseForge."
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URL adresa musí být platná."
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "URL adresa je povinná."
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "Nainstalovat"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Instalace selhala"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Zkopírujte URL adresu stránky verze a vložte ji níže."
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Zkopírujte URL"
-  },
-  "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Procházejte CurseForge a najděte modpack, který chcete."
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Najdi modpack"
-  },
-  "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Přejděte na kartu „Soubory“ a vyberte verzi, kterou chcete nainstalovat."
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Vyber verzi"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Došlo k neznámé chybě"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Zkopírujte a vložte přímou URL adresu pro stažení souboru .zip."
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": "Nahrání obsahu souboru .zip z URL"
   },
   "form.label.address-line": {
     "defaultMessage": "Adresa"

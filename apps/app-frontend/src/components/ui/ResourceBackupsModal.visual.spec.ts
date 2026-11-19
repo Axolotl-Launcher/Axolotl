@@ -107,13 +107,13 @@ it('scans all backups and reviews the selected immutable plan before deleting', 
         valid,
         orphan,
         file('unknown', { recognized: false }),
-        file('missing', { exists: false }),
+        file('untracked', { exists: false, historyId: null }),
     ])
     expect(
         wrapper.get('button[aria-label="mods/unknown.old"]').attributes('disabled'),
     ).toBeDefined()
     expect(
-        wrapper.get('button[aria-label="mods/missing.old"]').attributes('disabled'),
+        wrapper.get('button[aria-label="mods/untracked.old"]').attributes('disabled'),
     ).toBeDefined()
     await wrapper.get('button[aria-label="mods/valid.old"]').trigger('click')
     vi.mocked(resourcePrepareHistoryCleanup).mockResolvedValue({
@@ -133,7 +133,46 @@ it('scans all backups and reviews the selected immutable plan before deleting', 
     expect(resourceExecuteHistoryCleanup).toHaveBeenCalledWith('plan', 3)
     expect(wrapper.text()).toContain('1 files deleted.')
     expect(wrapper.emitted('cleaned')).toHaveLength(1)
-    expect(wrapper.get('button[aria-label="mods/valid.old"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('button[aria-label="mods/valid.old"]').exists()).toBe(false)
+})
+
+it('reviews missing backup entries as list cleanup, not file deletion', async () => {
+    const missing = file('missing', {
+        exists: false,
+        rollbackAvailable: false,
+        integrity: { size: null, hashes: [] },
+    })
+    const wrapper = await open([missing])
+    const entry = 'button[aria-label="mods/missing.old"]'
+    expect(wrapper.get(entry).attributes('disabled')).toBeUndefined()
+    await wrapper.get(entry).trigger('click')
+    await button(wrapper, 'Scan again').trigger('click')
+    await flushPromises()
+    expect(wrapper.get(entry).attributes('aria-checked')).toBe('true')
+
+    vi.mocked(resourcePrepareHistoryCleanup).mockResolvedValue({
+        id: 'plan',
+        revision: 1,
+        instanceId: 'instance',
+        files: [missing],
+    })
+    await button(wrapper, 'Review selected cleanup').trigger('click')
+    await flushPromises()
+    expect(resourcePrepareHistoryCleanup).toHaveBeenCalledWith('instance', ['missing'])
+    expect(wrapper.text()).toContain('No files are deleted')
+    expect(wrapper.text()).toContain('update history is kept')
+    expect(resourceExecuteHistoryCleanup).not.toHaveBeenCalled()
+
+    vi.mocked(resourceExecuteHistoryCleanup).mockResolvedValue({
+        removed: ['missing'],
+        failures: [],
+    })
+    await button(wrapper, 'Clear missing backups').trigger('click')
+    await flushPromises()
+    expect(resourceExecuteHistoryCleanup).toHaveBeenCalledWith('plan', 1)
+    expect(wrapper.text()).toContain('Cleared 1 missing backup.')
+    expect(wrapper.text()).not.toContain('files deleted')
+    expect(wrapper.find(entry).exists()).toBe(false)
 })
 
 it('closing or returning from a cleanup review does not delete files', async () => {
@@ -153,6 +192,28 @@ it('closing or returning from a cleanup review does not delete files', async () 
         'true',
     )
     await button(wrapper, 'Close').trigger('click')
+    expect(resourceExecuteHistoryCleanup).not.toHaveBeenCalled()
+})
+
+it('requires a fresh selection when a missing backup reappears before review', async () => {
+    const present = file('backup')
+    const wrapper = await open([{ ...present, exists: false, rollbackAvailable: false }])
+    const entry = 'button[aria-label="mods/backup.old"]'
+    await wrapper.get(entry).trigger('click')
+    vi.mocked(resourcePrepareHistoryCleanup).mockResolvedValue({
+        id: 'plan',
+        revision: 1,
+        instanceId: 'instance',
+        files: [present],
+    })
+    await button(wrapper, 'Review selected cleanup').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('Scan again')
+    expect(button(wrapper, 'Delete these backups')).toBeUndefined()
+    vi.mocked(resourceScanBackups).mockResolvedValue([present])
+    await button(wrapper, 'Scan again').trigger('click')
+    await flushPromises()
+    expect(wrapper.get(entry).attributes('aria-checked')).toBe('false')
     expect(resourceExecuteHistoryCleanup).not.toHaveBeenCalled()
 })
 
@@ -197,7 +258,7 @@ it('a failed first scan does not claim the file collection or search is empty', 
     expect(wrapper.text()).not.toContain('No old files or rollback backups found.')
 })
 
-it('partial cleanup marks staged failures unavailable and counts physical files once', async () => {
+it('partial cleanup hides retired backups and reports staged deletion failures', async () => {
     const valid = file('valid')
     const shared = file('shared', { relativePath: valid.relativePath })
     const failure = file('failure')
@@ -219,7 +280,8 @@ it('partial cleanup marks staged failures unavailable and counts physical files 
     await button(wrapper, 'Delete these backups').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('1 files could not be deleted')
-    expect(wrapper.text()).not.toContain('Verified rollback backup')
+    expect(wrapper.find('button[aria-label="mods/failure.old"]').exists()).toBe(false)
+    expect(wrapper.find('button[aria-label="mods/valid.old"]').exists()).toBe(false)
     expect(button(wrapper, 'Review selected cleanup').attributes('disabled')).toBeDefined()
 })
 

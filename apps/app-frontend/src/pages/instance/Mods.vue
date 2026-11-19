@@ -177,6 +177,14 @@
                         )
                     }}
                 </p>
+                <ul v-if="updateCheckWarnings.length" class="mb-0 mt-2 break-words pl-5">
+                    <li
+                        v-for="warning in updateCheckWarnings"
+                        :key="warning.entryId ?? warning.message"
+                    >
+                        {{ warning.message }}
+                    </li>
+                </ul>
             </div>
         </CollapsibleAdmonition>
         <CollapsibleAdmonition
@@ -368,11 +376,11 @@ import {
     useVIntl,
     versionChangesGameVersion,
 } from '@modrinth/ui'
-import { useQueryClient } from '@tanstack/vue-query'
+import { hashKey, useQueryClient } from '@tanstack/vue-query'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { computed, nextTick, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, toRaw, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import DependencyGraphModal from '@/components/instance/dependencies/DependencyGraphModal.vue'
@@ -400,6 +408,7 @@ import { isUnresolvedProjectId } from '@/helpers/content-identity'
 import { applyContentItemUpdates, matchesContentItem } from '@/helpers/content-item-state'
 import { contentProjectUrl } from '@/helpers/content-project-links'
 import {
+    type ContentRefreshState,
     type ContentRefreshTask,
     createContentRefreshSubscription,
 } from '@/helpers/content-refresh'
@@ -450,12 +459,15 @@ import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
 import { useTheming } from '@/store/state'
 
+import { instanceContentKey, instanceContentKeys, retainInstanceView } from './instance-view-cache'
 import {
+    type CachedModsContent,
     createContentRefreshSettlement,
     modsContentLoading,
     modsContentPending,
     modsContentRetryMode,
     modsContentScopeTransition,
+    needsContentRefresh,
 } from './mods-content-state'
 
 const messages = defineMessages({
@@ -708,7 +720,6 @@ const props = defineProps<{
     instance: GameInstance
     isServerInstance?: boolean
     openSettings?: () => void
-    preloadedContent?: InstanceContentData | null
 }>()
 const queryClient = useQueryClient()
 const postUpgradeNoticeQuery = usePostUpgradeNotice(() => props.instance.id)
@@ -729,13 +740,12 @@ defineEmits<{
     stop: []
 }>()
 
-function hasPreloadedContent(contentData: InstanceContentData | null | undefined) {
-    return contentData?.path === props.instance.id && contentData.snapshot.items.length > 0
-}
-
-const loading = ref(!hasPreloadedContent(props.preloadedContent))
+const contentKey = computed(() => instanceContentKey(props.instance))
+const contentScope = computed(() => hashKey(contentKey.value))
+retainInstanceView(contentKey)
+const loading = ref(true)
 const contentLoadError = ref<Error | null>(null)
-const contentSnapshot = ref<InstanceContentData['snapshot'] | null>(null)
+const contentSnapshot = shallowRef<InstanceContentData['snapshot'] | null>(null)
 const projects = ref<ContentItem[]>([])
 const linkedModpackContentItems = ref<ContentItem[]>([])
 const mcmodUrls = ref(new Map<string, string>())
@@ -750,6 +760,12 @@ const onlineWarnings = computed(() =>
             'resource_update_unavailable',
         ].includes(warning.code),
     ),
+)
+const updateCheckWarnings = computed(() =>
+    onlineWarnings.value.filter((warning) => warning.code === 'resource_update_unavailable'),
+)
+const failedUpdateEntries = computed(
+    () => new Set(updateCheckWarnings.value.map((warning) => warning.entryId)),
 )
 const localWarnings = computed(() =>
     contentWarnings.value.filter((warning) => warning.code === 'resource_history_unavailable'),
@@ -1049,7 +1065,10 @@ const {
     loadWorldDatapacks,
     deleteWorldDatapackItem,
     toggleWorldDatapackItem,
-} = useWorldDatapacks(() => props.instance.id)
+} = useWorldDatapacks(
+    () => props.instance.id,
+    () => ['world-datapacks', contentKey.value],
+)
 
 const worldDatapackItems = computed(() => {
     const saved = new Map(
@@ -1244,18 +1263,13 @@ const contentChangeIndex = computed(() =>
 )
 const isBulkOperating = localBulkOperating
 const CONTENT_EVENT_DEBOUNCE_MS = 180
-let suppressSyncedUntil = 0
 const contentEventRefresh = createContentEventRefresh({
-    busy: () => isBulkOperating.value,
+    busy: () => isBulkOperating.value || contentRefreshTask.value?.running === true,
     revision: () => contentSnapshot.value?.revision,
     refresh: () => {
-        void initProjects().catch(handleError)
+        void revalidateContent()
     },
     delay: CONTENT_EVENT_DEBOUNCE_MS,
-})
-
-watch(isBulkOperating, (operating) => {
-    if (!operating) contentEventRefresh.resume()
 })
 
 const isInstanceBusy = computed(() => props.instance?.install_stage !== 'installed')
@@ -1287,22 +1301,31 @@ let contentRefreshSubscription: ReturnType<typeof createContentRefreshSubscripti
 let contentRefreshConnection: Promise<void> | undefined
 let subscribedInstanceId: string | undefined
 const contentRefreshSettlement = createContentRefreshSettlement()
+const snapshotItemCache = new WeakMap<InstanceContentSnapshotItem, ContentItem>()
+let skippedActiveContentRows = false
 
-async function connectContentRefresh() {
+watch([isBulkOperating, () => contentRefreshTask.value?.running], ([operating, refreshing]) => {
+    if (operating || refreshing) return
+    if (skippedActiveContentRows) contentEventRefresh.enqueue({ event: 'synced' })
+    contentEventRefresh.resume()
+})
+
+async function connectContentRefresh(initialState?: ContentRefreshState) {
     const instanceId = props.instance.id
     if (subscribedInstanceId === instanceId && contentRefreshConnection)
         return contentRefreshConnection
     contentRefreshSubscription?.dispose()
     subscribedInstanceId = instanceId
-    contentRefreshSettlement.reset()
-    const itemCache = new WeakMap<InstanceContentSnapshotItem, ContentItem>()
-    let snapshot: InstanceContentData['snapshot'] | undefined
+    const queryKey = contentKey.value
+    const scope = contentScope.value
+    contentRefreshSettlement.reset(initialState !== undefined)
+    let previous = initialState
     const subscription = createContentRefreshSubscription(
         instanceId,
-        (state) => {
+        (state, source) => {
             if (
                 isUnmounted ||
-                props.instance.id !== instanceId ||
+                contentScope.value !== scope ||
                 props.instance.install_stage !== 'installed'
             )
                 return
@@ -1312,12 +1335,36 @@ async function connectContentRefresh() {
                 hasItems: state.snapshot.items.length > 0,
                 settled: contentRefreshSettlement.observe(state.task),
             })
-            if (snapshot === state.snapshot) return
-            snapshot = state.snapshot
-            const data = normalizeInstanceContentSnapshot(instanceId, state.snapshot, itemCache)
+            const snapshotChanged = previous?.snapshot !== state.snapshot
+            const completed =
+                (source === 'stream' || !snapshotChanged) &&
+                previous?.task?.id === state.task?.id &&
+                previous?.task?.running &&
+                state.task &&
+                !state.task.running &&
+                state.task.failed === 0
+            if (
+                !loading.value &&
+                state.snapshot.revision >= (contentSnapshot.value?.revision ?? 0)
+            ) {
+                const cached = queryClient.getQueryData<CachedModsContent>(queryKey)
+                const validatedAt = completed
+                    ? Date.now()
+                    : snapshotChanged || state.task?.running
+                      ? 0
+                      : (cached?.validatedAt ?? 0)
+                queryClient.setQueryData<CachedModsContent>(queryKey, { state, validatedAt })
+            }
+            previous = state
             contentLoadError.value = null
-            applyContentData(data)
-            enrichContentData(data, contentRequestGeneration)
+            if (snapshotChanged || (skippedActiveContentRows && !isBulkOperating.value)) {
+                const data = normalizeInstanceContentSnapshot(
+                    instanceId,
+                    state.snapshot,
+                    snapshotItemCache,
+                )
+                if (applyContentData(data)) enrichContentData(data)
+            }
         },
         (error) => {
             if (isUnmounted || props.instance.id !== instanceId) return
@@ -1325,7 +1372,7 @@ async function connectContentRefresh() {
         },
     )
     contentRefreshSubscription = subscription
-    const pending = subscription.connect().catch((error) => {
+    const pending = subscription.connect(initialState).catch((error) => {
         subscription.dispose()
         if (contentRefreshSubscription === subscription) {
             contentRefreshSubscription = undefined
@@ -1393,7 +1440,7 @@ watch(
         if (!snapshot || props.instance.install_stage !== 'installed') return
         const data = normalizeInstanceContentSnapshot(props.instance.id, toRaw(snapshot))
         applyContentData(data)
-        enrichContentData(data, contentRequestGeneration)
+        enrichContentData(data)
     },
 )
 
@@ -1405,6 +1452,7 @@ function invalidateContentRequests(clearState = false) {
     contentRefreshConnection = undefined
     subscribedInstanceId = undefined
     contentRefreshSettlement.reset()
+    skippedActiveContentRows = false
     contentEnrichmentController?.abort()
     contentRequestGeneration += 1
     contentTitleEnrichment.clear()
@@ -1876,7 +1924,6 @@ async function applyToggleDisableMod(mod: ContentItem, enabled: boolean) {
     operation.keys = [...operation.keys, ...optimisticKeys]
 
     try {
-        suppressSyncedUntil = Date.now() + CONTENT_EVENT_DEBOUNCE_MS * 4
         const newPath = await toggle_content_entry(props.instance.id, contentId, enabled)
         const newFileName = fileNameFromPath(newPath)
         const actualEnabled = !newPath.endsWith('.disabled')
@@ -1952,7 +1999,6 @@ async function applyToggleDisableBatch(items: ContentItem[], enabled: boolean) {
     applyBatchToggleState(operations, enabled, undefined, false, true)
 
     try {
-        suppressSyncedUntil = Date.now() + CONTENT_EVENT_DEBOUNCE_MS * 4
         const results = await toggle_content_entries(
             props.instance.id,
             operations.map((operation) => getStableContentId(operation.item)!),
@@ -2251,15 +2297,10 @@ async function bulkUpdateAllProjects() {
     try {
         // An entry whose latest check failed still shows its last found update;
         // Update all leaves it out until a check succeeds.
-        const failed = new Set(
-            (contentSnapshot.value?.warnings ?? [])
-                .filter((warning) => warning.code === 'resource_update_unavailable')
-                .map((warning) => warning.entryId),
-        )
         const ids = [...projects.value, ...linkedModpackContentItems.value]
             .filter((item) => item.instanceOwnershipKind === 'user_added' && !!item.resourceUpdate)
             .map((item) => item.instanceEntryId)
-            .filter((id): id is string => !!id && !failed.has(id))
+            .filter((id): id is string => !!id && !failedUpdateEntries.value.has(id))
         return ids.length ? await reviewResourceChanges(ids) : false
     } catch (err) {
         handleError(err as Error)
@@ -2270,7 +2311,9 @@ async function bulkUpdateAllProjects() {
 }
 
 async function bulkUpdateProjects(items: ContentItem[]) {
-    const ids = items.map((item) => item.instanceEntryId).filter((id): id is string => !!id)
+    const ids = items
+        .map((item) => item.instanceEntryId)
+        .filter((id): id is string => !!id && !failedUpdateEntries.value.has(id))
     if (!ids.length || items.some(hasGlobalContentChange)) return false
     try {
         return await reviewResourceChanges(ids)
@@ -2707,7 +2750,6 @@ async function initProjects(cacheBehaviour?: CacheBehaviour): Promise<void> {
         const refresh = initProjectsInternal(cacheBehaviour)
         const wrappedRefresh = refresh.finally(() => {
             if (activeBypassRefresh === wrappedRefresh) activeBypassRefresh = null
-            suppressSyncedUntil = Date.now() + 1000
         })
         activeBypassRefresh = wrappedRefresh
         return wrappedRefresh
@@ -2715,8 +2757,14 @@ async function initProjects(cacheBehaviour?: CacheBehaviour): Promise<void> {
     return initProjectsInternal(cacheBehaviour)
 }
 
-async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
-    contentEventRefresh.clear()
+function revalidateContent() {
+    return initProjectsInternal(
+        undefined,
+        queryClient.getQueryData<CachedModsContent>(contentKey.value),
+    )
+}
+
+async function initProjectsInternal(cacheBehaviour?: CacheBehaviour, cached?: CachedModsContent) {
     void loadWorldDatapacks()
     if (!props.instance || props.instance.install_stage !== 'installed') {
         suspendContentRequests()
@@ -2729,13 +2777,19 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
     })
     const instanceId = props.instance.id
     const generation = ++contentRequestGeneration
-    contentEnrichmentController?.abort()
-    contentEnrichmentController = new AbortController()
     try {
         const alreadyConnected = subscribedInstanceId === instanceId && contentRefreshConnection
-        await connectContentRefresh()
+        await connectContentRefresh(cached?.state)
         if (!isCurrentContentRequest(instanceId, generation)) return
-        if (alreadyConnected) await contentRefreshSubscription?.reload()
+        if (alreadyConnected || cached) {
+            const observed = await contentRefreshSubscription?.reload()
+            if (!observed || !isCurrentContentRequest(instanceId, generation)) return
+            if (cached && !needsContentRefresh(cached, observed)) return
+            if (cached && observed.task?.running) {
+                contentEventRefresh.enqueue({ event: 'synced' })
+                return
+            }
+        }
         const task = await contentRefreshSubscription?.start(
             cacheBehaviour === 'bypass' || cacheBehaviour === 'must_revalidate'
                 ? 'force_remote'
@@ -2752,7 +2806,7 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
     } catch (error) {
         if (!isCurrentContentRequest(instanceId, generation)) return
         handleError(error as Error)
-        if (!projects.value.length && !linkedModpackContentItems.value.length)
+        if (loading.value)
             contentLoadError.value = error instanceof Error ? error : new Error(String(error))
     } finally {
         if (isCurrentContentRequest(instanceId, generation) && contentLoadError.value)
@@ -2760,10 +2814,13 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
     }
 }
 
-function enrichContentData(data: InstanceContentData, generation: number) {
+function enrichContentData(data: InstanceContentData) {
     const controller = (contentEnrichmentController ??= new AbortController())
     const isCurrent = () =>
-        !controller.signal.aborted && isCurrentContentRequest(data.path, generation)
+        !controller.signal.aborted &&
+        !isUnmounted &&
+        props.instance.id === data.path &&
+        props.instance.install_stage === 'installed'
     const originals = [...data.contentItems, ...data.linkedContentItems]
     const locale = i18n.global.locale.value
     void contentTitleEnrichment
@@ -2829,6 +2886,7 @@ function applyContentData(contentData: InstanceContentData) {
         paths: contentData.contentItems.map((c) => c.file_name).slice(0, 20),
     })
     contentSnapshot.value = contentData.snapshot
+    skippedActiveContentRows = false
     const contentItemsFromSnapshot = contentData.contentItems.filter(
         (item) => !isWorldSaveContentItem(item),
     )
@@ -2845,6 +2903,7 @@ function applyContentData(contentData: InstanceContentData) {
             if (!item) continue
             byId.delete(getContentItemId(old))
             if (hasContentOperation(old)) {
+                skippedActiveContentRows = true
                 next.push(old)
                 continue
             }
@@ -3241,20 +3300,29 @@ async function loadInitialContent(): Promise<void> {
         return
     }
     handledInstallRevision.value = getInstallRevision()
-    if (props.preloadedContent) applyContentData(props.preloadedContent)
+    const cached = queryClient.getQueryData<CachedModsContent>(contentKey.value)
+    if (cached) {
+        const data = normalizeInstanceContentSnapshot(
+            props.instance.id,
+            cached.state.snapshot,
+            snapshotItemCache,
+        )
+        applyContentData(data)
+        contentRefreshSettlement.reset(true)
+        loading.value = false
+        enrichContentData(data)
+        await initProjectsInternal(undefined, cached)
+        return
+    }
     await initProjects()
 }
 
 let unlistenInstances: UnlistenFn | null = null
 
-function scheduleContentEventRefresh(event: { event: string; revision?: number }) {
-    if (event.event === 'synced' && Date.now() < suppressSyncedUntil) return
-    contentEventRefresh.enqueue(event)
-}
-
 onMounted(() => {
     void instance_listener((event: { event: string; instance_id: string; revision?: number }) => {
         if (event.instance_id === props.instance.id && event.event === 'removed') {
+            queryClient.removeQueries({ queryKey: instanceContentKeys(event.instance_id) })
             invalidateContentRequests(true)
             return
         }
@@ -3264,7 +3332,7 @@ onMounted(() => {
             (event.event === 'synced' || event.event === 'content_changed') &&
             props.instance.install_stage === 'installed'
         ) {
-            scheduleContentEventRefresh(event)
+            contentEventRefresh.enqueue(event)
         }
     })
         .then((unlisten) => {
@@ -3288,28 +3356,11 @@ watch(
     },
 )
 
-watch(
-    () => props.instance?.link,
-    async (newInstanceLink, oldInstanceLink) => {
-        if (oldInstanceLink && !newInstanceLink) {
-            await initProjects()
-        }
-    },
-)
-
-watch(
-    () => [
-        props.instance?.update_channel,
-        props.instance?.game_version,
-        props.instance?.loader,
-        props.instance?.game_dir_override,
-    ],
-    async (newValue, oldValue) => {
-        if (newValue.some((value, index) => value !== oldValue[index])) {
-            await initProjects()
-        }
-    },
-)
+watch([contentScope, () => props.instance.id], async ([scope, id], [previousScope, previousId]) => {
+    if (scope === previousScope || id !== previousId) return
+    invalidateContentRequests(true)
+    await loadInitialContent()
+})
 
 onUnmounted(() => {
     isUnmounted = true

@@ -10,7 +10,6 @@ use crate::state::instances::{
     ContentSourceKind, Instance, InstanceFile, InstanceInstallCandidate,
     InstanceInstallTarget, InstanceLink,
 };
-use crate::state::store::Handle;
 use crate::state::{
     CacheBehaviour, CachedEntry, ContentFile, ContentItem, ContentItemOwner,
     ContentItemProject, ContentItemRollback, ContentItemUpdate,
@@ -248,7 +247,7 @@ pub(crate) async fn list_content(
             Some((_, version_id)) => {
                 get_cached_modpack_identifiers(
                     version_id,
-                    &state.cache_handle(),
+                    state.resource_cache(),
                 )
                 .await?
             }
@@ -524,7 +523,6 @@ mod tests {
     use super::*;
     use crate::state::instances::{CreateInstance, InstanceLink};
     use chrono::Utc;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
     async fn reconciliation_fixture() -> (
         tempfile::TempDir,
@@ -538,17 +536,9 @@ mod tests {
             app_identifier: "provider-reconciliation-test".to_string(),
         };
         std::fs::create_dir_all(directories.instances_dir()).unwrap();
-        let pool = SqlitePoolOptions::new()
-            .max_connections(4)
-            .connect_with(
-                SqliteConnectOptions::new()
-                    .filename(temp.path().join("state.db"))
-                    .create_if_missing(true)
-                    .foreign_keys(true),
-            )
+        let pool = crate::state::store::databases::open(temp.path())
             .await
             .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
         let state = crate::state::test_state(directories, pool).await.unwrap();
         let instance = crate::state::instances::create_instance(
             CreateInstance {
@@ -588,6 +578,12 @@ mod tests {
         sha1: &str,
         enabled: bool,
     ) -> InstanceFile {
+        let native = state
+            .directories
+            .instance_game_dir(&resolved.instance)
+            .join(path);
+        std::fs::create_dir_all(native.parent().unwrap()).unwrap();
+        std::fs::write(native, b"x").unwrap();
         let now = Utc::now();
         let file = InstanceFile {
             id: id.to_string(),

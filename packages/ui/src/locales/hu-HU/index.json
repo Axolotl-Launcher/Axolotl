@@ -173,9 +173,6 @@
   "button.reset": {
     "defaultMessage": "Visszaállítás"
   },
-  "button.reset-server": {
-    "defaultMessage": "Szerver visszaállítása"
-  },
   "button.retry": {
     "defaultMessage": "Újra"
   },
@@ -380,9 +377,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "{count} profil importálása"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "Szerver beállítása"
-  },
   "creation-flow.modal.custom-setup.build-number.label": {
     "defaultMessage": "Verziószám"
   },
@@ -484,12 +478,6 @@
   },
   "creation-flow.title.import-instance": {
     "defaultMessage": "Profil importálása"
-  },
-  "creation-flow.title.reset-server": {
-    "defaultMessage": "Szerver visszaállítása"
-  },
-  "creation-flow.title.set-up-server": {
-    "defaultMessage": "Szerver beállítása"
   },
   "external-project-license-status.no": {
     "defaultMessage": "Nem"
@@ -671,9 +659,6 @@
   "files.navbar.home": {
     "defaultMessage": "Kezdőlap"
   },
-  "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "CurseForge csomag telepítése"
-  },
   "files.navbar.new-file": {
     "defaultMessage": "Új fájl"
   },
@@ -682,12 +667,6 @@
   },
   "files.navbar.search-files": {
     "defaultMessage": "Fájlok keresése"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "Feltöltés .zip fájlból"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Feltöltés .zip URL-ből"
   },
   "files.rename-modal.header": {
     "defaultMessage": "{name} átnevezése"
@@ -730,60 +709,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "Név szükséges"
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "CurseForge modcsomag telepítése"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "A CurseForge modcsomag nem található az adott URL-címen."
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "Nem található a CurseForge modpack"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Link beírása"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "Az linknek egy CurseForge modcsomag verzió linknek kell lennie."
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "Az linknek érvényesnek kell lennie."
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "A link megadása kötelező."
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "Telepítés"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "A telepítés sikertelen volt"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Másold ki a verzióoldal linkjét, és illeszd be ide."
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Másold ki a linket"
-  },
-  "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Keress rá a CurseForge-on a kívánt modcsomagra."
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Keresd meg a modcsomagot"
-  },
-  "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Menj a „Fájlok” fülre, és válaszd ki a telepíteni kívánt verziót."
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Válassz ki egy verziót"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Ismeretlen hiba történt"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Másold ki és illeszd be a .zip fájl közvetlen letöltési URL-jét."
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": ".zip fájl tartalmának feltöltése URL-ről"
   },
   "form.label.address-line": {
     "defaultMessage": "Cím"

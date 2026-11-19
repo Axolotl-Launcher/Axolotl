@@ -500,7 +500,7 @@ impl Logs {
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_logs_from_type(
     instance_id: &str,
     log_type: LogType,
@@ -556,7 +556,7 @@ pub async fn get_logs_from_type(
     Ok(())
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_logs(
     instance_id: &str,
     clear_contents: Option<bool>,
@@ -596,7 +596,7 @@ pub async fn get_logs(
     Ok(logs)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_logs_by_filename(
     instance_id: &str,
     log_type: LogType,
@@ -684,7 +684,7 @@ async fn get_output_by_filename_from_path(
     .into())
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_output_by_filename(
     instance_id: &str,
     log_type: LogType,
@@ -700,7 +700,7 @@ pub async fn get_output_by_filename(
         .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn delete_logs(instance_id: &str) -> crate::Result<()> {
     let state = State::get().await?;
     let (instance_path, game_dir_override) =
@@ -722,7 +722,7 @@ pub async fn delete_logs(instance_id: &str) -> crate::Result<()> {
     Ok(())
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn delete_logs_by_filename(
     instance_id: &str,
     log_type: LogType,
@@ -748,7 +748,7 @@ pub async fn delete_logs_by_filename(
     Ok(())
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_live_log_buffer(
     instance_id: &str,
 ) -> crate::Result<CensoredString> {
@@ -775,7 +775,7 @@ pub fn clear_live_log_buffer(instance_id: &str) {
     crate::state::remove_log_buffer(instance_id);
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_latest_log_cursor(
     instance_id: &str,
     cursor: u64, // 0 to start at beginning of file
@@ -783,7 +783,7 @@ pub async fn get_latest_log_cursor(
     get_generic_live_log_cursor(instance_id, "launcher_log.txt", cursor).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_generic_live_log_cursor(
     instance_id: &str,
     log_file_name: &str,

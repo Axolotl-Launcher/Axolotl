@@ -2,11 +2,15 @@
   "identifier": "plugins",
   "description": "",
   "local": true,
-  "windows": ["main"],
+  "webviews": ["main"],
   "permissions": [
     "dialog:allow-open",
     "dialog:allow-confirm",
     "opener:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "ms-settings:network-status" }]
+    },
     "os:allow-platform",
     "os:allow-version",
     "os:allow-os-type",
@@ -160,6 +164,7 @@
     "third-party-accounts:default",
     "schematics:default",
     "mcp:default",
+    "observability-mcp:default",
     "translation:default",
     "storage:default",
     "system-accent:default",
@@ -168,6 +173,7 @@
     "drop:default",
     "terracotta:default",
     "multiplayer:default",
+    "theme-pack:default",
     "servers:default",
     "telemetry:default",
     "planet-minecraft:default"

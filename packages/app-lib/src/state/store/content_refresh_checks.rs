@@ -2,8 +2,10 @@
 
 use crate::resources::{SourceId, SourceReleaseRef, ipc::ResourceTarget};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use sqlx::SqliteConnection;
 
+#[cfg(test)]
 use super::Collection;
 
 pub(crate) struct ContentRefreshChecks;
@@ -16,6 +18,8 @@ pub(crate) struct RefreshCheckKey {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RefreshCheckContext {
+    #[serde(default)]
+    pub content_revision: Option<u64>,
     pub location_key: String,
     pub content_root: String,
     pub sha1: String,
@@ -129,6 +133,92 @@ impl RefreshCheckRecord {
     }
 }
 
+impl ContentRefreshChecks {
+    #[cfg(test)]
+    pub(crate) async fn set(
+        handle: &super::Handle,
+        key: &RefreshCheckKey,
+        record: Option<&RefreshCheckRecord>,
+    ) -> crate::Result<()> {
+        let Some(record) = record else {
+            super::content_evidence::remove(
+                handle,
+                "check",
+                &key.instance_id,
+                &key.entry_id,
+            )
+            .await;
+            return Ok(());
+        };
+        let guards =
+            super::content_evidence::current(handle, &key.instance_id).await?;
+        let mut connection = handle.pool().acquire().await?;
+        let entries = super::content_evidence::entry_files(
+            &mut connection,
+            &key.instance_id,
+        )
+        .await?;
+        drop(connection);
+        let file = entries.get(&key.entry_id);
+        let guard = file.and_then(|file| guards.get(file));
+        if let Some(guard) = guard {
+            super::content_evidence::write(
+                handle,
+                "check",
+                &key.entry_id,
+                guard,
+                record,
+            )
+            .await;
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn get(
+        handle: &super::Handle,
+        key: &RefreshCheckKey,
+    ) -> crate::Result<Option<RefreshCheckRecord>> {
+        Ok(Self::get_scoped(handle, &key.instance_id)
+            .await?
+            .into_iter()
+            .find(|(saved, _)| saved == key)
+            .map(|(_, record)| record))
+    }
+
+    pub(crate) async fn get_scoped(
+        handle: &super::Handle,
+        instance: &str,
+    ) -> crate::Result<Vec<(RefreshCheckKey, RefreshCheckRecord)>> {
+        let mut connection = handle.pool().acquire().await?;
+        let guards =
+            super::content_evidence::guards(&mut connection, instance).await?;
+        let entries =
+            super::content_evidence::entry_files(&mut connection, instance)
+                .await?;
+        drop(connection);
+        Ok(super::content_evidence::read_scoped::<RefreshCheckRecord>(
+            handle,
+            "check",
+            instance,
+            &guards,
+            Some(&entries),
+        )
+        .await
+        .into_iter()
+        .map(|(entry_id, record)| {
+            (
+                RefreshCheckKey {
+                    instance_id: instance.into(),
+                    entry_id,
+                },
+                record,
+            )
+        })
+        .collect())
+    }
+}
+
+#[cfg(test)]
 impl Collection for ContentRefreshChecks {
     type Key = RefreshCheckKey;
     type Scope = String;
@@ -243,6 +333,7 @@ impl Collection for ContentRefreshChecks {
     }
 }
 
+#[cfg(test)]
 fn decode(payload: &str) -> Option<RefreshCheckRecord> {
     match serde_json::from_str::<RefreshCheckRecord>(payload) {
         Ok(record) if record.valid() => Some(record),

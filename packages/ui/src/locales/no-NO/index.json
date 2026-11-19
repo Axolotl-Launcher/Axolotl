@@ -98,9 +98,6 @@
   "button.reset": {
     "defaultMessage": "Reset"
   },
-  "button.reset-server": {
-    "defaultMessage": "Tilbakestill server"
-  },
   "button.retry": {
     "defaultMessage": "Prøv igjen"
   },

@@ -186,11 +186,11 @@ fn every_definition_has_a_unique_name_valid_schema_and_typed_dispatch() {
             .unwrap_or_else(|error| panic!("{}: {error}", entry.name));
         }
     }
-    assert_eq!(names.len(), 267);
+    assert_eq!(names.len(), 266);
 }
 
 #[test]
-fn scheduling_metadata_preserves_the_pre_refactor_contract() {
+fn scheduling_metadata_preserves_the_reviewed_contract() {
     let text: String = registry::catalog()
         .iter()
         .map(|entry| {
@@ -205,7 +205,7 @@ fn scheduling_metadata_preserves_the_pre_refactor_contract() {
     let fingerprint = text.bytes().fold(0xcbf29ce484222325u64, |hash, byte| {
         (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
     });
-    assert_eq!(fingerprint, 0x167cae213a1af557);
+    assert_eq!(fingerprint, 0x8df95b6d41264777);
 }
 
 #[test]

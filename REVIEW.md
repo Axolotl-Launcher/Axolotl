@@ -1,141 +1,141 @@
-# REVIEW.md — Agent 提交、推送、评审与归档纪律
+# REVIEW.md — Agent commit, push, review and archiving discipline
 
-> 本文件是 Axolotl 仓库中**一切 Agent 交付工作**的单一归口：提交、推送、创建 PR、撰写 commit 与 PR、回顾代码变更、自我审查、工作流复用、历史遗留存档。
-> 开工前先读它。它与 [AGENTS.md](AGENTS.md) 及各子目录的 `AGENTS.md` **配合**使用，不替代它们；技术标准见 [standards/](standards/README.md)，环境搭建见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+> This file is the single home for **all Agent delivery work** in the Axolotl repository: commits, pushes, pull requests, commit and PR messages, code review, self-review, workflow reuse and archiving of carried-over work.
+> Read it before starting. It works **together with** [AGENTS.md](AGENTS.md) and the `AGENTS.md` files of the subdirectories and does not replace them; technical standards are in [standards/](standards/README.md), environment setup in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## 1. 适用范围与优先级
+## 1. Scope and priority
 
-- 适用于在本仓库中由 Agent 执行或协助的**全部**交付动作，无论该动作由主 Agent 还是被委派的子 Agent 执行。
-- 优先级：操作者当次明确指令 > 本文件 > [AGENTS.md](AGENTS.md) 与各级子目录指令 > [standards/](standards/README.md)。同层冲突时，**更具体者优先**。
-- **本文件不是实施授权**。它规定"怎么做"，不授权"做什么"：审查请求保持只读，技能（[.agents/skills/](.agents/skills/)）不授权实现、依赖变更、提交、消息或远端操作。
-- 与操作者指令冲突时以操作者为准，并**在交付说明中记录该偏离**。
+- Applies to **all** delivery actions executed or assisted by an Agent in this repository, whether by the main Agent or by a delegated sub-agent.
+- Priority: the operator's explicit instruction for the current action > this file > [AGENTS.md](AGENTS.md) and scoped subdirectory instructions > [standards/](standards/README.md). On a conflict at the same level, **the more specific rule wins**.
+- **This file is not implementation authorization.** It governs "how", not "what": a review request stays read-only, and skills ([.agents/skills/](.agents/skills/)) do not authorize implementation, dependency changes, commits, messages or remote actions.
+- When an operator instruction conflicts with this file, the operator wins; **record that deviation in the delivery notes**.
 
-## 2. 核心原则
+## 2. Core principles
 
-1. **证据优先于自述**。子 Agent、外部贡献者、工具输出的结论都是**自述而非事实**。对外报告成功前，必须用只读手段复核到可验证句柄：文件与行号、命令与退出码、远端 SHA、HTTP 状态。核不到就**明说核不到**。
-2. **不信任自己的上下文**。上下文中的状态（文件内容、分支、远端、任务进度）一律视为可能过期；据此判断或汇报前先当场核实，冲突时以当场事实为准。
-3. **如实归因**。不得错怪网络、环境或他人；也不得把功劳或责任错记到错误的来源上。归因要有对照实验或历史证据支撑。
-4. **先审后发**。任何会落到外部系统的文本（PR 正文、review 评论、issue、Release notes、公告）必须先给操作者看过**将要发送的最终原文**；发出前若改了结构、措辞或增删条目，授权即失效，需重新送审。
-5. **不确定就问一次**。需求歧义、需要业务背景、仓库与文档都查不到且猜错代价高时，先问；不要"先猜一个再改"。
-6. **委派实施、只读复核**。复杂改动交由子 Agent 分工执行，主 Agent 负责规划、审查与验收；**指令文件自身**（本文件、各级 `AGENTS.md`）与发布类操作由主 Agent 亲自维护。
-7. **一次改动一件事**。不夹带、不顺手、不扩大范围；发现的范围外问题**登记**而非就地修掉。
+1. **Evidence over self-report.** Conclusions from sub-agents, external contributors and tool output are **self-reports, not facts**. Before reporting success, confirm it through read-only means up to a verifiable handle: file and line, command and exit code, remote SHA, HTTP status. If it cannot be confirmed, **say plainly that it could not be confirmed**.
+2. **Distrust your own context.** Treat state in the context (file contents, branch, remotes, task progress) as possibly stale; verify it on the spot before acting or reporting on it, and trust the on-the-spot facts when they conflict.
+3. **Attribute truthfully.** Do not blame the network, the environment or other people wrongly, and do not credit or blame the wrong source. Attribution needs a controlled comparison or historical evidence.
+4. **Review before sending.** Any text that will land in an external system (PR body, review comment, issue, release notes, announcement) must be shown to the operator as the **final text to be sent** first; if the structure, wording or items change before it is sent, the authorization is void and the text must be re-submitted for review.
+5. **Ask once when uncertain.** Ask first when the requirement is ambiguous, business context is needed, or the repository and documents cannot answer and a wrong guess would be costly; do not "guess first, change later".
+6. **Delegate implementation, verify read-only.** Hand complex changes to sub-agents for parallel execution; the main Agent owns planning, review and acceptance. **Instruction files themselves** (this file, the `AGENTS.md` files) and release-type operations are maintained by the main Agent personally.
+7. **One change at a time.** Do not bundle, do not fix things in passing, do not widen the scope; **record** out-of-scope problems instead of fixing them on the spot.
 
-## 3. 提交（commit）
+## 3. Commits
 
-- **信息格式**：一律 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)，类型、作用域与 `!`/`BREAKING CHANGE:` 的用法见 [AGENTS.md](AGENTS.md) 的 "Verification and Commits"。本文件不重复该表。
-- **正文写"为什么"**：说明动机、被修正的错误认知、以及取舍理由。不要写"改了 A、改了 B"式的流水账——那是 `git show` 的职责。
-- **提交前必跑该文件类型所属的门禁**，而不是笼统地跑一遍：
-  - 改 TOML（`Cargo.toml`、`.cargo/config.toml`、`tombi.toml` 等）→ `tombi fmt --check`（仓库有该门禁，且它红掉的是**所有**分支）。
-  - 改前端 → 该包的 `fix` 与 `lint`，见 [frontend development](standards/frontend/DEVELOPMENT.md)。
-  - 改 Rust → `cargo fmt --all --check`，并按 [packages/app-lib/AGENTS.md](packages/app-lib/AGENTS.md) 或 [apps/app/AGENTS.md](apps/app/AGENTS.md) 跑对应测试。
-  - 改 Agent 指令或技能 → `pnpm axolotl:check-agents`。
-- **只暂存自己的路径**：用 `git add <具体路径>`。当工作区内可能有其他 Agent 或用户的同时改动时，**严禁** `git add -A`/`git add .`；提交前用 `git show --name-only HEAD` 核对实际入库文件与预期一致。
-- **一个提交只做一件事**；文档改动与代码改动分开；**不为规范化历史而改写已推送的提交**。
-- **`[skip ci]`**：仅用于**不影响桌面端**（`apps/app/`、`apps/app-frontend/` 及其构建、打包、运行时、专属依赖）的提交，且要接在 conventional 前缀之后，例如 `docs(agents): … [skip ci]`。桌面端相关提交**永不**使用。
-- 提交前确认工作树中**没有**他人的在途改动被卷入；发现被卷入时先停下询问，不要替他人决定。
+- **Message format**: always [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/); types, scopes and the use of `!`/`BREAKING CHANGE:` are defined in [AGENTS.md](AGENTS.md) under "Verification and Commits". This file does not repeat that table.
+- **The body states the "why"**: the motivation, the misconception being corrected and the trade-offs taken. Do not write a changelog of "changed A, changed B" — that is `git show`'s job.
+- **Run the gates that belong to the changed file type before committing**, not one blanket pass:
+  - TOML changes (`Cargo.toml`, `.cargo/config.toml`, `tombi.toml`, etc.) → `tombi fmt --check` (the repository has this gate, and when it is red it is red on **all** branches).
+  - Frontend changes → the affected package's `fix` and `lint`, see [frontend development](standards/frontend/DEVELOPMENT.md).
+  - Rust changes → `cargo fmt --all --check`, plus the matching tests per [packages/app-lib/AGENTS.md](packages/app-lib/AGENTS.md) or [apps/app/AGENTS.md](apps/app/AGENTS.md).
+  - Agent instruction or skill changes → `pnpm axolotl:check-agents`.
+- **Stage only your own paths**: use `git add <specific paths>`. When other Agents or the user may be changing the same working tree, **never** use `git add -A` or `git add .`; before committing, confirm with `git show --name-only HEAD` that the committed files match the intent.
+- **One commit does one thing**; documentation changes are committed separately from code changes; **never rewrite pushed commits just to normalize history**.
+- **`[skip ci]`**: only for commits that do **not** affect the desktop app (`apps/app/`, `apps/app-frontend/` and their build, packaging, runtime or app-specific dependencies), and appended after the conventional prefix, for example `docs(agents): … [skip ci]`. Desktop-affecting commits **never** use it.
+- Before committing, confirm the working tree contains **no** other people's in-flight changes; if it does, stop and ask instead of deciding for them.
 
-## 4. 尾签（trailers）
+## 4. Trailers
 
-格式 `标签: 姓名 <邮箱>`，置于提交信息**正文末尾**（`BREAKING CHANGE:` 除外，它是正文的一部分）。按用途分类：
+Format `Token: Name <email>`, placed at the **end of the commit message body** (`BREAKING CHANGE:` excepted, as it is part of the body). By purpose:
 
-- **归属与致谢**：`Signed-off-by`（DCO 签署）、`Co-authored-by` / `Co-developed-by`（共同作者）、`Suggested-by` / `Helped-by` / `Mentored-by` / `Thanks-to`（想法与帮助）、`Based-on-patch-by`（衍生自他人补丁）。
-- **来源与验证**：`Reported-by`（问题报告者，用于修复提交）、`Tested-by`、`Reviewed-by`、`Acked-by`。
-- **追踪关联**：`Fixes`、`Closes`、`Resolves`、`Link`、`Cc`、`Bug`。
-- **流程**：`BREAKING CHANGE:`、`Release-As`、`Change-Id`。
-- **AI 参与**：`Assisted-by`（声明 AI 辅助）、`Acted-By`（人类操作者）。
+- **Attribution and credit**: `Signed-off-by` (DCO sign-off), `Co-authored-by` / `Co-developed-by` (co-authors), `Suggested-by` / `Helped-by` / `Mentored-by` / `Thanks-to` (ideas and help), `Based-on-patch-by` (derived from someone else's patch).
+- **Provenance and verification**: `Reported-by` (issue reporter, for fix commits), `Tested-by`, `Reviewed-by`, `Acked-by`.
+- **Tracking**: `Fixes`, `Closes`, `Resolves`, `Link`, `Cc`, `Bug`.
+- **Process**: `BREAKING CHANGE:`, `Release-As`, `Change-Id`.
+- **AI participation**: `Assisted-by` (declares AI assistance), `Acted-By` (the human operator).
 
-使用要求：
+Requirements:
 
-- **优先沿用本仓库既有习惯**，不要另创一套。本仓库现状：提交正文用 `fixed #N` 关闭 issue，PR 正文用 `Fixes #N`。
-- 引用他人工作时要**如实**：报告者用 `Reported-by`、共同作者用 `Co-authored-by`，不要把外部来源写成自己的。
-- 邮箱与姓名必须来自**已知来源**（`git config`、对方提交记录），不得猜测或编造。
+- **Follow the repository's existing habits**; do not invent another scheme. The repository's current state: issue-closing references use `fixed #N` in the commit body and `Fixes #N` in the PR body.
+- Cite other people's work **truthfully**: `Reported-by` for reporters, `Co-authored-by` for co-authors; never present an external source as your own.
+- Names and email addresses must come from **known sources** (`git config`, the other party's commit records); never guess or invent them.
 
-## 5. 推送（push）
+## 5. Pushing
 
-前置条件（**缺一不可**）：
+Preconditions (**all are required**):
 
-1. 工作树干净，且只含本次要推送的提交；
-2. 相关门禁已跑过且通过（第 3 节）；
-3. 已只读核实目标状态：远端当前 tip、本次提交与远端的关系。
+1. The working tree is clean and contains only the commits about to be pushed;
+2. The relevant gates have been run and pass (section 3);
+3. The target state has been verified read-only: the remote's current tip and how this commit relates to it.
 
-流程：
+Flow:
 
 ```sh
 git fetch origin main --prune
-git rebase origin/main          # 有冲突先解决，不要用 merge 掩盖
+git rebase origin/main          # resolve conflicts; never hide them with a merge
 git push origin HEAD:main
-git fetch origin main --prune   # 回读
-git rev-parse origin/main       # 必须等于本地 HEAD
+git fetch origin main --prune   # read back
+git rev-parse origin/main       # must equal the local HEAD
 ```
 
-- **必须回读比对**：只报告"已推送"而没比对远端 SHA，不算完成。
-- **远端被强推**（`forced update`）时，先核实新 tip 是否仍包含本方基点、是否与本方文件重叠，再决定 rebase 还是放弃；不得盲目 `--force`。
-- **推送是对外且不可逆的动作**，由主 Agent 亲自执行，不委派。
-- 推送后发现问题的正确做法是**追加修复提交**，不是改写已推送历史。
+- **Always read back and compare**: reporting "pushed" without comparing the remote SHA is not done.
+- **When the remote was force-pushed** (`forced update`), first verify whether the new tip still contains your base and overlaps your files, then decide between rebasing and abandoning; never `--force` blindly.
+- **Pushing is an external, irreversible action**; the main Agent performs it personally and never delegates it.
+- After a pushed problem is found, the correct fix is a **follow-up fix commit**, not rewriting pushed history.
 
-## 6. 创建 PR
+## 6. Opening pull requests
 
-- **默认直接推 main**（本仓库既有习惯）。仅在以下情形开 PR：外部贡献者提交、需要独立评审、需要 CI 在合并前背书、或操作者要求。
-- 本仓库**根目录没有 PR 模板**，因此正文按固定结构写：
-  1. **动机**：解决什么问题，关联 issue（`Fixes #N`）；
-  2. **改动**：按子系统列出，说明取舍；
-  3. **验证证据**：逐条给命令与真实退出码，含变异验证（改坏必须失败、改回必须通过）；
-  4. **未验证项**：如实列出没跑、没测、没复核的部分；
-  5. **风险与回滚**：影响面与如何回退。
-- 标题用 Conventional Commits 格式；正文用与仓库一致的措辞，**不加戏**（不加未被要求的章节、建议块、时间线、自我说明）。
-- **先审后发**：任何落到 GitHub 的文本（含 review 评论、inline comment）都必须先给操作者看过最终原文。
-- 合并他人 PR 前，先做**无副作用的冲突预演**（`git merge-tree --write-tree --name-only origin/main <ref>`），并核实其 CI 结论是否由本方改动造成；不要把自己的破坏记到他人头上，也不要替他人在 PR 上发言。
+- **Push to main directly by default** (the repository's existing habit). Open a PR only for: external contributor submissions, an independent review, CI backing before the merge, or an operator request.
+- The repository has **no PR template**, so the body follows a fixed structure:
+  1. **Motivation**: the problem being solved and the linked issue (`Fixes #N`);
+  2. **Changes**: listed by subsystem, with the trade-offs;
+  3. **Verification evidence**: command and real exit code per item, including mutation verification (broken must fail, restored must pass);
+  4. **Unverified items**: honestly list what was not run, tested or reviewed;
+  5. **Risk and rollback**: the blast radius and how to revert.
+- Titles use Conventional Commits; wording matches the repository and **does not put on a show** (no unrequested sections, suggestion blocks, timelines or self-description).
+- **Review before sending**: any text that lands on GitHub (including review comments and inline comments) must be shown to the operator as final text first.
+- Before merging someone else's PR, run a **side-effect-free conflict rehearsal** (`git merge-tree --write-tree --name-only origin/main <ref>`) and verify whether its CI conclusions were caused by this change; do not pin your breakage on someone else, and do not speak for them in the PR.
 
-## 7. 回顾代码变更（review）
+## 7. Reviewing code changes
 
-- **评审请求保持只读**；评审不隐含实现授权。
-- 评审至少覆盖：契约与接口是否被破坏、边界与错误路径、并发与竞态、**已应用迁移的不可变性**、品牌名合规、i18n、门禁覆盖是否足够、以及"这条改动是否真的解决了声称的问题"。
-- **结论必须有证据**：给出 `文件:行` 与复现命令；"看起来没问题"不是结论。
-- **独立复核**他人与子 Agent 的结论（第 2.1 条）。复核方式优先选择**对照实验**：在干净基线上复跑、换一个入口复现、或做变异验证。
-- **要求变异验证**：任何新增的守卫（测试、断言、门禁）都要证明它**能失败**——把被守护的对象改坏，守卫必须报错，改回必须通过。
-- **区分"能通过"与"能防住"**：本地全绿不等于 CI 稳定；对已知抖动的门禁，要说明本地与 CI 的差异，不得用本地结果宣称 CI 已修好。
-- 发现自己的判断有误时**当场更正**，并把更正写进归档（第 10 节）。
+- **A review request stays read-only**; a review does not imply authorization to implement.
+- A review covers at least: whether contracts and interfaces are broken, boundaries and error paths, concurrency and races, **the immutability of applied migrations**, brand-name compliance, i18n, whether gate coverage is sufficient, and whether the change actually solves the stated problem.
+- **Conclusions need evidence**: give `file:line` and a reproduction command; "looks fine to me" is not a conclusion.
+- **Independently verify** other people's and sub-agents' conclusions (section 2.1). Prefer **controlled comparisons**: re-run on a clean baseline, reproduce through a different entry point, or use mutation verification.
+- **Require mutation verification**: every new guard (test, assertion, gate) must be proven **able to fail** — break the guarded object, the guard must report; restore it, the guard must pass.
+- **Distinguish "passes" from "prevents"**: local green does not mean CI is stable; for known-flaky gates, state the local-versus-CI difference and never claim CI is fixed based on local results.
+- When you find your own judgment was wrong, **correct it on the spot** and write the correction into the archive (section 10).
 
-## 8. 自我审查提升
+## 8. Self-review before delivery
 
-交付前逐条自问：
+Ask yourself before delivering:
 
-- 我实际改了哪些文件？与计划是否一致？有没有夹带他人在途改动？
-- 我跑了哪些门禁？退出码是多少？有没有"跑了但没看结果"？
-- 我的结论有没有反例？有没有把"本地通过"当成"CI 通过"？
-- 我是否把一个来源的结论当成了事实？
-- **我有哪些部分没能验证？**（这一条必须写进交付说明，不得省略）
+- Which files did I actually change? Does that match the plan? Did I sweep in anyone else's in-flight changes?
+- Which gates did I run? What were the exit codes? Did I "run but not read" any result?
+- Is there a counterexample to my conclusion? Did I treat "local pass" as "CI pass"?
+- Did I treat any single source's conclusion as a fact?
+- **What could I not verify?** (This must appear in the delivery notes and must not be omitted.)
 
-发现错误时：更正结论 → 说明原先错在哪 → 记录到归档。**不要**悄悄改掉结论而不留痕迹。
+When you find a mistake: correct the conclusion → explain what the earlier statement got wrong → record it in the archive. **Do not** quietly change the conclusion and leave no trace.
 
-## 9. 工作流复用
+## 9. Reusing workflows
 
-- 优先复用既有资产：[.agents/skills/](.agents/skills/) 中的项目技能、[standards/](standards/README.md) 中的技术标准、`pnpm axolotl:*` 脚本、各包既有的 `test`/`lint`/`fix`/`build`。
-- **不为一次性验证新建长期脚本**；临时产物在收尾时清理，中间与归档产物写入 `.agents/plans/`（见 [AGENTS.md](AGENTS.md) 的 "Global Safeguards"）。
-- 已确证可复用的流程：
-  - **worktree 隔离**：并行任务各用一个独立 worktree，避免互相覆盖。
-  - **同一 worktree 单一写者**：同一时刻只允许一个 Agent 写同一 worktree；`rebase`/`stash`/`checkout` 会清掉他人的在途改动，执行前必须先停掉其他写者。
-  - **cargo 单条串行**：同一 target 目录并发构建会互相破坏链接，产生"假失败"。
-  - **变异验证用 `try/finally` 收尾**：中途失败也不能把改坏的代码留在树里。
-  - **从 git 对象恢复文件必须用 shell 重定向**（`git show <ref>:<path> > <path>`），不要用会改写换行符的写入方式。
+- Prefer the existing assets: the project skills in [.agents/skills/](.agents/skills/), the technical standards in [standards/](standards/README.md), the `pnpm axolotl:*` scripts, and each package's existing `test`/`lint`/`fix`/`build`.
+- **Do not create long-term scripts for one-off verification**; clean up temporary artifacts when finishing, and write intermediate and archived artifacts to `.agents/plans/` (see "Global Safeguards" in [AGENTS.md](AGENTS.md)).
+- Proven reusable procedures:
+  - **Worktree isolation**: give each parallel task its own worktree so they do not overwrite each other.
+  - **One writer per worktree**: only one Agent may write a given worktree at a time; `rebase`/`stash`/`checkout` wipe other people's in-flight changes, so stop other writers before running them.
+  - **Run cargo one command at a time**: concurrent builds against the same target directory corrupt each other's linking and produce "false failures".
+  - **Close mutation verification with `try/finally`**: even a failure mid-way must not leave the broken code in the tree.
+  - **Restore files from git objects with shell redirection** (`git show <ref>:<path> > <path>`); do not use a write path that rewrites line endings.
 
-## 10. 历史遗留存档
+## 10. Archiving carried-over work
 
-- 归档落点**只有** `.agents/plans/`（该目录被忽略，见 [AGENTS.md](AGENTS.md) 的 "Global Safeguards"）；**严禁** `git add -f` 或其它绕过 `.gitignore` 的手段。
-- 文件名要有描述性，使后续会话能据此还原当时的工作上下文。
-- 归档条目必须包含：**现象 → 证据 → 根因 → 处置 → 未决项**。证据要给可复现的命令或文件路径。
-- **未决项必须显式处理**：要么关闭并写明依据，要么标注"待决策"并写清需要谁决定什么。**不得静默遗留**。
-- 需要跨会话跟踪多项未决工作时，建立**台账**文件（同一目录内），逐项记录编号、状态、证据与阻塞关系，并在每轮工作后回填。
-- 恢复上下文时：先读归档文件，再**当场核实**其中记录的状态是否仍然成立（第 2.2 条）。
+- The archive home is **only** `.agents/plans/` (the directory is ignored, see "Global Safeguards" in [AGENTS.md](AGENTS.md)); **never** `git add -f` or otherwise bypass `.gitignore`.
+- Filenames must be descriptive so a later session can restore the work context from them.
+- An archive entry must contain: **symptom → evidence → root cause → action → open items**. Evidence gives reproducible commands or file paths.
+- **Open items must be handled explicitly**: either close them with the reason, or mark them "awaiting decision" and state who must decide what. **Never leave them silently.**
+- To track several open items across sessions, keep a **ledger** file (in the same directory) recording number, status, evidence and blockers per item, and update it after each round of work.
+- When restoring context, read the archive first, then **verify on the spot** that the state it records still holds (section 2.2).
 
-## 11. 已确证的工具事实（本仓库）
+## 11. Confirmed tool facts (this repository)
 
-每条都是本仓库实测得到的、会反复踩到的判据：
+Each item is a criterion measured in this repository that comes up repeatedly:
 
-- **TOML 表顺序**：`tombi` 管 TOML 格式，表按字母序排列（如 `[env]` 必须在 `[target.*]` 之前）。改任何 TOML 后跑 `tombi fmt --check`。
-- **typos 的排除语义**：判断排除是否生效必须用**不带路径参数**的 `typos`；要按排除规则检查某个路径需加 `--force-exclude`（显式路径会绕过 `extend-exclude`）。
-- **typos 与子模块**：CI 的 `typos` 作业**不拉取子模块**（只有 `cargo-shear` 与 `clippy` 会），因此本地已初始化子模块时，bare `typos` 会在 `third-party/` 下报出与你的改动无关的错。判据只看自己的文件；**不要**为此去改 `_typos.toml` 的排除项。
-- **依赖安装门槛**：[pnpm-workspace.yaml](pnpm-workspace.yaml) 设有 `minimumReleaseAge`，窗口内的新版本会被自家门槛拒绝；规避只能用**请求级** `--config.minimumReleaseAgeExclude`，不得改仓库设置。
-- **turbo 的环境透传**：[turbo.jsonc](turbo.jsonc) 的任务 `env` 是封闭白名单，未声明的变量会被剥离；`RUST_*`、`NEXTEST_*` 等已在列，新增变量需同步声明。
-- **前端视觉门禁**：`test:visual` 的 worker 数与单测超时上限会影响抖动表现；改这两个值时必须以"最慢单条用例实测耗时"为依据，而不是文件总耗时。
-- **门禁脚本自身**：`pnpm axolotl:check-agents` 校验指令与技能的 Markdown 链接与 Skill frontmatter；[scripts/axolotl/check-agents.mjs](scripts/axolotl/check-agents.mjs) 的 `trackedGuidance` 决定哪些文件被校验，新增根级指令文件时要把它纳入。
+- **TOML table order**: `tombi` manages TOML formatting and sorts tables alphabetically (e.g. `[env]` must precede `[target.*]`). Run `tombi fmt --check` after any TOML change.
+- **typos exclusion semantics**: to judge whether an exclusion applies you must run **`typos` without path arguments**; to check a specific path against the exclusion rules add `--force-exclude` (an explicit path bypasses `extend-exclude`).
+- **typos and submodules**: CI's `typos` job does **not** fetch submodules (only `cargo-shear` and `clippy` do), so with submodules initialized locally, bare `typos` reports errors under `third-party/` unrelated to your change. Judge only your own files; **do not** change the `_typos.toml` exclusions for this.
+- **Dependency install threshold**: [pnpm-workspace.yaml](pnpm-workspace.yaml) sets `minimumReleaseAge`; new versions inside the window are rejected by the repository's own gate. The only workaround is the request-level `--config.minimumReleaseAgeExclude`; never change repository settings.
+- **turbo env passthrough**: the `env` of a task in [turbo.jsonc](turbo.jsonc) is a closed whitelist; undeclared variables are stripped. `RUST_*`, `NEXTEST_*` etc. are already listed; new variables must be declared alongside.
+- **Frontend visual gate**: the worker count and per-test timeout of `test:visual` affect flakiness; when changing these two values, base them on the measured duration of the slowest single case, not the file's total time.
+- **The gate scripts themselves**: `pnpm axolotl:check-agents` validates Markdown links and Skill frontmatter in instructions and skills; `trackedGuidance` in [scripts/axolotl/check-agents.mjs](scripts/axolotl/check-agents.mjs) decides which files are validated, and a new root instruction file must be included there.

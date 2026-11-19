@@ -149,9 +149,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "Додавання вмісту може порушити сумісність при приєднанні до сервера. Усі додані матеріали також будуть утрачені під час оновлення вмісту профілю сервера."
   },
-  "app.browse.server.installing": {
-    "message": "Установлення"
-  },
   "app.content-install.no-compatible-versions": {
     "message": "Жодна доступна версія не сумісна з {compatibilityLabel}. Виберіть версію, щоб усе одно її встановити. Залежності не встановлюватимуться автоматично."
   },
@@ -433,69 +430,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count} у мережі"
-  },
-  "friends.action.add-friend": {
-    "message": "Додати друга"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} запит{count, plural, one { у} few {и в} many {ів у} other {у в}} друзі"
-  },
-  "friends.add-friend.submit": {
-    "message": "Надіслати запит у друзі"
-  },
-  "friends.add-friend.title": {
-    "message": "Додавання друга"
-  },
-  "friends.add-friend.username.description": {
-    "message": "Може відрізнятися від його або її імені користувача Minecraft!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Уведіть ім’я користувача…"
-  },
-  "friends.add-friend.username.title": {
-    "message": "Яке ім’я користувача Modrinth у вашого друга?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Додайте друзів</link>, щоб бачити, у що вони грають!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Скасувати запит"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Видалити друга"
-  },
-  "friends.friend.request-sent": {
-    "message": "Запит у друзі надіслано"
-  },
-  "friends.friend.view-profile": {
-    "message": "Переглянути профіль"
-  },
-  "friends.heading": {
-    "message": "Друзі"
-  },
-  "friends.heading.active": {
-    "message": "Активний"
-  },
-  "friends.heading.offline": {
-    "message": "Поза мережею"
-  },
-  "friends.heading.online": {
-    "message": "У мережі"
-  },
-  "friends.heading.pending": {
-    "message": "Очікується"
-  },
-  "friends.no-friends-match": {
-    "message": "Немає друзів, які збігаються з «{query}»"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Пошук друзів…"
-  },
-  "friends.section.heading": {
-    "message": "{title} — {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Увійдіть в обліковий запис Modrinth</link>, щоб додати друзів і бачити, у що вони грають!"
   },
   "instance.add-server.add-and-play": {
     "message": "Додати та грати"

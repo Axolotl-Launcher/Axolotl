@@ -71,6 +71,14 @@ pub trait ProtocolTransport: Send + Sync {
 
 pub(crate) struct LauncherTransport;
 
+pub(crate) fn modrinth_cache_scope(base_url: &str) -> String {
+    use sha2::{Digest, Sha256};
+    format!(
+        "{:x}",
+        Sha256::digest(base_url.trim_end_matches('/').as_bytes())
+    )
+}
+
 struct RequestPacer {
     next: tokio::sync::Mutex<tokio::time::Instant>,
     interval: std::time::Duration,
@@ -103,6 +111,8 @@ impl ProtocolTransport for LauncherTransport {
     fn cache_namespace(&self, source: &SourceId) -> String {
         if source == &SourceId::curseforge() {
             crate::api::curseforge::metadata_cache_scope()
+        } else if source == &SourceId::modrinth() {
+            modrinth_cache_scope(env!("MODRINTH_API_URL"))
         } else {
             String::new()
         }

@@ -14,7 +14,7 @@ pub(crate) struct SyncedPackCatalog;
 pub(crate) type SyncedPackKey = String;
 
 /// What a pack carries.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct SyncedPackRecord {
     pub project_type: String,
     pub file_name: String,
@@ -118,8 +118,11 @@ impl SyncedPackCatalog {
         handle: &Handle,
         project_type: &str,
     ) -> crate::Result<Vec<(SyncedPackKey, SyncedPackRecord)>> {
-        let mut connection = handle.connection().await?;
-        list(&mut connection, Some(project_type)).await
+        Ok(Self::get_all(handle)
+            .await?
+            .into_iter()
+            .filter(|(_, record)| record.project_type == project_type)
+            .collect())
     }
 
     /// The pack stored under `sha1`, whichever id it was first catalogued as.
@@ -127,20 +130,10 @@ impl SyncedPackCatalog {
         handle: &Handle,
         sha1: &str,
     ) -> crate::Result<Option<(SyncedPackKey, SyncedPackRecord)>> {
-        let mut connection = handle.connection().await?;
-        let row: Option<PackRow> = sqlx::query_as(
-            "
-            SELECT id, project_type, file_name, sha1, size, game_versions_json,
-                enabled, selected, selection_order, created_at, modified_at
-            FROM synced_pack_catalog
-            WHERE sha1 = ?
-            ",
-        )
-        .bind(sha1)
-        .fetch_optional(&mut *connection)
-        .await?;
-
-        Ok(row.map(|row| (row.id.clone(), row.into_record())))
+        Ok(Self::get_all(handle)
+            .await?
+            .into_iter()
+            .find(|(_, record)| record.sha1 == sha1))
     }
 
     /// Catalogues a pack that was just copied into the cache, keeping the row
@@ -150,31 +143,23 @@ impl SyncedPackCatalog {
         key: &str,
         record: &SyncedPackRecord,
     ) -> crate::Result<(SyncedPackKey, SyncedPackRecord)> {
-        let mut connection = handle.connection().await?;
-        let row: PackRow = sqlx::query_as(
-            "
-            INSERT INTO synced_pack_catalog
-                (id, project_type, file_name, sha1, size, game_versions_json,
-                 enabled, created_at, modified_at)
-            VALUES (?, ?, ?, ?, ?, '[]', 1, ?, ?)
-            ON CONFLICT(sha1) DO UPDATE SET
-                modified_at = excluded.modified_at
-            RETURNING id, project_type, file_name, sha1, size,
-                game_versions_json, enabled, selected, selection_order,
-                created_at, modified_at
-            ",
-        )
-        .bind(key)
-        .bind(&record.project_type)
-        .bind(&record.file_name)
-        .bind(&record.sha1)
-        .bind(record.size)
-        .bind(record.created_at)
-        .bind(record.modified_at)
-        .fetch_one(&mut *connection)
-        .await?;
-
-        Ok((row.id.clone(), row.into_record()))
+        let mut unit = super::atom(handle).await?;
+        let existing = Self::atom_get_all(&mut unit)
+            .await?
+            .into_iter()
+            .find(|(_, saved)| saved.sha1 == record.sha1);
+        let (id, saved) = if let Some((id, mut saved)) = existing {
+            saved.modified_at = record.modified_at;
+            (id, saved)
+        } else {
+            let mut saved = record.clone();
+            saved.game_versions_json = "[]".into();
+            saved.enabled = true;
+            (key.to_owned(), saved)
+        };
+        Self::atom_set(&mut unit, &id, Some(&saved)).await?;
+        unit.commit().await?;
+        Ok((id, saved))
     }
 
     /// Catalogues an uploaded pack, replacing the metadata of a row that
@@ -184,31 +169,18 @@ impl SyncedPackCatalog {
         key: &str,
         record: &SyncedPackRecord,
     ) -> crate::Result<()> {
-        let mut connection = handle.connection().await?;
-        sqlx::query(
-            "
-            INSERT INTO synced_pack_catalog
-                (id, project_type, file_name, sha1, size, game_versions_json,
-                 enabled, created_at, modified_at)
-            VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-            ON CONFLICT(sha1) DO UPDATE SET
-                file_name = excluded.file_name,
-                game_versions_json = excluded.game_versions_json,
-                modified_at = excluded.modified_at
-            ",
-        )
-        .bind(key)
-        .bind(&record.project_type)
-        .bind(&record.file_name)
-        .bind(&record.sha1)
-        .bind(record.size)
-        .bind(&record.game_versions_json)
-        .bind(record.created_at)
-        .bind(record.modified_at)
-        .execute(&mut *connection)
-        .await?;
-
-        Ok(())
+        let mut unit = super::atom(handle).await?;
+        let existing = Self::atom_get_all(&mut unit)
+            .await?
+            .into_iter()
+            .find(|(_, saved)| saved.sha1 == record.sha1);
+        let (id, mut saved) =
+            existing.unwrap_or_else(|| (key.to_owned(), record.clone()));
+        saved.file_name = record.file_name.clone();
+        saved.game_versions_json = record.game_versions_json.clone();
+        saved.modified_at = record.modified_at;
+        Self::atom_set(&mut unit, &id, Some(&saved)).await?;
+        unit.commit().await
     }
 
     /// Catalogues a pack found in an instance directory, dropping the rows of
@@ -220,37 +192,19 @@ impl SyncedPackCatalog {
         record: &SyncedPackRecord,
     ) -> crate::Result<()> {
         for id in rows_to_delete {
-            sqlx::query("DELETE FROM synced_pack_catalog WHERE id = ?")
-                .bind(id)
-                .execute(atom.connection())
-                .await?;
+            Self::atom_set(atom, id, None).await?;
         }
-        sqlx::query(
-            "
-            INSERT INTO synced_pack_catalog
-                (id, project_type, file_name, sha1, size, game_versions_json,
-                 enabled, created_at, modified_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(sha1) DO UPDATE SET
-                file_name = excluded.file_name,
-                game_versions_json = excluded.game_versions_json,
-                enabled = excluded.enabled,
-                modified_at = excluded.modified_at
-            ",
-        )
-        .bind(key)
-        .bind(&record.project_type)
-        .bind(&record.file_name)
-        .bind(&record.sha1)
-        .bind(record.size)
-        .bind(&record.game_versions_json)
-        .bind(record.enabled)
-        .bind(record.created_at)
-        .bind(record.modified_at)
-        .execute(atom.connection())
-        .await?;
-
-        Ok(())
+        let existing = Self::atom_get_all(atom)
+            .await?
+            .into_iter()
+            .find(|(_, saved)| saved.sha1 == record.sha1);
+        let (id, mut saved) =
+            existing.unwrap_or_else(|| (key.to_owned(), record.clone()));
+        saved.file_name = record.file_name.clone();
+        saved.game_versions_json = record.game_versions_json.clone();
+        saved.enabled = record.enabled;
+        saved.modified_at = record.modified_at;
+        Self::atom_set(atom, &id, Some(&saved)).await
     }
 
     /// Turns a catalogued pack on or off, leaving its selection alone.
@@ -260,17 +214,15 @@ impl SyncedPackCatalog {
         enabled: bool,
         modified_at: i64,
     ) -> crate::Result<()> {
-        let mut connection = handle.connection().await?;
-        sqlx::query(
-            "UPDATE synced_pack_catalog SET enabled = ?, modified_at = ? WHERE id = ?",
-        )
-        .bind(i64::from(enabled))
-        .bind(modified_at)
-        .bind(id)
-        .execute(&mut *connection)
-        .await?;
-
-        Ok(())
+        let mut unit = super::atom(handle).await?;
+        if let Some(mut record) =
+            Self::atom_get(&mut unit, &id.to_owned()).await?
+        {
+            record.enabled = enabled;
+            record.modified_at = modified_at;
+            Self::atom_set(&mut unit, &id.to_owned(), Some(&record)).await?;
+        }
+        unit.commit().await
     }
 
     /// Records where a pack sits in the resource pack selection.
@@ -280,19 +232,11 @@ impl SyncedPackCatalog {
         selected: bool,
         selection_order: Option<i64>,
     ) -> crate::Result<()> {
-        sqlx::query(
-            "
-            UPDATE synced_pack_catalog
-            SET selected = ?, selection_order = ?
-            WHERE id = ?
-            ",
-        )
-        .bind(i64::from(selected))
-        .bind(selection_order)
-        .bind(id)
-        .execute(atom.connection())
-        .await?;
-
+        if let Some(mut record) = Self::atom_get(atom, &id.to_owned()).await? {
+            record.selected = selected;
+            record.selection_order = selection_order;
+            Self::atom_set(atom, &id.to_owned(), Some(&record)).await?;
+        }
         Ok(())
     }
 
@@ -303,31 +247,22 @@ impl SyncedPackCatalog {
         project_type: &str,
         instance_id: &str,
     ) -> crate::Result<Vec<(SyncedPackKey, SyncedPackRecord, String)>> {
-        let mut connection = handle.connection().await?;
-        let rows: Vec<MaterializedPackRow> = sqlx::query_as(
-            "
-            SELECT c.id, c.project_type, c.file_name, c.sha1, c.size,
-                c.game_versions_json, c.enabled, c.selected, c.selection_order,
-                c.created_at, c.modified_at, i.materialized_path
-            FROM synced_pack_catalog c
-            JOIN synced_pack_instances i ON i.pack_id = c.id
-            WHERE c.project_type = ? AND i.instance_id = ?
-              AND i.materialized_path IS NOT NULL
-            ",
-        )
-        .bind(project_type)
-        .bind(instance_id)
-        .fetch_all(&mut *connection)
-        .await?;
-
-        Ok(rows
+        let catalog = Self::list_of_project_type(handle, project_type).await?;
+        let links =
+            super::synced_pack_instances::SyncedPackInstances::get_all(handle)
+                .await?;
+        Ok(catalog
             .into_iter()
-            .map(|row| {
-                let MaterializedPackRow {
-                    pack,
-                    materialized_path,
-                } = row;
-                (pack.id.clone(), pack.into_record(), materialized_path)
+            .filter_map(|(id, record)| {
+                let path = links
+                    .iter()
+                    .find(|(key, _)| {
+                        key.pack_id == id && key.instance_id == instance_id
+                    })?
+                    .1
+                    .materialized_path
+                    .clone()?;
+                Some((id, record, path))
             })
             .collect())
     }
@@ -454,3 +389,26 @@ async fn write_row(
 
     Ok(())
 }
+
+impl crate::state::sync_state::collection::Collection for SyncedPackCatalog {
+    type Key = SyncedPackKey;
+    type Scope = SyncedPackKey;
+    type Record = SyncedPackRecord;
+    const NAME: &'static str = "synced_pack_catalog";
+    fn in_scope(scope: &Self::Scope, key: &Self::Key) -> bool {
+        scope == key
+    }
+    fn ordered(rows: &mut Vec<(Self::Key, Self::Record)>) {
+        rows.sort_by(|a, b| {
+            b.1.modified_at
+                .cmp(&a.1.modified_at)
+                .then_with(|| a.0.cmp(&b.0))
+        });
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    SyncedPackCatalog,
+    SyncedPackKey,
+    SyncedPackKey,
+    SyncedPackRecord
+);

@@ -1,7 +1,9 @@
 //! Persisted row presentation, independently refreshed from update candidates.
 
+#[cfg(test)]
 use super::Collection;
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use sqlx::SqliteConnection;
 
 pub(crate) struct ContentRefreshPresentations;
@@ -29,6 +31,41 @@ impl PresentationRecord {
     }
 }
 
+impl ContentRefreshPresentations {
+    #[cfg(test)]
+    pub(crate) async fn set(
+        handle: &super::Handle,
+        key: &PresentationKey,
+        record: Option<&PresentationRecord>,
+    ) -> crate::Result<()> {
+        let Some(record) = record else {
+            super::content_evidence::remove(
+                handle,
+                "presentation",
+                &key.instance_id,
+                &key.file_id,
+            )
+            .await;
+            return Ok(());
+        };
+        let guards =
+            super::content_evidence::current(handle, &key.instance_id).await?;
+        let guard = guards.get(&key.file_id);
+        if let Some(guard) = guard {
+            super::content_evidence::write(
+                handle,
+                "presentation",
+                &key.file_id,
+                guard,
+                record,
+            )
+            .await;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
 impl Collection for ContentRefreshPresentations {
     type Key = PresentationKey;
     type Scope = String;
@@ -142,6 +179,7 @@ impl Collection for ContentRefreshPresentations {
     }
 }
 
+#[cfg(test)]
 fn decode(payload: &str) -> Option<PresentationRecord> {
     match serde_json::from_str::<PresentationRecord>(payload) {
         Ok(record) if record.valid() => Some(record),

@@ -170,9 +170,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "Att lägga till innehåll kan bryta kompatibiliteten när du ansluter dig till servern. Allt tillagt innehåll kommer att förloras när du uppdaterar serverinstansen."
   },
-  "app.browse.server.installing": {
-    "message": "Installerar"
-  },
   "app.content-install.no-compatible-versions": {
     "message": "Ingen tillgänglig version matchar {compatibilityLabel}. Välj en version att installera ändå. Beroenden kommer inte installeras automatiskt."
   },
@@ -526,69 +523,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count} online"
-  },
-  "friends.action.add-friend": {
-    "message": "Lägg till en vän"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} vän{count, plural, one {förfrågan} other {förfrågningar}}"
-  },
-  "friends.add-friend.submit": {
-    "message": "Skicka vänförfrågan"
-  },
-  "friends.add-friend.title": {
-    "message": "Lägga till en vän"
-  },
-  "friends.add-friend.username.description": {
-    "message": "Det kan vara annorlunda från deras Minecraft-användarnamn!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Ange Modrinth-användarnamn..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "Vad är din väns Modrinth-användarnamn?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Lägg till vänner</link> för att se vad de spelar!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Avbryt förfrågan"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Ta bort vän"
-  },
-  "friends.friend.request-sent": {
-    "message": "Vänförfrågan skickad"
-  },
-  "friends.friend.view-profile": {
-    "message": "Visa profil"
-  },
-  "friends.heading": {
-    "message": "Vänner"
-  },
-  "friends.heading.active": {
-    "message": "Aktiva"
-  },
-  "friends.heading.offline": {
-    "message": "Offline"
-  },
-  "friends.heading.online": {
-    "message": "Online"
-  },
-  "friends.heading.pending": {
-    "message": "Väntar"
-  },
-  "friends.no-friends-match": {
-    "message": "Inga vänner matchar ''{query}''"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Sök efter vänner..."
-  },
-  "friends.section.heading": {
-    "message": "{title}: {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Logga in på ett Modrinth-konto</link> för att lägga till vänner och se vad de spelar!"
   },
   "instance.add-server.add-and-play": {
     "message": "Lägg till och spela"

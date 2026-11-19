@@ -176,9 +176,6 @@
   "button.reset": {
     "defaultMessage": "Atur Ulang"
   },
-  "button.reset-server": {
-    "defaultMessage": "Jalankan ulang server"
-  },
   "button.retry": {
     "defaultMessage": "Coba Lagi"
   },
@@ -428,9 +425,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "Impor {count, plural, other {# instans}}"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "Buat server"
-  },
   "creation-flow.modal.custom-setup.content-loader.label": {
     "defaultMessage": "Pemuat konten"
   },
@@ -658,12 +652,6 @@
   },
   "files.navbar.search-files": {
     "defaultMessage": "Cari berkas"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "Unggah dari berkas .zip"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Unggah dari URL .zip"
   },
   "files.rename-modal.header": {
     "defaultMessage": "Ganti nama {name}"

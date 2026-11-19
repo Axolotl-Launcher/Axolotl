@@ -8,13 +8,15 @@ use super::Collection;
 pub(crate) struct GameOptionPackBases;
 
 /// A pack base is identified by the instance it belongs to.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct PackBaseKey {
     pub instance_id: String,
 }
 
 /// Where the base came from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) enum PackBaseSource {
     ClientOverrides,
     Overrides,
@@ -41,7 +43,7 @@ impl PackBaseSource {
 }
 
 /// The base a modpack update left behind.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct PackBaseRecord {
     pub pack_version_id: Option<String>,
     pub source: PackBaseSource,
@@ -233,3 +235,19 @@ fn to_source(source: &str) -> Option<PackBaseSource> {
         None
     })
 }
+
+impl crate::state::sync_state::collection::Collection for GameOptionPackBases {
+    type Key = PackBaseKey;
+    type Scope = PackBaseKey;
+    type Record = PackBaseRecord;
+    const NAME: &'static str = "game_option_pack_bases";
+    fn in_scope(scope: &Self::Scope, key: &Self::Key) -> bool {
+        scope == key
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    GameOptionPackBases,
+    PackBaseKey,
+    PackBaseKey,
+    PackBaseRecord
+);

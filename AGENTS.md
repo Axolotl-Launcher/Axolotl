@@ -14,6 +14,7 @@ Read the applicable instruction files before editing, even when your session sta
 | Shared UI, layouts and DI contracts                             | [packages/ui/AGENTS.md](packages/ui/AGENTS.md)                 |
 | API client                                                      | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md) |
 | Desktop runtime, persistence, migrations or downgrade tooling   | [packages/app-lib/AGENTS.md](packages/app-lib/AGENTS.md)       |
+| Adding, changing or removing a launcher setting or its document  | [.agents/skills/launcher-settings/SKILL.md](.agents/skills/launcher-settings/SKILL.md) |
 | Any frontend implementation                                     | [Frontend development](standards/frontend/DEVELOPMENT.md)      |
 | Agent instructions, Skills or their validation                  | [.agents/AGENTS.md](.agents/AGENTS.md)                         |
 | Agent delivery: commits, pushes, PRs, reviews, archiving        | [REVIEW.md](REVIEW.md)                                         |
@@ -28,6 +29,10 @@ Read the applicable instruction files before editing, even when your session sta
 - `packages/path-util`, `tooling-config`: shared paths and tooling.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup and application data isolation before launching the desktop app. Run `pnpm website:dev` or `pnpm app:dev` from the root; prepare `packages/app-lib/.env` from its template for desktop development.
+
+## Settings
+
+A setting is composed from the build default, a deployment's documents and the machine's own documents, per domain and per key. Historical database rows participate only in one-time import. Adding, changing, removing or versioning one — which `DOMAINS` entry it needs, which frontend surfaces name it, and which tests prove it — belongs to the `launcher-settings` skill; read it before changing a settings document or its import mapping. Do not add a runtime SQL configuration projection.
 
 ## Verification and Commits
 

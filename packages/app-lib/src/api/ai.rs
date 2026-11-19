@@ -25,7 +25,7 @@ use crate::state::documents::ai::{AiDocument, ProviderConfig};
 use crate::util::oauth_credentials as credentials;
 use crate::{ErrorKind, State};
 
-const CATALOG_SOURCE: &str = "LobeHub 47bd681c0b3f91edc5e1bc6ab5d634a4b1311d31";
+const CATALOG_SOURCE: &str = "LobeHub 4241324b9bd0c01eaea2b33a1360bafced7c20d5";
 const KEYRING_PREFIX: &str = "ai-provider";
 const API_KEY_CREDENTIAL: &str = "api-key";
 const AWS_ACCESS_KEY_ID_CREDENTIAL: &str = "aws-access-key-id";
@@ -1705,7 +1705,7 @@ fn load_provider_config(
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_state() -> crate::Result<AiState> {
     discard_legacy_openai_secret().await?;
     let state = State::get().await?;
@@ -1723,7 +1723,7 @@ pub async fn get_state() -> crate::Result<AiState> {
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn update_settings(settings: AiSettings) -> crate::Result<()> {
     let state = State::get().await?;
     documents::ai::set_enabled(
@@ -1733,7 +1733,7 @@ pub async fn update_settings(settings: AiSettings) -> crate::Result<()> {
     .await
 }
 
-#[tracing::instrument(skip(update))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn update_provider(
     update: AiProviderConfigUpdate,
 ) -> crate::Result<()> {
@@ -1766,7 +1766,7 @@ pub async fn update_provider(
     .await
 }
 
-#[tracing::instrument(skip(secret))]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn set_api_key(
     provider_id: String,
     secret: Option<String>,
@@ -1774,7 +1774,7 @@ pub fn set_api_key(
     set_credential(provider_id, API_KEY_CREDENTIAL.to_string(), secret)
 }
 
-#[tracing::instrument(skip(secret))]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn set_credential(
     provider_id: String,
     credential: String,
@@ -1792,7 +1792,7 @@ pub fn set_credential(
     Ok(())
 }
 
-#[tracing::instrument(skip(update))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn update_model(update: AiModelUpdate) -> crate::Result<()> {
     let AiModelUpdate {
         provider_id,
@@ -1830,7 +1830,7 @@ pub async fn update_model(update: AiModelUpdate) -> crate::Result<()> {
     .await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn remove_model(
     provider_id: String,
     model_id: String,
@@ -3032,7 +3032,7 @@ async fn complete_cloudflare(
         })
 }
 
-#[tracing::instrument(skip(request), fields(provider_id = %request.provider_id, model_id = %request.model_id))]
+#[tracing::instrument(skip_all, level = "info", fields(provider_id = %request.provider_id, model_id = %request.model_id))]
 pub async fn complete_text(request: AiTextRequest) -> crate::Result<String> {
     let state = State::get().await?;
     let document = read_ai_document(&state).await?;
@@ -3078,7 +3078,7 @@ pub async fn complete_text(request: AiTextRequest) -> crate::Result<String> {
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn test_provider(
     provider_id: String,
     model_id: String,
@@ -3209,7 +3209,7 @@ fn discovered_models(
     models
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn fetch_models(
     provider_id: String,
 ) -> crate::Result<Vec<AiProviderModel>> {
@@ -3321,7 +3321,7 @@ pub async fn fetch_models(
     load_provider_models(&provider_id).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn begin_oauth(
     provider_id: String,
 ) -> crate::Result<OAuthDeviceCode> {
@@ -3467,7 +3467,7 @@ fn oauth_error_status(value: &Value) -> Option<OAuthPollStatus> {
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn poll_oauth(flow_id: Uuid) -> crate::Result<OAuthPollStatus> {
     poll_oauth_with_storage(flow_id, write_oauth_credentials).await
 }
@@ -3690,7 +3690,7 @@ fn complete_oauth(
     Ok(OAuthPollStatus::Success)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn disconnect_oauth(provider_id: String) -> crate::Result<()> {
     oauth_definition(&provider_id).ok_or_else(|| {
         input_error(format!(

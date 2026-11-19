@@ -6,7 +6,7 @@ use crate::launcher::instance_runtime::InstanceRuntimeAdapter;
 use crate::server_address::{parse_server_address, resolve_server_address};
 use crate::state::attached_world_data::AttachedWorldData;
 use crate::state::store::Collection as _;
-use crate::state::store::join_log::{InstanceJoins, JoinLog};
+use crate::state::user_state::joins::{InstanceJoins, JoinLog};
 use crate::state::{InstanceInstallStage, attached_world_data};
 use crate::util::protocol_version::OLD_PROTOCOL_VERSIONS;
 pub use crate::util::protocol_version::ProtocolVersion;
@@ -361,8 +361,8 @@ async fn get_all_worlds_in_instance(
         .await?;
 
     let attached_data =
-        AttachedWorldData::get_all_for_instance(instance_id, &state.pool)
-            .await?;
+        AttachedWorldData::get_all_for_instance(instance_id, &state.persistence)
+            .await.unwrap_or_else(|error| { tracing::warn!(%error,"World choices unavailable; showing native world data"); HashMap::new() });
     if !attached_data.is_empty() {
         for world in &mut worlds {
             if let Some(data) = attached_data
@@ -429,9 +429,9 @@ pub async fn get_singleplayer_world(
         &instance_id,
         world.world_type(),
         world.world_id(),
-        &state.pool,
+        &state.persistence,
     )
-    .await?
+    .await.unwrap_or_else(|error| { tracing::warn!(%error,"World choices unavailable; showing native world data"); None })
     {
         attach_world_data_to_world(&mut world, &data);
     }
@@ -439,7 +439,7 @@ pub async fn get_singleplayer_world(
 }
 
 async fn read_singleplayer_world(world_path: PathBuf) -> Result<World> {
-    if let Some(_lock) = try_get_world_session_lock(&world_path).await? {
+    if let Some(_lock) = try_get_world_read_lock(&world_path).await? {
         read_singleplayer_world_maybe_locked(world_path, false).await
     } else {
         read_singleplayer_world_maybe_locked(world_path, true).await
@@ -645,7 +645,7 @@ pub async fn set_world_display_status(
         world_type,
         world_id,
         display_status,
-        &state.pool,
+        &state.persistence,
     )
     .await?;
     emit_instance(&instance_id, InstancePayloadType::Edited).await?;
@@ -902,6 +902,22 @@ async fn try_get_world_session_lock(
     Ok(locked.then_some(file))
 }
 
+async fn try_get_world_read_lock(
+    world: &Path,
+) -> Result<Option<tokio::fs::File>> {
+    let file = tokio::fs::File::options()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .open(world.join("session.lock"))
+        .await?;
+    // Home reads favorites and recent worlds concurrently. Readers must not
+    // report each other's metadata scans as Minecraft holding the world.
+    let locked = file.try_lock_shared()?;
+    Ok(locked.then_some(file))
+}
+
 pub async fn add_server_to_instance(
     instance_id: &str,
     name: String,
@@ -945,7 +961,7 @@ pub async fn add_server_to_instance(
                 WorldType::Server,
                 &address,
                 project_id,
-                &state.pool,
+                &state.persistence,
             )
             .await?;
         }
@@ -955,7 +971,7 @@ pub async fn add_server_to_instance(
                 WorldType::Server,
                 &address,
                 content_kind,
-                &state.pool,
+                &state.persistence,
             )
             .await?;
         }
@@ -1364,6 +1380,50 @@ mod tests {
         std::fs::write(world_dir.join("level.dat"), bytes).unwrap();
     }
 
+    #[tokio::test]
+    async fn metadata_reads_share_session_lock_but_respect_exclusive_owners() {
+        let fixture = TempDir::new().unwrap();
+        write_world(fixture.path(), 1_900_000_000_000);
+        let world_dir = fixture.path().join("saves").join("home-world");
+        let reader = tokio::fs::File::options()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false)
+            .open(world_dir.join("session.lock"))
+            .await
+            .unwrap();
+        assert!(reader.try_lock_shared().unwrap());
+
+        let world = read_singleplayer_world(world_dir.clone()).await.unwrap();
+        assert!(matches!(
+            world.details,
+            WorldDetails::Singleplayer { locked: false, .. }
+        ));
+        assert!(
+            try_get_world_session_lock(&world_dir)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(get_world_session_lock(&world_dir).await.is_err());
+        drop(reader);
+
+        let game = get_world_session_lock(&world_dir).await.unwrap();
+        let world = read_singleplayer_world(world_dir.clone()).await.unwrap();
+        assert!(matches!(
+            world.details,
+            WorldDetails::Singleplayer { locked: true, .. }
+        ));
+        drop(game);
+
+        let world = read_singleplayer_world(world_dir).await.unwrap();
+        assert!(matches!(
+            world.details,
+            WorldDetails::Singleplayer { locked: false, .. }
+        ));
+    }
+
     async fn check_home_worlds(
         state: &State,
         fixture: &TempDir,
@@ -1477,7 +1537,7 @@ mod tests {
                 WorldType::Singleplayer,
                 "home-world",
                 DisplayStatus::Favorite,
-                &state.pool,
+                &state.persistence,
             )
             .await
             .unwrap();
@@ -1679,7 +1739,7 @@ mod tests {
             assert!(
                 AttachedWorldData::get_all_for_instance(
                     &instance.id,
-                    &state.pool
+                    &state.persistence
                 )
                 .await
                 .unwrap()

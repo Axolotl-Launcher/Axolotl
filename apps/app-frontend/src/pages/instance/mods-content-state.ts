@@ -1,8 +1,30 @@
-import type { ContentRefreshMode } from '@/helpers/content-refresh'
+import { replaceEqualDeep } from '@tanstack/vue-query'
+
+import type { ContentRefreshMode, ContentRefreshState } from '@/helpers/content-refresh'
 import type { InstanceContentSnapshot } from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types'
 
 type ContentScope = Pick<GameInstance, 'id' | 'install_stage'>
+
+export interface CachedModsContent {
+    state: ContentRefreshState
+    validatedAt: number
+}
+
+const CONTENT_VALIDATION_MAX_AGE = 5 * 60_000
+
+export function needsContentRefresh(
+    cached: CachedModsContent | undefined,
+    observed: ContentRefreshState,
+    now = Date.now(),
+) {
+    return (
+        !cached ||
+        replaceEqualDeep(cached.state.snapshot, observed.snapshot) !== cached.state.snapshot ||
+        cached.validatedAt === 0 ||
+        now - cached.validatedAt >= CONTENT_VALIDATION_MAX_AGE
+    )
+}
 
 /** Cached warnings survive a page visit even when the new task has no failures. */
 export function modsContentRetryMode(
@@ -79,10 +101,10 @@ export function createContentRefreshSettlement() {
             round = id
             return check()
         },
-        reset() {
+        reset(hasCachedSnapshot = false) {
             round = undefined
             last = undefined
-            settled = false
+            settled = hasCachedSnapshot
         },
     }
 }

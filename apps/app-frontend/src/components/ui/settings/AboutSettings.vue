@@ -3,6 +3,7 @@ import {
     CheckIcon,
     ChevronDownIcon,
     CopyIcon,
+    DiscordIcon,
     ExternalIcon,
     GithubIcon,
     GlobeIcon,
@@ -242,6 +243,10 @@ const messages = defineMessages({
         id: 'app.settings.about.qq-group',
         defaultMessage: 'Player QQ group',
     },
+    joinDiscord: {
+        id: 'app.settings.about.join-discord',
+        defaultMessage: 'Join Discord',
+    },
     qqChannel: {
         id: 'app.settings.about.qq-channel',
         defaultMessage: 'QQ channel',
@@ -317,6 +322,11 @@ const projectLinks = [
         href: AxolotlBrandConfig.supportUrl,
         label: messages.reportIssue,
         icon: IssuesIcon,
+    },
+    {
+        href: AxolotlBrandConfig.discordInviteUrl,
+        label: messages.joinDiscord,
+        icon: DiscordIcon,
     },
     {
         href: AxolotlBrandConfig.qqChannelUrl,
@@ -486,7 +496,7 @@ const projectLinks = [
                     :href="AxolotlBrandConfig.sponsorUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="flex min-w-0 items-center gap-3 rounded-xl bg-surface-4 p-4 transition-colors hover:bg-surface-5"
+                    class="flex min-w-0 items-center gap-3 rounded-xl bg-surface-4 p-4 transition-colors hover:bg-surface-5 sm:col-span-2"
                 >
                     <span
                         class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-2"

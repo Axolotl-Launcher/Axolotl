@@ -149,9 +149,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "Menambah konten dapat merusak kompatibilitas saat bergabung ke server. Konten tambahan apa pun akan hilang ketika Anda memperbarui konten instans server."
   },
-  "app.browse.server.installing": {
-    "message": "Memasang"
-  },
   "app.content-install.no-compatible-versions": {
     "message": "Tidak ada versi tersedia yang cocok untuk {compatibilityLabel}. Anda tetap dapat memilih versi yang akan dipasang. Dependensi tidak akan dipasang secara otomatis."
   },
@@ -433,69 +430,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count} orang daring"
-  },
-  "friends.action.add-friend": {
-    "message": "Tambah teman"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} {count, plural, other {permintaan}} teman"
-  },
-  "friends.add-friend.submit": {
-    "message": "Kirim permintaan teman"
-  },
-  "friends.add-friend.title": {
-    "message": "Menambah teman"
-  },
-  "friends.add-friend.username.description": {
-    "message": "Ia mungkin memiliki nama yang berbeda dari nama pengguna Minecraft!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Masukkan nama pengguna Modrinth..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "Apa nama pengguna Modrinth teman Anda?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Tambah teman</link> untuk melihat apa yang mereka mainkan!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Batalkan permintaan"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Hapus teman"
-  },
-  "friends.friend.request-sent": {
-    "message": "Permintaan teman dikirim"
-  },
-  "friends.friend.view-profile": {
-    "message": "Lihat profil"
-  },
-  "friends.heading": {
-    "message": "Teman"
-  },
-  "friends.heading.active": {
-    "message": "Aktif"
-  },
-  "friends.heading.offline": {
-    "message": "Luring"
-  },
-  "friends.heading.online": {
-    "message": "Daring"
-  },
-  "friends.heading.pending": {
-    "message": "Menunggu"
-  },
-  "friends.no-friends-match": {
-    "message": "Tidak ada teman dengan nama \"{query}\""
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Cari teman..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Masuk ke akun Modrinth</link> untuk menambah teman dan melihat apa yang mereka mainkan!"
   },
   "instance.add-server.add-and-play": {
     "message": "Tambah dan mainkan"

@@ -2,6 +2,6 @@
   "identifier": "updater",
   "description": "",
   "local": true,
-  "windows": ["main"],
+  "webviews": ["main"],
   "permissions": ["updater:default"]
 }

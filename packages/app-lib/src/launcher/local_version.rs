@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use super::direct_link::LinkedLauncherDialect;
+use super::version_json::{parse_merged_version_json, parse_version_json};
 
 /// A library plus community-launcher fields which daedalus intentionally does
 /// not model. Keeping these fields is required for direct-link path resolution.
@@ -557,14 +558,15 @@ fn load_pcl_version_chain(
     dialect: LinkedLauncherDialect,
 ) -> crate::Result<MergedVersion> {
     let mut visited = HashSet::new();
-    let value = resolve_pcl_json(
+    let (path, value) = resolve_pcl_json(
         root,
         version_id,
         version_json,
         dialect,
         &mut visited,
     )?;
-    let mut document: RawVersionDocument = serde_json::from_value(value)?;
+    let mut document: RawVersionDocument =
+        parse_merged_version_json(&path, &value)?;
     document.id = version_id.to_string();
     merged_from_document(&document)
 }
@@ -575,7 +577,7 @@ fn resolve_pcl_json(
     version_json: Option<&Path>,
     dialect: LinkedLauncherDialect,
     visited: &mut HashSet<String>,
-) -> crate::Result<Value> {
+) -> crate::Result<(PathBuf, Value)> {
     if !visited.insert(version_id.to_string()) {
         return Err(crate::ErrorKind::InputError(format!(
             "Circular inheritsFrom chain detected at \"{version_id}\""
@@ -587,14 +589,7 @@ fn resolve_pcl_json(
         Some(path) => path.to_path_buf(),
         None => discover_version_json(root, version_id)?,
     };
-    let mut child: Value = serde_json::from_str(
-        &std::fs::read_to_string(&path).map_err(|error| {
-            crate::ErrorKind::FSError(format!(
-                "Failed to read local version JSON {}: {error}",
-                path.display()
-            ))
-        })?,
-    )?;
+    let mut child: Value = read_document_path(&path)?;
 
     // PCL McInstance.JsonObject converts HMCL-format documents by sorting
     // patches ascending and repeatedly applying JObject.Merge. PCL-CE's
@@ -631,7 +626,7 @@ fn resolve_pcl_json(
         .filter(|parent| *parent != version_id)
         .map(str::to_string);
     let result = if let Some(parent_id) = parent_id {
-        let mut parent =
+        let (_, mut parent) =
             resolve_pcl_json(root, &parent_id, None, dialect, visited)?;
         let inherited_jar = parent
             .get("jar")
@@ -673,7 +668,7 @@ fn resolve_pcl_json(
         child
     };
     visited.remove(version_id);
-    Ok(result)
+    Ok((path, result))
 }
 
 /// Newtonsoft JObject.Merge / PCL-CE JsonCompat.Merge semantics used by PCL:
@@ -703,14 +698,14 @@ fn read_document(
     read_document_path(&discover_version_json(root, version_id)?)
 }
 
-fn read_document_path(path: &Path) -> crate::Result<RawVersionDocument> {
+fn read_document_path<T: DeserializeOwned>(path: &Path) -> crate::Result<T> {
     let content = std::fs::read_to_string(path).map_err(|error| {
         crate::ErrorKind::FSError(format!(
             "Failed to read local version JSON {}: {error}",
             path.display()
         ))
     })?;
-    Ok(serde_json::from_str(&content)?)
+    parse_version_json(path, content.as_bytes(), true)
 }
 
 fn merged_from_document(
@@ -947,6 +942,145 @@ mod tests {
             serde_json::to_vec_pretty(&value).unwrap(),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn linked_version_rules_keep_existing_semantics() {
+        let dir = tempdir().unwrap();
+        write_json(
+            dir.path(),
+            "demo",
+            "client.json",
+            json!({
+                "id": "demo",
+                "arguments": {"game": [
+                    "--plain",
+                    {"value": "--implicit-allow"},
+                    {"value": ["--explicit-allow"], "rules": []},
+                    {"value": "--denied", "rules": [
+                        {"action": "allow"}, {"action": "disallow"}
+                    ]}
+                ]}
+            }),
+        );
+        let version = load_version_chain(dir.path(), "demo").unwrap();
+        let arguments = version.arguments.unwrap();
+        let game = &arguments[&ArgumentType::Game];
+        assert!(
+            matches!(&game[0], Argument::Normal(value) if value == "--plain")
+        );
+        for (argument, expected) in game[1..].iter().zip([true, true, false]) {
+            let Argument::Ruled { rules, .. } = argument else {
+                panic!("expected a ruled argument");
+            };
+            assert_eq!(
+                crate::launcher::parse_rules(
+                    rules,
+                    "x86_64",
+                    &crate::instance::QuickPlayType::None,
+                    false,
+                ),
+                expected,
+            );
+        }
+    }
+
+    #[test]
+    fn inherited_hmcl_patch_reports_bad_rules_without_values() {
+        let dir = tempdir().unwrap();
+        write_json(
+            dir.path(),
+            "child",
+            "child.json",
+            json!({"id": "child", "inheritsFrom": "base"}),
+        );
+        let path = dir.path().join("versions").join("base").join("client.json");
+        for (rules, location, expected) in [
+            (Value::Null, "rules", "an array of rules"),
+            (
+                json!([{"action": "private-test-action"}]),
+                "rules[0].action",
+                "allow or disallow",
+            ),
+            (
+                json!([{"action": "allow", "features": {"is_demo_user": "private-test-feature"}}]),
+                "rules[0].features",
+                "an object with boolean feature flags",
+            ),
+        ] {
+            write_json(
+                dir.path(),
+                "base",
+                "client.json",
+                json!({
+                    "id": "base",
+                    "patches": [{}, {"arguments": {"jvm": [
+                        "-Xmx1G", {"rules": rules, "value": "private-test-token"}
+                    ]}}]
+                }),
+            );
+            let error = load_version_for_dialect(
+                dir.path(),
+                "child",
+                None,
+                LinkedLauncherDialect::Hmcl,
+            )
+            .unwrap_err();
+            let message = error.to_string();
+            assert!(message.contains(&path.display().to_string()), "{message}");
+            assert!(
+                message.contains(&format!(
+                    "patches[1].arguments.jvm[1].{location}"
+                )),
+                "{message}"
+            );
+            assert!(
+                message.contains(&format!("expected {expected}")),
+                "{message}"
+            );
+            assert!(!message.contains("private-test-"));
+        }
+    }
+
+    #[test]
+    fn pcl_reports_invalid_argument_at_merged_index() {
+        let dir = tempdir().unwrap();
+        write_json(
+            dir.path(),
+            "base",
+            "base.json",
+            json!({"id": "base", "arguments": {"game": ["--plain"]}}),
+        );
+        write_json(
+            dir.path(),
+            "child",
+            "client.json",
+            json!({
+                "id": "child",
+                "inheritsFrom": "base",
+                "arguments": {"game": [{"value": ["private-test-token", 10]}]}
+            }),
+        );
+        let path = dir.path().join("versions/child/client.json");
+        for dialect in
+            [LinkedLauncherDialect::Pcl, LinkedLauncherDialect::PclCe]
+        {
+            let error = load_version_for_dialect(
+                dir.path(),
+                "child",
+                Some(&path),
+                dialect,
+            )
+            .unwrap_err();
+            let message = error.to_string();
+            assert!(message.contains("merged version JSON"));
+            assert!(message.contains(&path.display().to_string()));
+            assert!(message.contains("arguments.game[1].value"));
+            assert!(
+                message.contains("expected a string or an array of strings")
+            );
+            assert!(!message.contains("private-test-token"));
+        }
     }
 
     #[test]

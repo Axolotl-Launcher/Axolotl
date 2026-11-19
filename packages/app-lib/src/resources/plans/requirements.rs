@@ -47,9 +47,12 @@ pub(crate) async fn local_metadata(
     pool: &SqlitePool,
     instance_id: &str,
 ) -> ResourceResult<HashMap<InstalledEntryId, LocalModMetadata>> {
-    let rows = crate::state::instances::adapters::sqlite::content_entries::get_local_mod_data_by_entry(instance_id, pool)
-        .await
-        .map_err(|error| ResourceError::Database(error.to_string()))?;
+    let rows = crate::state::store::content_evidence::parsed_for_entries(
+        pool,
+        instance_id,
+    )
+    .await
+    .map_err(|error| ResourceError::Database(error.to_string()))?;
     rows.into_iter()
         .filter_map(|(id, value)| {
             serde_json::from_str(&value).ok().map(|metadata| {

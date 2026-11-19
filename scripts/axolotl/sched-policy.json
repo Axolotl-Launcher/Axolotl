@@ -15,9 +15,14 @@
     "install/runner.rs queue_resource_plan: admission (S2) -> install_db_semaphore (S5) -> instance content lock (S3)",
     "api/instance/backup.rs *_inner: instance maintenance lock (S2) -> instance content lock (S3) -> REPOSITORY_LOCK (S1)",
     "state/instances/commands/remove_instance.rs: instance maintenance lock (S2) -> synced_options_lock (S7) -> instance content lock (S3)",
-    "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)"
+    "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)",
+    "api/theme_pack/store.rs install: INSTALL_LOCK (S7) serializes extraction and directory replacement and takes no other managed lock; ThemePackPageState.pages (S8) only guards the label map",
+    "Theme pack storage accounting and writes share THEME_STORAGE_LOCK so quota and file caps are enforced under one order.",
+    "Storage document services add seven S8 maps for screenshot observations/hints, recovery availability, derived/record pool lookup and share-token sessions; guards cover memory-only access and are released before database initialization, hashing, keyring or file I/O.",
+    "Database lock diagnostics add an S8 ACTIVE registry: guards only update or clone in-memory operation metadata, never await, log or acquire another managed resource; snapshot sorting and warning output run after the guard is released.",
+    "Standalone instance/favorite group FILE_ACCESS locks serialize bounded JSON writes and snapshot reads. Runtime writers acquire STORE before FILE_ACCESS; snapshots acquire FILE_ACCESS alone and never initialize or acquire STORE. Startup import uses atomic document publication before runtime writers exist. No FILE_ACCESS guard crosses an await or acquires a core/database lock."
   ],
-  "rankFingerprint": "930365d4a314e9285f3c77601098d6f7182e5a7f35ce21de5de7056e7569aaab",
+  "rankFingerprint": "c6bc6090b00ffc2c88488deb846e3627ab42ee42e6d1f9946ab9161989a68da8",
   "classes": {
     "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
     "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",
@@ -41,14 +46,32 @@
     "theseus::state::State.screenshot_locks": "S3",
     "theseus::state::State.synced_options_lock": "S7",
     "theseus::state::instances::config_sync::DIRTY_INSTANCES": "S8",
+    "theseus::api::theme_pack::store::INSTALL_LOCK": "S7",
+    "theseus_gui::api::theme_pack::ThemePackPageState.pages": "S8",
     "theseus::state::process::LOG_BUFFERS": "S8",
     "theseus::state::process::ProcessManager.processes": "S10",
-    "theseus::util::single_flight::FLIGHTS": "S6"
+    "theseus::util::single_flight::FLIGHTS": "S6",
+    "theseus_gui::api::theme_pack::THEME_STORAGE_LOCK": "S8"
   },
   "longLivedRoots": [
     "InitialPayload"
   ],
   "exclusions": [
+    {
+      "ident": "theseus::state::accounts::session::Session.device",
+      "rule": "D4",
+      "reason": "session device credential: leaf primitive held only to clone or replace one optional secret string; no await, keyring call, file access or nested acquisition occurs while its guard is held"
+    },
+    {
+      "ident": "theseus::state::accounts::session::Session.tokens",
+      "rule": "D4",
+      "reason": "session credential map: leaf primitive held only for bounded lookup, insert, remove or cloning secret values; no await, keyring operation, file access or nested resource acquisition occurs while the guard is held"
+    },
+    {
+      "ident": "theseus::api::jre::JavaInstalls.active",
+      "rule": "D4",
+      "reason": "Java download lifecycle registry: leaf shard access only for synchronous insert, remove or snapshot; no shard guard crosses an await or acquires another lock"
+    },
     {
       "ident": "theseus::logger::RotatingLogWriter.state",
       "rule": "D4",

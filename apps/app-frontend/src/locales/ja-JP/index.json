@@ -131,9 +131,6 @@
   "app.browse.project-type.modpacks": {
     "message": "Modパック"
   },
-  "app.browse.server.installing": {
-    "message": "インストール中"
-  },
   "app.export-modal.export-button": {
     "message": "書き出し"
   },
@@ -316,69 +313,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count} 人がオンライン"
-  },
-  "friends.action.add-friend": {
-    "message": "フレンドを追加"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count}件の友達リクエスト"
-  },
-  "friends.add-friend.submit": {
-    "message": "フレンド申請を送信"
-  },
-  "friends.add-friend.title": {
-    "message": "フレンドを追加中"
-  },
-  "friends.add-friend.username.description": {
-    "message": "これはMinecraftユーザー名とは異なる可能性があります！"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Modrinthユーザー名を入力…"
-  },
-  "friends.add-friend.username.title": {
-    "message": "あなたのフレンドのModrinthユーザー名は何ですか？"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>友達を追加</link>して、彼らが何をしているか見てみよう！"
-  },
-  "friends.friend.cancel-request": {
-    "message": "申請をキャンセル"
-  },
-  "friends.friend.remove-friend": {
-    "message": "フレンドを削除"
-  },
-  "friends.friend.request-sent": {
-    "message": "フレンド申請が送信されました"
-  },
-  "friends.friend.view-profile": {
-    "message": "プロフィールを表示"
-  },
-  "friends.heading": {
-    "message": "フレンド"
-  },
-  "friends.heading.active": {
-    "message": "活動中"
-  },
-  "friends.heading.offline": {
-    "message": "オフライン"
-  },
-  "friends.heading.online": {
-    "message": "オンライン"
-  },
-  "friends.heading.pending": {
-    "message": "保留中"
-  },
-  "friends.no-friends-match": {
-    "message": "フレンド「{query}」は見つかりませんでした"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "フレンドを検索…"
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Modrinthアカウントにサインイン</link>して友達を追加し、彼らがプレイしているゲームをチェックしよう！"
   },
   "instance.add-server.add-and-play": {
     "message": "追加してプレイ"

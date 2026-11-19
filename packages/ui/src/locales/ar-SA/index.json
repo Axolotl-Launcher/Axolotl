@@ -107,9 +107,6 @@
   "button.reset": {
     "defaultMessage": "إعادة ضبط"
   },
-  "button.reset-server": {
-    "defaultMessage": "إعادة ضبط الخادم"
-  },
   "button.retry": {
     "defaultMessage": "الإعادة"
   },

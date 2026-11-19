@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@/helpers/invoke'
 
 /**
  * Prefix the launcher uses for an id it synthesised because no online identity

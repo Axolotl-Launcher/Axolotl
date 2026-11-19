@@ -86,9 +86,6 @@
   "button.reset": {
     "defaultMessage": "Nollaa"
   },
-  "button.reset-server": {
-    "defaultMessage": "Resettaa serveri"
-  },
   "button.retry": {
     "defaultMessage": "Yritä uudelleen"
   },

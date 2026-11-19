@@ -319,6 +319,8 @@ where
     let mut content_set =
         instance_content_files::get_content_set(&state.data, &instance.id)
             .await?;
+    let resource_cache = state.resource_cache();
+    let cache_generation = resource_cache.generation().await;
     let watch_snapshot = state
         .file_watcher
         .content_watch_snapshot(&instance.id)
@@ -346,14 +348,18 @@ where
     let mut saved_failures = HashMap::new();
     if publication.is_some() {
         for (key, record) in
-            ContentRefreshScanFailures::failed(&state.derived, &instance.id)
+            ContentRefreshScanFailures::failed(resource_cache, &instance.id)
                 .await?
         {
             if key.location_key != failure_location
                 || !scanned_paths.contains(&key.relative_path)
             {
-                ContentRefreshScanFailures::remove(&state.derived, &key)
-                    .await?;
+                ContentRefreshScanFailures::remove_at(
+                    resource_cache,
+                    &key,
+                    cache_generation,
+                )
+                .await?;
             } else {
                 saved_failures.insert(key.relative_path, record);
             }
@@ -474,13 +480,14 @@ where
                 if publication.is_some()
                     && error != crate::resources::ResourceError::Canceled =>
             {
-                ContentRefreshScanFailures::upsert(
-                    &state.derived,
+                ContentRefreshScanFailures::upsert_at(
+                    resource_cache,
                     &failure_key,
                     &ScanFailureRecord {
                         attempted_at: Utc::now().timestamp(),
                         error: error.to_string(),
                     },
+                    cache_generation,
                 )
                 .await?;
                 let _ = publication
@@ -503,8 +510,12 @@ where
         if publication.is_some()
             && saved_failures.contains_key(&file.relative_path)
         {
-            ContentRefreshScanFailures::remove(&state.derived, &failure_key)
-                .await?;
+            ContentRefreshScanFailures::remove_at(
+                resource_cache,
+                &failure_key,
+                cache_generation,
+            )
+            .await?;
         }
         let scanned_size =
             resolved.identity.integrity.size.unwrap_or(file.size);
@@ -640,6 +651,7 @@ where
                 if let Some(committed) = instance_content_files::set_scanned(
                     &state.data,
                     instance_content_files::ScannedFiles {
+                        cache_generation,
                         instance_id: &instance.id,
                         content_set: &content_set,
                         files: batch,
@@ -738,6 +750,7 @@ where
         crate::state::store::instance_content_files::set_scanned(
             &state.data,
             crate::state::store::instance_content_files::ScannedFiles {
+                cache_generation,
                 instance_id: &instance.id,
                 content_set: &content_set,
                 files: &files,

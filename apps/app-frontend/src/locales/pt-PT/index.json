@@ -236,69 +236,6 @@
   "app.world.world-item.players-online": {
     "message": "{count} online"
   },
-  "friends.action.add-friend": {
-    "message": "Adicionar um amigo"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} {count, plural,one {pedido} other {pedidos}} de amizade"
-  },
-  "friends.add-friend.submit": {
-    "message": "Enviar pedido de amizade"
-  },
-  "friends.add-friend.title": {
-    "message": "Adicionar um amigo"
-  },
-  "friends.add-friend.username.description": {
-    "message": "Pode ser diferente do nome no Minecraft!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Insere o nome do utilizador no Modrinth..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "Qual é o nome de utilizador do teu amigo no Modrinth?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Adiciona amigos</link> para ver o que estão a jogar!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Cancelar pedido"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Remover amigo"
-  },
-  "friends.friend.request-sent": {
-    "message": "Pedido de amizade enviado"
-  },
-  "friends.friend.view-profile": {
-    "message": "Ver perfil"
-  },
-  "friends.heading": {
-    "message": "Amigos"
-  },
-  "friends.heading.active": {
-    "message": "Ativo"
-  },
-  "friends.heading.offline": {
-    "message": "Offline"
-  },
-  "friends.heading.online": {
-    "message": "Online"
-  },
-  "friends.heading.pending": {
-    "message": "Pendente"
-  },
-  "friends.no-friends-match": {
-    "message": "Nenhum amigo corresponde a \"{query}\""
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Procurar amigos..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Inicia a sessão com uma conta Modrinth</link> para adicionar amigos e ver o que estão a jogar!"
-  },
   "instance.add-server.add-and-play": {
     "message": "Adicionar e jogar"
   },

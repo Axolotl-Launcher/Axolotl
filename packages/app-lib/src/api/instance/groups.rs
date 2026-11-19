@@ -88,7 +88,7 @@ pub async fn list_groups() -> crate::Result<Vec<InstanceGroup>> {
 pub async fn create_group(name: String) -> crate::Result<InstanceGroup> {
     let name = validate_group_name(&name)?;
     let id = Uuid::new_v4().to_string();
-    instance_groups::create(&id, name);
+    instance_groups::create(&id, name)?;
     // Creating a group changes the library even when it has no members yet;
     // without this event the frontend keeps its stale list until the next
     // membership change and empty groups never appear.
@@ -101,7 +101,7 @@ pub async fn create_group(name: String) -> crate::Result<InstanceGroup> {
 }
 
 pub async fn set_group_order(group_ids: Vec<String>) -> crate::Result<()> {
-    instance_groups::set_order(&group_ids);
+    instance_groups::set_order(&group_ids)?;
     Ok(())
 }
 
@@ -117,27 +117,14 @@ pub async fn set_group_memberships(
     // Note: the instances themselves are deliberately not validated here.
     // JSON-backed instances (`local:` ids) have no row in the `instances` table,
     // and requiring one is what used to make grouping them fail outright.
-    let unique_group_ids = updates
-        .iter()
-        .flat_map(|update| update.group_ids.iter())
-        .collect::<HashSet<_>>();
-    for group_id in unique_group_ids {
-        if !instance_groups::group_exists(group_id) {
-            return Err(crate::ErrorKind::InputError(format!(
-                "Unknown instance group {group_id}"
-            ))
-            .into());
-        }
-    }
-
-    instance_groups::set_memberships(
+    instance_groups::set_memberships_checked(
         &updates
             .iter()
             .map(|update| {
                 (update.instance_id.clone(), update.group_ids.clone())
             })
             .collect::<Vec<_>>(),
-    );
+    )?;
 
     let instance_ids = updates
         .into_iter()
@@ -187,7 +174,7 @@ pub async fn rename_group(
 
     let new_name = validate_group_name(&new_name)?;
 
-    let Some(instance_ids) = instance_groups::rename(&id, new_name) else {
+    let Some(instance_ids) = instance_groups::rename(&id, new_name)? else {
         return Err(crate::ErrorKind::InputError(format!(
             "Unknown instance group {id}"
         ))
@@ -210,7 +197,7 @@ pub async fn delete_group(id: String) -> crate::Result<()> {
         .into());
     }
 
-    let Some(instance_ids) = instance_groups::delete(&id) else {
+    let Some(instance_ids) = instance_groups::delete(&id)? else {
         return Err(crate::ErrorKind::InputError(format!(
             "Unknown instance group {id}"
         ))

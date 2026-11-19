@@ -3,21 +3,11 @@ import '@/assets/stylesheets/window-frame.css'
 
 import { ModrinthApiError, TauriModrinthClient, VerboseLoggingFeature } from '@modrinth/api-client'
 import {
-    ChangeSkinIcon,
-    CompassIcon,
-    FlaskConicalIcon,
     FolderOpenIcon,
-    HomeIcon,
-    ImagesIcon,
-    LibraryIcon,
-    PlusIcon,
     RefreshCwIcon,
     RightArrowIcon,
     RotateCounterClockwiseIcon,
-    SettingsIcon,
     SpinnerIcon,
-    UsersIcon,
-    WorldIcon,
     XIcon,
 } from '@modrinth/assets'
 import {
@@ -57,7 +47,7 @@ import {
 } from '@modrinth/ui'
 import { useQueryClient } from '@tanstack/vue-query'
 import { getVersion } from '@tauri-apps/api/app'
-import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { Effect, getCurrentWindow } from '@tauri-apps/api/window'
 import { openUrl } from '@tauri-apps/plugin-opener'
@@ -93,16 +83,32 @@ import MissingJavaModal from '@/components/ui/modal/MissingJavaModal.vue'
 import ModpackAlreadyInstalledModal from '@/components/ui/modal/ModpackAlreadyInstalledModal.vue'
 import ModpackInstallModal from '@/components/ui/modal/ModpackInstallModal.vue'
 import PrivacyConsentModal from '@/components/ui/modal/PrivacyConsentModal.vue'
+import {
+    CreateNavIcon,
+    DiscoverNavIcon,
+    HomeNavIcon,
+    LabNavIcon,
+    LibraryNavIcon,
+    MultiplayerNavIcon,
+    ScreenshotsNavIcon,
+    SettingsNavIcon,
+    SkinsNavIcon,
+    WorldsNavIcon,
+} from '@/components/ui/nav-icons'
 import NavButton from '@/components/ui/NavButton.vue'
 import NavRail from '@/components/ui/NavRail.vue'
+import NetworkPageBoundary from '@/components/ui/network/NetworkPageBoundary.vue'
+import NetworkStatusBar from '@/components/ui/network/NetworkStatusBar.vue'
 import OfflineAccountRestrictionModal from '@/components/ui/OfflineAccountRestrictionModal.vue'
 import { createOobeController } from '@/components/ui/oobe/useOobe'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
 import RemoteAnnouncements from '@/components/ui/RemoteAnnouncements.vue'
 import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
+import { themeSuiteMessages } from '@/components/ui/settings/theme-suite/messages'
 import SplashScreen from '@/components/ui/SplashScreen.vue'
 import UnsavedSelectionModal from '@/components/ui/UnsavedSelectionModal.vue'
 import WindowControls from '@/components/ui/WindowControls.vue'
+import { useInstanceListUpdates } from '@/composables/instances/use-instance-list'
 import { useCheckDisableMouseover } from '@/composables/macCssFix.js'
 import { isOfflineAccountRestrictedError } from '@/composables/useAntiPiracyStatus'
 import { useDropImport } from '@/composables/useDropImport'
@@ -140,8 +146,10 @@ import {
 } from '@/helpers/install'
 import { type DirectLinkSyncReport, get as getInstance, run } from '@/helpers/instance'
 import { type BackupOperation, cancelBackup, listBackupOperations } from '@/helpers/instance-backup'
+import { invoke } from '@/helpers/invoke'
 import { installNativeEditMenuBoundary } from '@/helpers/native-edit-menu'
 import { getNavShortcutEnabled } from '@/helpers/nav-shortcut-state'
+import { recordEvent } from '@/helpers/observability'
 import { runWhenIdle } from '@/helpers/page-transition'
 import { get_by_instance_id, kill as killProcess } from '@/helpers/process.js'
 import { getExternalLinkUrl, mergeUrlQuery, parseModrinthLink } from '@/helpers/project-links.ts'
@@ -170,7 +178,14 @@ import {
 } from '@/helpers/shortcut-actions'
 import { resolveAllBindings } from '@/helpers/shortcut-bindings'
 import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.ts'
+import { createStartupProgress } from '@/helpers/startup-progress'
 import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
+import { applyThemeRuntime, reapplyThemeRuntime } from '@/helpers/theme-pack-runtime'
+import {
+    createThemePackPagesRefresher,
+    THEME_SOURCE_CHANGED_EVENT,
+    type ThemePackNavPage,
+} from '@/helpers/theme-packs'
 import { consumeThirdPartyAuthorizationReturn } from '@/helpers/third-party-accounts'
 import { shouldWarnAboutUnsavedSelection } from '@/helpers/unsaved-selection'
 import {
@@ -391,7 +406,9 @@ provideModalBehavior({
     noblur: computed(() => !themeStore.advancedRendering),
 })
 
-const stateInitialization = initialize_state()
+const startupProgress = createStartupProgress()
+const stateInitialization = startupProgress.initialize(initialize_state)
+onUnmounted(startupProgress.dispose)
 const {
     instanceIconPickerModal,
     installationModal,
@@ -410,7 +427,13 @@ const {
     fileDrop,
 } = setupProviders(notificationManager, popupNotificationManager, stateInitialization)
 
-const { offline } = useNetworkStatus()
+const { offline, setSimulatedOffline } = useNetworkStatus()
+watch(
+    () => themeStore.devMode,
+    (enabled) => {
+        if (!enabled) setSimulatedOffline(false)
+    },
+)
 
 const OobeHost = defineAsyncComponent(() => import('@/components/ui/oobe/OobeHost.vue'))
 const oobe = createOobeController()
@@ -948,7 +971,35 @@ onUnmounted(async () => {
     downloadManager.dispose()
 })
 
-const { formatMessage } = useVIntl()
+const { formatMessage, locale: intlLocale } = useVIntl()
+
+const themePackPages = ref<ThemePackNavPage[]>([])
+const themePackPagesRefresher = createThemePackPagesRefresher(
+    async () => {
+        const settings = await getSettings().catch(() => null)
+        return settings ? (settings.theme_source ?? 'builtin') : null
+    },
+    () => intlLocale.value,
+)
+
+/** Re-reads the active pack's navigation pages after its source changes. */
+async function refreshThemePackPages(): Promise<void> {
+    await themePackPagesRefresher.refresh((pages) => {
+        themePackPages.value = pages
+    })
+}
+
+function handleThemeSourceChanged(): void {
+    void refreshThemePackPages()
+}
+
+window.addEventListener(THEME_SOURCE_CHANGED_EVENT, handleThemeSourceChanged)
+watch(intlLocale, handleThemeSourceChanged)
+onUnmounted(() => {
+    themePackPagesRefresher.invalidate()
+    window.removeEventListener(THEME_SOURCE_CHANGED_EVENT, handleThemeSourceChanged)
+})
+
 const formatBytes = useFormatBytes()
 
 async function warnIfRunningElevated() {
@@ -1450,6 +1501,30 @@ async function exportNotificationErrorLogs(notification: ExportableNotification)
     }
 }
 
+let missingThemePackNotified: string | null = null
+
+function notifyMissingThemePack(packId: string | null) {
+    if (!packId || missingThemePackNotified === packId) return
+    missingThemePackNotified = packId
+    addNotification({
+        title: formatMessage(themeSuiteMessages.missingPackTitle),
+        text: formatMessage(themeSuiteMessages.missingPackText, { packId }),
+        type: 'warning',
+        autoCloseMs: null,
+    })
+}
+
+async function applyThemeRuntimeFromSettings(
+    s: Awaited<ReturnType<typeof getSettings>>,
+): Promise<void> {
+    const result = await applyThemeRuntime(s.theme, {
+        themeSource: s.theme_source ?? 'builtin',
+        customThemeColors: s.custom_theme_colors ?? null,
+        uiFont: s.ui_font ?? null,
+    })
+    notifyMissingThemePack(result.missingPackId)
+}
+
 // 把设置同步到界面（主题/外观）；深链改完设置后复用同一套应用逻辑
 async function applyThemeFromSettings(s: Awaited<ReturnType<typeof getSettings>>) {
     themeStore.setThemeState(s.theme)
@@ -1473,9 +1548,11 @@ async function applyThemeFromSettings(s: Awaited<ReturnType<typeof getSettings>>
     themeStore.transparentBackgroundBlur = s.transparent_background_blur
     themeStore.setTransparentBackgroundClass()
     themeStore.setCustomBackgroundClass()
+    await applyThemeRuntimeFromSettings(s)
 }
 
 const queryClient = useQueryClient()
+useInstanceListUpdates(queryClient, handleError)
 
 async function setupApp() {
     const initialSettings = await getSettings()
@@ -1535,7 +1612,7 @@ async function setupApp() {
         DiscoverContent: `/browse/${getLastBrowseContentProjectType()}`,
         Library: '/library',
     }
-    const defaultPageRoute = offline.value ? '/library' : defaultPageRoutes[default_page]
+    const defaultPageRoute = defaultPageRoutes[default_page]
     if (defaultPageRoute && defaultPageRoute !== '/') await router.push(defaultPageRoute)
 
     os.value = await getOS()
@@ -1576,6 +1653,8 @@ async function setupApp() {
     themeStore.transparentBackgroundBlur = transparent_background_blur
     themeStore.setTransparentBackgroundClass()
     themeStore.setCustomBackgroundClass()
+    await applyThemeRuntimeFromSettings(initialSettings)
+    await refreshThemePackPages()
     isMaximized.value = await getCurrentWindow().isMaximized()
     appearanceReady.value = true
     await applyWindowAppearance()
@@ -1827,6 +1906,7 @@ stateInitialization
             console.warn('Failed to configure manual-download watcher', error)
         })
         setupApp().catch((err) => {
+            startupProgress.dispose()
             stateFailed.value = true
             console.error(err)
             showStateInitError(err)
@@ -2141,11 +2221,15 @@ watch(
     { flush: 'post' },
 )
 
-watch(offline, (isOffline) => {
-    if (isOffline && (route.path.startsWith('/browse') || route.path.startsWith('/project'))) {
-        void router.push('/library')
-    }
-})
+// 主题模式（含跟随系统）切换后，按缓存的选择重新应用 pack 令牌与自定义配色
+watch(
+    () => themeStore.selectedTheme,
+    (theme) => {
+        void reapplyThemeRuntime(theme).then((result) =>
+            notifyMissingThemePack(result.missingPackId),
+        )
+    },
+)
 
 const error = useError()
 
@@ -2386,13 +2470,6 @@ async function handleCommand(e: AppCommand | null) {
             })
             return
         }
-        if (
-            offline.value &&
-            (target.path.startsWith('/browse') || target.path.startsWith('/project'))
-        ) {
-            await router.push('/library')
-            return
-        }
         await router.push(target)
         return
     }
@@ -2519,6 +2596,7 @@ async function handlePrivilegedCommand(e: AppCommand) {
         if (!applySettingChanges(latest, e.changes ?? [])) return
         await updateSettings(diffSettings(before, latest)).catch(handleError)
         await applyThemeFromSettings(latest)
+        await refreshThemePackPages()
         setFollowSystemLocale(!latest.locale || latest.locale === 'system')
         await applyLocalePreference(latest.locale)
         addNotification({
@@ -2730,6 +2808,7 @@ async function performUpdateCheck() {
         console.log('No update available')
         return 'up-to-date'
     }
+    recordEvent('app_update', { source: 'check', 'update.channel': channel })
 
     const publishedAt = Date.parse(update.publishedAt ?? '')
     if (
@@ -2834,6 +2913,7 @@ async function downloadUpdate(versionToDownload: typeof availableUpdate.value) {
                 unlistenUpdateDownload?.()
                 unlistenUpdateDownload = null
                 console.log('Finished downloading!')
+                recordEvent('app_update', { source: 'enqueue' })
                 markAppUpdateActionable(versionToDownload.version, 'downloaded')
                 scheduleDelayedUpdatePopup()
             })
@@ -2956,7 +3036,13 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 </script>
 
 <template>
-    <SplashScreen v-if="!stateFailed" ref="splashScreen" data-tauri-drag-region />
+    <SplashScreen
+        v-if="!stateFailed"
+        ref="splashScreen"
+        :startup-progress="startupProgress.progress.value"
+        data-tauri-drag-region
+        @finished="startupProgress.dispose"
+    />
     <!--
         A failed initialization never renders the app shell, so this framed window
         ends up with no title bar and no controls at all. This strip keeps the
@@ -3052,7 +3138,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     v-tooltip.right="formatMessage(messages.home)"
                     to="/"
                 >
-                    <HomeIcon />
+                    <HomeNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('screenshots')"
@@ -3060,7 +3146,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/screenshots"
                     :is-primary="(r) => r.path.startsWith('/screenshots')"
                 >
-                    <ImagesIcon />
+                    <ScreenshotsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="
@@ -3069,24 +3155,23 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     v-tooltip.right="formatMessage(messages.worlds)"
                     to="/worlds"
                 >
-                    <WorldIcon />
+                    <WorldsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('discover')"
                     v-tooltip.right="formatMessage(messages.discoverContent)"
                     :to="discoverContentPath"
-                    :disabled="offline"
                     :is-primary="() => route.path.startsWith('/browse') && !route.query.i"
                     :is-subpage="(route) => route.path.startsWith('/project') && !route.query.i"
                 >
-                    <CompassIcon />
+                    <DiscoverNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('skins')"
                     v-tooltip.right="formatMessage(messages.skinSelector)"
                     to="/skins"
                 >
-                    <ChangeSkinIcon />
+                    <SkinsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('multiplayer')"
@@ -3094,7 +3179,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/multiplayer"
                     :is-primary="(r) => r.path.startsWith('/multiplayer')"
                 >
-                    <UsersIcon />
+                    <MultiplayerNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('library')"
@@ -3109,7 +3194,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                                 !!route.query.i)
                     "
                 >
-                    <LibraryIcon />
+                    <LibraryNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('lab')"
@@ -3117,7 +3202,29 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/lab"
                     :is-primary="(r) => r.path.startsWith('/lab')"
                 >
-                    <FlaskConicalIcon />
+                    <LabNavIcon />
+                </NavButton>
+                <NavButton
+                    v-for="page in themePackPages"
+                    :key="`${page.packId}:${page.pageId}`"
+                    v-tooltip.right="page.title"
+                    :to="`/theme-pack/${encodeURIComponent(page.packId)}/${encodeURIComponent(page.pageId)}`"
+                    :is-primary="
+                        (r) =>
+                            r.name === 'ThemePackPage' &&
+                            r.params.packId === page.packId &&
+                            r.params.pageId === page.pageId
+                    "
+                >
+                    <img
+                        v-if="page.iconUrl"
+                        :src="page.iconUrl"
+                        alt=""
+                        class="h-7 w-7 rounded object-contain"
+                    />
+                    <span v-else class="text-base font-semibold">
+                        {{ page.title.slice(0, 1) }}
+                    </span>
                 </NavButton>
             </NavRail>
             <div class="h-px w-6 mx-auto my-2 bg-surface-5"></div>
@@ -3126,15 +3233,11 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     <QuickInstanceSwitcher />
                 </suspense>
             </div>
-            <NavButton
-                v-tooltip.right="formatMessage(messages.createInstance)"
-                to="/create"
-                :disabled="offline"
-            >
-                <PlusIcon />
+            <NavButton v-tooltip.right="formatMessage(messages.createInstance)" to="/create">
+                <CreateNavIcon />
             </NavButton>
             <NavButton v-tooltip.right="formatMessage(commonMessages.settingsLabel)" to="/settings">
-                <SettingsIcon />
+                <SettingsNavIcon />
             </NavButton>
         </div>
         <AppTitlebar
@@ -3220,13 +3323,18 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                             "
                             class="page-transition-layer"
                         >
-                            <Suspense
-                                v-if="Component"
-                                @pending="onSuspensePending"
-                                @resolve="onSuspenseResolve"
+                            <NetworkPageBoundary
+                                :requires-network="!!pageRoute.meta.requiresNetwork"
+                                @blocked="onSuspenseResolve"
                             >
-                                <component :is="Component"></component>
-                            </Suspense>
+                                <Suspense
+                                    v-if="Component"
+                                    @pending="onSuspensePending"
+                                    @resolve="onSuspenseResolve"
+                                >
+                                    <component :is="Component"></component>
+                                </Suspense>
+                            </NetworkPageBoundary>
                         </div>
                     </Transition>
                 </RouterView>
@@ -3282,6 +3390,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             </div>
         </div>
     </div>
+    <NetworkStatusBar v-if="stateInitialized && !oobeVisible" />
     <I18nDebugPanel />
     <NotificationPanel
         :has-sidebar="sidebarVisible"
@@ -3615,6 +3724,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 .app-contents.studio-mode {
     top: var(--top-bar-height);
     height: calc(100vh - var(--top-bar-height));
+    height: calc(100dvh - var(--top-bar-height));
 }
 
 .app-grid-layout {
@@ -3626,6 +3736,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     //z-index: 0;
     background-color: var(--surface-3);
     height: 100vh;
+    height: 100dvh;
 }
 
 .quick-instance-scroll {
@@ -3714,6 +3825,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     right: 0;
     bottom: 0;
     height: calc(100vh - var(--top-bar-height));
+    height: calc(100dvh - var(--top-bar-height));
     background-color: var(--color-bg);
     border-top-left-radius: var(--radius-xl);
     overflow: hidden;
@@ -3818,6 +3930,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     position: relative;
     z-index: 11;
     height: calc(100vh - var(--top-bar-height));
+    height: calc(100dvh - var(--top-bar-height));
     background: var(--brand-gradient-bg);
 
     --sidebar-control-surface: var(--brand-gradient-button);

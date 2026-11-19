@@ -52,9 +52,9 @@ async fn read_history(
     .map_err(|error| ResourceError::InvalidRequest(error.to_string()))?;
     let mut entries = Vec::new();
     for (_, record) in rows {
-        let Ok(mut entry) =
-            serde_json::from_str::<ResourceHistoryEntry>(&record.payload)
-        else {
+        let Ok(mut entry) = crate::state::store::compatibility::decode_payload::<
+            ResourceHistoryEntry,
+        >(&record.payload) else {
             continue;
         };
         entry.backup_retired = !record.backup_available;
@@ -220,14 +220,19 @@ pub(crate) async fn prepare_rollback(
         .ok_or_else(|| {
             ResourceError::Database("history entry disappeared".into())
         })?;
-    let payload: serde_json::Value = serde_json::from_str(&stored.payload)?;
+    let payload: serde_json::Value =
+        crate::state::store::compatibility::decode_payload(&stored.payload)?;
     let record: super::installed::InstalledArtifactRecord =
-        serde_json::from_value(
-            payload.get("previousArtifact").cloned().ok_or_else(|| {
-                ResourceError::InvalidRequest(
-                    "history lacks exact artifact metadata".into(),
-                )
-            })?,
+        crate::state::store::compatibility::decode_payload(
+            &payload
+                .get("previousArtifact")
+                .cloned()
+                .ok_or_else(|| {
+                    ResourceError::InvalidRequest(
+                        "history lacks exact artifact metadata".into(),
+                    )
+                })?
+                .to_string(),
         )?;
     let artifact = record.artifact;
     if !identity::exact_integrity(

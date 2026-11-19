@@ -1,15 +1,6 @@
-//! The account secrets, kept in the system credential store instead of the rows
-//! that name them.
-//!
-//! A row keeps a mark of which of its secret columns the store holds; the column
-//! itself is cleared once the secret is there. Every secret the store will not
-//! take — this host has none, or the value is longer than one entry holds — stays
-//! in its column with its mark clear, so signing in never depends on the store
-//! answering: the row is then read exactly as an older build wrote it.
-//!
-//! A row whose mark does depend on the store, though, is not read without it: a
-//! secret that cannot be read cannot be hidden from an exported report either, so
-//! a store that does not answer fails the read instead of emptying the secret.
+//! The OS credential store boundary. New account writes have no SQL or file
+//! fallback: their service retains refused credentials only in session memory.
+//! Historical row adapters below are compiled only for legacy regression tests.
 //!
 //! This module is the only way the crate reaches the store.
 
@@ -23,6 +14,7 @@ use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+#[cfg(test)]
 use super::Handle;
 
 /// How much one entry holds, in the unit the platform's cap counts.
@@ -169,6 +161,52 @@ pub(crate) fn write_entry(key: &str, value: Option<&str>) -> crate::Result<()> {
         None => backend().delete(key),
     }
     .map_err(|_| unreadable())
+}
+
+/// Capture the caller's backend before entering an owned file worker. Tests
+/// inject per-thread backends; production keeps the same OS backend for life.
+#[derive(Clone, Copy)]
+pub(crate) struct Access {
+    backend: &'static dyn Backend,
+    unavailable: bool,
+}
+
+pub(crate) fn access() -> Access {
+    Access {
+        backend: backend(),
+        unavailable: unavailable(),
+    }
+}
+
+impl Access {
+    pub(crate) fn read(self, key: &str) -> crate::Result<Option<String>> {
+        if self.unavailable {
+            return Err(unreadable());
+        }
+        self.backend.get(key).map_err(|_| unreadable())
+    }
+
+    pub(crate) fn write(
+        self,
+        key: &str,
+        value: Option<&str>,
+    ) -> crate::Result<()> {
+        if self.unavailable {
+            return Err(unreadable());
+        }
+        match value {
+            Some(value) if size(value) <= MOST => self.backend.set(key, value),
+            Some(_) => {
+                return Err(crate::ErrorKind::InputError(
+                    "The credential exceeds the system store entry limit"
+                        .into(),
+                )
+                .into());
+            }
+            None => self.backend.delete(key),
+        }
+        .map_err(|_| unreadable())
+    }
 }
 
 /// Stores one secret, and says whether the store holds it now.
@@ -345,6 +383,7 @@ impl Undo {
 /// Called at startup. It is idempotent — a row that was moved has nothing left in
 /// its columns — and every step writes the store before the row, so an
 /// interruption leaves a secret in both places rather than in neither.
+#[cfg(test)]
 pub(crate) async fn externalize(handle: &Handle) -> crate::Result<()> {
     let mut connection = handle.connection().await?;
 
@@ -496,7 +535,7 @@ fn report(key: &str, Refused { reason, permanent }: Refused) {
         tracing::warn!(
             %key,
             %reason,
-            "The system credential store is unavailable, so account secrets stay in the database"
+            "The system credential store is unavailable; new account credentials remain session-only"
         );
     }
 }
@@ -538,6 +577,7 @@ pub(crate) mod testing {
     pub(crate) struct Memory {
         values: Mutex<HashMap<String, String>>,
         refuses_deletes: AtomicBool,
+        refuses_reads: AtomicBool,
     }
 
     impl Memory {
@@ -562,6 +602,10 @@ pub(crate) mod testing {
             self.refuses_deletes.store(true, Ordering::Relaxed);
         }
 
+        pub(crate) fn refuse_reads(&self, refuse: bool) {
+            self.refuses_reads.store(refuse, Ordering::Relaxed);
+        }
+
         fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, String>> {
             self.values
                 .lock()
@@ -576,6 +620,12 @@ pub(crate) mod testing {
         }
 
         fn get(&self, key: &str) -> Result<Option<String>, Refused> {
+            if self.refuses_reads.load(Ordering::Relaxed) {
+                return Err(Refused {
+                    reason: "credential store is locked".into(),
+                    permanent: false,
+                });
+            }
             Ok(self.value(key))
         }
 

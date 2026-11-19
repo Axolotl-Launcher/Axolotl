@@ -1,14 +1,12 @@
 use super::super::types::{ProjectionEntry, ProjectionOwner};
 use super::super::{codec, limits, projection, reconciliation, storage};
 use super::*;
-use crate::state::store::Collection as _;
 use crate::state::store::instance_sync_preferences::{
-    InstancePreferenceKey, InstanceSyncPreferences,
+    InstancePreferenceKey, InstancePreferenceRecord, InstanceSyncPreferences,
 };
 use crate::state::store::sync_feature_settings::{
-    FeatureSettingsKey, SyncFeatureSettings,
+    FeatureSettingsKey, FeatureSettingsRecord, SyncFeatureSettings,
 };
-use crate::state::store::synced_servers::{SyncedServerRecord, SyncedServers};
 use std::sync::Arc;
 
 fn server(id: &str) -> CanonicalServer {
@@ -26,23 +24,52 @@ async fn fixture() -> (tempfile::TempDir, Arc<State>, InstanceMetadata) {
         app_identifier: "server-sync-test".into(),
     };
     std::fs::create_dir_all(dirs.instances_dir().join("a")).unwrap();
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
+    let settings = dirs.settings_dir.join("settings");
+    std::fs::create_dir_all(&settings).unwrap();
+    std::fs::write(
+        settings.join("bootstrap.json"),
+        serde_json::to_vec(&serde_json::json!({
+            "schema_version": 1,
+            "data": { "custom_dir": dirs.config_dir }
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let pool = crate::state::store::databases::open(&dirs.settings_dir)
         .await
         .unwrap();
-    sqlx::migrate!().run(&pool).await.unwrap();
     sqlx::raw_sql(
         "INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified)
-         VALUES ('a', 'a', 'installed', '1', 'A', 1, 1);
+         VALUES ('a', 'a', 'installed', 'none', 'A', 1, 1);
          INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified)
          VALUES ('set-a', 'a', 'A', 'local', 'available', '1.20.1', 'vanilla', 1, 1);
-         UPDATE instances SET applied_content_set_id = 'set-a' WHERE id = 'a';
-         INSERT INTO instance_sync_preferences(instance_id, feature, enabled)
-         VALUES ('a', 'multiplayer_servers', 1)
-         ON CONFLICT(instance_id, feature) DO UPDATE SET enabled = 1;"
+         UPDATE instances SET applied_content_set_id = 'set-a' WHERE id = 'a';"
     ).execute(&pool).await.unwrap();
     let state = crate::state::test_state(dirs, pool).await.unwrap();
+    let mut unit = crate::state::store::atom(&state.data).await.unwrap();
+    InstanceSyncPreferences::atom_set(
+        &mut unit,
+        &InstancePreferenceKey {
+            instance_id: "a".into(),
+            feature: "multiplayer_servers".into(),
+        },
+        Some(&InstancePreferenceRecord { enabled: true }),
+    )
+    .await
+    .unwrap();
+    SyncFeatureSettings::atom_set(
+        &mut unit,
+        &FeatureSettingsKey {
+            feature: "multiplayer_servers".into(),
+        },
+        Some(&FeatureSettingsRecord {
+            globally_enabled: true,
+            new_instance_default: false,
+        }),
+    )
+    .await
+    .unwrap();
+    unit.commit().await.unwrap();
     let metadata = crate::state::get_instance("a", &state.pool)
         .await
         .unwrap()
@@ -180,21 +207,66 @@ async fn generated_file_provenance_requires_the_same_physical_directory() {
 }
 
 #[tokio::test]
-async fn oversized_database_list_is_preserved_and_rejected_before_decoding() {
+async fn oversized_shared_native_source_is_preserved_and_rejected_before_decoding()
+ {
     let (_temp, state, _) = fixture().await;
-    SyncedServers::set(
-        &state.data,
-        &"oversized".to_string(),
-        Some(&SyncedServerRecord {
-            position: 0,
-            nbt: vec![0; limits::MAX_SERVER_BYTES + 1],
-        }),
-    )
-    .await
-    .unwrap();
+    let root =
+        crate::state::store::sync_documents::authority(&state.persistence)
+            .await
+            .unwrap();
+    let relative = "state/generations/oversized-servers.dat";
+    let native = root.join(relative);
+    std::fs::create_dir_all(native.parent().unwrap()).unwrap();
+    std::fs::File::create(&native)
+        .unwrap()
+        .set_len(limits::MAX_SERVER_BYTES as u64 + 1)
+        .unwrap();
+    crate::state::sync_state::manifest::document(&root)
+        .update(move |data| {
+            data.insert(
+                "native".into(),
+                serde_json::json!({
+                    "servers": {
+                        "file": relative,
+                        "bytes": limits::MAX_SERVER_BYTES + 1,
+                        "sha256": "0".repeat(64)
+                    }
+                }),
+            );
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let head = std::fs::read(root.join("state/head.json")).unwrap();
     let error = read_canonical(&state).await.err().unwrap();
     assert!(matches!(error.raw.as_ref(), ErrorKind::InputError(_)));
-    assert_eq!(SyncedServers::get_all(&state.data).await.unwrap().len(), 1);
+    assert!(error.to_string().contains("Invalid native sync reference"));
+    assert_eq!(std::fs::read(root.join("state/head.json")).unwrap(), head);
+    assert_eq!(
+        std::fs::metadata(native).unwrap().len(),
+        limits::MAX_SERVER_BYTES as u64 + 1
+    );
+}
+
+#[tokio::test]
+async fn oversized_server_write_does_not_replace_the_committed_source() {
+    let (_temp, state, _) = fixture().await;
+    commit_server_state(Some(&[server("original")]), None, &state)
+        .await
+        .unwrap();
+    let revision = server_revision(&state).await.unwrap();
+    let oversized = (0..=limits::MAX_SERVERS)
+        .map(|index| server(&format!("server-{index}")))
+        .collect::<Vec<_>>();
+    assert!(
+        commit_server_state(Some(&oversized), None, &state)
+            .await
+            .is_err()
+    );
+    assert_eq!(server_revision(&state).await.unwrap(), revision);
+    let servers = read_canonical(&state).await.unwrap();
+    assert_eq!(servers.len(), 1);
+    assert_eq!(servers[0].id, "original");
 }
 
 #[test]

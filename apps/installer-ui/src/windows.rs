@@ -54,6 +54,11 @@ struct Bootstrap {
     install_dir: String,
     resource_dir: String,
     fresh_install: bool,
+    /// The association choices the existing installation recorded, so the
+    /// options page starts from what the user picked last time instead of
+    /// re-enabling something they turned off.
+    file_association: bool,
+    schematic_file_association: bool,
     language: Language,
     logo_data_url: String,
     uninstall: bool,
@@ -459,6 +464,8 @@ fn parse_arguments() -> Result<Arguments, String> {
     let mut install_dir = None;
     let mut resource_dir = None;
     let mut fresh_install = true;
+    let mut file_association = true;
+    let mut schematic_file_association = true;
     let mut uninstall = false;
     let mut language = Language::En;
 
@@ -480,6 +487,10 @@ fn parse_arguments() -> Result<Arguments, String> {
                 resource_dir = Some(value.to_string_lossy().into_owned())
             }
             "--fresh-install" => fresh_install = value != "0",
+            "--file-association" => file_association = value != "0",
+            "--schematic-file-association" => {
+                schematic_file_association = value != "0";
+            }
             "--language" => {
                 language = if value == "2052" {
                     Language::ZhCn
@@ -510,6 +521,8 @@ fn parse_arguments() -> Result<Arguments, String> {
             install_dir: install_dir.unwrap_or_default(),
             resource_dir: resource_dir.unwrap_or_default(),
             fresh_install,
+            file_association,
+            schematic_file_association,
             language,
             logo_data_url: format!(
                 "data:image/png;base64,{}",

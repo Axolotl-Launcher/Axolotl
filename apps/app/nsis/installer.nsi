@@ -122,6 +122,12 @@ Var AssociationState
 ; 1 when this run may claim an extension outright, 0 when it may only fill in
 ; extensions that have no handler.
 Var AssociationMode
+; 1 when the schematic group may only be offered in "Open with", used when an
+; installation has no recorded schematic preference at all.
+Var SchematicOfferOnly
+; The same flag for whichever association group the current loop iteration
+; belongs to.
+Var AssociationOfferOnly
 Var InstallerBodyFont
 Var InstallerTitleFont
 Var InstallerSmallFont
@@ -1145,23 +1151,25 @@ Function .onInit
   ${EndIf}
 
   ; Schematic files are a separate, independently remembered choice: a user may
-  ; want the launcher to own modpacks without taking over their schematics. An
-  ; installation that predates the choice has no preference recorded, and an
-  ; update must not hand the launcher file types the user was never asked about.
+  ; want the launcher to own modpacks without taking over their schematics.
+  ; An installation that predates the option has no record, which is not the
+  ; same as a refusal: the launcher is offered in "Open with" without claiming
+  ; anything. Only a recorded "0" counts as the user having declined.
   StrCpy $SchematicAssociationState ${BST_CHECKED}
+  StrCpy $SchematicOfferOnly 0
   ${If} $FreshInstall = 0
-    StrCpy $SchematicAssociationState ${BST_UNCHECKED}
     ClearErrors
     ReadRegStr $0 SHCTX "${UNINSTKEY}" "SchematicFileAssociation"
-    ${IfNot} ${Errors}
-      ${If} $0 != "0"
-        StrCpy $SchematicAssociationState ${BST_CHECKED}
-      ${EndIf}
+    ${If} ${Errors}
+      StrCpy $SchematicOfferOnly 1
+    ${ElseIf} $0 == "0"
+      StrCpy $SchematicAssociationState ${BST_UNCHECKED}
     ${EndIf}
   ${EndIf}
   ${GetOptions} $CMDLINE "/SCHEMATIC_FILE_ASSOCIATION" $0
   ${IfNot} ${Errors}
     StrCpy $SchematicAssociationState ${BST_CHECKED}
+    StrCpy $SchematicOfferOnly 0
   ${EndIf}
   ${GetOptions} $CMDLINE "/NO_SCHEMATIC_FILE_ASSOCIATION" $0
   ${IfNot} ${Errors}
@@ -1211,7 +1219,7 @@ Function .onInit
     File "/oname=$PLUGINSDIR\AxolotlInstallerUI.exe" "${AXL_INSTALLER_UI_PATH}"
     StrCpy $0 2
     ClearErrors
-    ExecWait '"$PLUGINSDIR\AxolotlInstallerUI.exe" --installer "$EXEPATH" --version "${VERSION}" --install-dir "$INSTDIR" --resource-dir "$ResourceDir" --fresh-install "$FreshInstall" --language "$LANGUAGE"' $0
+    ExecWait '"$PLUGINSDIR\AxolotlInstallerUI.exe" --installer "$EXEPATH" --version "${VERSION}" --install-dir "$INSTDIR" --resource-dir "$ResourceDir" --fresh-install "$FreshInstall" --language "$LANGUAGE" --file-association "$FileAssociationState" --schematic-file-association "$SchematicAssociationState"' $0
     ${If} $0 <> 2
       Quit
     ${EndIf}
@@ -1394,12 +1402,16 @@ Section Install
   {{#each file_associations as |association| ~}}
     {{#if association.name}}
     StrCpy $AssociationState $SchematicAssociationState
+    StrCpy $AssociationOfferOnly $SchematicOfferOnly
     {{else}}
     StrCpy $AssociationState $FileAssociationState
+    StrCpy $AssociationOfferOnly 0
     {{/if}}
     ${If} $AssociationState = ${BST_CHECKED}
       {{#each association.ext as |ext| ~}}
-        ${If} $AssociationMode = 1
+        ${If} $AssociationOfferOnly = 1
+          !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+        ${ElseIf} $AssociationMode = 1
           !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
         ${Else}
           ClearErrors

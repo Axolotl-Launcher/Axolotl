@@ -1302,6 +1302,8 @@
                 installDir: 'C:\\Program Files\\Axolotl Launcher',
                 resourceDir: 'C:\\Users\\Admin\\AppData\\Roaming\\axolotl-launcher',
                 freshInstall: false,
+                fileAssociation: true,
+                schematicFileAssociation: true,
                 uninstall: false,
             }
             window.ipc = window.ipc || { postMessage: (msg) => console.log('IPC Mock:', msg) }
@@ -1509,6 +1511,10 @@
             if ($('#package-version')) $('#package-version').textContent = boot.version
             $('#install-dir').value = boot.installDir
             $('#resource-dir').value = boot.resourceDir
+            // Start from what the installation recorded, so a user who turned
+            // associations off does not get them back by pressing Update.
+            $('#file-association').checked = boot.fileAssociation !== false
+            $('#schematic-file-association').checked = boot.schematicFileAssociation !== false
             if (boot.uninstall) {
                 document.body.classList.add('is-uninstalling')
                 $('#uninstall-directory').textContent = boot.installDir

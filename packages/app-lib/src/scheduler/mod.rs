@@ -18,6 +18,7 @@ pub mod quota;
 pub(crate) mod reconcile;
 pub mod supervisor;
 pub mod tag;
+pub mod tasks;
 pub mod view;
 
 #[cfg(test)]

@@ -25,14 +25,140 @@ pub(super) fn register_cancellation<'a>(
     }
 }
 
+/// The install worker expressed as a scheduler task.
+///
+/// The job row stays the durable record; this only says what the task is
+/// called, how it is made idempotent, and what the scheduler may do about it.
+struct InstallWorkerTask {
+    job_id: Uuid,
+    key: crate::scheduler::contract::IdempotencyKey,
+}
+
+impl crate::scheduler::contract::Task for InstallWorkerTask {
+    fn id(&self) -> crate::scheduler::contract::TaskId {
+        crate::scheduler::contract::TaskId::new(
+            content_management::resources::JobId::new(self.job_id.to_string())
+                .expect("a uuid is a valid job id"),
+        )
+    }
+
+    fn kind(&self) -> crate::scheduler::contract::TaskKind {
+        crate::scheduler::contract::TaskKind::InstallJob(
+            crate::install::model::InstallJobKind::InstallContent,
+        )
+    }
+
+    fn idempotency_key(
+        &self,
+    ) -> Option<&crate::scheduler::contract::IdempotencyKey> {
+        Some(&self.key)
+    }
+
+    fn retry(&self) -> crate::scheduler::contract::RetryPolicy {
+        // One attempt, matching the worker's existing behaviour: a failed
+        // install is settled by `retry_recovery`/startup recovery, never by
+        // re-running the worker in place.
+        crate::scheduler::contract::RetryPolicy::ONCE
+    }
+
+    fn exit_policy(&self) -> crate::scheduler::contract::ExitPolicy {
+        crate::scheduler::contract::ExitPolicy::PublishGuarded
+    }
+
+    fn run<'a>(
+        &'a self,
+        ctx: crate::scheduler::contract::TaskContext<'a>,
+    ) -> std::pin::Pin<
+        Box<
+            dyn Future<Output = crate::scheduler::contract::TaskOutcome>
+                + Send
+                + 'a,
+        >,
+    > {
+        Box::pin(async move {
+            let attempt = ctx.attempt;
+            match worker_result(
+                EXECUTING_JOB.scope(self.job_id, run_job(self.job_id)),
+            )
+            .await
+            {
+                Ok(()) => {
+                    crate::scheduler::contract::TaskOutcome::succeeded(attempt)
+                }
+                Err(error) => crate::scheduler::contract::TaskOutcome::failed(
+                    attempt,
+                    crate::scheduler::contract::TaskError::Retryable(
+                        error.to_string(),
+                    ),
+                ),
+            }
+        })
+    }
+
+    fn probe<'a>(
+        &'a self,
+        _ctx: crate::scheduler::contract::TaskContext<'a>,
+    ) -> std::pin::Pin<
+        Box<
+            dyn Future<
+                    Output = Option<crate::scheduler::contract::TerminalState>,
+                > + Send
+                + 'a,
+        >,
+    > {
+        // The row is the durable record: a job that already finished must not
+        // run again. `probe` only reads it, and it must not route an unknown
+        // status through the model's `Queued` fallback.
+        Box::pin(async move {
+            use crate::scheduler::contract::TerminalState;
+            let state = State::get().await.ok()?;
+            let row = store::get_required(self.job_id, &state).await.ok()?;
+            match row.status {
+                InstallJobStatus::Succeeded => Some(TerminalState::Succeeded),
+                InstallJobStatus::Failed => Some(TerminalState::Failed),
+                InstallJobStatus::Canceled => Some(TerminalState::Canceled),
+                InstallJobStatus::Interrupted => {
+                    Some(TerminalState::Interrupted)
+                }
+                InstallJobStatus::Queued
+                | InstallJobStatus::Running
+                | InstallJobStatus::Canceling
+                | InstallJobStatus::WaitingForUser => None,
+            }
+        })
+    }
+}
+
 pub(super) fn spawn_job(job_id: Uuid) {
     tokio::spawn(async move {
-        let result =
-            worker_result(EXECUTING_JOB.scope(job_id, run_job(job_id))).await;
-        if let Err(error) = result {
+        let key = match crate::scheduler::tasks::install_job_key(
+            &job_id.to_string(),
+        ) {
+            Ok(key) => key,
+            Err(error) => {
+                tracing::warn!(%job_id, %error, "Install worker had no job key");
+                return;
+            }
+        };
+        let task = InstallWorkerTask { job_id, key };
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let ctx = crate::scheduler::contract::TaskContext {
+            attempt: crate::scheduler::contract::Attempt::first(1),
+            deadline: None,
+            cancel: &cancel,
+            quiesce: None,
+        };
+        let outcome = crate::scheduler::contract::execute(&task, ctx).await;
+        if outcome.state != crate::scheduler::contract::TerminalState::Succeeded
+        {
             // A recovery failure was already reported with its own message;
             // this is the work (or panic) error that followed it.
-            tracing::warn!(%job_id, %error, "Install worker ended with an error");
+            tracing::warn!(
+                %job_id,
+                state = ?outcome.state,
+                error = outcome.error.as_ref().map(ToString::to_string),
+                "Install worker ended without succeeding"
+            );
         }
     });
 }

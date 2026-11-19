@@ -387,11 +387,15 @@ pub async fn execute(
             .await;
 
         let Some(delay) = outcome.next_delay(policy) else {
-            return if outcome.state == TerminalState::Failed
+            // "Abandoned" means retries actually ran out. A policy that never
+            // retried reports the failure it saw instead.
+            let retries_ran_out = policy.max_attempts > 1
+                && outcome.state == TerminalState::Failed
                 && matches!(
                     outcome.error.as_ref().map(TaskError::class),
                     Some(ErrorClass::Retryable)
-                ) {
+                );
+            return if retries_ran_out {
                 TaskOutcome {
                     state: TerminalState::Abandoned,
                     ..outcome
@@ -567,6 +571,59 @@ mod tests {
             RetryPolicy::HOUSE.next_delay(Attempt { n: 9, max: 9 }),
             None
         );
+    }
+
+    #[tokio::test]
+    async fn a_single_attempt_policy_reports_the_failure_it_saw() {
+        let cancel = CancellationToken::new();
+        let runs = Arc::new(AtomicU32::new(0));
+        let task = RetryOnce {
+            id: task_id(),
+            runs: Arc::clone(&runs),
+        };
+        let outcome = execute(&task, run_ctx(&cancel)).await;
+        assert_eq!(outcome.state, TerminalState::Failed);
+        assert_eq!(runs.load(Ordering::Acquire), 1);
+    }
+
+    struct RetryOnce {
+        id: TaskId,
+        runs: Arc<AtomicU32>,
+    }
+
+    impl Task for RetryOnce {
+        fn id(&self) -> TaskId {
+            self.id.clone()
+        }
+
+        fn kind(&self) -> TaskKind {
+            TaskKind::Maintenance
+        }
+
+        fn idempotency_key(&self) -> Option<&IdempotencyKey> {
+            None
+        }
+
+        fn run<'a>(
+            &'a self,
+            ctx: TaskContext<'a>,
+        ) -> Pin<Box<dyn Future<Output = TaskOutcome> + Send + 'a>> {
+            Box::pin(async move {
+                self.runs.fetch_add(1, Ordering::AcqRel);
+                TaskOutcome::failed(
+                    ctx.attempt,
+                    TaskError::Retryable("one shot".into()),
+                )
+            })
+        }
+
+        fn probe<'a>(
+            &'a self,
+            _ctx: TaskContext<'a>,
+        ) -> Pin<Box<dyn Future<Output = Option<TerminalState>> + Send + 'a>>
+        {
+            Box::pin(async { None })
+        }
     }
 
     #[test]

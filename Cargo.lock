@@ -3657,6 +3657,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "launcher-observability-mcp"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "reqwest",
+ "rmcp",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "launcher-tools"
 version = "0.1.0"
 dependencies = [
@@ -7479,6 +7494,7 @@ dependencies = [
  "keyring",
  "launcher-mcp",
  "launcher-observability",
+ "launcher-observability-mcp",
  "launcher-tools",
  "libc",
  "libloading",

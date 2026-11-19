@@ -63,10 +63,45 @@ on port 4318. The launcher does not ship a collector or a bundled endpoint.
   allowlisted set of product actions. It cannot send arbitrary attributes,
   names, paths, or user content.
 
+Attribute values are only length-checked; a key that names credentials or user
+content is what keeps such values out. Treat any new instrumented field as
+visible to every local client the user connects.
+
 Attribute and event names are defined in
 `packages/launcher-observability/src/{attrs,events}.rs`. Do not put file paths,
 URLs, account names, instance names, or raw error text in a metric label or
 span attribute; use identifiers and stable categories instead.
+
+## Local capture and the observability MCP
+
+OTLP export is one consumer of the contract; local diagnostics are another. When
+the developer setting **Observability MCP** is enabled, the launcher installs an
+in-process capture sink and starts a second MCP server on `127.0.0.1:5220/mcp`,
+next to the launcher tools MCP on 5219. It needs no collector and no
+`AXOLOTL_OBSERVABILITY` switch.
+
+- `packages/app-lib/src/observability/capture.rs` keeps the last 512 structured
+  events (configurable down, hard ceiling 4096), a counter sum and a histogram
+  summary (count, min, max, last, sum) per series, and no individual histogram
+  samples. Series are capped at 256.
+- `packages/app-lib/src/observability/spans.rs` keeps the name, target, start
+  and duration of the last 256 domain spans. Span fields are never read, which
+  matches the `skip_all` instrumentation rule above.
+- Turning the setting off stops the listener and drops everything retained. The
+  capture itself never writes to disk and never contacts the network; it is
+  served on loopback to whichever local client the user connects. The
+  `observability_flush` tool forwards to the OTLP providers, so when OTLP export
+  is also enabled a flush pushes whatever those providers still hold.
+
+The MCP exposes five read-only tools: `observability_status`,
+`observability_events`, `observability_metrics`, `observability_spans` and
+`observability_flush`. `packages/launcher-observability-mcp` contains the
+transport and the query surface; it reads the capture through its `Source`
+trait, so it has no dependency on the launcher runtime.
+
+Because capture is a sink, `theseus::observability::is_enabled()` is true while
+either OTLP export or local capture is running. Instrumentation guarded by that
+function therefore costs nothing only when both are off.
 
 ## Public extension API
 
@@ -89,12 +124,14 @@ telemetry
     .add(1, &[]);
 ```
 
-The launcher installs the OTLP sink. A future user-configured local AI analysis
-feature can install another `TelemetrySink`; no AI endpoint is wired today.
+The launcher installs the OTLP sink and, when the developer setting is on, the
+local capture sink. Anything else that installs a `TelemetrySink` gets the same
+bounded, redacted values.
 
 ## Privacy and lifecycle
 
-- Off unless the operator sets the environment switch.
+- OTLP export is off unless the operator sets the environment switch. Local
+  capture is off unless the developer setting is on, and it never exports.
 - `service.instance.id` is a random per-process UUID, never the installation
   identifier used by anonymous telemetry.
 - Structured events are redacted and bounded by the contract crate; the

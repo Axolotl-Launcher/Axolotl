@@ -8,6 +8,7 @@ members = [
   "packages/daedalus",
   "packages/launcher-mcp",
   "packages/launcher-observability",
+  "packages/launcher-observability-mcp",
   "packages/launcher-tools",
   "packages/path-util",
   "third-party/tauri-plugin-http",
@@ -81,6 +82,7 @@ junction = "1"
 keyring = "4.1.5"
 launcher-mcp = { path = "packages/launcher-mcp" }
 launcher-observability = { path = "packages/launcher-observability" }
+launcher-observability-mcp = { path = "packages/launcher-observability-mcp" }
 launcher-tools = { path = "packages/launcher-tools" }
 libc = "0.2.189"
 libloading = "0.7.4"

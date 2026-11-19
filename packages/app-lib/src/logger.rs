@@ -55,7 +55,10 @@ static LOG_FILTER_RELOAD: std::sync::OnceLock<LogFilterReloadHandle> =
     std::sync::OnceLock::new();
 
 fn log_level_directives(level: &str) -> String {
-    log_level_directives_for(level, crate::observability::is_enabled())
+    // Only OTLP export needs the file log to keep collecting INFO domain spans.
+    // Local capture has its own per-layer filter, so enabling the diagnostics
+    // MCP must not raise a user's chosen log level.
+    log_level_directives_for(level, crate::observability::otlp_enabled())
 }
 
 /// Directives for the file/console log. When OTLP export is active the
@@ -103,7 +106,7 @@ fn initial_log_filter(
     }
     // A developer RUST_LOG still controls the file log, but an enabled export
     // must not silently lose the migrated `theseus` domain spans.
-    if crate::observability::is_enabled()
+    if crate::observability::otlp_enabled()
         && let Ok(parsed) = "theseus=info".parse()
     {
         filter = filter.add_directive(parsed);
@@ -1679,6 +1682,18 @@ fn command_metrics_filter() -> tracing_subscriber::filter::Targets {
     )
 }
 
+/// Domain spans the local capture retains. Wider than
+/// [`is_observability_span`] because capture is an in-process consumer and can
+/// start after the subscriber exists.
+fn capture_span_filter() -> tracing_subscriber::filter::Targets {
+    tracing_subscriber::filter::Targets::new()
+        .with_target("theseus", tracing_subscriber::filter::LevelFilter::INFO)
+        .with_target(
+            "theseus_gui",
+            tracing_subscriber::filter::LevelFilter::INFO,
+        )
+}
+
 /// Saves complete session logs in all builds, with compact console output in development.
 pub fn start_logger(app_identifier: &str) -> Option<LoggerGuard> {
     use tracing_subscriber::fmt::time::ChronoLocal;
@@ -1731,10 +1746,17 @@ pub fn start_logger(app_identifier: &str) -> Option<LoggerGuard> {
                 .with_filter(observability_log_filter()),
             )
         }))
-        .with(observability.as_ref().map(|_| {
+        // Both local layers can start after this subscriber exists, so they are
+        // always attached and each checks `is_enabled()` per span instead of
+        // being gated on the OTLP guard.
+        .with(
             crate::observability::CommandMetricsLayer::new()
-                .with_filter(command_metrics_filter())
-        }));
+                .with_filter(command_metrics_filter()),
+        )
+        .with(
+            crate::observability::spans::CaptureSpanLayer::new()
+                .with_filter(capture_span_filter()),
+        );
     subscriber.with(tracing_error::ErrorLayer::default()).init();
     let _ = LOG_FILTER_RELOAD.set(reload_handle);
 

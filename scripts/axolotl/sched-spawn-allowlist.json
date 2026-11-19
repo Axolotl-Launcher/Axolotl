@@ -25,13 +25,13 @@
       "count": 9,
       "reason": "reviewed document worker I/O for locking and atomic publication; absent_pair inspects authority/receipt presence under those same worker-owned locks. snapshot_json performs a bounded 16 MiB regular JSON read for standalone maintenance snapshots under the owner's file lock, or for an immutable completed backup manifest; it acquires no additional managed resource (D17)",
       "sites": [
+        "absent_pair: match std::fs::symlink_metadata(candidate) {",
         "acquire: let file = std::fs::OpenOptions::new()",
         "acquire: let parent = std::fs::canonicalize(parent)?;",
         "acquire: std::fs::create_dir_all(parent)?;",
         "read_bytes: let metadata = match std::fs::metadata(path) {",
         "read_bytes: std::fs::File::open(path)?",
         "replace_bytes: std::fs::File::open(parent)?.sync_all()?;",
-        "absent_pair: match std::fs::symlink_metadata(candidate) {",
         "snapshot_json: let metadata = match std::fs::symlink_metadata(path) {",
         "snapshot_json: std::fs::File::open(path)?"
       ]
@@ -726,8 +726,8 @@
       "count": 2,
       "reason": "Reviewed package staging exclusively creates a mode-0600 file inside a private temporary directory in the awaited blocking worker, outside L0 and critical sections. probe_linux_host reads one small dpkg file list once at startup (D17).",
       "sites": [
-        "write_package_exclusively: let mut options = std::fs::OpenOptions::new();",
-        "probe_linux_host: std::fs::read_to_string(format!("
+        "probe_linux_host: std::fs::read_to_string(format!(",
+        "write_package_exclusively: let mut options = std::fs::OpenOptions::new();"
       ]
     },
     {
@@ -1195,8 +1195,8 @@
       "count": 2,
       "reason": "Inspection and streaming export perform file operations on the blocking pool without resource locks; export pins directory handles, decompresses and censors fixed chunks, and atomically publishes a temporary entry",
       "sites": [
-        "load_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {",
-        "export_log_file: tokio::task::spawn_blocking(move || {"
+        "export_log_file: tokio::task::spawn_blocking(move || {",
+        "load_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {"
       ]
     },
     {
@@ -2391,7 +2391,7 @@
     {
       "file": "packages/app-lib/src/state/instances/watcher.rs",
       "form": "tokio::spawn",
-      "count": 8,
+      "count": 7,
       "reason": "reviewed watcher-scoped tasks: screenshot reconciliation is now owned and coalesced by the watcher pump rather than spawned per filesystem event; remaining event delivery, configuration/manual-download reconciliation and crash notification tasks retain their existing operation scopes",
       "sites": [
         "configure_manual_import_directory: tokio::spawn(async move {",
@@ -2400,8 +2400,7 @@
         "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
-        "init_watcher: tokio::task::spawn(async move {",
-        "watch_instances_init: tokio::spawn(async move {"
+        "init_watcher: tokio::task::spawn(async move {"
       ]
     },
     {
@@ -3043,6 +3042,42 @@
       "sites": [
         "flush: .spawn(move || {",
         "shutdown: .spawn(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/observability_mcp/config.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP preferences: atomic rename of one small JSON document next to the existing mcp.json, the same bounded synchronous write the launcher tools MCP performs; it holds no managed resource",
+      "sites": [
+        "save_preferences: std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/observability_mcp/service.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP startup: reads observability-mcp.json once under the controller lock before any listener starts; a missing file leaves capture off and touches no managed resource",
+      "sites": [
+        "initialize: let result = (|| match std::fs::read(config_path(app)?) {"
+      ]
+    },
+    {
+      "file": "packages/launcher-observability-mcp/src/protocol.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP flush: one blocking worker waits on the synchronous provider flush, so an unreachable collector cannot pin a runtime thread that unrelated Tauri commands share",
+      "sites": [
+        "handle: let flushed = tokio::task::spawn_blocking(move || source.flush())"
+      ]
+    },
+    {
+      "file": "packages/launcher-observability-mcp/src/server.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP listener: one axum server task owned by the Server guard, cancelled through its token and awaited on stop so it cannot outlive the plugin; it holds no launcher resource and only reads the in-process capture",
+      "sites": [
+        "start: let task = tokio::spawn(async move {"
       ]
     }
   ]

@@ -19,6 +19,7 @@ export type SettingsCategoryId =
     | 'updates'
     | 'about'
     | 'logs'
+    | 'observability-mcp'
     | 'feature-flags'
 
 export type SettingsGroupId = 'launcher' | 'game' | 'data-privacy' | 'support' | 'developer'
@@ -184,6 +185,15 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Logs & diagnostics',
         }),
         group: 'support',
+    },
+    {
+        id: 'observability-mcp',
+        name: defineMessage({
+            id: 'app.observability-mcp.title',
+            defaultMessage: 'Observability MCP',
+        }),
+        group: 'developer',
+        developerOnly: true,
     },
     {
         id: 'feature-flags',

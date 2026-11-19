@@ -1,0 +1,24 @@
+[package]
+name = "launcher-observability-mcp"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+rmcp = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+# `rt` also provides `spawn_blocking`, used by the flush tool.
+tokio = { workspace = true, features = ["macros", "net", "rt", "sync", "time"] }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+reqwest = { workspace = true, features = ["json", "stream"] }
+# reqwest is built with `rustls-no-provider`; the tests install ring before
+# building a client, the same way `launcher-mcp` does.
+rustls = { workspace = true }
+
+[lints]
+workspace = true

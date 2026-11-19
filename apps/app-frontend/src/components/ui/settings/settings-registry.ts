@@ -107,6 +107,10 @@ const categoryContent: Record<SettingsCategoryId, Pick<SettingsCategory, 'icon' 
         content: defineAsyncComponent(() => import('./LogsSettings.vue')),
     },
     about: { icon: InfoIcon, content: defineAsyncComponent(() => import('./AboutSettings.vue')) },
+    'observability-mcp': {
+        icon: CpuIcon,
+        content: defineAsyncComponent(() => import('./ObservabilityMcpSettings.vue')),
+    },
     'feature-flags': {
         icon: ToggleRightIcon,
         content: defineAsyncComponent(() => import('./FeatureFlagSettings.vue')),

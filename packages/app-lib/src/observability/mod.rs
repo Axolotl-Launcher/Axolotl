@@ -4,10 +4,12 @@
 //! configuration, owns the SDK providers and installs the bridge sink. Every
 //! public helper is cheap and safe to call when export is disabled.
 
+pub mod capture;
 mod command_metrics;
 mod config;
 mod runtime;
 mod sink;
+pub mod spans;
 
 pub use launcher_observability::{
     Attribute, AttributeValue, Telemetry, attrs, events,
@@ -26,10 +28,37 @@ pub fn telemetry() -> &'static Telemetry {
     Telemetry::global()
 }
 
-/// Whether OTLP export started successfully. Callers use this to skip building
-/// expensive attributes when telemetry is off.
+/// Whether telemetry is being recorded at all: either OTLP export started or a
+/// local sink such as [`capture`] is installed. Callers use this to skip
+/// building expensive attributes when nothing consumes them.
 pub fn is_enabled() -> bool {
+    otlp_enabled() || capture::active().is_some()
+}
+
+/// Whether the OTLP pipeline itself is running.
+///
+/// The log filter uses this rather than [`is_enabled`]: widening the file log to
+/// INFO domain spans is a cost the operator opted into with
+/// `AXOLOTL_OBSERVABILITY`, not something a local diagnostics toggle should
+/// change behind their back.
+pub fn otlp_enabled() -> bool {
     GUARD.get().is_some_and(Option::is_some)
+}
+
+/// Start local capture without OTLP export.
+///
+/// This is the switch the diagnostics MCP uses: the launcher keeps recent
+/// events, metric aggregates and domain span durations in memory so a client on
+/// this computer can query them. Nothing leaves the process.
+pub fn start_capture() -> std::sync::Arc<capture::Capture> {
+    spans::start();
+    capture::start(capture::DEFAULT_EVENT_CAPACITY)
+}
+
+/// Stop local capture and drop everything it retained.
+pub fn stop_capture() {
+    spans::stop();
+    capture::stop();
 }
 
 /// The random identifier shared by every record of this process, when export
@@ -59,13 +88,14 @@ pub fn record_error(domain: &'static str, kind: &'static str) {
     );
 }
 
-/// Flush every provider. Returns `false` when export is disabled, a flush
-/// failed, or the timeout elapsed first. Never panics.
+/// Flush every provider. Returns `false` when a flush failed or the timeout
+/// elapsed first. With only local capture installed there is nothing to push,
+/// so this reports success. Never panics.
 pub fn flush(timeout: Duration) -> bool {
-    let Some(guard) = GUARD.get().and_then(Option::as_ref) else {
-        return false;
-    };
-    let guard_ok = guard.flush(timeout);
+    let guard_ok = GUARD
+        .get()
+        .and_then(Option::as_ref)
+        .is_none_or(|guard| guard.flush(timeout));
     let sinks_ok = telemetry().flush().is_ok();
     guard_ok && sinks_ok
 }
@@ -120,9 +150,24 @@ pub fn start(app_identifier: &str) -> Option<ObservabilityGuard> {
 
 pub(crate) use command_metrics::CommandMetricsLayer;
 
+/// Serialises every test that flips the process-wide telemetry statics.
+///
+/// The registry, the capture buffer and the span buffer are shared by the whole
+/// crate, so a per-module lock would still let tests from different modules
+/// interleave. One lock for all of them is the only correct arrangement.
+#[cfg(test)]
+pub(crate) fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn lock() -> std::sync::MutexGuard<'static, ()> {
+        test_lock()
+    }
 
     #[test]
     fn disabled_without_the_opt_in_variable() {
@@ -131,7 +176,75 @@ mod tests {
     }
 
     #[test]
-    fn flush_is_false_when_not_started() {
-        assert!(!flush(Duration::from_millis(1)));
+    fn flush_succeeds_when_only_capture_is_installed() {
+        let _guard = lock();
+        // Local capture keeps data in memory; there is nothing to push, so a
+        // flush must not report failure just because OTLP is off.
+        let capture = capture::start(4);
+        assert!(capture.is_recording());
+        assert!(flush(Duration::from_millis(1)));
+        capture::stop();
+    }
+
+    #[test]
+    fn flush_without_any_consumer_succeeds() {
+        let _guard = lock();
+        capture::stop();
+        assert!(flush(Duration::from_millis(1)));
+    }
+
+    #[test]
+    fn restarting_capture_does_not_register_the_sink_twice() {
+        let _guard = lock();
+        capture::stop();
+        capture::reset_for_test();
+        capture::start(8);
+        assert!(capture::is_registered());
+        telemetry().event(events::APP_STARTED).emit().unwrap();
+
+        // The settings toggle stops and starts capture on every change; the
+        // registry has no remove_sink, so a second registration would make
+        // every event arrive twice. `stop()` also drops what was retained, so
+        // the first emit is gone and only the second one can be counted.
+        capture::stop();
+        capture::start(8);
+        telemetry().event(events::APP_STARTED).emit().unwrap();
+
+        let recorded =
+            capture::active().map(|capture| capture.events(10, None, None));
+        capture::stop();
+        capture::reset_for_test();
+        assert_eq!(
+            recorded.expect("capture installed").len(),
+            1,
+            "one emit after the restart must be recorded once, not once per start()"
+        );
+    }
+
+    #[test]
+    fn local_capture_does_not_widen_the_log_filter() {
+        // The file log must keep the user's level: only OTLP needs INFO domain
+        // spans collected globally, and capture filters per layer instead.
+        let _guard = lock();
+        capture::stop();
+        capture::reset_for_test();
+        capture::start(4);
+        assert!(is_enabled());
+        assert!(!otlp_enabled());
+        capture::stop();
+        capture::reset_for_test();
+    }
+
+    #[test]
+    fn capture_alone_reports_telemetry_as_enabled() {
+        let _guard = lock();
+        capture::stop();
+        capture::reset_for_test();
+        let started = super::capture::start(4);
+        assert!(is_enabled());
+        assert!(started.is_recording());
+        super::capture::stop();
+        assert!(!started.is_recording());
+        assert!(!is_enabled());
     }
 }

@@ -17,6 +17,7 @@ pub mod minecraft_skins;
 pub mod mod_translation;
 pub mod multiplayer;
 pub mod observability;
+pub mod observability_mcp;
 pub mod planet_minecraft;
 pub mod process;
 pub mod schematic_preview;

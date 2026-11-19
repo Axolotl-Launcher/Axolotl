@@ -164,6 +164,7 @@
     "third-party-accounts:default",
     "schematics:default",
     "mcp:default",
+    "observability-mcp:default",
     "translation:default",
     "storage:default",
     "system-accent:default",

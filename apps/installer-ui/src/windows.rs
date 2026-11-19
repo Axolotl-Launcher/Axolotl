@@ -458,7 +458,14 @@ pub fn run() -> Result<(), String> {
 }
 
 fn parse_arguments() -> Result<Arguments, String> {
-    let mut args = env::args_os().skip(1);
+    parse_arguments_from(env::args_os().skip(1))
+}
+
+fn parse_arguments_from<I>(arguments: I) -> Result<Arguments, String>
+where
+    I: IntoIterator<Item = std::ffi::OsString>,
+{
+    let mut args = arguments.into_iter();
     let mut installer = None;
     let mut version = None;
     let mut install_dir = None;
@@ -1035,10 +1042,11 @@ mod tests {
         InstallRequest, MAIN_BINARY_NAME, UiCommand, UninstallRequest,
         dialog_initial_location, install_dir_requires_elevation,
         installer_arguments, launch_main_process, nsis_value_option,
-        remove_webview_data_directory, uninstall_result, uninstaller_arguments,
-        webview_data_directory, wide_null,
+        parse_arguments_from, remove_webview_data_directory, uninstall_result,
+        uninstaller_arguments, webview_data_directory, wide_null,
     };
     use std::{
+        ffi::OsString,
         fs,
         os::windows::fs::OpenOptionsExt,
         path::PathBuf,
@@ -1086,6 +1094,27 @@ mod tests {
         assert!(request.launch_after);
         assert!(request.file_association);
         assert!(request.schematic_file_association);
+    }
+
+    #[test]
+    fn arguments_carry_the_recorded_association_choices() {
+        let installer =
+            std::env::current_exe().expect("the test binary has a path");
+        let arguments = parse_arguments_from([
+            OsString::from("--installer"),
+            installer.into_os_string(),
+            OsString::from("--fresh-install"),
+            OsString::from("0"),
+            OsString::from("--file-association"),
+            OsString::from("1"),
+            OsString::from("--schematic-file-association"),
+            OsString::from("0"),
+        ])
+        .expect("arguments should parse");
+
+        assert!(!arguments.bootstrap.fresh_install);
+        assert!(arguments.bootstrap.file_association);
+        assert!(!arguments.bootstrap.schematic_file_association);
     }
 
     #[test]

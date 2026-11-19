@@ -1,5 +1,8 @@
 use serde::Serialize;
 
+#[cfg(any(windows, test))]
+mod placement;
+
 pub(crate) fn present_main_window(
     window: &tauri::Window,
     activate: bool,
@@ -27,6 +30,9 @@ fn present_main_window_on_ui_thread(
             {
                 tracing::warn!(%error, "Could not restore the main window geometry");
             }
+            if let Err(error) = keep_title_bar_reachable(window) {
+                tracing::warn!(%error, "Could not move the main window onto a visible display");
+            }
             // Maximizing a hidden window on Windows shows and then hides its
             // HWND. Mark it visible first, and maximize in the same UI dispatch.
             window.show()?;
@@ -44,6 +50,58 @@ fn present_main_window_on_ui_thread(
             window.unminimize()?;
         }
         window.set_focus()?;
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn keep_title_bar_reachable(window: &tauri::Window) -> tauri::Result<()> {
+    use placement::{WindowRect, center_in_work_area, title_bar_is_reachable};
+    use tauri::PhysicalSize;
+
+    let monitors = window.available_monitors()?;
+    if monitors.is_empty() {
+        return Ok(());
+    }
+    let bounds = WindowRect {
+        position: window.outer_position()?,
+        size: window.outer_size()?,
+    };
+    let scale_factor = window.scale_factor()?;
+    if monitors.iter().any(|monitor| {
+        title_bar_is_reachable(bounds, *monitor.work_area(), scale_factor)
+    }) {
+        return Ok(());
+    }
+    let primary = window.primary_monitor().ok().flatten();
+    let Some(work_area) = primary
+        .iter()
+        .chain(&monitors)
+        .map(tauri::window::Monitor::work_area)
+        .find(|area| area.size.width > 0 && area.size.height > 0)
+    else {
+        return Ok(());
+    };
+
+    window.set_position(center_in_work_area(bounds.size, *work_area))?;
+    let inner = window.inner_size()?;
+    let outer = window.outer_size()?;
+    let frame_width = outer.width.saturating_sub(inner.width);
+    let frame_height = outer.height.saturating_sub(inner.height);
+    let fit = PhysicalSize::new(
+        inner
+            .width
+            .min(work_area.size.width.saturating_sub(frame_width).max(1)),
+        inner
+            .height
+            .min(work_area.size.height.saturating_sub(frame_height).max(1)),
+    );
+    if fit != inner {
+        window.set_size(fit)?;
+    }
+    let centered = center_in_work_area(window.outer_size()?, *work_area);
+    if window.outer_position()? != centered {
+        window.set_position(centered)?;
     }
     Ok(())
 }

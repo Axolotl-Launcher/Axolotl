@@ -23,10 +23,8 @@ use tracing_subscriber::registry::LookupSpan;
 /// Domain span targets bridged by OTLP today; capture watches the same set.
 const CAPTURED_TARGETS: &[&str] = &["theseus", "theseus_gui"];
 
-/// Spans kept by default.
-pub const DEFAULT_SPAN_CAPACITY: usize = 256;
-/// Hard ceiling for retained spans.
-pub const MAX_SPAN_CAPACITY: usize = 2_048;
+/// Spans kept. The buffer is fixed-size: no caller can raise it.
+pub const SPAN_CAPACITY: usize = 256;
 
 static SPANS: OnceLock<Mutex<VecDeque<SpanRecord>>> = OnceLock::new();
 static TRACKING: AtomicBool = AtomicBool::new(false);
@@ -44,8 +42,10 @@ fn buffer() -> &'static Mutex<VecDeque<SpanRecord>> {
     SPANS.get_or_init(|| Mutex::new(VecDeque::new()))
 }
 
-/// Begin retaining spans.
+/// Begin retaining spans, dropping anything a span closed just before
+/// tracking stopped so it cannot reappear after a restart.
 pub fn start() {
+    clear();
     TRACKING.store(true, Ordering::Release);
 }
 
@@ -77,10 +77,6 @@ pub fn len() -> usize {
     buffer().lock().len()
 }
 
-fn capacity() -> usize {
-    DEFAULT_SPAN_CAPACITY.min(MAX_SPAN_CAPACITY)
-}
-
 /// Layer that records closed domain spans into the capture buffer.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CaptureSpanLayer;
@@ -106,7 +102,7 @@ impl CaptureSpanLayer {
             return;
         }
         let mut buffer = buffer().lock();
-        if buffer.len() >= capacity() {
+        if buffer.len() >= SPAN_CAPACITY {
             buffer.pop_front();
         }
         buffer.push_back(record);
@@ -182,6 +178,32 @@ mod tests {
 
     fn lock() -> std::sync::MutexGuard<'static, ()> {
         TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner())
+    }
+
+    #[test]
+    fn drops_the_oldest_span_past_capacity() {
+        let _guard = lock();
+        clear();
+        start();
+        for index in 0..SPAN_CAPACITY + 5 {
+            CaptureSpanLayer::push(SpanRecord {
+                name: format!("span-{index}"),
+                target: "theseus".into(),
+                started_at_unix_ms: 0,
+                duration_ms: 0.0,
+            });
+        }
+
+        assert_eq!(len(), SPAN_CAPACITY);
+        let newest = recent(1, 0.0);
+        assert_eq!(newest[0].name, format!("span-{}", SPAN_CAPACITY + 4));
+        assert!(
+            !recent(SPAN_CAPACITY, 0.0)
+                .iter()
+                .any(|span| span.name == "span-0"),
+            "the oldest records must be evicted first"
+        );
+        stop();
     }
 
     #[test]

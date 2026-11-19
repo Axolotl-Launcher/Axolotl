@@ -50,6 +50,9 @@ pub fn active() -> Option<&'static Arc<Capture>> {
 /// report telemetry as on. Calling this twice returns the same capture.
 pub fn start(capacity: usize) -> Arc<Capture> {
     let capture = CAPTURE.get_or_init(|| Arc::new(Capture::new(capacity)));
+    // A record whose flag read preceded `stop()` can land after `stop()` cleared
+    // the buffers. Starting clean keeps that leftover from becoming visible.
+    capture.clear();
     capture.recording.store(true, Ordering::Release);
     INSTALLED.store(true, Ordering::Release);
     if !REGISTERED.swap(true, Ordering::AcqRel) {

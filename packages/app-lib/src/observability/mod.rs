@@ -177,6 +177,34 @@ mod tests {
     }
 
     #[test]
+    fn restarting_capture_does_not_register_the_sink_twice() {
+        let _guard = lock();
+        capture::stop();
+        capture::reset_for_test();
+        capture::start(8);
+        assert!(capture::is_registered());
+        telemetry().event(events::APP_STARTED).emit().unwrap();
+
+        // The settings toggle stops and starts capture on every change; the
+        // registry has no remove_sink, so a second registration would make
+        // every event arrive twice. `stop()` also drops what was retained, so
+        // the first emit is gone and only the second one can be counted.
+        capture::stop();
+        capture::start(8);
+        telemetry().event(events::APP_STARTED).emit().unwrap();
+
+        let recorded =
+            capture::active().map(|capture| capture.events(10, None, None));
+        capture::stop();
+        capture::reset_for_test();
+        assert_eq!(
+            recorded.expect("capture installed").len(),
+            1,
+            "one emit after the restart must be recorded once, not once per start()"
+        );
+    }
+
+    #[test]
     fn capture_alone_reports_telemetry_as_enabled() {
         let _guard = lock();
         capture::stop();

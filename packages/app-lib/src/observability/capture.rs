@@ -30,7 +30,12 @@ pub const MAX_EVENT_CAPACITY: usize = 4_096;
 const MAX_METRIC_SERIES: usize = 256;
 
 static CAPTURE: OnceLock<Arc<Capture>> = OnceLock::new();
+/// Whether the capture is currently retaining records.
 static INSTALLED: AtomicBool = AtomicBool::new(false);
+/// Whether the sink was appended to the telemetry registry. The registry has no
+/// remove API, so this must stay true across a stop/start cycle; re-appending
+/// would record every event twice.
+static REGISTERED: AtomicBool = AtomicBool::new(false);
 
 /// The capture installed by [`start`], if any.
 pub fn active() -> Option<&'static Arc<Capture>> {
@@ -46,7 +51,8 @@ pub fn active() -> Option<&'static Arc<Capture>> {
 pub fn start(capacity: usize) -> Arc<Capture> {
     let capture = CAPTURE.get_or_init(|| Arc::new(Capture::new(capacity)));
     capture.recording.store(true, Ordering::Release);
-    if !INSTALLED.swap(true, Ordering::AcqRel) {
+    INSTALLED.store(true, Ordering::Release);
+    if !REGISTERED.swap(true, Ordering::AcqRel) {
         crate::observability::telemetry().add_sink(capture.clone());
     }
     capture.clone()
@@ -387,6 +393,13 @@ pub(crate) fn reset_for_test() {
         capture.clear();
         capture.recording.store(true, Ordering::Release);
     }
+}
+
+/// Whether the sink has been appended to the telemetry registry. A second
+/// registration would double every record, so tests assert on it.
+#[cfg(test)]
+pub(crate) fn is_registered() -> bool {
+    REGISTERED.load(Ordering::Acquire)
 }
 
 fn unix_millis() -> i64 {

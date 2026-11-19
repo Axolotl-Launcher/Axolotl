@@ -70,6 +70,47 @@ impl Source for TestSource {
     }
 }
 
+/// Records the arguments a listing call received, so the tests can prove the
+/// protocol layer clamps and defaults them before reaching a source.
+#[derive(Default)]
+struct RecordingSource {
+    seen_limits: std::sync::Mutex<Vec<usize>>,
+    flush_result: bool,
+}
+
+impl Source for RecordingSource {
+    fn stats(&self) -> CaptureStats {
+        CaptureStats::default()
+    }
+
+    fn events(
+        &self,
+        limit: usize,
+        _severity: Option<&str>,
+        _name_prefix: Option<&str>,
+    ) -> Vec<EventRecord> {
+        self.seen_limits.lock().unwrap().push(limit);
+        Vec::new()
+    }
+
+    fn counters(&self) -> Vec<CounterSeries> {
+        Vec::new()
+    }
+
+    fn histograms(&self) -> Vec<HistogramSeries> {
+        Vec::new()
+    }
+
+    fn spans(&self, limit: usize, _min_duration_ms: f64) -> Vec<SpanRecord> {
+        self.seen_limits.lock().unwrap().push(limit);
+        Vec::new()
+    }
+
+    fn flush(&self) -> bool {
+        self.flush_result
+    }
+}
+
 fn source() -> Arc<dyn Source> {
     Arc::new(TestSource {
         events: vec![
@@ -315,6 +356,71 @@ async fn filters_events_metrics_and_spans() {
 }
 
 #[tokio::test]
+async fn rejects_a_wrong_token_of_the_right_shape() {
+    let server =
+        Server::start(0, "test-token".into(), true, "9.8.7-test", source())
+            .await
+            .unwrap();
+    let (_, response) = connect(&server, Some("other-token")).await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn ignores_an_authorization_header_when_auth_is_off() {
+    let server = Server::start(0, String::new(), false, "9.8.7-test", source())
+        .await
+        .unwrap();
+    let (client, response) = connect(&server, Some("bogus")).await;
+    assert!(response.status().is_success());
+    let _ = client;
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn clamps_and_defaults_the_listing_limit() {
+    let recorder = Arc::new(RecordingSource::default());
+    let server =
+        Server::start(0, String::new(), false, "9.8.7-test", recorder.clone())
+            .await
+            .unwrap();
+    let (client, _) = initialize(&server, None).await;
+
+    client
+        .tool("observability_events", json!({"limit": 100000}))
+        .await;
+    client.tool("observability_events", json!({})).await;
+    client
+        .tool("observability_spans", json!({"limit": 100000}))
+        .await;
+
+    let seen = recorder.seen_limits.lock().unwrap().clone();
+    server.stop().await;
+    assert_eq!(
+        seen,
+        [
+            crate::protocol::MAX_LIMIT,
+            crate::protocol::DEFAULT_LIMIT,
+            crate::protocol::MAX_LIMIT
+        ]
+    );
+}
+
+#[tokio::test]
+async fn reports_the_flush_result_of_the_source() {
+    let recorder = Arc::new(RecordingSource::default());
+    let server = Server::start(0, String::new(), false, "9.8.7-test", recorder)
+        .await
+        .unwrap();
+    let (client, _) = initialize(&server, None).await;
+
+    let flushed = client.tool("observability_flush", json!({})).await;
+    let flushed: Value = serde_json::from_str(&result_text(&flushed)).unwrap();
+    server.stop().await;
+    assert_eq!(flushed["flushed"], false);
+}
+
+#[tokio::test]
 async fn rejects_unknown_tools_and_bad_arguments() {
     let server = Server::start(0, String::new(), false, "9.8.7-test", source())
         .await
@@ -335,6 +441,50 @@ async fn rejects_unknown_tools_and_bad_arguments() {
         .tool("observability_events", json!({"limit": 0}))
         .await;
     assert!(bad_limit.get("error").is_some());
+
+    let empty_prefix = client
+        .tool("observability_events", json!({"name_prefix": "   "}))
+        .await;
+    assert!(empty_prefix.get("error").is_some());
+
+    let numeric_prefix = client
+        .tool("observability_events", json!({"name_prefix": 7}))
+        .await;
+    assert!(numeric_prefix.get("error").is_some());
+
+    let negative_duration = client
+        .tool("observability_spans", json!({"min_duration_ms": -1.0}))
+        .await;
+    assert!(negative_duration.get("error").is_some());
+
+    let wrong_limit_type = client
+        .tool("observability_events", json!({"limit": "ten"}))
+        .await;
+    assert!(wrong_limit_type.get("error").is_some());
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn filters_events_by_severity() {
+    let server = Server::start(0, String::new(), false, "9.8.7-test", source())
+        .await
+        .unwrap();
+    let (client, _) = initialize(&server, None).await;
+
+    // The fixture only holds info events, so a real filter returns nothing.
+    let warnings = client
+        .tool("observability_events", json!({"severity": "warn"}))
+        .await;
+    let warnings: Value =
+        serde_json::from_str(&result_text(&warnings)).unwrap();
+    assert_eq!(warnings.as_array().unwrap().len(), 0);
+
+    let info = client
+        .tool("observability_events", json!({"severity": "info"}))
+        .await;
+    let info: Value = serde_json::from_str(&result_text(&info)).unwrap();
+    assert_eq!(info.as_array().unwrap().len(), 2);
 
     server.stop().await;
 }

@@ -31,6 +31,7 @@ export const observabilityMcpMessages = defineMessages({
         id: 'app.observability-mcp.disabled',
         defaultMessage: 'The observability MCP is off and nothing is being kept.',
     },
+    retry: { id: 'app.observability-mcp.retry', defaultMessage: 'Retry' },
     token: {
         id: 'app.observability-mcp.token',
         defaultMessage: 'Connection token',

@@ -21784,5 +21784,8 @@
   },
   "app.observability-mcp.client-search": {
     "message": "observability diagnostics telemetry traces spans metrics events OTLP MCP Codex Claude Code"
+  },
+  "app.observability-mcp.retry": {
+    "message": "Retry"
   }
 }

@@ -21784,5 +21784,8 @@
   },
   "app.observability-mcp.client-search": {
     "message": "可观测性 诊断 遥测 追踪 span 指标 事件 OTLP MCP Codex Claude Code"
+  },
+  "app.observability-mcp.retry": {
+    "message": "重试"
   }
 }

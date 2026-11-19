@@ -128,6 +128,15 @@ const clients = computed(
                 <p v-if="error" role="alert" class="m-0 break-words text-sm text-red">
                     {{ error }}
                 </p>
+                <p v-else-if="state.error" role="alert" class="m-0 break-words text-sm text-red">
+                    {{ state.error }}
+                </p>
+                <Button
+                    v-if="state.enabled && !state.running"
+                    :disabled="busy"
+                    @click="configure(true, state.require_auth)"
+                    >{{ formatMessage(messages.retry) }}</Button
+                >
             </div>
         </SettingsSection>
 

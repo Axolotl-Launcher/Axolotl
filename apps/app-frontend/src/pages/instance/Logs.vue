@@ -91,8 +91,7 @@ const {
     clearLive,
 } = useInstanceConsole(instanceId.value)
 
-const { subscribe, isDisposed } = useScopedEventListeners()
-await hydrate()
+const { subscribe, isDisposed, addCleanup } = useScopedEventListeners()
 
 function buildLogList(rawLogs) {
     return [
@@ -120,6 +119,10 @@ const historicalLoading = ref(false)
 // may make the other's result or its loading state look stale.
 const listRequests = createRequestGeneration()
 const contentRequests = createRequestGeneration()
+addCleanup(() => {
+    listRequests.invalidate()
+    contentRequests.invalidate()
+})
 
 async function loadHistoricalLogs() {
     const key = `${props.instance.id}:list`
@@ -265,17 +268,22 @@ if (!isDisposed() && !props.playing) {
     void analyseForCrash()
 }
 
-await subscribe(log_listener, (payload) => {
-    if (payload.instance_id !== instanceId.value) return
+void hydrate()
+    .catch(handleError)
+    .then(() =>
+        subscribe(log_listener, (payload) => {
+            if (payload.instance_id !== instanceId.value) return
 
-    if (payload.type === 'log4j') {
-        liveConsole.addLog4jEvent(payload)
-    } else if (payload.type === 'legacy') {
-        void liveConsole.addLegacyLog(payload.message)
-    }
-})
+            if (payload.type === 'log4j') {
+                liveConsole.addLog4jEvent(payload)
+            } else if (payload.type === 'legacy') {
+                void liveConsole.addLegacyLog(payload.message)
+            }
+        }),
+    )
+    .catch(handleError)
 
-await subscribe(process_listener, async (e) => {
+void subscribe(process_listener, async (e) => {
     if (e.instance_id !== instanceId.value) return
     if (e.event === 'launched') {
         liveConsole.clear()
@@ -288,5 +296,5 @@ await subscribe(process_listener, async (e) => {
         await loadHistoricalLogs()
         if (!isDisposed()) void analyseForCrash()
     }
-})
+}).catch(handleError)
 </script>

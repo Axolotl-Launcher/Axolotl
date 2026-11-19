@@ -1,4 +1,5 @@
 import type { FileManagerContext } from '@modrinth/ui'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, Suspense } from 'vue'
@@ -80,7 +81,7 @@ beforeEach(() => {
     filesystem.stat.mockResolvedValue({ size: 0 })
 })
 
-function mountPendingFiles() {
+function mountPendingFiles(client = new QueryClient()) {
     const wrapper = mount(
         defineComponent({
             setup: () => () =>
@@ -100,6 +101,7 @@ function mountPendingFiles() {
                     },
                 ),
         }),
+        { global: { plugins: [[VueQueryPlugin, { queryClient: client }]] } },
     )
     wrappers.push(wrapper)
     return wrapper
@@ -138,7 +140,7 @@ it('ignores a sync event and releases the late listener after unmount during set
     )
     const wrapper = await mountFiles()
     expect(filesystem.listen).toHaveBeenCalledOnce()
-    expect(wrapper.find('[data-component="FilePageLayout"]').exists()).toBe(false)
+    expect(filesystem.context?.loading.value).toBe(true)
     wrapper.unmount()
     wrappers.splice(wrappers.indexOf(wrapper), 1)
 
@@ -148,6 +150,41 @@ it('ignores a sync event and releases the late listener after unmount during set
     await flushPromises()
     expect(filesystem.readDir).not.toHaveBeenCalled()
     expect(filesystem.unlisten).toHaveBeenCalledOnce()
+})
+
+it('paints a cached directory before IPC resolves, then applies only changed entries', async () => {
+    const client = new QueryClient()
+    filesystem.readDir.mockResolvedValueOnce([
+        { name: 'removed.jar', isDirectory: false },
+        { name: 'unchanged.jar', isDirectory: false },
+    ])
+    const first = mountPendingFiles(client)
+    await flushPromises()
+    first.unmount()
+    wrappers.splice(wrappers.indexOf(first), 1)
+
+    let resolvePath!: (path: string) => void
+    filesystem.getFullPath.mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                resolvePath = resolve
+            }),
+    )
+    filesystem.readDir.mockResolvedValueOnce([
+        { name: 'unchanged.jar', isDirectory: false },
+        { name: 'added.jar', isDirectory: false },
+    ])
+    mountPendingFiles(client)
+    const context = filesystem.context!
+    const unchanged = context.items.value[1]
+    expect(context.loading.value).toBe(false)
+    expect(context.items.value.map((item) => item.path)).toEqual(['removed.jar', 'unchanged.jar'])
+
+    resolvePath('/instance')
+    await flushPromises()
+    expect(context.items.value.map((item) => item.path)).toEqual(['unchanged.jar', 'added.jar'])
+    expect(context.items.value[0]).toBe(unchanged)
+    expect(context.loading.value).toBe(false)
 })
 
 it('mounts the file page while directory metadata is still loading', async () => {

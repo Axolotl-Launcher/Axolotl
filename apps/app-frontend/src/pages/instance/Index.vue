@@ -477,6 +477,8 @@ import { injectServerInstall } from '@/providers/server-install'
 import { handleSevereError } from '@/store/error.js'
 import { useBreadcrumbs, useTheming } from '@/store/state'
 
+import { instanceContentKeys, retainInstanceView } from './instance-view-cache'
+import { instanceKeys } from './query-options'
 import { isActiveUpgradeJobForInstance, isUnmanagedUpgradeEligible } from './upgrade/entry'
 
 dayjs.extend(duration)
@@ -550,7 +552,18 @@ const handleMinecraftLaunchError = useMinecraftLaunchError()
 const showInstancePlayTime = computed(() => themeStore.getFeatureFlag('show_instance_play_time'))
 const { offline } = useNetworkStatus()
 
-const instance = ref<GameInstance>()
+function cachedInstance(instanceId: string) {
+    const detail = queryClient.getQueryState<GameInstance>(instanceKeys.detail(instanceId))
+    const list = queryClient.getQueryState<GameInstance[]>(instanceKeys.list())
+    const summary = list?.data?.find(({ id }) => id === instanceId)
+    return list?.data && list.dataUpdatedAt > (detail?.dataUpdatedAt ?? 0)
+        ? summary
+        : (detail?.data ?? summary)
+}
+
+retainInstanceView(computed(() => instanceKeys.detail(props.id)))
+const instance = ref<GameInstance>(cachedInstance(props.id))
+const instancePending = ref(!instance.value)
 const instanceId = computed(() => instance.value?.id)
 const postUpgradeNoticeQuery = usePostUpgradeNotice(() => instance.value?.id ?? props.id)
 const postUpgradeNotice = computed(() => postUpgradeNoticeQuery.data.value ?? null)
@@ -581,8 +594,9 @@ watch(
 )
 
 useLoadingBarToken(subpagePending)
+useLoadingBarToken(instancePending)
 
-const isServerInstance = ref(false)
+const isServerInstance = ref(instance.value?.link?.type === 'server_project_modpack')
 const linkedProjectV3 = ref<Labrinth.Projects.v3.Project>()
 const selected = ref<unknown[]>([])
 const canUpgradeInstance = computed(() =>
@@ -599,7 +613,7 @@ const recentPlays = computed(
 const playersOnline = ref<number | undefined>(undefined)
 const ping = ref<number | undefined>(undefined)
 const loadingServerPing = ref(false)
-const activeInstanceId = ref<string>()
+const activeInstanceId = ref(instance.value?.id)
 const loaderIcon = computed(() =>
     instance.value?.loader ? getLoaderIcon(instance.value.loader) : undefined,
 )
@@ -651,7 +665,10 @@ async function fetchInstance() {
         }
     })
     if (!isCurrent() || !instanceReads.isCurrent(read, props.id)) return
+    instancePending.value = false
     if (nextInstance === null) {
+        queryClient.removeQueries({ queryKey: instanceKeys.detail(requestedId), exact: true })
+        queryClient.removeQueries({ queryKey: instanceContentKeys(requestedId) })
         instance.value = undefined
         addNotification({ type: 'warning', title: formatMessage(messages.instanceNotFound) })
         await router.replace({ name: 'Overview' })
@@ -666,7 +683,10 @@ async function fetchInstance() {
         linkedProjectV3.value = undefined
         resetServerStatus()
     }
-    instance.value = nextInstance ?? undefined
+    instance.value = queryClient.setQueryData<GameInstance>(
+        instanceKeys.detail(requestedId),
+        nextInstance,
+    )
     activeInstanceId.value = nextInstance?.id
     isServerInstance.value =
         nextInstance?.link?.type === 'server_project_modpack' ||
@@ -777,16 +797,6 @@ addCleanup(() => {
     instanceGeneration++
     clearInterval(launchElapsedTimer)
 })
-await fetchInstance()
-watch(
-    () => props.id,
-    async () => {
-        if (route.path.startsWith('/instance')) {
-            await fetchInstance()
-        }
-    },
-)
-
 const basePath = computed(
     () => `/instance/${encodeURIComponent(displayedInstanceRoute.value.params.id as string)}`,
 )
@@ -1037,14 +1047,20 @@ const handleOptionsClick = async (args: { option: string; item: unknown }) => {
     }
 }
 
-await subscribe(instance_listener, async (event: { instance_id: string; event: string }) => {
+void subscribe(instance_listener, async (event: { instance_id: string; event: string }) => {
     if (event.instance_id !== props.id) return
     if (event.event === 'removed' || route.path === '/') {
+        if (event.event === 'removed') {
+            queryClient.removeQueries({ queryKey: instanceKeys.detail(props.id), exact: true })
+            queryClient.removeQueries({ queryKey: instanceContentKeys(props.id) })
+            instanceReads.invalidate()
+        }
         if (route.path !== '/') {
             await router.push({ path: '/' })
         }
         return
     }
+    if (event.event !== 'edited') return
     const requestedId = props.id
     await fetchInstance()
     if (!isDisposed()) {
@@ -1052,9 +1068,9 @@ await subscribe(instance_listener, async (event: { instance_id: string; event: s
             queryKey: postUpgradeNoticeQueryKey(requestedId),
         })
     }
-})
+}).catch(handleError)
 
-await subscribe(process_listener, (e: { event: string; instance_id: string }) => {
+void subscribe(process_listener, (e: { event: string; instance_id: string }) => {
     if (e.event === 'launched' && e.instance_id === props.id) {
         processReads.invalidate()
         playing.value = true
@@ -1063,7 +1079,7 @@ await subscribe(process_listener, (e: { event: string; instance_id: string }) =>
         playing.value = false
         void queryClient.invalidateQueries({ queryKey: postUpgradeNoticeQueryKey(props.id) })
     }
-})
+}).catch(handleError)
 
 const settingsModal = ref<InstanceType<typeof InstanceSettingsModal>>()
 
@@ -1088,6 +1104,19 @@ const timePlayedHumanized = computed(() => {
     const seconds = Math.floor(duration.asSeconds())
     return seconds + ' second' + (seconds > 1 ? 's' : '')
 })
+
+watch(
+    () => props.id,
+    (id, previousId) => {
+        if (previousId !== undefined) {
+            instance.value = cachedInstance(id)
+            instancePending.value = !instance.value
+            playing.value = false
+        }
+        if (route.path.startsWith('/instance')) void fetchInstance()
+    },
+    { immediate: true },
+)
 
 onUnmounted(() => {
     const instanceId = displayedInstanceRoute.value.params.id

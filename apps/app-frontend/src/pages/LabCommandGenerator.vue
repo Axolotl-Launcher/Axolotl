@@ -36,18 +36,25 @@ import {
     PERMISSION_LABELS,
     switchVersion,
 } from '@/lab/command-generator/commands/registry.ts'
-import type { CommandArgument, CommandCategory } from '@/lab/command-generator/commands/types.ts'
+import type {
+    CommandArgument,
+    CommandCategory,
+    ExecuteChainSubcommand,
+} from '@/lab/command-generator/commands/types.ts'
 import {
     buildCommand,
     getActiveArguments,
     getDefaultValues,
     validateCommand,
 } from '@/lab/command-generator/generator.ts'
-import { loadManifest } from '@/lab/command-generator/loader.ts'
+import { loadCommandsForVersion, loadManifest } from '@/lab/command-generator/loader.ts'
 import {
     applyPresetToValues,
     deleteUserPreset,
     getUserPresets,
+    migratePresetState,
+    presetNeedsMigration,
+    replaceUserPreset,
     saveUserPreset,
     type UserPreset,
 } from '@/lab/command-generator/presets.ts'
@@ -181,6 +188,34 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.preset.toast.command-missing',
         defaultMessage:
             'Preset "{name}" uses command "{command}" which does not exist in this version',
+    },
+    presetLegacy: {
+        id: 'app.lab.command-generator.preset.legacy',
+        defaultMessage: 'Legacy',
+    },
+    presetLegacyHint: {
+        id: 'app.lab.command-generator.preset.legacy.hint',
+        defaultMessage: 'Saved with the old one-id-per-form steps; it can be upgraded in place',
+    },
+    presetLegacyStringHint: {
+        id: 'app.lab.command-generator.preset.legacy.string-hint',
+        defaultMessage: 'Saved as a plain command string, so it cannot be upgraded automatically',
+    },
+    presetMigrate: {
+        id: 'app.lab.command-generator.preset.migrate',
+        defaultMessage: 'Migrate',
+    },
+    presetMigrateHint: {
+        id: 'app.lab.command-generator.preset.migrate.hint',
+        defaultMessage: 'Rewrite the saved steps in the current format',
+    },
+    toastPresetMigrated: {
+        id: 'app.lab.command-generator.preset.toast.migrated',
+        defaultMessage: 'Preset "{name}" upgraded to the current format',
+    },
+    toastPresetNotMigratable: {
+        id: 'app.lab.command-generator.preset.toast.not-migratable',
+        defaultMessage: 'This preset cannot be upgraded automatically',
     },
     executeBuildFirst: {
         id: 'app.lab.command-generator.execute.build-first',
@@ -388,6 +423,52 @@ const isChainCommand = computed(() => currentCommand.value?.isChainCommand === t
 const allPresets = computed<UserPreset[]>(() =>
     [...userPresets.value].sort((a, b) => b.createdAt - a.createdAt),
 )
+
+const subcommandLookups = new Map<string, Map<string, ExecuteChainSubcommand>>()
+
+/**
+ * 每条预置按它自己存的版本判断写法是否过期，所以查表按版本缓存。
+ * 用 `loadCommandsForVersion` 而不是注册表：注册表只有当前选中的版本。
+ */
+function lookupForVersion(versionId: string): Map<string, ExecuteChainSubcommand> {
+    const cached = subcommandLookups.get(versionId)
+    if (cached) return cached
+    const lookup = new Map<string, ExecuteChainSubcommand>()
+    if (loadManifest().versions.some((entry) => entry.id === versionId)) {
+        for (const command of loadCommandsForVersion(versionId)) {
+            for (const category of command.chainCategories ?? []) {
+                for (const subcommand of category.subcommands) {
+                    lookup.set(subcommand.id, subcommand)
+                }
+            }
+        }
+    }
+    subcommandLookups.set(versionId, lookup)
+    return lookup
+}
+
+/** 存着旧版写法的预置，列表里标出来并给一个迁移入口。 */
+const legacyPresetIds = computed(() => {
+    const ids = new Set<string>()
+    for (const preset of allPresets.value) {
+        if (presetNeedsMigration(preset, lookupForVersion(preset.versionId))) ids.add(preset.id)
+    }
+    return ids
+})
+
+function migratePreset(preset: UserPreset) {
+    const state = preset.executeState
+        ? migratePresetState(preset.executeState, lookupForVersion(preset.versionId))
+        : null
+    if (!state) {
+        showToast(formatMessage(messages.toastPresetNotMigratable))
+        return
+    }
+    // 字符串快照只用于旧版回退，有了结构化状态就没必要再留着
+    replaceUserPreset({ ...preset, executeState: state, chainString: undefined })
+    userPresets.value = getUserPresets()
+    showToast(formatMessage(messages.toastPresetMigrated, { name: preset.name }))
+}
 
 onMounted(() => {
     const manifest = loadManifest()
@@ -665,12 +746,34 @@ async function openWiki() {
                         class="global-preset-item flex min-w-0 flex-1 flex-col gap-1 rounded-md bg-transparent p-1 text-left hover:text-brand focus-visible:outline-brand"
                         @click="jumpToPreset(preset)"
                     >
-                        <span class="w-full truncate text-sm font-semibold">{{ preset.name }}</span>
+                        <span class="flex w-full min-w-0 items-center gap-1.5">
+                            <span class="truncate text-sm font-semibold">{{ preset.name }}</span>
+                            <span
+                                v-if="legacyPresetIds.has(preset.id)"
+                                v-tooltip="
+                                    formatMessage(
+                                        preset.executeState
+                                            ? messages.presetLegacyHint
+                                            : messages.presetLegacyStringHint,
+                                    )
+                                "
+                                class="shrink-0 rounded bg-highlight-orange px-1.5 text-xs font-medium leading-5 text-orange"
+                                >{{ formatMessage(messages.presetLegacy) }}</span
+                            >
+                        </span>
                         <span class="text-xs text-[var(--color-text-tertiary)]"
                             >/{{ preset.commandId }} ·
                             {{ versionLabelMap[preset.versionId] ?? preset.versionId }}</span
                         >
                     </button>
+                    <Button
+                        v-if="legacyPresetIds.has(preset.id) && preset.executeState"
+                        v-tooltip="formatMessage(messages.presetMigrateHint)"
+                        type="outlined"
+                        size="sm"
+                        @click="migratePreset(preset)"
+                        >{{ formatMessage(messages.presetMigrate) }}</Button
+                    >
                     <Button
                         v-tooltip="formatMessage(messages.deletePreset)"
                         type="quiet"

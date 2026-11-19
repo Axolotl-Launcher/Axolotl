@@ -8774,6 +8774,21 @@
   "app.lab.command-generator.preset.item.netherite-ingot": {
     "message": "Netherite ingot"
   },
+  "app.lab.command-generator.preset.legacy": {
+    "message": "Legacy"
+  },
+  "app.lab.command-generator.preset.legacy.hint": {
+    "message": "Saved with the old one-id-per-form steps; it can be upgraded in place"
+  },
+  "app.lab.command-generator.preset.legacy.string-hint": {
+    "message": "Saved as a plain command string, so it cannot be upgraded automatically"
+  },
+  "app.lab.command-generator.preset.migrate": {
+    "message": "Migrate"
+  },
+  "app.lab.command-generator.preset.migrate.hint": {
+    "message": "Rewrite the saved steps in the current format"
+  },
   "app.lab.command-generator.preset.minutes.15": {
     "message": "15 minutes"
   },
@@ -8987,8 +9002,14 @@
   "app.lab.command-generator.preset.toast.loaded": {
     "message": "Preset \"{name}\" loaded"
   },
+  "app.lab.command-generator.preset.toast.migrated": {
+    "message": "Preset \"{name}\" upgraded to the current format"
+  },
   "app.lab.command-generator.preset.toast.name-required": {
     "message": "Please enter a preset name"
+  },
+  "app.lab.command-generator.preset.toast.not-migratable": {
+    "message": "This preset cannot be upgraded automatically"
   },
   "app.lab.command-generator.preset.toast.saved": {
     "message": "Preset \"{name}\" saved"

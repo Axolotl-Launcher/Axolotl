@@ -327,6 +327,43 @@ it('refuses to generate a chain whose step has no form picked', async () => {
     expect(wrapper.get('[role="alert"]').text()).toContain('has no form picked yet')
 })
 
+it('marks a preset saved with the old step ids and upgrades it in place', async () => {
+    saveUserPreset(
+        'Old chain',
+        'execute',
+        '1.21',
+        {},
+        {
+            executeState: {
+                chain: [
+                    {
+                        subcommandId: 'if-biome',
+                        values: { pos: '~ ~ ~', biome: 'minecraft:plains' },
+                    },
+                ],
+                finalCommand: 'say hi',
+            },
+        },
+    )
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.get('.global-presets-button').trigger('click')
+    expect(wrapper.text()).toContain('Legacy')
+    const migrate = wrapper.findAll('button').find((button) => button.text() === 'Migrate')!
+    await migrate.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Legacy')
+    const stored = JSON.parse(
+        localStorage.getItem('axolotl:command-generator:user-presets') as string,
+    )
+    expect(stored[0].executeState.chain[0]).toEqual({
+        subcommandId: 'if',
+        values: { condition: 'biome', pos: '~ ~ ~', biome: 'minecraft:plains' },
+    })
+    expect(stored[0].chainString).toBe(undefined)
+})
+
 it.each(['give', 'execute'])(
     'opens a %s preset from another version and generates the restored command',
     async (commandId) => {

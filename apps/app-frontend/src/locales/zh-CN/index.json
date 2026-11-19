@@ -8774,6 +8774,21 @@
   "app.lab.command-generator.preset.item.netherite-ingot": {
     "message": "下界合金锭"
   },
+  "app.lab.command-generator.preset.legacy": {
+    "message": "旧版"
+  },
+  "app.lab.command-generator.preset.legacy.hint": {
+    "message": "存的是旧版「一个写法一个子命令」的步骤，可以就地升级"
+  },
+  "app.lab.command-generator.preset.legacy.string-hint": {
+    "message": "只存了命令字符串，没有步骤可以还原，无法自动升级"
+  },
+  "app.lab.command-generator.preset.migrate": {
+    "message": "迁移"
+  },
+  "app.lab.command-generator.preset.migrate.hint": {
+    "message": "把存下来的步骤改写成新版写法"
+  },
   "app.lab.command-generator.preset.minutes.15": {
     "message": "15 分钟"
   },
@@ -8987,8 +9002,14 @@
   "app.lab.command-generator.preset.toast.loaded": {
     "message": "已加载预设「{name}」"
   },
+  "app.lab.command-generator.preset.toast.migrated": {
+    "message": "已把「{name}」升级到新版写法"
+  },
   "app.lab.command-generator.preset.toast.name-required": {
     "message": "请输入预设名称"
+  },
+  "app.lab.command-generator.preset.toast.not-migratable": {
+    "message": "这条预置无法自动升级"
   },
   "app.lab.command-generator.preset.toast.saved": {
     "message": "已保存预设「{name}」"

@@ -32,7 +32,17 @@ pub fn telemetry() -> &'static Telemetry {
 /// local sink such as [`capture`] is installed. Callers use this to skip
 /// building expensive attributes when nothing consumes them.
 pub fn is_enabled() -> bool {
-    GUARD.get().is_some_and(Option::is_some) || capture::active().is_some()
+    otlp_enabled() || capture::active().is_some()
+}
+
+/// Whether the OTLP pipeline itself is running.
+///
+/// The log filter uses this rather than [`is_enabled`]: widening the file log to
+/// INFO domain spans is a cost the operator opted into with
+/// `AXOLOTL_OBSERVABILITY`, not something a local diagnostics toggle should
+/// change behind their back.
+pub fn otlp_enabled() -> bool {
+    GUARD.get().is_some_and(Option::is_some)
 }
 
 /// Start local capture without OTLP export.
@@ -202,6 +212,20 @@ mod tests {
             1,
             "one emit after the restart must be recorded once, not once per start()"
         );
+    }
+
+    #[test]
+    fn local_capture_does_not_widen_the_log_filter() {
+        // The file log must keep the user's level: only OTLP needs INFO domain
+        // spans collected globally, and capture filters per layer instead.
+        let _guard = lock();
+        capture::stop();
+        capture::reset_for_test();
+        capture::start(4);
+        assert!(is_enabled());
+        assert!(!otlp_enabled());
+        capture::stop();
+        capture::reset_for_test();
     }
 
     #[test]

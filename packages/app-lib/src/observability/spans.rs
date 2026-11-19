@@ -51,8 +51,11 @@ pub fn start() {
 
 /// Stop retaining spans and drop what was kept.
 pub fn stop() {
+    // Flip the flag while holding the buffer lock so `push` (which checks the
+    // flag under the same lock) cannot append after the clear below.
+    let mut buffer = buffer().lock();
     TRACKING.store(false, Ordering::Release);
-    clear();
+    buffer.clear();
 }
 
 /// Drop retained spans, keep tracking.
@@ -98,10 +101,13 @@ impl CaptureSpanLayer {
     }
 
     fn push(record: SpanRecord) {
+        // Check inside the lock: `stop()` flips the flag and clears under the
+        // same lock, so a span closing mid-stop can never slip in after the
+        // clear and reappear once tracking resumes.
+        let mut buffer = buffer().lock();
         if !TRACKING.load(Ordering::Acquire) {
             return;
         }
-        let mut buffer = buffer().lock();
         if buffer.len() >= SPAN_CAPACITY {
             buffer.pop_front();
         }

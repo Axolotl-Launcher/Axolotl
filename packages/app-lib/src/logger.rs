@@ -55,7 +55,10 @@ static LOG_FILTER_RELOAD: std::sync::OnceLock<LogFilterReloadHandle> =
     std::sync::OnceLock::new();
 
 fn log_level_directives(level: &str) -> String {
-    log_level_directives_for(level, crate::observability::is_enabled())
+    // Only OTLP export needs the file log to keep collecting INFO domain spans.
+    // Local capture has its own per-layer filter, so enabling the diagnostics
+    // MCP must not raise a user's chosen log level.
+    log_level_directives_for(level, crate::observability::otlp_enabled())
 }
 
 /// Directives for the file/console log. When OTLP export is active the
@@ -103,7 +106,7 @@ fn initial_log_filter(
     }
     // A developer RUST_LOG still controls the file log, but an enabled export
     // must not silently lose the migrated `theseus` domain spans.
-    if crate::observability::is_enabled()
+    if crate::observability::otlp_enabled()
         && let Ok(parsed) = "theseus=info".parse()
     {
         filter = filter.add_directive(parsed);

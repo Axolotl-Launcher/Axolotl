@@ -290,6 +290,30 @@ it('refuses to generate an execute chain that never says what to run', async () 
     expect(wrapper.get('[role="alert"]').text()).toContain('Fill in the command to run')
 })
 
+it('refuses to generate a chain whose step has no form picked', async () => {
+    saveUserPreset(
+        'Chain without a form',
+        'execute',
+        '1.16',
+        {},
+        {
+            executeState: {
+                chain: [{ subcommandId: 'if', values: {} }],
+                finalCommand: 'say hello',
+            },
+        },
+    )
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.get('.global-presets-button').trigger('click')
+    await wrapper.get('.global-preset-item').trigger('click')
+    await flushPromises()
+    await wrapper.get('.action-bar button').trigger('click')
+    expect(wrapper.find('.result-code').exists()).toBe(false)
+    expect(wrapper.get('[role="alert"]').text()).toContain('has no form picked yet')
+})
+
 it.each(['give', 'execute'])(
     'opens a %s preset from another version and generates the restored command',
     async (commandId) => {

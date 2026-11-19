@@ -7895,6 +7895,9 @@
   "app.lab.command-generator.execute.unless.label": {
     "message": "unless"
   },
+  "app.lab.command-generator.execute.variant-required": {
+    "message": "第 {index} 步（{command}）还没选具体写法"
+  },
   "app.lab.command-generator.execute.variant.count": {
     "message": "{count} 种形式"
   },

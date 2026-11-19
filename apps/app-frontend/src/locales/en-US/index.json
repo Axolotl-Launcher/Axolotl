@@ -7895,6 +7895,9 @@
   "app.lab.command-generator.execute.unless.label": {
     "message": "unless"
   },
+  "app.lab.command-generator.execute.variant-required": {
+    "message": "Step {index} ({command}) has no form picked yet"
+  },
   "app.lab.command-generator.execute.variant.count": {
     "message": "{count} forms"
   },

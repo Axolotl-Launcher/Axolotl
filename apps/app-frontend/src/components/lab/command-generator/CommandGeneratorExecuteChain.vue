@@ -317,6 +317,23 @@ function onVariantChange(step: ChainStep, optionId: string) {
  */
 const missingRunTarget = computed(() => finalCommand.value.trim() === '')
 
+/**
+ * 家族步骤还没选写法：这条链现在渲染不出任何片段，生成时会被整步丢掉，
+ * 用户拿到的是一条少了条件的命令，所以要在生成前拦下来。
+ */
+const unresolvedStep = computed<{ index: number; command: string } | null>(() => {
+    const index = chain.value.findIndex(
+        (step) =>
+            !!variantsOf(step) && !resolveVariant(getSubcommand(step.subcommandId), step.values),
+    )
+    if (index < 0) return null
+    const sub = getSubcommand(chain.value[index].subcommandId)
+    return {
+        index: index + 1,
+        command: sub ? formatDynamic(sub.labelKey, sub.id) : chain.value[index].subcommandId,
+    }
+})
+
 const output = computed(() => {
     const parts = chain.value.map(renderStep).filter(Boolean)
     const final = finalCommand.value.trim()
@@ -441,7 +458,7 @@ function setState(state: ExecuteChainState) {
     finalCommand.value = state.finalCommand
 }
 
-defineExpose({ getState, setState, missingRunTarget })
+defineExpose({ getState, setState, missingRunTarget, unresolvedStep })
 </script>
 
 <template>

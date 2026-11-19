@@ -190,6 +190,10 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.execute.run-required',
         defaultMessage: 'Fill in the command to run: run has to be followed by a command',
     },
+    executeVariantRequired: {
+        id: 'app.lab.command-generator.execute.variant-required',
+        defaultMessage: 'Step {index} ({command}) has no form picked yet',
+    },
     seedMultiplayerNote: {
         id: 'app.lab.command-generator.perm.seed.multiplayer-note',
         defaultMessage: 'In multiplayer, /seed requires permission level 2.',
@@ -453,6 +457,13 @@ function generate() {
     copied.value = false
 
     if (isChainCommand.value) {
+        // 没选写法的步骤渲染不出片段，拼出来的命令会少一段，先让用户把它选完
+        const unfinished = executeChainRef.value?.unresolvedStep
+        if (unfinished) {
+            errors.value = [formatMessage(messages.executeVariantRequired, unfinished)]
+            result.value = ''
+            return
+        }
         const output = executeChainOutput.value.trim()
         if (!output) {
             errors.value = [formatMessage(messages.executeBuildFirst)]

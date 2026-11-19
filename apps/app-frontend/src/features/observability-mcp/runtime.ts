@@ -1,5 +1,5 @@
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import { shallowRef } from 'vue'
+import { readonly, shallowRef } from 'vue'
 
 import { invoke } from '@/helpers/invoke'
 
@@ -47,23 +47,37 @@ async function action(command: string, args?: Record<string, unknown>) {
 }
 
 async function load() {
-    if (references++ > 0) return
+    references += 1
+    if (references > 1) return
     listening ??= listen<ObservabilityMcpState>(OBSERVABILITY_MCP_EVENT, (event) =>
         apply(event.payload),
-    )
-    await action('observability_mcp_get_state')
-    loaded.value = true
+    ).catch((error) => {
+        listening = undefined
+        throw error
+    })
+    try {
+        await listening
+        if (await action('observability_mcp_get_state')) loaded.value = true
+    } catch (error) {
+        operationError.value = String(error)
+    }
 }
 
+/// Drop one reference; the last one detaches the event listener so a later
+/// visit re-registers instead of stacking handlers on the same event.
 function release() {
     references = Math.max(0, references - 1)
+    if (references === 0) {
+        void listening?.then((unlisten) => unlisten()).catch(() => {})
+        listening = undefined
+    }
 }
 
 export function useObservabilityMcpRuntime() {
     void load()
 
     return {
-        state,
+        state: readonly(state),
         loaded,
         busy,
         error: operationError,

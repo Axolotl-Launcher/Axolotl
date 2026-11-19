@@ -5909,11 +5909,11 @@
   "app.lab.command-generator.arg.execute.slots.display": {
     "message": "槽位来源"
   },
-  "app.lab.command-generator.arg.execute.source.desc": {
-    "message": "来源类型"
+  "app.lab.command-generator.arg.execute.slots.target.desc": {
+    "message": "要检查槽位的实体"
   },
-  "app.lab.command-generator.arg.execute.source.display": {
-    "message": "来源类型"
+  "app.lab.command-generator.arg.execute.slots.target.display": {
+    "message": "目标实体"
   },
   "app.lab.command-generator.arg.execute.stopwatch.id.desc": {
     "message": "计时器标识符"
@@ -6034,12 +6034,6 @@
   },
   "app.lab.command-generator.arg.execute.summon.entity.display": {
     "message": "实体"
-  },
-  "app.lab.command-generator.arg.execute.target.desc": {
-    "message": "实体或坐标"
-  },
-  "app.lab.command-generator.arg.execute.target.display": {
-    "message": "实体或坐标"
   },
   "app.lab.command-generator.arg.execute.unless-block.block.desc": {
     "message": "方块 ID"

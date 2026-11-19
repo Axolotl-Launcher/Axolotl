@@ -552,24 +552,38 @@
             "id": "slots",
             "labelKey": "app.lab.command-generator.execute.condition.kind.slots.label",
             "descriptionKey": "app.lab.command-generator.execute.if-slots.desc",
-            "template": "if slots {source} {target} {slots}",
+            "template": "if slots {source} {pos} {target} {slots}",
             "arguments": [
               {
                 "name": "source",
-                "displayNameKey": "app.lab.command-generator.arg.execute.source.display",
+                "displayNameKey": "app.lab.command-generator.arg.execute.if-items.source.display",
                 "type": "enum",
                 "required": true,
-                "descriptionKey": "app.lab.command-generator.arg.execute.source.desc",
+                "descriptionKey": "app.lab.command-generator.arg.execute.if-items.source.desc",
                 "enumValues": ["entity", "block"],
                 "defaultValue": "entity"
               },
               {
-                "name": "target",
-                "displayNameKey": "app.lab.command-generator.arg.execute.target.display",
-                "type": "string",
+                "name": "pos",
+                "displayNameKey": "app.lab.command-generator.arg.execute.if-block.pos.display",
+                "type": "coordinates",
                 "required": true,
-                "descriptionKey": "app.lab.command-generator.arg.execute.target.desc",
-                "defaultValue": "@s"
+                "descriptionKey": "app.lab.command-generator.arg.execute.if-block.pos.desc",
+                "placeholder": "~ ~ ~",
+                "when": {
+                  "source": ["block"]
+                }
+              },
+              {
+                "name": "target",
+                "displayNameKey": "app.lab.command-generator.arg.execute.slots.target.display",
+                "type": "entity-selector",
+                "required": true,
+                "descriptionKey": "app.lab.command-generator.arg.execute.slots.target.desc",
+                "defaultValue": "@s",
+                "when": {
+                  "source": ["entity"]
+                }
               },
               {
                 "name": "slots",
@@ -588,24 +602,38 @@
             "id": "slots",
             "labelKey": "app.lab.command-generator.execute.condition.kind.slots.label",
             "descriptionKey": "app.lab.command-generator.execute.unless-slots.desc",
-            "template": "unless slots {source} {target} {slots}",
+            "template": "unless slots {source} {pos} {target} {slots}",
             "arguments": [
               {
                 "name": "source",
-                "displayNameKey": "app.lab.command-generator.arg.execute.source.display",
+                "displayNameKey": "app.lab.command-generator.arg.execute.if-items.source.display",
                 "type": "enum",
                 "required": true,
-                "descriptionKey": "app.lab.command-generator.arg.execute.source.desc",
+                "descriptionKey": "app.lab.command-generator.arg.execute.if-items.source.desc",
                 "enumValues": ["entity", "block"],
                 "defaultValue": "entity"
               },
               {
-                "name": "target",
-                "displayNameKey": "app.lab.command-generator.arg.execute.target.display",
-                "type": "string",
+                "name": "pos",
+                "displayNameKey": "app.lab.command-generator.arg.execute.if-block.pos.display",
+                "type": "coordinates",
                 "required": true,
-                "descriptionKey": "app.lab.command-generator.arg.execute.target.desc",
-                "defaultValue": "@s"
+                "descriptionKey": "app.lab.command-generator.arg.execute.if-block.pos.desc",
+                "placeholder": "~ ~ ~",
+                "when": {
+                  "source": ["block"]
+                }
+              },
+              {
+                "name": "target",
+                "displayNameKey": "app.lab.command-generator.arg.execute.slots.target.display",
+                "type": "entity-selector",
+                "required": true,
+                "descriptionKey": "app.lab.command-generator.arg.execute.slots.target.desc",
+                "defaultValue": "@s",
+                "when": {
+                  "source": ["entity"]
+                }
               },
               {
                 "name": "slots",

@@ -4367,21 +4367,13 @@ const commandCatalogMessages = defineMessages({
         id: 'app.lab.command-generator.execute.if-slots.desc',
         defaultMessage: 'Test slots on a block or entity using a slot source.',
     },
-    'app.lab.command-generator.arg.execute.source.display': {
-        id: 'app.lab.command-generator.arg.execute.source.display',
-        defaultMessage: 'Source type',
+    'app.lab.command-generator.arg.execute.slots.target.display': {
+        id: 'app.lab.command-generator.arg.execute.slots.target.display',
+        defaultMessage: 'Targets',
     },
-    'app.lab.command-generator.arg.execute.source.desc': {
-        id: 'app.lab.command-generator.arg.execute.source.desc',
-        defaultMessage: 'Source type',
-    },
-    'app.lab.command-generator.arg.execute.target.display': {
-        id: 'app.lab.command-generator.arg.execute.target.display',
-        defaultMessage: 'Entity or position',
-    },
-    'app.lab.command-generator.arg.execute.target.desc': {
-        id: 'app.lab.command-generator.arg.execute.target.desc',
-        defaultMessage: 'Entity or position',
+    'app.lab.command-generator.arg.execute.slots.target.desc': {
+        id: 'app.lab.command-generator.arg.execute.slots.target.desc',
+        defaultMessage: 'Entities whose slots are checked',
     },
     'app.lab.command-generator.arg.execute.slots.display': {
         id: 'app.lab.command-generator.arg.execute.slots.display',

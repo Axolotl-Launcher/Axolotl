@@ -5,6 +5,7 @@ import type { CommandDefinition } from './commands/types.ts'
 import { buildCommand, getDefaultValues, validateCommand } from './generator.ts'
 import { loadCommandsForVersion, loadManifest } from './loader.ts'
 import { createItemNbtTree, parseNbt, serializeNbtDocument } from './nbt-tree.ts'
+import { activeStepArguments } from './variants.ts'
 
 describe('Java 26 release command syntax', () => {
     it('loads each release without leaking new commands into earlier versions', () => {
@@ -221,6 +222,22 @@ describe('Java 26 release command syntax', () => {
                 .find((command) => command.id === 'item')!
                 .arguments[0].enumValues!.includes('fill'),
         ).toBeTruthy()
+    })
+
+    it('keeps the 26.3 slots condition on the branch its source picks', () => {
+        initializeRegistry('26.3')
+        const ifStep = findCommand('execute')!
+            .chainCategories!.flatMap((category) => category.subcommands)
+            .find((subcommand) => subcommand.id === 'if')!
+        const slots = ifStep.variants!.options.find((option) => option.id === 'slots')!
+        const fields = (source: string) =>
+            activeStepArguments(ifStep, { condition: 'slots', source, slots: 'container.*' }).map(
+                (arg) => arg.name,
+            )
+        // `if slots block <pos> <slot source>` 与 `if slots entity <targets> <slot source>`
+        expect(slots.template).toBe('if slots {source} {pos} {target} {slots}')
+        expect(fields('block')).toEqual(['source', 'pos', 'slots'])
+        expect(fields('entity')).toEqual(['source', 'target', 'slots'])
     })
 
     it('provides inline text components in advanced item presets for 26.x', () => {

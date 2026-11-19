@@ -5909,11 +5909,11 @@
   "app.lab.command-generator.arg.execute.slots.display": {
     "message": "Slot source"
   },
-  "app.lab.command-generator.arg.execute.source.desc": {
-    "message": "Source type"
+  "app.lab.command-generator.arg.execute.slots.target.desc": {
+    "message": "Entities whose slots are checked"
   },
-  "app.lab.command-generator.arg.execute.source.display": {
-    "message": "Source type"
+  "app.lab.command-generator.arg.execute.slots.target.display": {
+    "message": "Targets"
   },
   "app.lab.command-generator.arg.execute.stopwatch.id.desc": {
     "message": "Stopwatch identifier"
@@ -6034,12 +6034,6 @@
   },
   "app.lab.command-generator.arg.execute.summon.entity.display": {
     "message": "Entity"
-  },
-  "app.lab.command-generator.arg.execute.target.desc": {
-    "message": "Entity or position"
-  },
-  "app.lab.command-generator.arg.execute.target.display": {
-    "message": "Entity or position"
   },
   "app.lab.command-generator.arg.execute.unless-block.block.desc": {
     "message": "Block ID"

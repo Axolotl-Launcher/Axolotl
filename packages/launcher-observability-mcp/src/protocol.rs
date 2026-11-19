@@ -15,6 +15,8 @@ use rmcp::{
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
 
+/// Longest accepted string filter, matching the schema's `maxLength`.
+pub const MAX_FILTER_LEN: usize = 64;
 /// Default number of records a listing tool returns.
 pub const DEFAULT_LIMIT: usize = 50;
 /// Hard ceiling for listing tools, whatever the client asks for.
@@ -37,7 +39,7 @@ pub fn tools() -> Vec<Tool> {
                 "properties":{
                     "limit":{"type":"integer","minimum":1,"maximum":MAX_LIMIT},
                     "severity":{"type":"string","enum":["trace","debug","info","warn","error"]},
-                    "name_prefix":{"type":"string","minLength":1,"maxLength":64}
+                    "name_prefix":{"type":"string","minLength":1,"maxLength":MAX_FILTER_LEN}
                 },
                 "additionalProperties":false
             })),
@@ -49,7 +51,7 @@ pub fn tools() -> Vec<Tool> {
             json_schema(json!({
                 "type":"object",
                 "properties":{
-                    "name_prefix":{"type":"string","minLength":1,"maxLength":64}
+                    "name_prefix":{"type":"string","minLength":1,"maxLength":MAX_FILTER_LEN}
                 },
                 "additionalProperties":false
             })),
@@ -218,6 +220,14 @@ fn optional_string(
             if value.trim().is_empty() {
                 return Err(ErrorData::invalid_params(
                     format!("{key} must not be empty"),
+                    None,
+                ));
+            }
+            // The schema advertises maxLength 64; enforce it here too so a
+            // client that skips schema validation cannot send a huge prefix.
+            if value.len() > MAX_FILTER_LEN {
+                return Err(ErrorData::invalid_params(
+                    format!("{key} must be at most {MAX_FILTER_LEN} bytes"),
                     None,
                 ));
             }

@@ -387,14 +387,15 @@ fn series_key(name: &str, attributes: &[Attribute]) -> SeriesKey {
     (name.to_owned(), rendered)
 }
 
-/// Number of capture sinks the registry holds, including the capture's own
-/// flag. Used by tests to prove [`start`] and [`stop`] are paired.
+/// Returns the statics to a "never started" state, except for the registry
+/// entry itself, which cannot be removed. The capture must not keep recording
+/// while it reports uninstalled, or records would pile up invisibly and a later
+/// `stop()` would early-return without clearing them.
 #[cfg(test)]
 pub(crate) fn reset_for_test() {
     INSTALLED.store(false, Ordering::Release);
     if let Some(capture) = CAPTURE.get() {
-        capture.clear();
-        capture.recording.store(true, Ordering::Release);
+        capture.stop_recording();
     }
 }
 

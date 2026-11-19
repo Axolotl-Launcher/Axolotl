@@ -150,16 +150,23 @@ pub fn start(app_identifier: &str) -> Option<ObservabilityGuard> {
 
 pub(crate) use command_metrics::CommandMetricsLayer;
 
+/// Serialises every test that flips the process-wide telemetry statics.
+///
+/// The registry, the capture buffer and the span buffer are shared by the whole
+/// crate, so a per-module lock would still let tests from different modules
+/// interleave. One lock for all of them is the only correct arrangement.
+#[cfg(test)]
+pub(crate) fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    /// Capture is process-wide, so these tests must not interleave.
-    static TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn lock() -> std::sync::MutexGuard<'static, ()> {
-        TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner())
+        test_lock()
     }
 
     #[test]

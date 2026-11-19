@@ -111,14 +111,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::observability::test_lock;
     use std::sync::Mutex;
     use tracing_subscriber::prelude::*;
 
-    /// Capture and the telemetry registry are process-wide.
-    static TEST_LOCK: Mutex<()> = Mutex::new(());
-
+    /// The crate has one lock for every test that flips the shared statics.
     fn lock() -> std::sync::MutexGuard<'static, ()> {
-        TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner())
+        test_lock()
     }
 
     #[test]

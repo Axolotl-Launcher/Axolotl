@@ -175,15 +175,12 @@ fn unix_millis() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+    use crate::observability::test_lock;
     use tracing_subscriber::prelude::*;
 
-    /// Tracing and capture are process-wide, so tests that flip them must not
-    /// run against each other in parallel.
-    static TEST_LOCK: Mutex<()> = Mutex::new(());
-
+    /// The crate has one lock for every test that flips the shared statics.
     fn lock() -> std::sync::MutexGuard<'static, ()> {
-        TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner())
+        test_lock()
     }
 
     #[test]

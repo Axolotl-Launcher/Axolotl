@@ -112,7 +112,7 @@ pub fn list() -> FavoriteGroupsSnapshot {
 pub async fn create(name: String) -> ResourceResult<FavoriteGroup> {
     let name = validate_group_name(&name)?;
     let id = Uuid::new_v4().to_string();
-    favorite_groups::create(&id, name);
+    favorite_groups::create(&id, name)?;
     // Creating a group changes the library even when it has no members yet;
     // without this event the frontend keeps its stale list until the next
     // membership change and empty groups never appear.
@@ -130,7 +130,7 @@ pub async fn rename(
 ) -> ResourceResult<FavoriteGroup> {
     let new_name = validate_group_name(&new_name)?;
 
-    let Some(favorite_keys) = favorite_groups::rename(&id, new_name) else {
+    let Some(favorite_keys) = favorite_groups::rename(&id, new_name)? else {
         return Err(ResourceError::InvalidRequest(format!(
             "Unknown favorite group {id}"
         )));
@@ -145,7 +145,7 @@ pub async fn rename(
 }
 
 pub async fn delete(id: String) -> ResourceResult<()> {
-    let Some(favorite_keys) = favorite_groups::delete(&id) else {
+    let Some(favorite_keys) = favorite_groups::delete(&id)? else {
         return Err(ResourceError::InvalidRequest(format!(
             "Unknown favorite group {id}"
         )));

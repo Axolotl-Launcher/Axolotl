@@ -60,6 +60,36 @@ pub(super) async fn handle() -> Handle {
     Handle::new(pool().await)
 }
 
+/// A complete current database layout and independent sync authority. Keep the
+/// directory alive as long as any pool sharing its connect options remains.
+pub(super) async fn sync_pool() -> SqlitePool {
+    use std::sync::{Arc, Mutex, OnceLock, Weak};
+    type Roots =
+        Vec<(Weak<sqlx::sqlite::SqliteConnectOptions>, tempfile::TempDir)>;
+    static ROOTS: OnceLock<Mutex<Roots>> = OnceLock::new();
+    let directory = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(directory.path())
+        .await
+        .unwrap();
+    let mut roots =
+        ROOTS.get_or_init(|| Mutex::new(Vec::new())).lock().unwrap();
+    roots.retain(|(options, _)| options.strong_count() > 0);
+    roots.push((Arc::downgrade(&pool.connect_options()), directory));
+    pool
+}
+
+pub(super) async fn sync_handle() -> Handle {
+    Handle::new(sync_pool().await)
+}
+
+pub(super) async fn sync_handle_with_instances(instances: &[&str]) -> Handle {
+    let pool = sync_pool().await;
+    for instance in instances {
+        add_instance(&pool, instance).await;
+    }
+    Handle::new(pool)
+}
+
 /// A handle on a derived database of its own, with every derived migration
 /// applied, and the directory that holds it.
 pub(super) async fn derived() -> (tempfile::TempDir, Handle) {
@@ -70,18 +100,22 @@ pub(super) async fn derived() -> (tempfile::TempDir, Handle) {
 }
 
 /// The same database, reached the way the collections that live there are.
-pub(super) async fn derived_db() -> (tempfile::TempDir, DerivedDb) {
+pub(super) async fn resource_cache()
+-> (tempfile::TempDir, crate::resources::cache::ResourceCache) {
     let directory = tempfile::tempdir().unwrap();
-    let db = DerivedDb::open(directory.path().join(FILE_NAME)).await;
+    let db = crate::resources::cache::ResourceCache::open(
+        directory.path().join("resources.db"),
+    )
+    .await;
     (directory, db)
 }
 
-/// A derived database this build cannot open, which stays disabled for the run.
-pub(super) async fn disabled_derived() -> (tempfile::TempDir, DerivedDb) {
+pub(super) async fn disabled_resource_cache()
+-> (tempfile::TempDir, crate::resources::cache::ResourceCache) {
     let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join(FILE_NAME);
-    tokio::fs::write(&path, b"not a database").await.unwrap();
-    let db = DerivedDb::open(path).await;
+    let path = directory.path().join("directory-instead-of-resources.db");
+    tokio::fs::create_dir(&path).await.unwrap();
+    let db = crate::resources::cache::ResourceCache::open(path).await;
     (directory, db)
 }
 
@@ -139,13 +173,16 @@ pub(super) async fn enable_feature(
     instance_id: &str,
     feature: &str,
 ) {
-    sqlx::query(
-        "INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
-         VALUES (?, ?, 1)",
+    super::super::instance_sync_preferences::InstanceSyncPreferences::set(
+        &Handle::new(pool.clone()),
+        &super::super::instance_sync_preferences::InstancePreferenceKey {
+            instance_id: instance_id.into(),
+            feature: feature.into(),
+        },
+        Some(&super::super::instance_sync_preferences::InstancePreferenceRecord {
+            enabled: true,
+        }),
     )
-    .bind(instance_id)
-    .bind(feature)
-    .execute(pool)
     .await
     .unwrap();
 }

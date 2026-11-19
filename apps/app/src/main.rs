@@ -346,17 +346,6 @@ async fn resolve_update_channel<R: tauri::Runtime>(
 
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
-async fn get_current_app_database_path(
-    app: tauri::AppHandle,
-) -> api::Result<String> {
-    Ok(theseus::current_app_database_path(&app.config().identifier)
-        .await?
-        .to_string_lossy()
-        .into_owned())
-}
-
-#[tracing::instrument(skip_all, level = "info")]
-#[tauri::command]
 async fn set_update_channel(
     app: tauri::AppHandle,
     channel: String,
@@ -433,37 +422,6 @@ fn write_update_channel_state(
     std::fs::write(&temporary_path, contents)?;
     std::fs::rename(temporary_path, path)?;
     Ok(())
-}
-
-#[tracing::instrument(skip_all, level = "info")]
-#[tauri::command]
-async fn copy_release_database_to_beta(
-    app: tauri::AppHandle,
-) -> api::Result<()> {
-    theseus::copy_release_database_to_beta(&app.config().identifier).await?;
-    Ok(())
-}
-
-#[tracing::instrument(skip_all, level = "info")]
-#[tauri::command]
-async fn copy_database_between_channels(
-    app: tauri::AppHandle,
-    source_channel: String,
-    target_channel: String,
-) -> api::Result<()> {
-    theseus::copy_database_between_channels(
-        &app.config().identifier,
-        &source_channel,
-        &target_channel,
-    )
-    .await?;
-    Ok(())
-}
-
-#[tracing::instrument(skip_all, level = "info")]
-#[tauri::command]
-async fn beta_database_exists(app: tauri::AppHandle) -> api::Result<bool> {
-    Ok(theseus::beta_database_exists(&app.config().identifier).await?)
 }
 
 #[tracing::instrument(skip_all, level = "info")]
@@ -1128,13 +1086,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             initialize_state,
             get_update_channel,
-            get_current_app_database_path,
             set_update_channel,
             get_update_preferences,
             set_update_preferences,
-            copy_release_database_to_beta,
-            copy_database_between_channels,
-            beta_database_exists,
             backup_app_db_for_update,
             set_discord_activity,
             is_dev,

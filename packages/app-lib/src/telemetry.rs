@@ -10,20 +10,9 @@ use uuid::Uuid;
 
 use crate::State;
 use crate::state::Settings;
-use crate::state::store::Collection as _;
-use crate::state::store::telemetry_identity::{
-    Installation, TelemetryIdentity, TelemetryIdentityRecord,
-};
-use crate::state::store::telemetry_outbox::{
-    TelemetryEventType, TelemetryOutbox, TelemetryOutboxRecord,
-    TelemetryOutboxScope,
-};
-use crate::state::store::{Atom, atom};
+use crate::state::telemetry_state::TelemetryState;
 
 const ENDPOINT: &str = "https://telemetry.axlmc.org/v1/batch";
-const MAX_OUTBOX_EVENTS: i64 = 100;
-const MAX_OUTBOX_BYTES: i64 = 2 * 1024 * 1024;
-const MAX_EVENT_AGE_SECONDS: i64 = 7 * 24 * 60 * 60;
 const MAX_BATCH_EVENTS: usize = 10;
 const MAX_BATCH_BYTES: usize = 60 * 1024;
 
@@ -65,9 +54,8 @@ pub(crate) fn start(state: Arc<State>) {
 }
 
 pub async fn set_enabled(state: &State, enabled: bool) -> crate::Result<()> {
-    let _database_permit = state.acquire_install_db_permit().await?;
-    TelemetryOutbox::set_all(&state.data, &[]).await?;
-
+    let telemetry = TelemetryState::new(&state.persistence);
+    telemetry.clear().await?;
     if enabled {
         ensure_identity(state).await?;
         enqueue_heartbeat(state).await?;
@@ -84,50 +72,23 @@ async fn run_cycle(
     state: &State,
     client: &reqwest::Client,
 ) -> crate::Result<()> {
-    if !is_enabled(state).await? {
-        let _database_permit = state.acquire_install_db_permit().await?;
-        TelemetryOutbox::set_all(&state.data, &[]).await?;
-        return Ok(());
+    reconcile(state).await?;
+    if is_enabled(state).await? {
+        upload_next_batch(state, client).await?;
     }
-
-    {
-        let _database_permit = state.acquire_install_db_permit().await?;
-        ensure_identity(state).await?;
-        // Older clients queued error events this build never sends.
-        TelemetryOutbox::set_scoped(
-            &state.data,
-            &TelemetryOutboxScope::Kind(TelemetryEventType::Error),
-            &[],
-        )
-        .await?;
-        enqueue_heartbeat(state).await?;
-        cleanup_outbox(state).await?;
-    }
-    upload_next_batch(state, client).await?;
     Ok(())
 }
 
-/// Startup reconciliation of the telemetry cycle. The cycle's writes are not
-/// one transaction, so a previous session can stop between them: the identity
-/// may exist without today's heartbeat, error events from older clients may
-/// remain, and the outbox may be only partly trimmed. Each step is atomic on
-/// its own (the heartbeat and its day are one unit) or idempotent (the trims),
-/// so running them once more converges.
+/// Identity, heartbeat day and queue updates each publish one file transaction.
+/// No install database permit is involved in optional telemetry maintenance.
 pub(crate) async fn reconcile(state: &State) -> crate::Result<()> {
-    let _database_permit = state.acquire_install_db_permit().await?;
+    let telemetry = TelemetryState::new(&state.persistence);
     if !is_enabled(state).await? {
-        TelemetryOutbox::set_all(&state.data, &[]).await?;
-        return Ok(());
+        return telemetry.clear().await;
     }
     ensure_identity(state).await?;
-    TelemetryOutbox::set_scoped(
-        &state.data,
-        &TelemetryOutboxScope::Kind(TelemetryEventType::Error),
-        &[],
-    )
-    .await?;
-    enqueue_heartbeat(state).await?;
-    cleanup_outbox(state).await
+    telemetry.clean().await?;
+    enqueue_heartbeat(state).await
 }
 
 async fn is_enabled(state: &State) -> crate::Result<bool> {
@@ -136,57 +97,19 @@ async fn is_enabled(state: &State) -> crate::Result<bool> {
 }
 
 async fn ensure_identity(state: &State) -> crate::Result<String> {
-    if let Some(record) =
-        TelemetryIdentity::get(&state.data, &Installation).await?
-    {
-        return Ok(record.installation_id);
-    }
-
-    let mut unit = atom(&state.data).await?;
-    if let Some(record) =
-        TelemetryIdentity::atom_get(&mut unit, &Installation).await?
-    {
-        return Ok(record.installation_id);
-    }
-
-    let record = TelemetryIdentityRecord {
-        installation_id: Uuid::new_v4().to_string(),
-        last_heartbeat_day: None,
-    };
-    TelemetryIdentity::atom_set(&mut unit, &Installation, Some(&record))
-        .await?;
-    unit.commit().await?;
-    Ok(record.installation_id)
+    TelemetryState::new(&state.persistence)
+        .ensure_identity()
+        .await
 }
 
 async fn enqueue_heartbeat(state: &State) -> crate::Result<()> {
     let day = Utc::now().format("%Y-%m-%d").to_string();
-    let mut unit = atom(&state.data).await?;
-    let Some(identity) =
-        TelemetryIdentity::atom_get(&mut unit, &Installation).await?
-    else {
-        return Err(crate::ErrorKind::OtherError(
-            "The telemetry installation identity is missing".to_string(),
-        )
-        .into());
-    };
-    if identity.last_heartbeat_day.as_deref() == Some(&day) {
-        return Ok(());
-    }
-
-    let event_id = Uuid::new_v4().to_string();
-    let occurred_at = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
-    let payload = heartbeat_payload(&event_id, &occurred_at, &day);
-    let dedupe_key = format!("heartbeat:{day}");
-    insert_outbox_event(&mut unit, &event_id, &dedupe_key, &payload).await?;
-    let identity = TelemetryIdentityRecord {
-        last_heartbeat_day: Some(day),
-        ..identity
-    };
-    TelemetryIdentity::atom_set(&mut unit, &Installation, Some(&identity))
-        .await?;
-    unit.commit().await?;
-    Ok(())
+    let id = Uuid::new_v4().to_string();
+    let occurred = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
+    let payload = heartbeat_payload(&id, &occurred, &day);
+    TelemetryState::new(&state.persistence)
+        .heartbeat(day, id, payload)
+        .await
 }
 
 fn heartbeat_payload(event_id: &str, occurred_at: &str, day: &str) -> Value {
@@ -198,54 +121,19 @@ fn heartbeat_payload(event_id: &str, occurred_at: &str, day: &str) -> Value {
     })
 }
 
-async fn insert_outbox_event(
-    unit: &mut Atom,
-    event_id: &str,
-    dedupe_key: &str,
-    payload: &Value,
-) -> crate::Result<()> {
-    let payload = serde_json::to_string(payload)?;
-    let size_bytes = payload.len() as i64;
-    let now = Utc::now().timestamp();
-    let record = TelemetryOutboxRecord {
-        event_type: TelemetryEventType::Heartbeat,
-        payload,
-        created_at: now,
-        next_attempt_at: now,
-        attempts: 0,
-        size_bytes,
-        dedupe_key: dedupe_key.to_string(),
-        occurrence_count: 1,
-    };
-    TelemetryOutbox::atom_set(unit, &event_id.to_string(), Some(&record)).await
-}
-
-async fn cleanup_outbox(state: &State) -> crate::Result<()> {
-    let oldest = Utc::now().timestamp() - MAX_EVENT_AGE_SECONDS;
-    TelemetryOutbox::trim(
-        &state.data,
-        oldest,
-        MAX_OUTBOX_EVENTS,
-        MAX_OUTBOX_BYTES,
-    )
-    .await
-}
-
 async fn upload_next_batch(
     state: &State,
     client: &reqwest::Client,
 ) -> crate::Result<()> {
-    let scope = TelemetryOutboxScope::Due {
-        kind: TelemetryEventType::Heartbeat,
-        at: Utc::now().timestamp(),
-    };
-    let queued = TelemetryOutbox::get_scoped(&state.data, &scope).await?;
+    let telemetry = TelemetryState::new(&state.persistence);
+    let queued = telemetry.due().await?;
     if queued.is_empty() {
         return Ok(());
     }
 
     let mut events = Vec::new();
     let mut event_ids = Vec::new();
+    let mut sent = Vec::new();
     let mut approximate_size = 0;
     for (event_id, record) in queued.into_iter().take(MAX_BATCH_EVENTS) {
         if approximate_size + record.payload.len() > MAX_BATCH_BYTES
@@ -256,13 +144,14 @@ async fn upload_next_batch(
         let event: Value = serde_json::from_str(&record.payload)?;
         approximate_size += record.payload.len();
         events.push(event);
-        event_ids.push(event_id);
+        event_ids.push(event_id.clone());
+        sent.push((event_id, record));
     }
 
-    let installation_id = {
-        let _database_permit = state.acquire_install_db_permit().await?;
-        ensure_identity(state).await?
-    };
+    let installation_id = ensure_identity(state).await?;
+    if !is_enabled(state).await? {
+        return Ok(());
+    }
     let batch_id = stable_batch_id(&event_ids);
     let body = json!({
         "schema_version": 1,
@@ -281,60 +170,16 @@ async fn upload_next_batch(
     let response = client.post(endpoint).json(&body).send().await;
     match response {
         Ok(response) if response.status().is_success() => {
-            delete_events(state, &event_ids).await?;
+            telemetry.acknowledge(sent, false).await?;
         }
         Ok(response)
             if response.status().is_client_error()
                 && response.status().as_u16() != 429 =>
         {
-            delete_events(state, &event_ids).await?;
+            telemetry.acknowledge(sent, false).await?;
         }
-        _ => schedule_retry(state, &event_ids).await?,
+        _ => telemetry.acknowledge(sent, true).await?,
     }
-    Ok(())
-}
-
-async fn delete_events(
-    state: &State,
-    event_ids: &[String],
-) -> crate::Result<()> {
-    let _database_permit = state.acquire_install_db_permit().await?;
-    let mut unit = atom(&state.data).await?;
-    for event_id in event_ids {
-        TelemetryOutbox::atom_set(&mut unit, event_id, None).await?;
-    }
-    unit.commit().await?;
-    Ok(())
-}
-
-async fn schedule_retry(
-    state: &State,
-    event_ids: &[String],
-) -> crate::Result<()> {
-    let _database_permit = state.acquire_install_db_permit().await?;
-    let now = Utc::now().timestamp();
-    let mut unit = atom(&state.data).await?;
-    for event_id in event_ids {
-        let Some(stored) =
-            TelemetryOutbox::atom_get(&mut unit, event_id).await?
-        else {
-            continue;
-        };
-        let attempts = stored.attempts + 1;
-        let delay = match attempts {
-            1 => 60,
-            2 => 5 * 60,
-            3 => 30 * 60,
-            _ => 6 * 60 * 60,
-        };
-        let record = TelemetryOutboxRecord {
-            next_attempt_at: now + delay,
-            attempts,
-            ..stored
-        };
-        TelemetryOutbox::atom_set(&mut unit, event_id, Some(&record)).await?;
-    }
-    unit.commit().await?;
     Ok(())
 }
 
@@ -428,12 +273,11 @@ mod reconcile_tests {
     }
 
     async fn heartbeats(state: &State) -> i64 {
-        sqlx::query_scalar(
-            "SELECT COUNT(*) FROM telemetry_outbox WHERE dedupe_key LIKE 'heartbeat:%'",
-        )
-        .fetch_one(&state.pool)
-        .await
-        .unwrap()
+        TelemetryState::new(&state.persistence)
+            .due()
+            .await
+            .unwrap()
+            .len() as i64
     }
 
     #[tokio::test]
@@ -461,11 +305,11 @@ mod reconcile_tests {
             .await
             .unwrap();
         reconcile(&state).await.unwrap();
-        let left: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM telemetry_outbox")
-                .fetch_one(&state.pool)
-                .await
-                .unwrap();
+        let left = TelemetryState::new(&state.persistence)
+            .due()
+            .await
+            .unwrap()
+            .len();
         assert_eq!(left, 0);
         state.pool.close().await;
     }

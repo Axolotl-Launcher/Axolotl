@@ -19,7 +19,28 @@ fn invalid(message: impl Into<String>) -> crate::Error {
 
 async fn retained_content(
     directories: &DirectoryInfo,
+    active: Option<&sqlx::SqlitePool>,
 ) -> crate::Result<HashSet<String>> {
+    if crate::state::store::databases::has_installation(
+        &directories.settings_dir,
+    )
+    .await?
+    {
+        let pool = active.ok_or_else(|| {
+            invalid(
+                "Opened database domains are required before clearing caches",
+            )
+        })?;
+        if pool.connect_options().get_filename()
+            != directories.databases_dir().join("system.db")
+        {
+            return Err(invalid(
+                "The opened database belongs to another storage directory",
+            ));
+        }
+        crate::state::store::databases::ensure_cleanup_supported(pool).await?;
+        return Ok(retained_in_channel(pool).await?.into_iter().collect());
+    }
     let mut retained = HashSet::new();
     let mut databases = 0;
     for path in [
@@ -60,7 +81,7 @@ async fn retained_in_channel(
             "Finish pending installations and recovery before clearing downloaded caches.",
         ));
     }
-    let store_tables: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('store_blobs', 'store_instance_files', 'store_retained_refs', 'store_operations')").fetch_one(pool).await?;
+    let store_tables: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM pragma_table_list WHERE type = 'table' AND schema <> 'temp' AND name IN ('store_blobs', 'store_instance_files', 'store_retained_refs', 'store_operations')").fetch_one(pool).await?;
     if store_tables == 0 {
         return Ok(Vec::new());
     }
@@ -69,7 +90,7 @@ async fn retained_in_channel(
             "Content store records are incomplete. Cache cleanup was not started.",
         ));
     }
-    Ok(sqlx::query_scalar::<_, String>("SELECT digest FROM store_instance_files UNION SELECT digest FROM store_retained_refs UNION SELECT digest FROM store_operations WHERE state IN ('staged', 'published')")
+    Ok(sqlx::query_scalar::<_, String>("SELECT digest FROM store_instance_files UNION SELECT digest FROM store_retained_refs UNION SELECT digest FROM store_operations WHERE state NOT IN ('materialized', 'failed')")
         .fetch_all(pool).await?.into_iter().map(|digest| digest.to_ascii_lowercase()).collect())
 }
 
@@ -142,18 +163,18 @@ fn verify_resource_cache(
     directories: &DirectoryInfo,
     path: &Path,
 ) -> std::io::Result<()> {
-    let relative = path
-        .strip_prefix(directories.caches_dir())
-        .map_err(std::io::Error::other)?;
-    let mut dir = cache_root(directories)?;
-    for part in relative.parent().into_iter().flat_map(Path::iter) {
-        dir = dir.open_dir_nofollow(part)?;
+    if path != directories.resource_cache_db() {
+        return Err(std::io::Error::other("Invalid resource cache path"));
     }
+    let settings = Dir::open_ambient_dir(
+        &directories.settings_dir,
+        cap_std::ambient_authority(),
+    )?;
+    let dir = settings.open_dir_nofollow("cache")?;
     let mut options = OpenOptions::new();
     options.read(true).follow(FollowSymlinks::No);
     dir.open_with(
-        relative
-            .file_name()
+        path.file_name()
             .ok_or_else(|| std::io::Error::other("Invalid cache path"))?,
         &options,
     )?;
@@ -218,7 +239,7 @@ pub async fn clear_cache() -> crate::Result<CacheCleanupResult> {
     let _usage = usage::exclusive().await?;
     let state = crate::State::get().await?;
     let directories = dirs()?;
-    let retained = retained_content(&directories).await?;
+    let retained = retained_content(&directories, Some(&state.pool)).await?;
     let measure_directories = dirs()?;
     let (before, mut failures) = tokio::task::spawn_blocking(move || {
         let mut failures = Vec::new();
@@ -227,16 +248,7 @@ pub async fn clear_cache() -> crate::Result<CacheCleanupResult> {
     })
     .await
     .map_err(std::io::Error::other)??;
-    let resources = state
-        .resources()
-        .await
-        .map_err(crate::resources::protocol::error)?;
-    verify_resource_cache(&directories, resources.cache().path())?;
-    resources
-        .cache()
-        .info()
-        .await
-        .map_err(crate::resources::protocol::error)?;
+    let resource_cache = state.resource_cache();
     use crate::state::{CacheValueType as Kind, CachedEntry};
     if let Err(error) = CachedEntry::purge_cache_types(
         &[
@@ -270,33 +282,19 @@ pub async fn clear_cache() -> crate::Result<CacheCleanupResult> {
         failures.push(format!("API cache: {error}"));
     }
     if let Err(error) = async {
-        resources.cache().clear().await?;
-        resources.cache().compact().await
+        verify_resource_cache(&directories, resource_cache.path())?;
+        resource_cache
+            .clear()
+            .await
+            .map_err(crate::resources::protocol::error)?;
+        resource_cache
+            .compact()
+            .await
+            .map_err(crate::resources::protocol::error)
     }
     .await
     {
         failures.push(format!("Resource cache: {error}"));
-    }
-    for channel in ["release", "beta"] {
-        let path = directories.resource_cache_db(channel)?;
-        if path == resources.cache().path() || !fs::try_exists(&path).await? {
-            continue;
-        }
-        if let Err(error) = verify_resource_cache(&directories, &path) {
-            failures.push(format!("resources/{channel}: {error}"));
-            continue;
-        }
-        let cache = crate::resources::cache::ResourceCache::open(path).await;
-        let result = async {
-            cache.info().await?;
-            cache.clear().await?;
-            cache.compact().await
-        }
-        .await;
-        cache.close().await;
-        if let Err(error) = result {
-            failures.push(format!("resources/{channel}: {error}"));
-        }
     }
     let result = tokio::task::spawn_blocking(move || {
         let _usage = _usage;

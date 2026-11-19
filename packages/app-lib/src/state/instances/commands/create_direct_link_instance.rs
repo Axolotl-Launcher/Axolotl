@@ -41,6 +41,7 @@ pub(crate) async fn create_direct_link_instance(
     input: CreateDirectLinkInstance,
     state: &State,
 ) -> crate::Result<Instance> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _metadata_usage = crate::storage::usage::lease().await?;
     let resolved = resolve_direct_link(
         input.launcher_type,
@@ -128,11 +129,11 @@ pub(crate) async fn create_direct_link_instance(
     };
     let launch_overrides = InstanceLaunchOverrides::empty(instance_id.clone());
 
-    let mut tx = state.pool.begin().await?;
-    instance_rows::insert_instance(&instance, &mut tx).await?;
-    instance_rows::insert_default_sync_preferences_in_transaction(
+    let mut unit = crate::state::store::atom(&state.data).await?;
+    instance_rows::insert_instance(&instance, unit.transaction()).await?;
+    crate::state::store::instance_sync_preferences::seed_instance_defaults(
+        &mut unit,
         &instance_id,
-        &mut tx,
     )
     .await?;
     instance_rows::set_direct_link_fields(
@@ -145,10 +146,10 @@ pub(crate) async fn create_direct_link_instance(
             version_json_path: instance.linked_version_json_path.clone(),
             game_dir_mode: instance.linked_game_dir_mode.clone(),
         },
-        &mut tx,
+        unit.transaction(),
     )
     .await?;
-    content_sets::insert_content_set(&content_set, &mut tx).await?;
+    content_sets::insert_content_set(&content_set, unit.transaction()).await?;
     loader_component_rows::replace_loader_components(
         &instance_id,
         &LoaderComponent::from_legacy_projection(
@@ -156,23 +157,25 @@ pub(crate) async fn create_direct_link_instance(
             resolved.loader,
             None,
         ),
-        &mut tx,
+        unit.transaction(),
     )
     .await?;
     links::upsert_instance_link(
         &instance_id,
         &InstanceLink::Unmanaged,
-        &mut tx,
+        unit.transaction(),
     )
     .await?;
     let groups = direct_link_group(&resolved.dot_minecraft)
         .into_iter()
         .collect::<Vec<_>>();
-    instance_rows::replace_instance_groups(&instance_id, &groups, &mut tx)
-        .await?;
-    instance_rows::upsert_instance_launch_overrides(&launch_overrides, &mut tx)
-        .await?;
-    tx.commit().await?;
+    instance_rows::upsert_instance_launch_overrides(
+        &launch_overrides,
+        unit.transaction(),
+    )
+    .await?;
+    unit.commit().await?;
+    crate::state::instance_groups::set_instance_groups(&instance_id, &groups)?;
 
     let content_root = super::sync_content_files::instance_content_root(
         &state.directories,

@@ -75,25 +75,6 @@ export async function setUpdateChannel(channel: UpdateChannel): Promise<void> {
     await invoke('set_update_channel', { channel })
 }
 
-export async function copyReleaseDatabaseToBeta(): Promise<void> {
-    await invoke('copy_release_database_to_beta')
-}
-
-export async function betaDatabaseExists(): Promise<boolean> {
-    return await invoke('beta_database_exists')
-}
-
-export async function getCurrentAppDatabasePath(): Promise<string> {
-    return await invoke('get_current_app_database_path')
-}
-
-export async function copyDatabaseBetweenChannels(
-    sourceChannel: UpdateChannel,
-    targetChannel: UpdateChannel,
-): Promise<void> {
-    await invoke('copy_database_between_channels', { sourceChannel, targetChannel })
-}
-
 export async function getUpdatePreferences(): Promise<UpdatePreferences> {
     return await invoke('get_update_preferences')
 }

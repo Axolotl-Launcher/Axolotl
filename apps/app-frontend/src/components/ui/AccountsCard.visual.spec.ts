@@ -6,7 +6,7 @@ import Draggable from 'vuedraggable'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { ACCOUNT_ORDER_STORAGE_KEY, readAccountOrder } from '@/helpers/account-order'
 import { notifyAccountSelectionChanged } from '@/helpers/account-state'
-import { set_default_user } from '@/helpers/auth'
+import { login, set_default_user } from '@/helpers/auth'
 
 import AccountsCard from './AccountsCard.vue'
 
@@ -16,6 +16,7 @@ const backend = vi.hoisted(() => ({
     heads: vi.fn(),
     skins: vi.fn(),
     error: vi.fn(),
+    notification: vi.fn(),
 }))
 
 vi.mock('@/helpers/auth', () => ({
@@ -26,6 +27,8 @@ vi.mock('@/helpers/auth', () => ({
     delete_yggdrasil_password: vi.fn(),
     finish_yggdrasil_login: vi.fn(),
     get_yggdrasil_password: vi.fn(),
+    isSessionOnlyAccount: (account: { credential_persistence?: string }) =>
+        account.credential_persistence === 'session_only',
     list_yggdrasil_saved_logins: vi.fn(),
     login: vi.fn(),
     remove_user: vi.fn(),
@@ -78,7 +81,10 @@ vi.mock('@modrinth/ui', async () => {
         StyledInput: container,
         commonMessages: {},
         defineMessages: (messages: unknown) => messages,
-        injectNotificationManager: () => ({ handleError: backend.error }),
+        injectNotificationManager: () => ({
+            handleError: backend.error,
+            addNotification: backend.notification,
+        }),
         useVIntl: () => ({
             formatMessage: (message: { defaultMessage: string }) => message?.defaultMessage,
         }),
@@ -135,6 +141,31 @@ function mountCard() {
     cleanup.push(() => wrapper.unmount())
     return wrapper
 }
+
+it.each(['session_only', 'keyring'] as const)(
+    'only warns about restarting after a %s login',
+    async (persistence) => {
+        const signedIn = { ...account('Player'), credential_persistence: persistence }
+        backend.users.mockResolvedValue([signedIn])
+        backend.heads.mockResolvedValue('data:image/png;base64,avatar')
+        vi.mocked(login).mockResolvedValue(signedIn)
+        const wrapper = mountCard()
+        await flushPromises()
+
+        await wrapper.findComponent(AccountsCard).vm.login()
+        await flushPromises()
+
+        if (persistence === 'session_only') {
+            expect(backend.notification).toHaveBeenCalledWith({
+                title: 'Signed in for this session',
+                text: 'Your login could not be saved. Sign in again after restarting the launcher.',
+                type: 'warning',
+            })
+        } else {
+            expect(backend.notification).not.toHaveBeenCalled()
+        }
+    },
+)
 
 it('shows an account selected outside the card without a restart', async () => {
     backend.defaultUser.mockResolvedValue(null)

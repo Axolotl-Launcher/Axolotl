@@ -1,12 +1,10 @@
 use crate::State;
 use crate::event::InstancePayloadType;
 use crate::event::emit::emit_instance;
-use crate::state::instances::adapters::sqlite::{
-    screenshot_groups, screenshot_rows,
-};
+use crate::state::media::{Media, manifest::ScreenshotIdentity};
 use serde::{Deserialize, Serialize};
-use sqlx::{Sqlite, Transaction};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use tokio::sync::OwnedMutexGuard;
 use uuid::Uuid;
 
 const MAX_GROUP_NAME_LENGTH: usize = 256;
@@ -49,13 +47,11 @@ fn validate_group_name(name: &str) -> crate::Result<&str> {
 
 pub async fn list_screenshot_groups() -> crate::Result<Vec<ScreenshotGroup>> {
     let state = State::get().await?;
-    Ok(screenshot_rows::list_groups(&state.pool)
+    Ok(Media::new(&state.persistence)
+        .groups()
         .await?
         .into_iter()
-        .map(|group| ScreenshotGroup {
-            id: group.id,
-            name: group.name,
-        })
+        .map(|(id, name)| ScreenshotGroup { id, name })
         .collect())
 }
 
@@ -63,62 +59,39 @@ pub async fn create_screenshot_group(
     name: String,
     screenshot_ids: Vec<String>,
 ) -> crate::Result<ScreenshotGroup> {
-    let name = validate_group_name(&name)?;
+    let name = validate_group_name(&name)?.to_owned();
     let state = State::get().await?;
+    let (members, _locks) =
+        resolve_members(&state, normalize_screenshot_ids(screenshot_ids)?)
+            .await?;
+    let instances = members
+        .iter()
+        .map(|member| member.instance_id.clone())
+        .collect::<HashSet<_>>();
     let id = Uuid::new_v4().to_string();
-    let mut tx = state.pool.begin().await?;
-
-    screenshot_groups::create_group(&mut tx, &id, name).await?;
-
-    let instance_ids = set_group_members(
-        &id,
-        normalize_screenshot_ids(screenshot_ids)?,
-        &mut tx,
-    )
-    .await?;
-    tx.commit().await?;
-    emit_screenshot_updates(instance_ids).await;
-
-    Ok(ScreenshotGroup {
-        id,
-        name: name.to_string(),
-    })
+    Media::new(&state.persistence)
+        .create_group(id.clone(), name.clone(), members)
+        .await?;
+    emit_screenshot_updates(instances).await;
+    Ok(ScreenshotGroup { id, name })
 }
 
 pub async fn rename_screenshot_group(
     id: String,
     new_name: String,
 ) -> crate::Result<ScreenshotGroup> {
-    let new_name = validate_group_name(&new_name)?;
+    let name = validate_group_name(&new_name)?.to_owned();
     let state = State::get().await?;
-    let mut tx = state.pool.begin().await?;
-    if !screenshot_groups::rename_group(&mut tx, &id, new_name).await? {
-        return Err(crate::ErrorKind::InputError(format!(
-            "Unknown screenshot group {id}"
-        ))
-        .into());
-    }
-    tx.commit().await?;
-
-    Ok(ScreenshotGroup {
-        id,
-        name: new_name.to_string(),
-    })
+    Media::new(&state.persistence)
+        .rename_group(&id, name.clone())
+        .await?;
+    Ok(ScreenshotGroup { id, name })
 }
 
 pub async fn delete_screenshot_group(id: String) -> crate::Result<()> {
     let state = State::get().await?;
-    let mut tx = state.pool.begin().await?;
-    let instance_ids =
-        screenshot_groups::get_group_instance_ids(&id, &mut *tx).await?;
-    if !screenshot_groups::delete_group(&mut tx, &id).await? {
-        return Err(crate::ErrorKind::InputError(format!(
-            "Unknown screenshot group {id}"
-        ))
-        .into());
-    }
-    tx.commit().await?;
-    emit_screenshot_updates(instance_ids).await;
+    let affected = Media::new(&state.persistence).delete_group(&id).await?;
+    emit_screenshot_updates(affected).await;
     Ok(())
 }
 
@@ -129,31 +102,29 @@ pub async fn set_screenshot_group_memberships(
     if updates.is_empty() {
         return Ok(());
     }
-
     let state = State::get().await?;
-    let mut tx = state.pool.begin().await?;
-    let group_ids = updates
+    let (members, _locks) = resolve_members(
+        &state,
+        updates
+            .iter()
+            .map(|update| update.screenshot_id.clone())
+            .collect(),
+    )
+    .await?;
+    let affected = members
         .iter()
-        .filter_map(|update| update.group_id.as_deref())
+        .map(|member| member.instance_id.clone())
         .collect::<HashSet<_>>();
-    for group_id in group_ids {
-        ensure_group_exists(group_id, &mut tx).await?;
-    }
-
-    let mut instance_ids = HashSet::new();
-    for update in updates {
-        let instance_id =
-            screenshot_instance_id(&update.screenshot_id, &mut tx).await?;
-        instance_ids.insert(instance_id);
-        screenshot_groups::set_membership(
-            &mut tx,
-            &update.screenshot_id,
-            update.group_id.as_deref(),
+    Media::new(&state.persistence)
+        .memberships(
+            members
+                .into_iter()
+                .zip(updates)
+                .map(|(identity, update)| (identity, update.group_id))
+                .collect(),
         )
         .await?;
-    }
-    tx.commit().await?;
-    emit_screenshot_updates(instance_ids).await;
+    emit_screenshot_updates(affected).await;
     Ok(())
 }
 
@@ -163,43 +134,122 @@ pub async fn import_screenshot_groups(
     if groups.is_empty() {
         return Ok(());
     }
-
-    let state = State::get().await?;
-    let mut tx = state.pool.begin().await?;
-    let base_order =
-        screenshot_groups::get_next_display_order(&mut *tx).await?;
     let mut group_ids = HashSet::new();
-    let mut affected_instance_ids = HashSet::new();
-
-    for (index, group) in groups.into_iter().enumerate() {
+    let mut ids = HashSet::new();
+    for group in &groups {
+        validate_group_name(&group.name)?;
+        normalize_screenshot_ids(group.screenshot_ids.clone())?;
         if group.id.trim().is_empty() || !group_ids.insert(group.id.clone()) {
             return Err(crate::ErrorKind::InputError(
-                "Screenshot group import contains an invalid group ID"
-                    .to_string(),
+                "Screenshot group import contains an invalid group ID".into(),
             )
             .into());
         }
-        let name = validate_group_name(&group.name)?;
-        let display_order = base_order + index as i64;
-        screenshot_groups::upsert_imported_group(
-            &mut tx,
-            &group.id,
-            name,
-            display_order,
-        )
-        .await?;
-        affected_instance_ids.extend(
-            set_group_members(
-                &group.id,
-                normalize_screenshot_ids(group.screenshot_ids)?,
-                &mut tx,
-            )
-            .await?,
-        );
+        ids.extend(group.screenshot_ids.iter().cloned());
     }
-    tx.commit().await?;
-    emit_screenshot_updates(affected_instance_ids).await;
+    let state = State::get().await?;
+    let (members, _locks) =
+        resolve_members(&state, ids.into_iter().collect()).await?;
+    let affected = members
+        .iter()
+        .map(|member| member.instance_id.clone())
+        .collect::<HashSet<_>>();
+    let by_id = members
+        .into_iter()
+        .map(|member| (member.id.clone(), member))
+        .collect::<HashMap<_, _>>();
+    let imported = groups
+        .into_iter()
+        .map(|group| {
+            (
+                group.id,
+                group.name.trim().to_owned(),
+                group
+                    .screenshot_ids
+                    .into_iter()
+                    .map(|id| by_id[&id].clone())
+                    .collect(),
+            )
+        })
+        .collect();
+    Media::new(&state.persistence)
+        .import_groups(imported)
+        .await?;
+    emit_screenshot_updates(affected).await;
     Ok(())
+}
+
+// IDs for ordinary files are deterministic; only explicit organization anchors
+// them durably. Hashing here enables later external rename recovery.
+async fn resolve_members(
+    state: &State,
+    ids: Vec<String>,
+) -> crate::Result<(Vec<ScreenshotIdentity>, Vec<OwnedMutexGuard<()>>)> {
+    let media = Media::new(&state.persistence);
+    let mut existing = media
+        .screenshots()
+        .await?
+        .into_iter()
+        .map(|row| (row.id.clone(), row))
+        .collect::<HashMap<_, _>>();
+    let scanned = if ids.iter().any(|id| !existing.contains_key(id)) {
+        super::screenshots::list_all_screenshots().await?
+    } else {
+        Vec::new()
+    };
+    // The scan may have reconciled renamed anchored identities.
+    existing = media
+        .screenshots()
+        .await?
+        .into_iter()
+        .map(|row| (row.id.clone(), row))
+        .collect();
+    let mut paths = HashMap::new();
+    for file in scanned {
+        paths.insert(
+            file.id.clone(),
+            super::screenshots::ScreenshotKey {
+                instance_id: file.instance_id.clone(),
+                file_name: file.file_name.clone(),
+            },
+        );
+        existing.entry(file.id.clone()).or_insert_with(|| {
+            ScreenshotIdentity::for_file(&file.instance_id, &file.file_name)
+        });
+    }
+    let mut members = ids
+        .into_iter()
+        .map(|id| {
+            existing.get(&id).cloned().ok_or_else(|| {
+                crate::ErrorKind::InputError(format!("Unknown screenshot {id}"))
+                    .into()
+            })
+        })
+        .collect::<crate::Result<Vec<_>>>()?;
+    let mut instances = members
+        .iter()
+        .map(|member| member.instance_id.clone())
+        .collect::<Vec<_>>();
+    instances.sort();
+    instances.dedup();
+    let mut locks = Vec::new();
+    for instance in instances {
+        locks.push(state.lock_instance_screenshots(&instance).await);
+    }
+    for member in &mut members {
+        if member.fingerprint.is_none() {
+            let key = paths.get(&member.id).cloned().unwrap_or_else(|| {
+                super::screenshots::ScreenshotKey {
+                    instance_id: member.instance_id.clone(),
+                    file_name: member.file_name.clone(),
+                }
+            });
+            let path = super::screenshots::get_screenshot_path(&key).await?;
+            member.fingerprint =
+                Some(crate::util::fetch::sha1_file_async(&path).await?.1);
+        }
+    }
+    Ok((members, locks))
 }
 
 fn normalize_screenshot_ids(
@@ -233,47 +283,6 @@ fn normalize_membership_updates(
             .to_string(),
     )
     .into())
-}
-
-async fn set_group_members(
-    group_id: &str,
-    screenshot_ids: Vec<String>,
-    tx: &mut Transaction<'_, Sqlite>,
-) -> crate::Result<HashSet<String>> {
-    let mut instance_ids = HashSet::new();
-    for screenshot_id in screenshot_ids {
-        instance_ids.insert(screenshot_instance_id(&screenshot_id, tx).await?);
-        screenshot_groups::upsert_membership(tx, &screenshot_id, group_id)
-            .await?;
-    }
-    Ok(instance_ids)
-}
-
-async fn ensure_group_exists(
-    group_id: &str,
-    tx: &mut Transaction<'_, Sqlite>,
-) -> crate::Result<()> {
-    if !screenshot_groups::group_exists(group_id, &mut **tx).await? {
-        return Err(crate::ErrorKind::InputError(format!(
-            "Unknown screenshot group {group_id}"
-        ))
-        .into());
-    }
-    Ok(())
-}
-
-async fn screenshot_instance_id(
-    screenshot_id: &str,
-    tx: &mut Transaction<'_, Sqlite>,
-) -> crate::Result<String> {
-    screenshot_groups::get_screenshot_instance_id(screenshot_id, &mut **tx)
-        .await?
-        .ok_or_else(|| {
-            crate::ErrorKind::InputError(format!(
-                "Unknown screenshot {screenshot_id}"
-            ))
-        })
-        .map_err(Into::into)
 }
 
 async fn emit_screenshot_updates(

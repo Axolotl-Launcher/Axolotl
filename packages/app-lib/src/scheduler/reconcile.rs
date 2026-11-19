@@ -1,8 +1,6 @@
-//! The one startup reconciliation entry. Work that a previous session could
-//! leave half done is repaired here before any background loop starts:
-//! telemetry's multi-step writes (each step atomic or idempotent, but not one
-//! transaction), and scheduling tags whose owner is gone or finished. The
-//! shutdown loss list points here too.
+//! The startup reconciliation entry for telemetry's independent document state.
+//! Historical scheduling tags are import-only data; startup does not mutate
+//! their retired SQL tables. The shutdown loss list points here too.
 //!
 //! Running games are tracked in memory only (`ProcessManager`), so a process
 //! exit an L0 event could not report leaves nothing behind for a restart to
@@ -13,25 +11,16 @@
 //! before this entry runs.
 
 use crate::State;
+#[cfg(test)]
 use crate::state::store::Collection as _;
+#[cfg(test)]
 use crate::state::store::install_jobs::InstallJobs;
+#[cfg(test)]
 use crate::state::store::scheduler_tags::SchedulerTags;
 
 pub(crate) async fn at_startup(state: &State) {
     if let Err(error) = crate::telemetry::reconcile(state).await {
         tracing::warn!(%error, "Telemetry startup reconciliation failed");
-    }
-    match clear_orphaned_tags(state).await {
-        Ok(kept) if kept > 0 => {
-            tracing::info!(
-                kept,
-                "Scheduling tags of unfinished install jobs survive the restart"
-            );
-        }
-        Ok(_) => {}
-        Err(error) => {
-            tracing::warn!(%error, "Scheduling tag reconciliation failed");
-        }
     }
 }
 
@@ -55,6 +44,7 @@ pub(crate) async fn at_startup(state: &State) {
 /// A row the collection cannot interpret, such as one with an unknown level,
 /// is not returned by `get_all` and stays in the database. It grants nothing
 /// either, and the store reports it with a warning each time it is read.
+#[cfg(test)]
 pub(crate) async fn clear_orphaned_tags(state: &State) -> crate::Result<u64> {
     let mut kept = 0;
     for (id, record) in SchedulerTags::get_all(&state.data).await? {
@@ -102,18 +92,12 @@ mod tests {
     /// The heartbeat events waiting in the outbox, read through the collection
     /// rather than through a statement.
     async fn heartbeats(state: &State) -> Vec<String> {
-        use crate::state::store::Collection;
-        use crate::state::store::telemetry_outbox::{
-            TelemetryEventType, TelemetryOutbox,
-        };
-        TelemetryOutbox::get_all(&state.data)
+        crate::state::telemetry_state::TelemetryState::new(&state.persistence)
+            .due()
             .await
             .unwrap()
             .into_iter()
-            .filter_map(|(key, record)| {
-                (record.event_type == TelemetryEventType::Heartbeat)
-                    .then_some(key)
-            })
+            .map(|(id, _)| id)
             .collect()
     }
 
@@ -171,22 +155,20 @@ mod tests {
     #[tokio::test]
     async fn a_failed_reconciliation_is_reported_and_startup_continues() {
         let (_temp, state) = fixture(true).await;
-        // Hold the install database permit so the reconciliation cannot get
-        // it: this is the one failure the entry swallows, and startup must not
-        // return an error from it.
-        let held = state.install_db_semaphore.acquire().await.unwrap();
-        state.set_install_db_permit_timeout_for_test(
-            std::time::Duration::from_millis(1),
-        );
-
+        // A damaged optional document is reported without failing startup or
+        // acquiring an installation database permit.
+        let path = state
+            .directories
+            .settings_dir
+            .join(crate::state::layout::TELEMETRY);
+        tokio::fs::write(&path, b"broken").await.unwrap();
+        let previous =
+            std::path::PathBuf::from(format!("{}.previous", path.display()));
+        if tokio::fs::try_exists(&previous).await.unwrap() {
+            tokio::fs::remove_file(previous).await.unwrap();
+        }
         let (_subscriber, lines) = capture_lines();
         at_startup(&state).await;
-        drop(held);
-
-        assert!(
-            heartbeats(&state).await.is_empty(),
-            "the blocked cycle did not queue a heartbeat"
-        );
         let reported: Vec<_> = lines
             .lock()
             .unwrap()
@@ -273,14 +255,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_startup_entry_clears_orphaned_tags() {
+    async fn the_startup_entry_preserves_retired_tags_and_reconciles_telemetry()
+    {
         use crate::scheduler::tag::Level;
         use crate::state::store::install_jobs::{
             InstallJobRecord, InstallJobs,
         };
         use crate::state::store::scheduler_tags::SchedulerTagRecord;
 
-        let (_temp, state) = fixture(false).await;
+        let (_temp, state) = fixture(true).await;
         for (id, status, finished) in
             [("running", "running", None), ("done", "succeeded", Some(2))]
         {
@@ -311,7 +294,9 @@ mod tests {
                 .unwrap();
         }
 
+        assert!(heartbeats(&state).await.is_empty());
         at_startup(&state).await;
+        assert_eq!(heartbeats(&state).await.len(), 1);
 
         let left: Vec<_> = SchedulerTags::get_all(&state.data)
             .await
@@ -319,7 +304,11 @@ mod tests {
             .into_iter()
             .map(|(id, record)| (id, record.owner))
             .collect();
-        assert_eq!(left, vec![(1, "running".to_string())]);
+        assert_eq!(
+            left,
+            vec![(1, "running".to_string()), (2, "done".to_string())],
+            "startup must not rewrite scheduling rows in the retired SQL source"
+        );
         state.pool.close().await;
     }
 }

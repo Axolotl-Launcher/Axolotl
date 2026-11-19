@@ -255,7 +255,7 @@ pub async fn get_default_user(
 pub async fn set_default_user(account_id: &str) -> crate::Result<()> {
     let state = State::get().await?;
     let users = Credentials::get_all_without_refresh(&state.data).await?;
-    let mut user = users
+    let user = users
         .into_iter()
         .find(|user| user.account_id() == account_id)
         .ok_or_else(|| {
@@ -271,8 +271,7 @@ pub async fn set_default_user(account_id: &str) -> crate::Result<()> {
         None
     };
 
-    user.active = true;
-    user.upsert(&state.data).await?;
+    state.data.accounts().select(&user.account_id()).await?;
 
     Ok(())
 }
@@ -297,10 +296,9 @@ pub async fn remove_user(account_id: &str) -> crate::Result<()> {
         .await;
 
         if user.active
-            && let Some(mut user) = users.into_iter().next()
+            && let Some(user) = users.into_iter().next()
         {
-            user.active = true;
-            user.upsert(&state.data).await?;
+            state.data.accounts().select(&user.account_id()).await?;
         }
     }
 
@@ -309,6 +307,7 @@ pub async fn remove_user(account_id: &str) -> crate::Result<()> {
 
 #[derive(Serialize)]
 pub struct MinecraftUser {
+    pub credential_persistence: Option<crate::state::CredentialPersistence>,
     pub account_id: String,
     pub profile: MinecraftProfile,
     pub account_type: MinecraftAccountType,
@@ -338,6 +337,7 @@ impl MinecraftUser {
             }
         };
         Self {
+            credential_persistence: credentials.credential_persistence,
             account_id: credentials.account_id(),
             profile,
             account_type: credentials.account_type,

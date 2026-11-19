@@ -5,7 +5,7 @@ use cap_fs_ext::{DirExt, FollowSymlinks, OpenOptionsFollowExt};
 use cap_std::fs::{Dir, OpenOptions};
 use serde_json::Value;
 use sqlx::{
-    Row, SqlitePool,
+    SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
 use std::collections::{BTreeMap, HashMap};
@@ -215,15 +215,23 @@ async fn channel_references(
     directories: &DirectoryInfo,
 ) -> crate::Result<()> {
     refs.busy |= crate::install::store::has_any_unfinished_job(pool).await?;
-    let overrides: Vec<String> = sqlx::query_scalar(
-        "SELECT json(overrides) FROM instance_launch_overrides",
-    )
-    .fetch_all(pool)
-    .await?;
-    let settings: Vec<String> =
-        sqlx::query_scalar("SELECT json(extra_launch_args) FROM settings")
-            .fetch_all(pool)
+    let overrides =
+        crate::state::store::maintenance::launch_override_documents(pool)
             .await?;
+    let settings: Vec<String> = if pool
+        .connect_options()
+        .get_filename()
+        .file_name()
+        .is_some_and(|name| name == "system.db")
+    {
+        let settings = crate::state::Settings::get(
+            &crate::state::store::Handle::new(pool.clone()),
+        )
+        .await?;
+        vec![serde_json::to_string(&settings.extra_launch_args)?]
+    } else {
+        crate::state::store::maintenance::legacy_launch_arguments(pool).await?
+    };
     if overrides.iter().chain(settings.iter()).any(|value| {
         let value = value.to_lowercase();
         value.contains(".jar")
@@ -239,6 +247,11 @@ async fn channel_references(
         ));
     }
     let instances = crate::state::instances::adapters::sqlite::instance_rows::list_instances(pool).await?;
+    let count = crate::state::instances::adapters::sqlite::instance_rows::stored_instance_count(pool).await?;
+    if instances.len() as i64 != count {
+        refs.blocked = true;
+    }
+
     for instance in instances {
         let runtime = crate::launcher::instance_runtime::InstanceRuntimeAdapter::for_instance(&instance, directories)?;
         if let Some(direct) = runtime.direct_link() {
@@ -261,14 +274,15 @@ async fn channel_references(
             refs.natives.insert(key(&direct.natives_cache_key()));
             continue;
         }
-        let rows = sqlx::query("SELECT game_version, loader, loader_version FROM instance_content_sets WHERE instance_id = ?").bind(&instance.id).fetch_all(pool).await?;
+        let rows = crate::state::store::maintenance::content_versions(
+            pool,
+            &instance.id,
+        )
+        .await?;
         if rows.is_empty() {
             return Err(invalid("An instance has no local content version"));
         }
-        for row in rows {
-            let game: String = row.try_get("game_version")?;
-            let loader: String = row.try_get("loader")?;
-            let version: Option<String> = row.try_get("loader_version")?;
+        for (game, loader, version) in rows {
             if !component(&game) {
                 return Err(invalid("Unresolved game version"));
             }
@@ -298,41 +312,87 @@ async fn channel_references(
     Ok(())
 }
 
-async fn references(directories: &DirectoryInfo) -> References {
+async fn references(
+    directories: &DirectoryInfo,
+    active: Option<&SqlitePool>,
+) -> References {
     let mut refs = References::default();
     let mut databases = 0;
-    for path in [
-        directories.settings_dir.join("release/app.db"),
-        directories.settings_dir.join("beta/app.db"),
-        directories.settings_dir.join("app.db"),
-    ] {
-        match fs::try_exists(&path).await {
-            Ok(false) => continue,
-            Err(error) => {
+    if crate::state::store::databases::has_installation(
+        &directories.settings_dir,
+    )
+    .await
+    .unwrap_or(true)
+    {
+        if let Some(pool) = active {
+            databases = 1;
+            if let Err(error) =
+                crate::state::store::databases::ensure_cleanup_supported(pool)
+                    .await
+            {
                 refs.blocked = true;
                 refs.warnings.push(MetaWarning::new(
                     MetaWarningKind::DatabaseUnavailable,
-                    path.display().to_string(),
+                    "databases",
                     error,
                 ));
-                continue;
             }
-            Ok(true) => {}
+            if let Err(error) =
+                channel_references(pool, &mut refs, directories).await
+            {
+                refs.blocked = true;
+                refs.warnings.push(MetaWarning::new(
+                    MetaWarningKind::DatabaseUnavailable,
+                    "databases",
+                    error,
+                ));
+            }
+        } else {
+            refs.blocked = true;
         }
-        let options = SqliteConnectOptions::new()
-            .filename(&path)
-            .read_only(true)
-            .create_if_missing(false);
-        match SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(options)
-            .await
-        {
-            Ok(pool) => {
-                databases += 1;
-                if let Err(error) =
-                    channel_references(&pool, &mut refs, directories).await
-                {
+    } else {
+        for path in [
+            directories.settings_dir.join("release/app.db"),
+            directories.settings_dir.join("beta/app.db"),
+            directories.settings_dir.join("app.db"),
+        ] {
+            match fs::try_exists(&path).await {
+                Ok(false) => continue,
+                Err(error) => {
+                    refs.blocked = true;
+                    refs.warnings.push(MetaWarning::new(
+                        MetaWarningKind::DatabaseUnavailable,
+                        path.display().to_string(),
+                        error,
+                    ));
+                    continue;
+                }
+                Ok(true) => {}
+            }
+            let options = SqliteConnectOptions::new()
+                .filename(&path)
+                .read_only(true)
+                .create_if_missing(false);
+            match SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect_with(options)
+                .await
+            {
+                Ok(pool) => {
+                    databases += 1;
+                    if let Err(error) =
+                        channel_references(&pool, &mut refs, directories).await
+                    {
+                        refs.blocked = true;
+                        refs.warnings.push(MetaWarning::new(
+                            MetaWarningKind::DatabaseUnavailable,
+                            path.display().to_string(),
+                            error,
+                        ));
+                    }
+                    pool.close().await;
+                }
+                Err(error) => {
                     refs.blocked = true;
                     refs.warnings.push(MetaWarning::new(
                         MetaWarningKind::DatabaseUnavailable,
@@ -340,20 +400,11 @@ async fn references(directories: &DirectoryInfo) -> References {
                         error,
                     ));
                 }
-                pool.close().await;
-            }
-            Err(error) => {
-                refs.blocked = true;
-                refs.warnings.push(MetaWarning::new(
-                    MetaWarningKind::DatabaseUnavailable,
-                    path.display().to_string(),
-                    error,
-                ));
             }
         }
     }
     // A missing active database must never turn all metadata into orphans.
-    if databases == 0 || crate::State::get().await.is_err() {
+    if databases == 0 {
         refs.blocked = true;
     }
     resolve_manifests(&directories.metadata_dir(), &mut refs).await;
@@ -887,7 +938,8 @@ fn verified_legacy_copy(
 pub async fn analyze_meta() -> crate::Result<MetaAnalysis> {
     let _usage = usage::lease().await?;
     let directories = dirs()?;
-    let refs = references(&directories).await;
+    let state = crate::State::get().await?;
+    let refs = references(&directories, Some(&state.pool)).await;
     let root_path = identity(&directories.metadata_dir());
     let mut warnings = refs.warnings.clone();
     let result = tokio::task::spawn_blocking(move || {
@@ -948,7 +1000,7 @@ pub async fn clean_meta(
         return Err(invalid("Stop running games before cleaning metadata"));
     }
     let directories = dirs()?;
-    let refs = references(&directories).await;
+    let refs = references(&directories, Some(&state.pool)).await;
     if refs.blocked || refs.busy {
         return Err(invalid(
             "Metadata references could not be verified or installation recovery is pending. Refresh the analysis after resolving it.",

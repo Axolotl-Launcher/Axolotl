@@ -670,7 +670,12 @@ async fn clone_upgrade_backup_content_metadata(
         );
     }
 
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     content_entries::delete_dependency_edges_for_set_in_transaction(
         target_content_set_id,
         &mut tx,
@@ -768,7 +773,8 @@ async fn clone_upgrade_backup_content_metadata(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 

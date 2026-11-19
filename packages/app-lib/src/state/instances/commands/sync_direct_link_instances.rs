@@ -209,7 +209,12 @@ pub(crate) async fn sync_direct_link_instances(
                         )
                         .await?;
                     }
-                    let mut tx = state.pool.begin().await?;
+                    let (mut tx, tx_diagnostics) =
+                        crate::state::store::lock_diagnostics::begin(
+                            &state.pool,
+                            "BEGIN IMMEDIATE",
+                        )
+                        .await?;
                     instance_rows::set_direct_link_fields(
                         &instance.id,
                         &instance_rows::DirectLinkFields {
@@ -238,13 +243,12 @@ pub(crate) async fn sync_direct_link_instances(
                         &mut tx,
                     )
                     .await?;
-                    instance_rows::replace_instance_groups(
+                    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+                    tx_diagnostics.complete("committed");
+                    crate::state::instance_groups::set_instance_groups(
                         &instance.id,
                         &groups,
-                        &mut tx,
-                    )
-                    .await?;
-                    tx.commit().await?;
+                    )?;
                     let _ = emit_instance(
                         &instance.id,
                         InstancePayloadType::Edited,

@@ -155,6 +155,21 @@ impl TryFrom<InstanceRow> for Instance {
     type Error = crate::Error;
 
     fn try_from(row: InstanceRow) -> crate::Result<Self> {
+        if !matches!(
+            row.install_stage.as_str(),
+            "installed"
+                | "minecraft_installing"
+                | "installing"
+                | "pack_installed"
+                | "pack_installing"
+                | "not_installed"
+        ) {
+            return Err(crate::ErrorKind::InputError(format!(
+                "Instance {} uses an unsupported persistent format",
+                row.id
+            ))
+            .into());
+        }
         Ok(Self {
             id: row.id,
             path: row.path,
@@ -467,7 +482,7 @@ impl InstanceMetadataRow {
             imported_filename: self.imported_filename,
         }
         .try_into()?;
-        let groups = parse_groups(self.groups)?;
+        let groups = crate::state::instance_groups::group_ids_for(&instance_id);
         let launch_overrides =
             launch_overrides_from_json(instance_id, self.launch_overrides)?;
 
@@ -515,7 +530,7 @@ where
             created,
             modified,
             last_played,
-            pinned_at,
+            NULL AS pinned_at,
             submitted_time_played,
             recent_time_played
         FROM instances
@@ -529,9 +544,36 @@ where
     let Some(row) = row else {
         return Ok(None);
     };
+    let file: String = sqlx::query_scalar(
+        "SELECT file FROM pragma_database_list WHERE name='main'",
+    )
+    .fetch_one(exec)
+    .await?;
+    if std::path::Path::new(&file)
+        .file_name()
+        .and_then(|name| name.to_str())
+        == Some("system.db")
+        && (!matches!(
+            row.launcher_feature_version.as_str(),
+            "none" | "migrated_server_last_play_time" | "migrated_launch_hooks"
+        ) || !matches!(row.update_channel.as_str(), "release" | "beta"))
+    {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Instance {} uses an unsupported persistent format",
+            row.id
+        ))
+        .into());
+    }
     let mut instance: Instance = row.try_into()?;
     let fields = get_direct_link_fields(id, exec).await?;
     fields.apply_to(&mut instance);
+    if let Some(root) = core_root(std::path::Path::new(&file)) {
+        let pins = crate::state::user_state::favorites::pin_values(
+            &crate::state::persistence::Persistence::new(root),
+        )
+        .await;
+        instance.pinned_at = pins.get(&instance.id).copied();
+    }
 
     Ok(Some(instance))
 }
@@ -559,7 +601,7 @@ where
             created,
             modified,
             last_played,
-            pinned_at,
+            NULL AS pinned_at,
             submitted_time_played,
             recent_time_played
         FROM instances
@@ -573,9 +615,36 @@ where
     let Some(row) = row else {
         return Ok(None);
     };
+    let file: String = sqlx::query_scalar(
+        "SELECT file FROM pragma_database_list WHERE name='main'",
+    )
+    .fetch_one(exec)
+    .await?;
+    if std::path::Path::new(&file)
+        .file_name()
+        .and_then(|name| name.to_str())
+        == Some("system.db")
+        && (!matches!(
+            row.launcher_feature_version.as_str(),
+            "none" | "migrated_server_last_play_time" | "migrated_launch_hooks"
+        ) || !matches!(row.update_channel.as_str(), "release" | "beta"))
+    {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Instance {} uses an unsupported persistent format",
+            row.id
+        ))
+        .into());
+    }
     let mut instance: Instance = row.try_into()?;
     let fields = get_direct_link_fields(&instance.id, exec).await?;
     fields.apply_to(&mut instance);
+    if let Some(root) = core_root(std::path::Path::new(&file)) {
+        let pins = crate::state::user_state::favorites::pin_values(
+            &crate::state::persistence::Persistence::new(root),
+        )
+        .await;
+        instance.pinned_at = pins.get(&instance.id).copied();
+    }
 
     Ok(Some(instance))
 }
@@ -668,9 +737,9 @@ where
     Ok(row)
 }
 
-pub(crate) async fn get_instance_metadata_by_id(
+pub(crate) async fn recovery_metadata_on(
     id: &str,
-    pool: &SqlitePool,
+    connection: &mut sqlx::SqliteConnection,
 ) -> crate::Result<Option<InstanceMetadataRecord>> {
     let row = sqlx::query_as::<_, InstanceMetadataRow>(
         r#"
@@ -694,7 +763,7 @@ pub(crate) async fn get_instance_metadata_by_id(
             i.created,
             i.modified,
             i.last_played,
-            i.pinned_at,
+            NULL AS pinned_at,
             i.submitted_time_played,
             i.recent_time_played,
             cs.id AS content_set_id,
@@ -722,15 +791,81 @@ pub(crate) async fn get_instance_metadata_by_id(
             link.imported_name,
             link.imported_version_number,
             link.imported_filename,
-            COALESCE((
-                SELECT json_group_array(group_name)
-                FROM (
-                    SELECT group_name
-                    FROM instance_groups
-                    WHERE instance_id = i.id
-                    ORDER BY group_name
-                )
-            ), '[]') AS groups,
+            '[]' AS groups,
+            json(overrides.overrides) AS launch_overrides
+        FROM instances i
+        LEFT JOIN instance_content_sets cs
+            ON cs.id = i.applied_content_set_id
+            AND cs.instance_id = i.id
+        LEFT JOIN instance_links link
+            ON link.instance_id = i.id
+        LEFT JOIN instance_launch_overrides overrides
+            ON overrides.instance_id = i.id
+        WHERE i.id = ?
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(connection)
+    .await?;
+
+    row.map(InstanceMetadataRow::into_record).transpose()
+}
+
+pub(crate) async fn get_instance_metadata_by_id(
+    id: &str,
+    pool: &SqlitePool,
+) -> crate::Result<Option<InstanceMetadataRecord>> {
+    let row = sqlx::query_as::<_, InstanceMetadataRow>(
+        r#"
+        SELECT
+            i.id,
+            i.path,
+            i.applied_content_set_id,
+            i.install_stage,
+            i.launcher_feature_version,
+            i.update_channel,
+            i.name,
+            i.icon_path,
+            i.symlink_target,
+            i.linked_launcher,
+            i.linked_launcher_root,
+            i.linked_dot_minecraft,
+            i.linked_version_id,
+            i.linked_version_json_path,
+            i.linked_game_dir_mode,
+            i.game_dir_override,
+            i.created,
+            i.modified,
+            i.last_played,
+            NULL AS pinned_at,
+            i.submitted_time_played,
+            i.recent_time_played,
+            cs.id AS content_set_id,
+            cs.instance_id AS content_set_instance_id,
+            cs.name AS content_set_name,
+            cs.source_kind AS content_set_source_kind,
+            cs.status AS content_set_status,
+            cs.game_version AS content_set_game_version,
+            cs.protocol_version AS content_set_protocol_version,
+            cs.loader AS content_set_loader,
+            cs.loader_version AS content_set_loader_version,
+            cs.revision AS content_set_revision,
+            cs.created AS content_set_created,
+            cs.modified AS content_set_modified,
+            COALESCE(link.link_kind, 'unmanaged') AS link_kind,
+            link.modrinth_project_id,
+            link.modrinth_version_id,
+            link.server_project_id,
+            link.content_project_id,
+            link.content_version_id,
+            link.hosting_server_id,
+            json(link.hosting_instance_ids) AS hosting_instance_ids,
+            link.hosting_active_instance_id,
+            link.shared_instance_id,
+            link.imported_name,
+            link.imported_version_number,
+            link.imported_filename,
+            '[]' AS groups,
             json(overrides.overrides) AS launch_overrides
         FROM instances i
         LEFT JOIN instance_content_sets cs
@@ -747,7 +882,17 @@ pub(crate) async fn get_instance_metadata_by_id(
     .fetch_optional(pool)
     .await?;
 
-    row.map(InstanceMetadataRow::into_record).transpose()
+    let mut record = row.map(InstanceMetadataRow::into_record).transpose()?;
+    if let Some(root) = core_root(pool.connect_options().get_filename()) {
+        let pins = crate::state::user_state::favorites::pin_values(
+            &crate::state::persistence::Persistence::new(root),
+        )
+        .await;
+        if let Some(record) = &mut record {
+            record.instance.pinned_at = pins.get(&record.instance.id).copied();
+        }
+    }
+    Ok(record)
 }
 
 pub(crate) async fn get_instance_metadata_many(
@@ -785,7 +930,7 @@ pub(crate) async fn get_instance_metadata_many(
             i.created,
             i.modified,
             i.last_played,
-            i.pinned_at,
+            NULL AS pinned_at,
             i.submitted_time_played,
             i.recent_time_played,
             cs.id AS content_set_id,
@@ -813,15 +958,7 @@ pub(crate) async fn get_instance_metadata_many(
             link.imported_name,
             link.imported_version_number,
             link.imported_filename,
-            COALESCE((
-                SELECT json_group_array(group_name)
-                FROM (
-                    SELECT group_name
-                    FROM instance_groups
-                    WHERE instance_id = i.id
-                    ORDER BY group_name
-                )
-            ), '[]') AS groups,
+            '[]' AS groups,
             json(overrides.overrides) AS launch_overrides
         FROM requested
         INNER JOIN instances i
@@ -840,9 +977,24 @@ pub(crate) async fn get_instance_metadata_many(
     .fetch_all(pool)
     .await?;
 
-    rows.into_iter()
-        .map(InstanceMetadataRow::into_record)
-        .collect()
+    let pins =
+        if let Some(root) = core_root(pool.connect_options().get_filename()) {
+            Some(
+                crate::state::user_state::favorites::pin_values(
+                    &crate::state::persistence::Persistence::new(root),
+                )
+                .await,
+            )
+        } else {
+            None
+        };
+    Ok(rows.into_iter().filter_map(|row| {
+        let id = row.id.clone();
+        match row.into_record() {
+            Ok(mut record) => { if let Some(pins) = &pins { record.instance.pinned_at = pins.get(&id).copied(); } Some(record) },
+            Err(error) => { tracing::warn!(instance_id = %id, %error, "Unsupported instance preserved and omitted from this build"); None }
+        }
+    }).collect())
 }
 
 pub(crate) async fn list_instance_metadata(
@@ -870,7 +1022,7 @@ pub(crate) async fn list_instance_metadata(
             i.created,
             i.modified,
             i.last_played,
-            i.pinned_at,
+            NULL AS pinned_at,
             i.submitted_time_played,
             i.recent_time_played,
             cs.id AS content_set_id,
@@ -898,15 +1050,7 @@ pub(crate) async fn list_instance_metadata(
             link.imported_name,
             link.imported_version_number,
             link.imported_filename,
-            COALESCE((
-                SELECT json_group_array(group_name)
-                FROM (
-                    SELECT group_name
-                    FROM instance_groups
-                    WHERE instance_id = i.id
-                    ORDER BY group_name
-                )
-            ), '[]') AS groups,
+            '[]' AS groups,
             json(overrides.overrides) AS launch_overrides
         FROM instances i
         LEFT JOIN instance_content_sets cs
@@ -921,9 +1065,24 @@ pub(crate) async fn list_instance_metadata(
     .fetch_all(pool)
     .await?;
 
-    rows.into_iter()
-        .map(InstanceMetadataRow::into_record)
-        .collect()
+    let pins =
+        if let Some(root) = core_root(pool.connect_options().get_filename()) {
+            Some(
+                crate::state::user_state::favorites::pin_values(
+                    &crate::state::persistence::Persistence::new(root),
+                )
+                .await,
+            )
+        } else {
+            None
+        };
+    Ok(rows.into_iter().filter_map(|row| {
+        let id = row.id.clone();
+        match row.into_record() {
+            Ok(mut record) => { if let Some(pins) = &pins { record.instance.pinned_at = pins.get(&id).copied(); } Some(record) },
+            Err(error) => { tracing::warn!(instance_id = %id, %error, "Unsupported instance preserved and omitted from this build"); None }
+        }
+    }).collect())
 }
 
 pub(crate) async fn get_instance_launch_context(
@@ -952,7 +1111,7 @@ pub(crate) async fn get_instance_launch_context(
             i.created,
             i.modified,
             i.last_played,
-            i.pinned_at,
+            NULL AS pinned_at,
             i.submitted_time_played,
             i.recent_time_played,
             cs.id AS content_set_id,
@@ -997,8 +1156,20 @@ pub(crate) async fn get_instance_launch_context(
     .fetch_optional(pool)
     .await?;
 
-    row.map(InstanceMetadataRow::into_launch_context)
-        .transpose()
+    let mut context = row
+        .map(InstanceMetadataRow::into_launch_context)
+        .transpose()?;
+    if let Some(root) = core_root(pool.connect_options().get_filename()) {
+        let pins = crate::state::user_state::favorites::pin_values(
+            &crate::state::persistence::Persistence::new(root),
+        )
+        .await;
+        if let Some(context) = &mut context {
+            context.instance.pinned_at =
+                pins.get(&context.instance.id).copied();
+        }
+    }
+    Ok(context)
 }
 
 pub(crate) async fn list_instances(
@@ -1020,7 +1191,7 @@ pub(crate) async fn list_instances(
             created,
             modified,
             last_played,
-            pinned_at,
+            NULL AS pinned_at,
             submitted_time_played,
             recent_time_played
         FROM instances
@@ -1029,11 +1200,37 @@ pub(crate) async fn list_instances(
     .fetch_all(pool)
     .await?;
 
+    let unsupported =
+        crate::state::store::compatibility::unsupported_instances(pool).await?;
+    let pins =
+        if let Some(root) = core_root(pool.connect_options().get_filename()) {
+            Some(
+                crate::state::user_state::favorites::pin_values(
+                    &crate::state::persistence::Persistence::new(root),
+                )
+                .await,
+            )
+        } else {
+            None
+        };
     let mut instances = Vec::with_capacity(rows.len());
     for row in rows {
-        let mut instance: Instance = row.try_into()?;
+        let id = row.id.clone();
+        if unsupported.contains(&id) {
+            continue;
+        }
+        let mut instance: Instance = match row.try_into() {
+            Ok(instance) => instance,
+            Err(error) => {
+                tracing::warn!(instance_id = %id, %error, "Unsupported instance preserved");
+                continue;
+            }
+        };
         let fields = get_direct_link_fields(&instance.id, pool).await?;
         fields.apply_to(&mut instance);
+        if let Some(pins) = &pins {
+            instance.pinned_at = pins.get(&instance.id).copied();
+        }
         instances.push(instance);
     }
 
@@ -1081,7 +1278,7 @@ pub(crate) async fn insert_instance(
     let created = instance.created.timestamp();
     let modified = instance.modified.timestamp();
     let last_played = instance.last_played.map(|value| value.timestamp());
-    let pinned_at = instance.pinned_at.map(|value| value.timestamp());
+    let pinned_at = None::<i64>;
     let submitted_time_played = playtime_to_storage(
         instance.submitted_time_played,
         "submitted_time_played",
@@ -1150,7 +1347,7 @@ pub(crate) async fn update_instance(
     let game_dir_override = instance.game_dir_override.as_deref();
     let modified = instance.modified.timestamp();
     let last_played = instance.last_played.map(|value| value.timestamp());
-    let pinned_at = instance.pinned_at.map(|value| value.timestamp());
+    let pinned_at = None::<i64>;
     let submitted_time_played = playtime_to_storage(
         instance.submitted_time_played,
         "submitted_time_played",
@@ -1200,6 +1397,7 @@ pub(crate) async fn update_instance(
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) async fn replace_instance_groups(
     instance_id: &str,
     groups: &[String],
@@ -1235,9 +1433,53 @@ pub(crate) async fn upsert_instance_launch_overrides(
     overrides: &InstanceLaunchOverrides,
     tx: &mut Transaction<'_, Sqlite>,
 ) -> crate::Result<()> {
-    let overrides_data =
-        serde_json::to_string(&InstanceLaunchOverridesData::from(overrides))?;
     let instance_id = overrides.instance_id.as_str();
+    let stored: Option<String> = sqlx::query_scalar("SELECT json(overrides) FROM instance_launch_overrides WHERE instance_id=?")
+        .bind(instance_id).fetch_optional(&mut **tx).await?;
+    let mut merged = stored
+        .map(|value| serde_json::from_str::<serde_json::Value>(&value))
+        .transpose()?
+        .unwrap_or_else(|| serde_json::json!({}));
+    let current =
+        serde_json::to_value(InstanceLaunchOverridesData::from(overrides))?;
+    let fields = [
+        "java_path",
+        "extra_launch_args",
+        "custom_env_vars",
+        "memory",
+        "force_fullscreen",
+        "maximize_window",
+        "game_resolution",
+        "window_title",
+        "launch_preparation_timeout",
+        "hooks",
+    ];
+    if let (Some(stored), Some(current)) =
+        (merged.as_object_mut(), current.as_object())
+    {
+        for field in fields {
+            match current.get(field) {
+                Some(value) => {
+                    if let (Some(old), Some(new)) = (
+                        stored
+                            .get_mut(field)
+                            .and_then(serde_json::Value::as_object_mut),
+                        value.as_object(),
+                    ) {
+                        for (key, value) in new {
+                            old.insert(key.clone(), value.clone());
+                        }
+                    } else {
+                        stored.insert(field.into(), value.clone());
+                    }
+                }
+                None => {
+                    stored.remove(field);
+                }
+            }
+        }
+    }
+    let overrides_data = serde_json::to_string(&merged)?;
 
     sqlx::query!(
         "
@@ -1262,6 +1504,13 @@ pub(crate) async fn delete_instance_by_id(
     instance_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    crate::state::store::recovery_documents::ensure_instance_supported(
+        pool,
+        instance_id,
+    )
+    .await?;
+    let handle = crate::state::store::Handle::new(pool.clone());
+    let mut unit = crate::state::store::atom(&handle).await?;
     sqlx::query!(
         "
         DELETE FROM instances
@@ -1269,9 +1518,20 @@ pub(crate) async fn delete_instance_by_id(
         ",
         instance_id,
     )
-    .execute(pool)
+    .execute(&mut **unit.transaction())
     .await?;
 
+    unit.commit().await?;
+    if core_root(pool.connect_options().get_filename()).is_some() {
+        if let Err(error)=crate::state::store::instance_sync_preferences::InstanceSyncPreferences::set_scoped(&handle,&instance_id.to_owned(),&[]).await {
+            tracing::warn!(instance_id,%error,"Deleted instance preference cleanup deferred");
+        }
+        crate::state::user_state::forget_instance(
+            &crate::state::store::persistence_for_pool(pool),
+            instance_id,
+        )
+        .await;
+    }
     Ok(())
 }
 
@@ -1281,30 +1541,31 @@ pub(crate) async fn set_instance_sync_preference(
     enabled: bool,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    sqlx::query(
-        "INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
-         VALUES (?, ?, ?)
-         ON CONFLICT(instance_id, feature) DO UPDATE SET enabled = excluded.enabled",
+    use crate::state::store::instance_sync_preferences::*;
+    InstanceSyncPreferences::set(
+        &crate::state::store::Handle::new(pool.clone()),
+        &InstancePreferenceKey {
+            instance_id: instance_id.into(),
+            feature: option.as_str().into(),
+        },
+        Some(&InstancePreferenceRecord { enabled }),
     )
-    .bind(instance_id)
-    .bind(option.as_str())
-    .bind(enabled)
-    .execute(pool)
-    .await?;
-    Ok(())
+    .await
 }
 
 pub(crate) async fn get_instance_synced_options(
     instance_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<crate::state::InstanceSyncedOptions> {
-    let rows = sqlx::query("SELECT feature, enabled FROM instance_sync_preferences WHERE instance_id = ?")
-        .bind(instance_id).fetch_all(pool).await?;
+    use crate::state::store::instance_sync_preferences::*;
+    let rows = InstanceSyncPreferences::get_scoped(
+        &crate::state::store::Handle::new(pool.clone()),
+        &instance_id.to_owned(),
+    )
+    .await?;
     let mut options = crate::state::InstanceSyncedOptions::default();
-    for row in rows {
-        let feature: String = sqlx::Row::get(&row, "feature");
-        let enabled: bool = sqlx::Row::get(&row, "enabled");
-        apply_sync_preference(&mut options, &feature, enabled);
+    for (key, record) in rows {
+        apply_sync_preference(&mut options, &key.feature, record.enabled);
     }
     Ok(options)
 }
@@ -1313,24 +1574,20 @@ pub(crate) async fn get_instance_synced_options_many(
     instance_ids: &[&str],
     pool: &SqlitePool,
 ) -> crate::Result<HashMap<String, crate::state::InstanceSyncedOptions>> {
-    use sqlx::Row;
-    let rows = sqlx::query(
-        "SELECT instance_id, feature, enabled FROM instance_sync_preferences
-         WHERE instance_id IN (SELECT value FROM json_each(?))",
+    use crate::state::store::instance_sync_preferences::*;
+    let rows = InstanceSyncPreferences::get_all(
+        &crate::state::store::Handle::new(pool.clone()),
     )
-    .bind(serde_json::to_string(instance_ids)?)
-    .fetch_all(pool)
     .await?;
     let mut grouped = HashMap::new();
-    for row in rows {
-        let id: String = row.try_get("instance_id")?;
-        let feature: String = row.try_get("feature")?;
-        let enabled: bool = row.try_get("enabled")?;
-        apply_sync_preference(
-            grouped.entry(id).or_default(),
-            &feature,
-            enabled,
-        );
+    for (key, record) in rows {
+        if instance_ids.contains(&key.instance_id.as_str()) {
+            apply_sync_preference(
+                grouped.entry(key.instance_id).or_default(),
+                &key.feature,
+                record.enabled,
+            );
+        }
     }
     Ok(grouped)
 }
@@ -1399,6 +1656,16 @@ fn parse_uuid(value: Option<String>, column: &str) -> crate::Result<Uuid> {
     value.parse().map_err(|err| {
         crate::ErrorKind::InputError(format!("Invalid {column}: {err}")).into()
     })
+}
+
+/// Count stored identities, including rows this build cannot decode. Cleanup
+/// must not interpret a filtered instance list as the complete ownership set.
+pub(crate) async fn stored_instance_count(
+    pool: &SqlitePool,
+) -> crate::Result<i64> {
+    Ok(sqlx::query_scalar("SELECT COUNT(*) FROM instances")
+        .fetch_one(pool)
+        .await?)
 }
 
 #[cfg(test)]
@@ -1552,6 +1819,9 @@ pub(crate) async fn set_install_stage(
     modified: i64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let (mut transaction, transaction_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let install_stage = install_stage.as_str();
 
     sqlx::query!(
@@ -1564,8 +1834,15 @@ pub(crate) async fn set_install_stage(
         modified,
         instance_id,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    transaction_diagnostics
+        .observe(
+            "commit_wait",
+            crate::state::store::configuration::commit(transaction, pool),
+        )
+        .await?;
+    transaction_diagnostics.complete("committed");
 
     Ok(())
 }
@@ -1577,6 +1854,9 @@ pub(crate) async fn set_last_played(
     modified: i64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let (mut transaction, transaction_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let last_played = last_played.timestamp();
 
     sqlx::query!(
@@ -1589,8 +1869,15 @@ pub(crate) async fn set_last_played(
         modified,
         instance_id,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    transaction_diagnostics
+        .observe(
+            "commit_wait",
+            crate::state::store::configuration::commit(transaction, pool),
+        )
+        .await?;
+    transaction_diagnostics.complete("committed");
 
     Ok(())
 }
@@ -1604,27 +1891,65 @@ pub(crate) async fn set_pinned(
     modified: i64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let result = sqlx::query!(
-        "
+    if core_root(pool.connect_options().get_filename()).is_some() {
+        crate::state::store::compatibility::ensure_instance_supported(
+            pool,
+            instance_id,
+        )
+        .await?;
+        get_instance_name(instance_id, pool).await?;
+        return crate::state::user_state::favorites::set_pin(
+            &crate::state::store::persistence_for_pool(pool),
+            instance_id,
+            pinned_at,
+        )
+        .await;
+    }
+    #[cfg(test)]
+    {
+        let (mut transaction, transaction_diagnostics) =
+            crate::state::store::lock_diagnostics::begin(
+                pool,
+                "BEGIN IMMEDIATE",
+            )
+            .await?;
+        let result = sqlx::query!(
+            "
         UPDATE instances
         SET pinned_at = ?, modified = ?
         WHERE id = ?
         ",
-        pinned_at,
-        modified,
-        instance_id,
-    )
-    .execute(pool)
-    .await?;
-
-    if result.rows_affected() == 0 {
-        return Err(crate::ErrorKind::InputError(
-            "Unknown instance".to_string(),
+            pinned_at,
+            modified,
+            instance_id,
         )
-        .into());
-    }
+        .execute(&mut *transaction)
+        .await?;
+        transaction_diagnostics
+            .observe(
+                "commit_wait",
+                crate::state::store::configuration::commit(transaction, pool),
+            )
+            .await?;
+        transaction_diagnostics.complete("committed");
 
-    Ok(())
+        if result.rows_affected() == 0 {
+            return Err(crate::ErrorKind::InputError(
+                "Unknown instance".to_string(),
+            )
+            .into());
+        }
+
+        Ok(())
+    }
+    #[cfg(not(test))]
+    {
+        let _ = (instance_id, pinned_at, modified);
+        Err(crate::ErrorKind::InputError(
+            "Instance pins require the core data root".into(),
+        )
+        .into())
+    }
 }
 
 /// Narrows an instance to its display name.
@@ -1650,22 +1975,6 @@ where
     .ok_or_else(|| {
         crate::ErrorKind::InputError("Unknown instance".to_string()).into()
     })
-}
-
-/// Seeds an instance's sync preferences from the launcher defaults.
-pub(crate) async fn insert_default_sync_preferences_in_transaction(
-    instance_id: &str,
-    tx: &mut Transaction<'_, Sqlite>,
-) -> crate::Result<()> {
-    sqlx::query(
-        "INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
-         SELECT ?, feature, new_instance_default FROM sync_feature_settings",
-    )
-    .bind(instance_id)
-    .execute(&mut **tx)
-    .await?;
-
-    Ok(())
 }
 
 /// One row of the install-candidate query: the instance and whether the
@@ -1822,4 +2131,14 @@ where
     .await?;
 
     Ok(row)
+}
+
+fn core_root(file: &std::path::Path) -> Option<std::path::PathBuf> {
+    (file.file_name().and_then(|name| name.to_str()) == Some("system.db"))
+        .then(|| {
+            file.parent()
+                .and_then(std::path::Path::parent)
+                .map(std::path::Path::to_owned)
+        })
+        .flatten()
 }

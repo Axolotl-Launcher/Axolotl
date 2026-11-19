@@ -132,7 +132,7 @@ pub(super) async fn execute(command: Command) -> Result<Value, ToolError> {
 mod tests {
     use super::*;
     fn user() -> MinecraftUser {
-        MinecraftUser {account_id:"yggdrasil:https://private-server.example/auth:player".into(),profile:serde_json::from_value(json!({"id":"00000000-0000-4000-8000-000000000001","name":"玩家","skins":[],"capes":[]})).unwrap(),
+        MinecraftUser {credential_persistence:None,account_id:"yggdrasil:https://private-server.example/auth:player".into(),profile:serde_json::from_value(json!({"id":"00000000-0000-4000-8000-000000000001","name":"玩家","skins":[],"capes":[]})).unwrap(),
             account_type:theseus::state::MinecraftAccountType::Yggdrasil,access_token:"secret-access".into(),refresh_token:"secret-refresh".into(),expires:chrono::Utc::now()-chrono::Duration::hours(1),active:true,yggdrasil:None}
     }
     #[test]

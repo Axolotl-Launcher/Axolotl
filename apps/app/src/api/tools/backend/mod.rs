@@ -115,8 +115,7 @@ impl Backend for LauncherBackend {
                 | Command::DatabaseCheckIntegrity { .. }
                 | Command::DatabaseBackup { .. }
                 | Command::DatabaseListBackups { .. }
-                | Command::DatabaseMaintainBackups { .. }
-                | Command::DatabaseCopyChannel { .. }) => {
+                | Command::DatabaseMaintainBackups { .. }) => {
                     maintenance::execute(self, command, context).await
                 }
                 command @ (Command::LauncherGetUpdateSettings { .. }

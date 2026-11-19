@@ -88,16 +88,104 @@ pub(crate) mod db_backup;
 
 mod legacy_converter;
 
+pub(crate) mod accounts;
 pub mod attached_world_data;
 pub(crate) mod content_store;
 pub(crate) mod documents;
 pub mod favorite_groups;
 pub mod instance_groups;
+pub(crate) mod layout;
+pub(crate) mod media;
+pub(crate) mod persistence;
+pub(crate) mod recovery;
 pub(crate) mod store;
+pub(crate) mod sync_state;
+pub(crate) mod telemetry_state;
+pub(crate) mod user_state;
 
 // Global state
 // RwLock on state only has concurrent reads, except for config dir change which takes control of the State
 static LAUNCHER_STATE: OnceCell<Arc<State>> = OnceCell::const_new();
+static INITIALIZATION: Initialization = Initialization::new();
+
+/// Commands may arrive before init starts, or while an uncapped first migration
+/// is running. Only the former has a deadline; an ended attempt wakes waiters
+/// even when its future was cancelled before it could publish a State.
+struct Initialization {
+    active: AtomicUsize,
+    attempted: AtomicBool,
+    changed: tokio::sync::Notify,
+}
+
+struct InitializationGuard<'a>(&'a Initialization);
+
+#[derive(Debug, PartialEq, Eq)]
+enum InitializationUnavailable {
+    NeverStarted,
+    Stopped,
+}
+
+impl Initialization {
+    const fn new() -> Self {
+        Self {
+            active: AtomicUsize::new(0),
+            attempted: AtomicBool::new(false),
+            changed: tokio::sync::Notify::const_new(),
+        }
+    }
+
+    fn begin(&self) -> InitializationGuard<'_> {
+        self.active.fetch_add(1, Ordering::AcqRel);
+        self.attempted.store(true, Ordering::Release);
+        self.changed.notify_waiters();
+        InitializationGuard(self)
+    }
+
+    async fn wait(
+        &self,
+        ready: impl Fn() -> bool,
+    ) -> Result<(), InitializationUnavailable> {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        loop {
+            let changed = self.changed.notified();
+            tokio::pin!(changed);
+            changed.as_mut().enable();
+            if ready() {
+                return Ok(());
+            }
+            if self.active.load(Ordering::Acquire) != 0 {
+                changed.await;
+            } else if self.attempted.load(Ordering::Acquire) {
+                if self.active.load(Ordering::Acquire) != 0 {
+                    continue;
+                }
+                // The guard publishes its completion after State was stored.
+                // Check again after observing that release before failing.
+                return if ready() {
+                    Ok(())
+                } else {
+                    Err(InitializationUnavailable::Stopped)
+                };
+            } else if tokio::time::timeout_at(deadline, changed).await.is_err()
+                && self.active.load(Ordering::Acquire) == 0
+                && !ready()
+            {
+                return Err(InitializationUnavailable::NeverStarted);
+            }
+        }
+    }
+}
+
+impl Drop for InitializationGuard<'_> {
+    fn drop(&mut self) {
+        self.0.active.fetch_sub(1, Ordering::AcqRel);
+        self.0.changed.notify_waiters();
+    }
+}
+
+#[cfg(test)]
+#[path = "initialization_tests.rs"]
+mod initialization_tests;
 
 /// Set once the shell reports that its first initialized frame is rendered.
 /// Startup work that is not needed for first paint waits for this signal so it
@@ -291,10 +379,15 @@ pub struct State {
     /// What the collections of [`store`] are read and written through.
     pub(crate) data: store::Handle,
 
+    /// File authorities have their own transactions and remain usable without
+    /// the SQL handle. Their root never follows the custom content directory.
+    pub(crate) persistence: persistence::Persistence,
+
     /// The rebuildable records, in a database of their own. Disabled, not
     /// fatal, when it cannot be opened.
     pub(crate) derived: store::derived_db::DerivedDb,
 
+    resource_cache: Arc<crate::resources::cache::ResourceCache>,
     resource_service: OnceCell<Arc<crate::resources::ResourceService>>,
     pub(crate) file_fingerprints: crate::resources::fingerprints::FileFingerprints,
     pub(crate) content_refresh: crate::resources::refresh::RefreshCoordinator,
@@ -326,10 +419,24 @@ impl State {
             .unwrap_or_else(|_| panic!("resource service already initialized"));
     }
     pub async fn maintain_database_backups(&self) -> crate::Result<()> {
-        db_backup::maintain_app_db_backups(
-            self.pool.connect_options().get_filename(),
-        )
-        .await
+        if self
+            .pool
+            .connect_options()
+            .get_filename()
+            .file_name()
+            .is_some_and(|name| name == "system.db")
+        {
+            store::databases::maintain_backups(
+                &self.pool,
+                &self.directories.settings_dir,
+            )
+            .await
+        } else {
+            db_backup::maintain_app_db_backups(
+                self.pool.connect_options().get_filename(),
+            )
+            .await
+        }
     }
 
     /// Stops further database writes before recording a clean-shutdown fingerprint.
@@ -347,45 +454,13 @@ impl State {
         self.derived.pool()
     }
 
-    /// The same database, as the handle its collections are read through.
-    pub(crate) fn cache_handle(&self) -> store::Handle {
-        self.derived.handle()
-    }
-
     pub async fn resources(
         &self,
     ) -> crate::resources::ResourceResult<&Arc<crate::resources::ResourceService>>
     {
         self.resource_service
             .get_or_try_init(|| async {
-                let path: String = sqlx::query_scalar(
-                    "SELECT file FROM pragma_database_list WHERE name = 'main'",
-                )
-                .fetch_one(&self.pool)
-                .await
-                .map_err(|error| {
-                    crate::resources::ResourceError::Cache(error.to_string())
-                })?;
-                let channel = std::path::Path::new(&path)
-                    .parent()
-                    .and_then(|parent| parent.file_name())
-                    .and_then(|name| name.to_str())
-                    .filter(|name| matches!(*name, "release" | "beta"))
-                    .unwrap_or_else(|| db::default_update_channel());
-                let path = self
-                    .directories
-                    .resource_cache_db(channel)
-                    .map_err(|_| {
-                        crate::resources::ResourceError::InvalidRequest(
-                            "invalid cache channel".into(),
-                        )
-                    })?;
-                let cache = Arc::new(
-                    crate::resources::cache::ResourceCache::open(path).await,
-                );
-                if let Err(error) = cache.import_legacy(&self.pool).await {
-                    tracing::warn!(error = %error, "Legacy resource cache import incomplete");
-                }
+                let cache = self.resource_cache.clone();
                 crate::resources::ResourceService::with_store(
                     cache,
                     crate::resources::providers::default_providers(),
@@ -393,6 +468,12 @@ impl State {
                 )
             })
             .await
+    }
+
+    pub(crate) fn resource_cache(
+        &self,
+    ) -> &Arc<crate::resources::cache::ResourceCache> {
+        &self.resource_cache
     }
 
     pub(crate) async fn lock_instance_screenshots(
@@ -762,9 +843,11 @@ impl State {
     }
 
     pub async fn init(app_identifier: String) -> crate::Result<()> {
+        let initialization = INITIALIZATION.begin();
         let state = LAUNCHER_STATE
             .get_or_try_init(move || Self::initialize_state(app_identifier))
             .await?;
+        drop(initialization);
 
         STARTUP_WORK
             .get_or_try_init(|| Self::start_background(Arc::clone(state)))
@@ -776,18 +859,12 @@ impl State {
     /// process. `STARTUP_WORK` serializes this for a recreated webview instead
     /// of running recovery while the previous webview's workers are alive.
     async fn start_background(state: Arc<Self>) -> crate::Result<()> {
-        if let Err(error) =
-            instances::commands::recover_content_file_operations(&state).await
-        {
-            tracing::error!(%error, "Error recovering content file operations");
-            return Err(error);
+        if store::recovery_mode::root(&state.pool).is_some() {
+            // Recovery copies permit existing runtime launch, never journal
+            // replay, adoption, cleanup, directory migration or watcher writes.
+            return Ok(());
         }
-        if let Err(e) =
-            crate::install::recovery::recover_interrupted_jobs(&state).await
-        {
-            tracing::error!("Error recovering interrupted install jobs: {e}");
-            return Err(e);
-        }
+        recovery::coordinator::start(Arc::clone(&state)).await;
         if let Err(e) =
             crate::api::curseforge::reconcile_persisted_curseforge_waiting_jobs(
                 &state,
@@ -872,6 +949,7 @@ impl State {
     pub(crate) async fn init_for_test(
         app_identifier: String,
     ) -> crate::Result<Arc<Self>> {
+        let _initialization = INITIALIZATION.begin();
         LAUNCHER_STATE
             .get_or_try_init(move || Self::initialize_state(app_identifier))
             .await
@@ -880,49 +958,26 @@ impl State {
 
     /// Get the current launcher state, waiting for initialization
     ///
-    /// Frontend commands routinely race `init`, so a brief wait is expected and
-    /// must not be turned into an error on the first poll. The wait is bounded
-    /// rather than open-ended: without a ceiling, a host that serves a command in
-    /// a process where nothing ever calls `init` waits forever instead of
-    /// reporting why (this is what made isolated lib tests hang).
+    /// Commands wait for an active initializer, including a long first storage
+    /// migration. If no caller starts init, the wait is bounded; failure or
+    /// cancellation of the initializer releases pending commands promptly.
     pub async fn get() -> crate::Result<Arc<Self>> {
         if !LAUNCHER_STATE.initialized() {
             tracing::debug!(
                 "State not ready yet; waiting for launcher initialization before serving command"
             );
 
-            // Why 10s. The callers that legitimately race `init` are early commands
-            // (deep links, window events) that arrive while the frontend is still on
-            // its loading screen: the frontend awaits `initialize_state` before it
-            // issues its own commands, so the race window is the tail of a startup
-            // the user is already waiting on. Opening the database, running
-            // migrations and loading settings take a few seconds on a cold start, so
-            // 10s keeps a wide margin over that. It is deliberately not larger: this
-            // budget is spent per call and one command can call `get` several times,
-            // so a generous ceiling turns "no longer hangs" into "hangs for minutes"
-            // for every caller that can never succeed. Callers that must not wait at
-            // all can use `get_if_initialized` instead.
-            const MAX_WAIT: Duration = Duration::from_secs(10);
-            // Keep the existing poll cadence: it is cheap next to the startup work
-            // and keeps this loop from interacting with the OnceCell any differently
-            // than it did before.
-            const POLL_INTERVAL: Duration = Duration::from_millis(100);
-
-            let started = Instant::now();
-            while !LAUNCHER_STATE.initialized() {
-                if started.elapsed() >= MAX_WAIT {
-                    tracing::error!(
-                        "Launcher state was still not initialized after {:?}; refusing to wait any longer",
-                        MAX_WAIT
-                    );
-                    return Err(crate::ErrorKind::StateNotInitialized(format!(
-                        "The launcher state was not initialized within {MAX_WAIT:?}. Something must call State::init before commands are served; commands cannot run against an uninitialized state."
-                    ))
-                    .into());
-                }
-
-                tokio::time::sleep(POLL_INTERVAL).await;
-            }
+            INITIALIZATION
+                .wait(|| LAUNCHER_STATE.initialized())
+                .await
+                .map_err(|unavailable| {
+                    crate::ErrorKind::StateNotInitialized(
+                        match unavailable {
+                            InitializationUnavailable::NeverStarted => "The launcher state was not initialized because State::init did not start within 10s. Commands cannot run against an uninitialized state.",
+                            InitializationUnavailable::Stopped => "The launcher state was not initialized because initialization failed or was cancelled. See the initialization error for details.",
+                        }.into(),
+                    )
+                })?;
         }
 
         LAUNCHER_STATE.get().cloned().ok_or_else(|| {
@@ -1419,27 +1474,36 @@ impl State {
         documents::settings::identify(&settings_dir);
 
         tracing::info!("Connecting to app database");
-        let pool = db::connect(&app_identifier).await?;
-        let data = store::Handle::new(pool.clone());
+        let pool = match db::connect(&app_identifier).await {
+            Ok(pool) => pool,
+            Err(error) if store::recovery_mode::can_recover(&error) => {
+                tracing::error!(%error,"Core database unavailable; attempting read-only instance recovery");
+                store::databases::open_recovery(&settings_dir).await?
+            }
+            Err(error) => return Err(error),
+        };
+        let recovery_mode = store::recovery_mode::root(&pool).is_some();
+        let data = store::Handle::with_persistence(
+            pool.clone(),
+            &persistence::Persistence::new(&settings_dir),
+        );
 
-        let legacy =
-            legacy_converter::migrate_legacy_data(&data, &pool).await?;
-
-        if let Err(error) = store::secrets::externalize(&data).await {
-            tracing::warn!(
-                %error,
-                "Failed to move the account secrets into the system credential store"
-            );
-        }
+        let legacy = if recovery_mode {
+            legacy_converter::LegacyMigration::default()
+        } else {
+            legacy_converter::migrate_legacy_data(&data, &pool).await?
+        };
 
         tracing::info!("Fetching app settings");
         let mut settings = Settings::get(&data).await?;
-        installer_settings::apply_pending_installer_directory(
-            &mut settings,
-            &data,
-            &app_identifier,
-        )
-        .await?;
+        if !recovery_mode {
+            installer_settings::apply_pending_installer_directory(
+                &mut settings,
+                &data,
+                &app_identifier,
+            )
+            .await?;
+        }
         crate::util::download::telemetry::set_enabled(
             settings.advanced_download_info_enabled(),
         );
@@ -1472,19 +1536,24 @@ impl State {
             )?;
 
         tracing::info!("Initializing directories");
-        DirectoryInfo::move_launcher_directory(
-            &mut settings,
-            &data,
-            &pool,
-            &io_semaphore,
-            &app_identifier,
-        )
-        .await?;
+        if !recovery_mode {
+            DirectoryInfo::move_launcher_directory(
+                &mut settings,
+                &data,
+                &pool,
+                &io_semaphore,
+                &app_identifier,
+            )
+            .await?;
+        }
 
         let directories =
             DirectoryInfo::init(settings.custom_dir, &app_identifier).await?;
-
-        documents::hand_over(&pool, &directories.settings_dir).await;
+        if !recovery_mode {
+            documents::hand_over(&pool, &directories.settings_dir).await;
+            store::sync_documents::initialize(&directories.settings_dir, None)
+                .await;
+        }
 
         let documents = documents::Documents::at(
             directories.settings_dir.join(documents::DIR_NAME),
@@ -1495,8 +1564,9 @@ impl State {
         // copy that repeats the old one has to go: it would shadow the change
         // forever. This is the one place that drops them, because a read must
         // never write to disk.
-        if let Err(error) =
-            documents::settings::prune_redundant(&documents).await
+        if !recovery_mode
+            && let Err(error) =
+                documents::settings::prune_redundant(&documents).await
         {
             tracing::warn!(
                 %error,
@@ -1515,12 +1585,20 @@ impl State {
         }
 
         let derived = store::derived_db::DerivedDb::open(
-            directories.caches_dir().join(store::derived_db::FILE_NAME),
+            directories
+                .cache_db_dir()
+                .join(store::derived_db::FILE_NAME),
         )
         .await;
-        CachedEntry::store_best_effort(&legacy.cached_entries, derived.pool())
-            .await;
-        forget_removed_instances(&pool, &derived).await;
+        let resource_cache = Arc::new(
+            crate::resources::cache::ResourceCache::open(
+                directories.resource_cache_db(),
+            )
+            .await,
+        );
+        if !recovery_mode {
+            forget_removed_instances(&pool, &resource_cache).await;
+        }
 
         let discord_rpc = DiscordGuard::init()?;
 
@@ -1530,6 +1608,9 @@ impl State {
         let process_manager = ProcessManager::new();
 
         Ok(Arc::new(Self {
+            persistence: persistence::Persistence::new(
+                directories.settings_dir.clone(),
+            ),
             directories,
             fetch_semaphore,
             download_semaphore,
@@ -1591,6 +1672,7 @@ impl State {
             data,
             derived,
             pool,
+            resource_cache,
             resource_service: OnceCell::new(),
             file_fingerprints: Default::default(),
             content_refresh: Default::default(),
@@ -1684,7 +1766,7 @@ impl State {
 /// they name, so a database with no left-over rows costs two reads.
 async fn forget_removed_instances(
     pool: &SqlitePool,
-    derived: &store::derived_db::DerivedDb,
+    derived: &crate::resources::cache::ResourceCache,
 ) {
     let mut instance_ids =
         match store::content_refresh_pack::ContentRefreshPacks::instance_ids(
@@ -1746,6 +1828,9 @@ pub(crate) async fn test_state(
     directories: DirectoryInfo,
     pool: SqlitePool,
 ) -> crate::Result<Arc<State>> {
+    tokio::fs::create_dir_all(directories.databases_dir().join("groups"))
+        .await?;
+    store::legacy_documents::initialize(&directories.settings_dir).await;
     let file_watcher = instances::watcher::init_watcher().await?;
     let curseforge_api_key = curseforge_settings::get(&pool).await?;
     let proxy_config = proxy_settings::get(&pool).await?;
@@ -1756,11 +1841,23 @@ pub(crate) async fn test_state(
         settings.doh_enabled,
     )?;
     let derived = store::derived_db::DerivedDb::open(
-        directories.caches_dir().join(store::derived_db::FILE_NAME),
+        directories
+            .cache_db_dir()
+            .join(store::derived_db::FILE_NAME),
     )
     .await;
 
+    let persistence =
+        persistence::Persistence::new(directories.settings_dir.clone());
+    let data = store::Handle::with_persistence(pool.clone(), &persistence);
+    let resource_cache = Arc::new(
+        crate::resources::cache::ResourceCache::open(
+            directories.resource_cache_db(),
+        )
+        .await,
+    );
     Ok(Arc::new(State {
+        persistence,
         directories,
         fetch_semaphore: FetchSemaphore(Semaphore::new(8)),
         download_semaphore: FetchSemaphore(Semaphore::new(8)),
@@ -1800,9 +1897,10 @@ pub(crate) async fn test_state(
         background_tracker: tokio_util::task::TaskTracker::new(),
         restart_after_pending_update: AtomicBool::new(false),
         instance_locks: Arc::new(InstanceLockManager::default()),
-        data: store::Handle::new(pool.clone()),
+        data,
         derived,
         pool,
+        resource_cache,
         resource_service: OnceCell::new(),
         file_fingerprints: Default::default(),
         content_refresh: Default::default(),

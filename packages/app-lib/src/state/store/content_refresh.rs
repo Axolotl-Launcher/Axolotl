@@ -1,13 +1,10 @@
 //! Conditional writes for asynchronous content refresh work.
 
 use super::content_refresh_checks::{
-    ContentRefreshChecks, RefreshCheckContext, RefreshCheckKey,
-    RefreshCheckRecord, location_key,
+    RefreshCheckContext, RefreshCheckRecord, location_key,
 };
-use super::content_refresh_presentations::{
-    ContentRefreshPresentations, PresentationKey, PresentationRecord,
-};
-use super::{Collection as _, Handle, atom};
+use super::content_refresh_presentations::PresentationRecord;
+use super::{Handle, atom};
 use crate::resources::*;
 
 use crate::state::instances::adapters::sqlite::content_sets;
@@ -27,6 +24,7 @@ pub(crate) async fn set_results(
     handle: &Handle,
     instance_id: &str,
     writes: Vec<RefreshWrite>,
+    cache_generation: i64,
 ) -> crate::Result<Vec<RefreshWrite>> {
     let mut unit = atom(handle).await?;
     let instance = match super::content_snapshot::get_instance(
@@ -52,11 +50,16 @@ pub(crate) async fn set_results(
     else {
         return Ok(vec![]);
     };
-    let preferred: String = sqlx::query_scalar(
-        "SELECT preferred_source FROM resource_preferences WHERE id = 1",
-    )
-    .fetch_one(unit.connection())
-    .await?;
+    let preferred = if super::configuration_documents::runtime(handle.pool()) {
+        super::configuration_documents::preferred_source(handle).await?
+    } else {
+        let preferred: String = sqlx::query_scalar(
+            "SELECT preferred_source FROM resource_preferences WHERE id = 1",
+        )
+        .fetch_one(unit.connection())
+        .await?;
+        preferred
+    };
     let target = ipc::ResourceTarget {
         game_versions: vec![content_set.game_version],
         loaders: vec![content_set.loader.as_str().into()],
@@ -66,8 +69,12 @@ pub(crate) async fn set_results(
     };
     let location = location_key(&instance);
     let mut applied = Vec::new();
-    for mut write in writes {
-        if write.context.location_key != location
+    for write in writes {
+        if write
+            .context
+            .content_revision
+            .is_some_and(|revision| revision != content_set.revision)
+            || write.context.location_key != location
             || write.context.target != target
             || write.context.preferred_source.as_str() != preferred
         {
@@ -137,24 +144,33 @@ pub(crate) async fn set_results(
             )
             .await?;
         }
-        if let Some(check) = &write.check {
-            ContentRefreshChecks::atom_set(
-                &mut unit,
-                &RefreshCheckKey {
-                    instance_id: instance_id.into(),
-                    entry_id: write.entry_id.clone(),
-                },
-                Some(check),
-            )
-            .await?;
-        }
+        applied.push(write);
+    }
+    let accepted_guards =
+        super::content_evidence::guards(unit.connection(), instance_id).await?;
+    unit.commit().await?;
+    let mut presentations =
+        std::collections::HashMap::<String, PresentationRecord>::new();
+    let mut evidence = Vec::new();
+    for write in &mut applied {
+        let Some(guard) = accepted_guards.get(&write.file_id) else {
+            continue;
+        };
         if let Some(presentation) = &mut write.presentation {
-            let key = PresentationKey {
-                instance_id: instance_id.into(),
-                file_id: write.file_id.clone(),
-            };
-            if let Some(previous) =
-                ContentRefreshPresentations::atom_get(&mut unit, &key).await?
+            let previous =
+                if let Some(previous) = presentations.get(&write.file_id) {
+                    Some(previous.clone())
+                } else {
+                    super::content_evidence::read::<PresentationRecord>(
+                        handle,
+                        "presentation",
+                        instance_id,
+                        &write.file_id,
+                        guard,
+                    )
+                    .await
+                };
+            if let Some(previous) = previous
                 && previous.location_key == presentation.location_key
                 && previous.content.id == presentation.content.id
                 && previous.content.size == presentation.content.size
@@ -186,18 +202,44 @@ pub(crate) async fn set_results(
                     .or(previous.content.environment);
                 presentation.content.external &= previous.content.external;
             }
-            ContentRefreshPresentations::atom_set(
-                &mut unit,
-                &PresentationKey {
-                    instance_id: instance_id.into(),
-                    file_id: write.file_id.clone(),
-                },
-                Some(presentation),
-            )
-            .await?;
+            presentations.insert(write.file_id.clone(), presentation.clone());
         }
-        applied.push(write);
+        for (kind, id, payload) in [
+            (
+                "check",
+                &write.entry_id,
+                write
+                    .check
+                    .as_ref()
+                    .map(serde_json::to_string)
+                    .transpose()?,
+            ),
+            (
+                "presentation",
+                &write.file_id,
+                write
+                    .presentation
+                    .as_ref()
+                    .map(serde_json::to_string)
+                    .transpose()?,
+            ),
+        ] {
+            if let Some(payload) = payload {
+                evidence.push(super::content_evidence::Write {
+                    kind,
+                    id: id.clone(),
+                    guard: guard.clone(),
+                    payload,
+                });
+            }
+        }
     }
-    unit.commit().await?;
+    super::content_evidence::try_write_batch(
+        handle,
+        instance_id,
+        evidence,
+        cache_generation,
+    )
+    .await?;
     Ok(applied)
 }

@@ -272,10 +272,6 @@ pub enum Command {
         limit: Option<usize>,
     },
     DatabaseMaintainBackups {},
-    DatabaseCopyChannel {
-        source_channel: String,
-        target_channel: String,
-    },
     LauncherGetUpdateSettings {},
     LauncherSetUpdateChannel {
         channel: String,

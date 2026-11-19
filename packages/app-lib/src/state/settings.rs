@@ -611,7 +611,7 @@ impl Settings {
     /// the range check below then reads as the upper bound. Clamping in the
     /// column's own domain keeps such a value at the lower bound, where a
     /// number below the range belongs; `normalize` then applies the real range.
-    fn from_record(record: SettingsRecord) -> Self {
+    pub(crate) fn from_record(record: SettingsRecord) -> Self {
         let hidden_nav_items: Vec<String> =
             serde_json::from_str(&record.hidden_nav_items).unwrap_or_default();
 
@@ -780,33 +780,13 @@ impl Settings {
     }
 
     pub async fn update(&self, handle: &Handle) -> crate::Result<()> {
-        StoredSettings::set(handle, &Singleton, Some(&self.to_record()?))
-            .await?;
-        // A read composes the row with the documents, so the row changing is a
-        // reason for the next read to compose again. `set` commits the unit it
-        // writes inside before it answers, so this invalidation already lands
-        // after that commit: unlike a caller's own unit, there is no window
-        // between the write and the commit to defer it for.
-        super::documents::settings::invalidate();
-        // The row has landed, so the domains that read from their documents are
-        // written after it: a start stopped between the two finds a document
-        // behind the row, and a commit that failed never reached this. The row
-        // is read again there rather than taken from `self`, so a writer that
-        // landed in between is not undone by this one.
-        //
-        // This writer cannot say which keys it changed — it states a whole
-        // `Settings` — so every domain is stated, and the keys a deployment
-        // answers are left out of the local documents as they always are.
-        //
-        // A document that cannot be written costs that domain and is left in
-        // the log: this is the whole-row writer a start reaches through the
-        // directory move and the settings migrations, so it must not keep a
-        // start from coming up.
-        super::documents::settings::store_cut_over(handle, None).await;
+        let mut unit = atom(handle).await?;
+        self.save_in(&mut unit).await?;
+        unit.commit().await?;
         Ok(())
     }
 
-    fn to_record(&self) -> crate::Result<SettingsRecord> {
+    pub(crate) fn to_record(&self) -> crate::Result<SettingsRecord> {
         let settings = self.clone().normalize();
         let auto_prefers_mirror = settings.auto_prefers_mirror();
         Ok(SettingsRecord {
@@ -1045,6 +1025,14 @@ impl Settings {
                 .into_iter()
                 .filter_map(|key| std::env::var(key).ok())
                 .any(|value| locale_prefers_mirror(&value))
+    }
+
+    /// Import runs before state is published. Migrate only the historical row,
+    /// never settings already handed to a document by another launcher channel.
+    pub(crate) async fn migrate_legacy_row(
+        handle: &Handle,
+    ) -> crate::Result<()> {
+        StoredSettings::migrate_import_row(handle, Self::CURRENT_VERSION).await
     }
 
     pub async fn migrate(handle: &Handle) -> crate::Result<()> {

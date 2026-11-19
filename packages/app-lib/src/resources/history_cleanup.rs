@@ -45,6 +45,11 @@ mod path_tests {
 
 #[derive(Serialize, Deserialize)]
 pub(super) struct CleanupDraft {
+    #[serde(
+        default = "crate::state::store::compatibility::legacy_protocol",
+        alias = "schemaVersion"
+    )]
+    pub(super) schema_version: u32,
     #[serde(flatten)]
     pub(super) plan: ResourceHistoryCleanupPlan,
     #[serde(default)]
@@ -105,7 +110,8 @@ async fn recover_pending(
     )
     .await?;
     for payload in rows {
-        let mut draft: CleanupDraft = serde_json::from_str(&payload)?;
+        let mut draft: CleanupDraft =
+            crate::state::store::compatibility::decode_payload(&payload)?;
         if draft.moves.is_empty() {
             continue;
         }
@@ -159,6 +165,14 @@ async fn root(
 }
 
 async fn idle(instance_id: &str, state: &crate::State) -> ResourceResult<()> {
+    if crate::state::instance_has_running_process(instance_id, state).await? {
+        return Err(invalid("Cleanup deferred while the instance is running"));
+    }
+    crate::state::store::compatibility::ensure_history_cleanup_supported(
+        &state.pool,
+        instance_id,
+    )
+    .await?;
     for job in crate::install::store::list(false, state).await? {
         let snapshot = job.snapshot();
         if matches!(
@@ -420,7 +434,12 @@ pub(crate) async fn prepare_with_state(
         plan.id.as_str(),
         instance_id,
         plan.revision,
-        &serde_json::to_string(&plan)?,
+        &serde_json::to_string(&CleanupDraft {
+            schema_version: 1,
+            plan: plan.clone(),
+            moves: Vec::new(),
+            committed: false,
+        })?,
     )
     .await?;
     Ok(plan)
@@ -521,7 +540,8 @@ pub(crate) async fn execute_with_state(
     )
     .await?
     .ok_or_else(|| invalid("cleanup plan expired or already executed"))?;
-    let mut draft: CleanupDraft = serde_json::from_str(&payload)?;
+    let mut draft: CleanupDraft =
+        crate::state::store::compatibility::decode_payload(&payload)?;
     let plan = draft.plan.clone();
     let _lock = state
         .lock_instance_content_exclusive(&plan.instance_id)
@@ -583,7 +603,13 @@ pub(crate) async fn execute_with_state(
             .await
             .map_err(|error| invalid(error.to_string()))?;
         }
-        let mut tx = state.pool.begin().await.map_err(crate::Error::from)?;
+        let (mut tx, tx_diagnostics) =
+            crate::state::store::lock_diagnostics::begin(
+                &state.pool,
+                "BEGIN IMMEDIATE",
+            )
+            .await
+            .map_err(crate::Error::from)?;
         for entry in &plan.entries {
             let history_id = &entry.id;
             ResourceHistory::retire_backup_in(
@@ -617,7 +643,11 @@ pub(crate) async fn execute_with_state(
                 ));
             }
         }
-        tx.commit().await.map_err(crate::Error::from)?;
+        tx_diagnostics
+            .observe("commit_wait", tx.commit())
+            .await
+            .map_err(crate::Error::from)?;
+        tx_diagnostics.complete("committed");
         Ok::<_, ResourceError>(())
     }
     .await;

@@ -20,6 +20,15 @@ impl ResourceCache {
         let Some(pool) = &self.pool else {
             return Ok(());
         };
+        let completed: bool = sqlx::query_scalar(
+            "SELECT completed FROM resource_legacy_import WHERE id = 1",
+        )
+        .fetch_one(pool)
+        .await
+        .map_err(cache_error)?;
+        if completed {
+            return Ok(());
+        }
         let generation = self.generation().await;
         let high_water: i64 =
             sqlx::query_scalar("SELECT COALESCE(MAX(rowid), 0) FROM cache")

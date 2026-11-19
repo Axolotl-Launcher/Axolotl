@@ -1,7 +1,6 @@
 //! What the shared game option preferences collection promises.
 
 use super::support;
-use crate::state::store::Collection as _;
 use crate::state::store::Handle;
 use crate::state::store::synced_game_option_preferences::{
     GameOptionPreferenceRecord, GameOptionPreferenceSource,
@@ -18,7 +17,7 @@ fn enabled() -> GameOptionPreferenceRecord {
 
 #[tokio::test]
 async fn a_preference_round_trips_and_clears() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     let option_id = "renderDistance".to_string();
     SyncedGameOptionPreferences::set(&handle, &option_id, Some(&enabled()))
         .await
@@ -44,7 +43,7 @@ async fn a_preference_round_trips_and_clears() {
 
 #[tokio::test]
 async fn a_whole_collection_round_trips() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     let records = vec![
         ("fullscreen".to_string(), enabled()),
         (
@@ -93,13 +92,16 @@ async fn a_preference_this_build_cannot_read_is_no_record() {
         .unwrap();
 
     assert_eq!(
-        SyncedGameOptionPreferences::get(&handle, &"future".to_string())
-            .await
-            .unwrap(),
+        <SyncedGameOptionPreferences as crate::state::store::Collection>::get(
+            &handle,
+            &"future".to_string()
+        )
+        .await
+        .unwrap(),
         None
     );
     assert!(
-        SyncedGameOptionPreferences::get_all(&handle)
+        <SyncedGameOptionPreferences as crate::state::store::Collection>::get_all(&handle)
             .await
             .unwrap()
             .is_empty()

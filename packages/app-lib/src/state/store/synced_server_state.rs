@@ -8,11 +8,15 @@ use super::{Atom, Collection};
 pub(crate) struct SyncedServerState;
 
 /// There is one state per launcher.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) struct Singleton;
 
 /// What the state carries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) struct SyncedServerStateRecord {
     pub revision: i64,
 }
@@ -109,31 +113,50 @@ impl Collection for SyncedServerState {
 impl SyncedServerState {
     /// Records that a list has been committed, without claiming a revision.
     pub(crate) async fn ensure_in(atom: &mut Atom) -> crate::Result<()> {
-        sqlx::query(
-            "
-            INSERT INTO synced_server_state (singleton, revision)
-            VALUES (1, 0)
-            ON CONFLICT(singleton) DO NOTHING
-            ",
-        )
-        .execute(atom.connection())
-        .await?;
-
+        if Self::atom_get(atom, &Singleton).await?.is_none() {
+            Self::atom_set(
+                atom,
+                &Singleton,
+                Some(&SyncedServerStateRecord { revision: 0 }),
+            )
+            .await?;
+        }
         Ok(())
     }
 
     /// Records one more revision, inside the unit that changed the list.
     pub(crate) async fn bump_in(atom: &mut Atom) -> crate::Result<()> {
-        sqlx::query(
-            "
-            INSERT INTO synced_server_state (singleton, revision)
-            VALUES (1, 1)
-            ON CONFLICT(singleton) DO UPDATE SET revision = revision + 1
-            ",
+        let revision = Self::atom_get(atom, &Singleton)
+            .await?
+            .map(|record| record.revision)
+            .unwrap_or(0)
+            .checked_add(1)
+            .ok_or_else(|| {
+                crate::ErrorKind::InputError(
+                    "Server sync revision exhausted".into(),
+                )
+            })?;
+        Self::atom_set(
+            atom,
+            &Singleton,
+            Some(&SyncedServerStateRecord { revision }),
         )
-        .execute(atom.connection())
-        .await?;
-
-        Ok(())
+        .await
     }
 }
+
+impl crate::state::sync_state::collection::Collection for SyncedServerState {
+    type Key = Singleton;
+    type Scope = Singleton;
+    type Record = SyncedServerStateRecord;
+    const NAME: &'static str = "synced_server_state";
+    fn in_scope(_scope: &Self::Scope, _key: &Self::Key) -> bool {
+        true
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    SyncedServerState,
+    Singleton,
+    Singleton,
+    SyncedServerStateRecord
+);

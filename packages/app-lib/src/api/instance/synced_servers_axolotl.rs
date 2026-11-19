@@ -1,9 +1,6 @@
 use crate::State;
 use crate::state::InstanceMetadata;
-use crate::state::instances::adapters::sqlite::projection_entries::ProjectionEntryRow;
-use crate::state::instances::adapters::sqlite::{
-    instance_servers, projection_entries,
-};
+use crate::state::sync_state::servers::{LocalServers,Projections,ProjectionKey,ProjectionRecord};
 use crate::state::store::Collection as _;
 use crate::state::store::atom;
 use crate::state::store::instance_sync_preferences::InstanceSyncPreferences;
@@ -196,24 +193,14 @@ fn server_id(server: &NbtCompound) -> String {
 }
 
 async fn write_canonical(state: &State) -> crate::Result<()> {
-    let rows = SyncedServers::get_all(&state.data).await?;
-    let mut list = NbtList::new();
-    for (_, record) in rows {
-        list.push(crate::api::instance::synced_options::nbt_from_bytes(
-            record.nbt,
-        )?);
-    }
-    let mut root = NbtCompound::new();
-    root.insert("servers", list);
+    let authority = crate::state::store::sync_documents::authority(&state.persistence).await?;
+    let bytes = crate::state::sync_state::manifest::native(&authority, "servers").await?
+        .ok_or_else(||crate::ErrorKind::FSError("Shared server native source missing".into()))?;
     let path = canonical_path(state);
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
-    tokio::fs::write(
-        path,
-        crate::api::instance::synced_options::nbt_to_bytes(&root)?,
-    )
-    .await?;
+    crate::state::persistence::document::write_blob(&path,bytes).await?;
     Ok(())
 }
 
@@ -246,29 +233,22 @@ async fn write_and_project(state: &State) -> crate::Result<()> {
             )
             .join("servers.dat");
             let excluded =
-                instance_servers::has_desynced_synced_server(&id, &state.pool)
-                    .await?;
+                LocalServers::get_scoped(&state.data,&id).await?.into_iter().any(|(_,record)|record.source=="local_desynced"&&record.excluded_synced_server_id.is_some());
             let canonical_rows = SyncedServers::get_all(&state.data).await?;
             let entries = canonical_rows
                 .into_iter()
-                .map(|(server_id, record)| ProjectionEntryRow {
-                    owner: "synced".to_string(),
-                    server_id,
-                    nbt: record.nbt,
-                    position: record.position,
-                })
+                .map(|(server_id,record)|(ProjectionKey{instance_id:id.clone(),owner:"synced".into(),server_id},ProjectionRecord{nbt:record.nbt,position:record.position}))
                 .collect::<Vec<_>>();
-            let mut tx = state.pool.begin().await?;
-            projection_entries::replace_projection(&mut tx, &id, &entries)
-                .await?;
+            let mut tx=atom(&state.data).await?;
+            Projections::atom_set_scoped(&mut tx,&id,&entries).await?;
             tx.commit().await?;
-            if excluded {
+            if excluded || crate::state::instance_has_running_process(&id,state).await? {
                 continue;
             }
             if let Some(parent) = target.parent() {
                 tokio::fs::create_dir_all(parent).await?;
             }
-            tokio::fs::copy(&canonical, target).await?;
+            let bytes=crate::util::io::read(&canonical).await?;crate::state::persistence::document::write_blob(&target,bytes).await?;
         }
     }
     Ok(())

@@ -589,6 +589,12 @@ async fn scan_with_directories_progress(
             StorageNodeType::LauncherLogs,
             0,
         ),
+        (directories.databases_dir(), StorageNodeType::Database, 1),
+        (
+            directories.settings_dir.join("Backups/databases"),
+            StorageNodeType::DbBackup,
+            2,
+        ),
         (
             directories.settings_dir.join("release"),
             StorageNodeType::Database,

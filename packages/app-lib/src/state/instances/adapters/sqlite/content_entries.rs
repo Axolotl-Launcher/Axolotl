@@ -104,7 +104,13 @@ where
     .fetch_all(exec)
     .await?;
 
-    rows.into_iter().map(TryInto::try_into).collect()
+    Ok(rows.into_iter().filter_map(|row| {
+        let id = row.id.clone();
+        match ContentEntry::try_from(row) {
+            Ok(entry) => Some(entry),
+            Err(error) => { tracing::warn!(entry_id = %id, %error, "Unsupported content entry preserved"); None }
+        }
+    }).collect())
 }
 
 pub(crate) async fn get_content_update_check<'e, E>(
@@ -405,7 +411,7 @@ pub(crate) async fn get_content_provider_refs(
     let rows = sqlx::query(
         "SELECT provider, provider_project_id, provider_release_id, provider_file_id
          FROM instance_content_provider_refs
-         WHERE content_entry_id = ?
+         WHERE content_entry_id = ? AND provider IN ('modrinth','curseforge','mcarchive','local')
          ORDER BY is_origin DESC, provider ASC, provider_project_id ASC,
             provider_release_id IS NULL ASC, provider_release_id ASC",
     )
@@ -444,7 +450,7 @@ pub(crate) async fn get_content_provider_refs_with_origin(
     let rows = sqlx::query(
         "SELECT provider, provider_project_id, provider_release_id, provider_file_id, is_origin
          FROM instance_content_provider_refs
-         WHERE content_entry_id = ?
+         WHERE content_entry_id = ? AND provider IN ('modrinth','curseforge','mcarchive','local')
          ORDER BY is_origin DESC, provider ASC, provider_project_id ASC,
             provider_release_id IS NULL ASC, provider_release_id ASC",
     )
@@ -658,6 +664,7 @@ pub(crate) async fn set_content_entry_auto_dependency(
     auto_dependency: bool,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query(
         "UPDATE instance_content_entries
          SET auto_dependency = ?, modified_at = ?
@@ -666,8 +673,9 @@ pub(crate) async fn set_content_entry_auto_dependency(
     .bind(i64::from(auto_dependency))
     .bind(Utc::now().timestamp())
     .bind(content_entry_id)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
     Ok(())
 }
 
@@ -858,6 +866,7 @@ pub(crate) async fn remove_content_entries_for_file(
     file_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query!(
         "
         DELETE FROM instance_content_entries
@@ -866,8 +875,9 @@ pub(crate) async fn remove_content_entries_for_file(
         content_set_id,
         file_id,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }
@@ -880,6 +890,7 @@ pub(crate) async fn upsert_content_update_check(
     provider_release_id: Option<&str>,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let update_channel = update_channel.key();
     let provider = provider.map(ContentProvider::as_str);
     let checked_at = Utc::now().timestamp();
@@ -913,8 +924,9 @@ pub(crate) async fn upsert_content_update_check(
     .bind(provider_release_id)
     .bind(checked_at)
     .bind(content_entry_id)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }
@@ -950,6 +962,9 @@ pub(crate) async fn get_provider_refs_with_origin_for_content_set(
     for row in rows {
         let entry_id = row.try_get::<String, _>("content_entry_id")?;
         let provider = row.try_get::<String, _>("provider")?;
+        if ContentProvider::from_str(&provider).is_err() {
+            continue;
+        }
         let provider_project_id =
             row.try_get::<String, _>("provider_project_id")?;
         let provider_release_id =
@@ -1214,6 +1229,9 @@ pub(crate) async fn get_provider_refs_by_file_for_content_set(
             continue;
         };
         let provider = row.try_get::<String, _>("provider")?;
+        if ContentProvider::from_str(&provider).is_err() {
+            continue;
+        }
         let project_id = row.try_get::<String, _>("provider_project_id")?;
         let release_id =
             row.try_get::<Option<String>, _>("provider_release_id")?;
@@ -1444,6 +1462,7 @@ pub(crate) async fn delete_dependency_edges_for_set_in_transaction(
 
 /// Reads the module metadata an instance's present entries carry, as the entry
 /// each belongs to and the text it is stored as.
+#[cfg(test)]
 pub(crate) async fn get_local_mod_data_by_entry<'e, E>(
     instance_id: &str,
     exec: E,

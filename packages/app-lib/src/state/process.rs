@@ -5,7 +5,7 @@ use crate::event::{LogEvent, LogPayload};
 use crate::scheduler::l0::queue::{Delivery, L0Queue, L0QueueReceiver, Posted};
 use crate::scheduler::l0::quiesce::QuiesceToken;
 use crate::state::store::Collection as _;
-use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
+use crate::state::user_state::joins::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::util::io::IOError;
 use crate::util::rpc::RpcServer;
 use chrono::{DateTime, Duration, NaiveDateTime, TimeZone, Utc};
@@ -1452,6 +1452,11 @@ impl Process {
             Some(!mc_exit_status.success() && !manually_killed),
         )
         .await?;
+
+        crate::state::recovery::coordinator::after_exit(
+            std::sync::Arc::clone(&state),
+            &instance_id,
+        );
 
         // File changes detected while Minecraft was running are intentionally
         // deferred by synced-option reconciliation. Run one final pass after

@@ -357,7 +357,14 @@ pub(crate) async fn backfill_dependency_edges_from_metadata(
         .collect();
     let mut backfill = DependencyBackfill::default();
     if !version_ids.is_empty() {
-        match CachedEntry::get_version_many_for_state(&version_ids, state).await
+        match CachedEntry::get_version_many_with_service(
+            &version_ids,
+            state
+                .resources()
+                .await
+                .map_err(crate::resources::protocol::error)?,
+        )
+        .await
         {
             Ok(versions) => {
                 for parent in entries {

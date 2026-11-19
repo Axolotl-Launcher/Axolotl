@@ -7,7 +7,7 @@
 //!    requests. The frontend then refreshes capes followed by skins in the
 //!    background, reusing the recent Mojang profile for the second read.
 //! 3. The skin list is built from three places:
-//!    - saved skin rows in the local app database
+//!    - saved skin metadata in the local media manifest
 //!    - bundled Minecraft default skins
 //!    - the active Mojang skin, if its texture is not represented by a saved
 //!      skin or matching bundled default

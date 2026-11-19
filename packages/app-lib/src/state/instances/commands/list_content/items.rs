@@ -325,7 +325,12 @@ pub(super) async fn reconcile_hash_matched_entries(
         return Ok(false);
     }
 
-    let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     sqlite::write_guards::ensure_content_write_parents(
         &resolved.instance.id,
         &resolved.content_set.id,
@@ -367,7 +372,8 @@ pub(super) async fn reconcile_hash_matched_entries(
         &mut tx,
     )
     .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
 
     Ok(true)
 }

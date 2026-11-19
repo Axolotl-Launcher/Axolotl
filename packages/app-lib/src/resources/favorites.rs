@@ -3,12 +3,9 @@ use std::collections::HashMap;
 
 use super::*;
 use crate::event::emit::emit_favorite_groups_changed;
-use crate::state::store::Collection as _;
-use crate::state::store::Handle;
-use crate::state::store::atom;
-use crate::state::store::resource_favorites::{
-    ResourceFavoriteKey, ResourceFavorites,
-};
+use crate::state::instances::adapters::sqlite::resource_rows::project_key;
+use crate::state::resources::ResourceStore;
+use crate::state::user_state::favorites as documents;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,15 +40,8 @@ fn type_key(value: ResourceType) -> ResourceResult<&'static str> {
         )),
     }
 }
-fn favorite_key(project: &SourceProjectRef) -> ResourceFavoriteKey {
-    ResourceFavoriteKey {
-        source: project.source.as_str().to_owned(),
-        project_id: project.project_id.as_str().to_owned(),
-    }
-}
-
 /// The key favorite groups are stored under. Kept separate from
-/// `ResourceFavoriteKey` so the grouping file stays readable JSON.
+/// document tuple keys so the existing grouping file keeps its key format.
 fn favorite_group_key(project: &SourceProjectRef) -> String {
     format!(
         "{}:{}",
@@ -72,19 +62,26 @@ pub async fn add(
     let state = crate::State::get().await?;
     let service = state.resources().await?;
     if let Some(locator) = locator {
-        let document = service
-            .project_document(
-                &project,
-                Some(locator),
-                &tokio_util::sync::CancellationToken::new(),
-            )
-            .await?;
-        let store = service.store().ok_or_else(|| {
-            ResourceError::Database("resource store unavailable".into())
-        })?;
-        store.ensure_project(&project, &[content_type]).await?;
-        if let Some(alias) = document.metadata.slug {
-            store.add_alias(&project, &alias).await?;
+        let enrichment = async {
+            let document = service
+                .project_document(
+                    &project,
+                    Some(locator),
+                    &tokio_util::sync::CancellationToken::new(),
+                )
+                .await?;
+            let store = service.store().ok_or_else(|| {
+                ResourceError::Database("resource store unavailable".into())
+            })?;
+            store.ensure_project(&project, &[content_type]).await?;
+            if let Some(alias) = document.metadata.slug {
+                store.add_alias(&project, &alias).await?;
+            }
+            Ok::<(), ResourceError>(())
+        }
+        .await;
+        if let Err(error) = enrichment {
+            tracing::warn!(%error,"Favorite locator enrichment unavailable; saving the selected project");
         }
     }
     service
@@ -106,10 +103,18 @@ pub(crate) async fn remove_project(
     pool: &sqlx::SqlitePool,
     project: &SourceProjectRef,
 ) -> ResourceResult<()> {
-    let handle = Handle::new(pool.clone());
-    ResourceFavorites::set(&handle, &favorite_key(project), None).await?;
+    #[cfg(test)]
+    prepare_fixture(pool).await;
+    documents::remove(
+        &crate::state::store::persistence_for_pool(pool),
+        vec![(
+            project.source.as_str().to_owned(),
+            project.project_id.as_str().to_owned(),
+        )],
+    )
+    .await?;
     let group_key = favorite_group_key(project);
-    crate::state::favorite_groups::forget(&group_key);
+    crate::state::favorite_groups::forget(&group_key)?;
     emit_favorite_groups_changed(std::slice::from_ref(&group_key)).await?;
     Ok(())
 }
@@ -128,17 +133,33 @@ pub struct SavedFavorite {
 pub(crate) async fn saved(
     pool: &sqlx::SqlitePool,
 ) -> ResourceResult<Vec<SavedFavorite>> {
-    let rows = ResourceFavorites::saved(&Handle::new(pool.clone())).await?;
+    #[cfg(test)]
+    prepare_fixture(pool).await;
+    let rows = documents::all(&crate::state::store::persistence_for_pool(pool))
+        .await?;
+    let projects = rows
+        .iter()
+        .filter_map(|row| project_key(&row.source, &row.project_id))
+        .collect::<Vec<_>>();
+    let identities = ResourceStore::new(pool.clone())
+        .enrich_many(&projects)
+        .await;
     let mut favorites = Vec::with_capacity(rows.len());
-    for (source, project_id, content_type, saved_at, resource_id) in rows {
+    for row in rows {
+        let (Ok(source), Ok(project_id), Ok(content_type)) = (
+            SourceId::new(row.source.clone()),
+            SourceProjectId::new(row.project_id.clone()),
+            favorite_type(&row.content_type),
+        ) else {
+            continue;
+        };
+        let project = SourceProjectRef { source, project_id };
+        let resource_id = identities.get(&project).cloned();
         favorites.push(SavedFavorite {
-            project: SourceProjectRef {
-                source: SourceId::new(source)?,
-                project_id: SourceProjectId::new(project_id)?,
-            },
-            content_type: favorite_type(&content_type)?,
-            saved_at,
-            resource_id: resource_id.map(ResourceId::new).transpose()?,
+            project,
+            content_type,
+            saved_at: row.saved_at,
+            resource_id,
         });
     }
     Ok(favorites)
@@ -149,79 +170,89 @@ impl ResourceService {
         &self,
         pool: &sqlx::SqlitePool,
     ) -> ResourceResult<Vec<ResourceFavorite>> {
-        self.store().ok_or_else(|| {
-            ResourceError::Database("resource store unavailable".into())
-        })?;
-        let preferred = self.preferred_source().await?;
-        let handle = Handle::new(pool.clone());
-        let rows = ResourceFavorites::saved(&handle).await?;
+        let preferred = self.preferred_source().await.ok();
+        let rows = saved(pool).await?;
         let mut favorites: Vec<ResourceFavorite> = Vec::new();
         let mut groups = HashMap::new();
-        let links = ResourceFavorites::favorited_projects(&handle).await?;
-        let mut projects_by_resource: HashMap<
-            ResourceId,
-            Vec<SourceProjectRef>,
-        > = HashMap::new();
-        let mut aliases = HashMap::new();
-        for (resource_id, source, project_id, alias) in links {
-            let project = SourceProjectRef {
-                source: SourceId::new(source)?,
-                project_id: SourceProjectId::new(project_id)?,
-            };
-            let id = ResourceId::new(resource_id)?;
-            aliases.insert(project.clone(), alias);
-            projects_by_resource.entry(id).or_default().push(project);
-        }
-        for (source, project_id, content_type, saved_at, id) in rows {
-            let project = SourceProjectRef {
-                source: SourceId::new(source)?,
-                project_id: SourceProjectId::new(project_id)?,
-            };
-            let id = id.map(ResourceId::new).transpose()?;
-            let content_type = favorite_type(&content_type)?;
+        let mut related = HashMap::<ResourceId, Vec<SourceProjectRef>>::new();
+        for row in rows {
+            // A future provider remains in the document for a reader that can
+            // understand it; it does not invalidate supported favorites.
+            if self.source_namespace(&row.project.source).is_err() {
+                continue;
+            }
             let key = (
-                id.as_ref().map(|id| id.as_str().to_owned()).unwrap_or_else(
-                    || {
-                        format!(
-                            "{}:{}",
-                            project.source.as_str(),
-                            project.project_id.as_str()
-                        )
-                    },
-                ),
-                type_key(content_type)?,
+                row.resource_id
+                    .as_ref()
+                    .map(|id| id.as_str().to_owned())
+                    .unwrap_or_else(|| favorite_group_key(&row.project)),
+                type_key(row.content_type)?,
             );
             if let Some(index) = groups.get(&key).copied() {
-                let current: &mut ResourceFavorite = &mut favorites[index];
-                if project.source == preferred {
-                    current.project = project;
+                let favorite: &mut ResourceFavorite = &mut favorites[index];
+                if !favorite.projects.contains(&row.project) {
+                    favorite.projects.push(row.project.clone());
                 }
-            } else {
-                let projects = if let Some(id) = &id {
-                    projects_by_resource.get(id).cloned().unwrap_or_default()
-                } else {
-                    vec![project.clone()]
-                };
-                groups.insert(key, favorites.len());
-                favorites.push(ResourceFavorite {
-                    locator: aliases.get(&project).cloned().flatten(),
-                    resource_id: id,
-                    project,
-                    projects,
-                    content_type,
-                    saved_at,
-                });
+                if preferred.as_ref() == Some(&row.project.source) {
+                    favorite.project = row.project;
+                }
+                continue;
             }
+            let mut projects = vec![row.project.clone()];
+            if let (Some(id), Some(store)) = (&row.resource_id, self.store()) {
+                let known = if let Some(known) = related.get(id) {
+                    known.clone()
+                } else {
+                    let known=store.projects(id).await.unwrap_or_else(|error|{tracing::warn!(%error,"Favorite project links unavailable");Vec::new()});
+                    related.insert(id.clone(), known.clone());
+                    known
+                };
+                projects.extend(known.into_iter().filter(|project| {
+                    self.source_namespace(&project.source).is_ok()
+                }));
+                projects.sort_by(|a, b| {
+                    (a.source.as_str(), a.project_id.as_str())
+                        .cmp(&(b.source.as_str(), b.project_id.as_str()))
+                });
+                projects.dedup();
+            }
+            let project = projects
+                .iter()
+                .find(|project| preferred.as_ref() == Some(&project.source))
+                .cloned()
+                .unwrap_or(row.project);
+            let locator = if let Some(store) = self.store() {
+                store.project_alias(&project).await.ok().flatten()
+            } else {
+                None
+            };
+            groups.insert(key, favorites.len());
+            favorites.push(ResourceFavorite {
+                locator,
+                resource_id: row.resource_id,
+                project,
+                projects,
+                content_type: row.content_type,
+                saved_at: row.saved_at,
+            });
         }
         for favorite in &mut favorites {
+            if !favorite.projects.contains(&favorite.project) {
+                favorite.projects.push(favorite.project.clone());
+            }
             if let Some(project) = favorite
                 .projects
                 .iter()
-                .find(|project| project.source == preferred)
+                .find(|project| preferred.as_ref() == Some(&project.source))
+                .cloned()
             {
-                favorite.project = project.clone();
-                favorite.locator = aliases.get(project).cloned().flatten();
+                favorite.project = project;
             }
+            favorite.locator = if let Some(store) = self.store() {
+                store.project_alias(&favorite.project).await.ok().flatten()
+            } else {
+                None
+            };
         }
         Ok(favorites)
     }
@@ -232,17 +263,25 @@ impl ResourceService {
         project: SourceProjectRef,
         content_type: ResourceType,
     ) -> ResourceResult<()> {
-        let key = type_key(content_type)?;
-        let store = self.store().ok_or_else(|| {
-            ResourceError::Database("resource store unavailable".into())
-        })?;
-        store.ensure_project(&project, &[content_type]).await?;
-        let saved_at = chrono::Utc::now().timestamp_millis();
-        ResourceFavorites::save(
-            &Handle::new(pool.clone()),
-            &favorite_key(&project),
-            key,
-            saved_at,
+        #[cfg(test)]
+        prepare_fixture(pool).await;
+        let content_type_key = type_key(content_type)?;
+        self.source_namespace(&project.source)?;
+        if let Some(store) = self.store() {
+            if let Err(error) =
+                store.ensure_project(&project, &[content_type]).await
+            {
+                tracing::warn!(%error,"Favorite saved without optional identity enrichment");
+            }
+        }
+        documents::save(
+            &crate::state::store::persistence_for_pool(pool),
+            documents::Favorite {
+                source: project.source.as_str().to_owned(),
+                project_id: project.project_id.as_str().to_owned(),
+                content_type: content_type_key.into(),
+                saved_at: chrono::Utc::now().timestamp_millis(),
+            },
         )
         .await?;
         Ok(())
@@ -253,39 +292,48 @@ impl ResourceService {
         pool: &sqlx::SqlitePool,
         project: &SourceProjectRef,
     ) -> ResourceResult<()> {
-        let store = self.store().ok_or_else(|| {
-            ResourceError::Database("resource store unavailable".into())
-        })?;
-        let id = store.lookup(project).await.or_else(|error| {
-            if matches!(error, ResourceError::InvalidRequest(_)) {
-                Ok(None)
-            } else {
-                Err(error)
+        #[cfg(test)]
+        prepare_fixture(pool).await;
+        self.source_namespace(&project.source)?;
+        let mut projects = vec![project.clone()];
+        if let Some(store) = self.store() {
+            match store.lookup(project).await {
+                Ok(Some(id)) => match store.projects(&id).await {
+                    Ok(known) => projects.extend(known),
+                    Err(error) => {
+                        tracing::warn!(%error,"Only the selected favorite can be resolved")
+                    }
+                },
+                Ok(None) => {}
+                Err(error) => {
+                    tracing::warn!(%error,"Only the selected favorite can be resolved")
+                }
             }
-        })?;
-        let mut projects = if let Some(id) = id {
-            store.projects(&id).await?
-        } else {
-            vec![]
-        };
-        if !projects.contains(project) {
-            projects.push(project.clone());
         }
-        let handle = Handle::new(pool.clone());
-        let mut unit = atom(&handle).await?;
-        for project in &projects {
-            ResourceFavorites::atom_set(
-                &mut unit,
-                &favorite_key(project),
-                None,
-            )
-            .await?;
-        }
-        unit.commit().await?;
+        projects
+            .retain(|project| self.source_namespace(&project.source).is_ok());
+        projects.sort_by(|a, b| {
+            (a.source.as_str(), a.project_id.as_str())
+                .cmp(&(b.source.as_str(), b.project_id.as_str()))
+        });
+        projects.dedup();
+        documents::remove(
+            &crate::state::store::persistence_for_pool(pool),
+            projects
+                .iter()
+                .map(|project| {
+                    (
+                        project.source.as_str().to_owned(),
+                        project.project_id.as_str().to_owned(),
+                    )
+                })
+                .collect(),
+        )
+        .await?;
         let group_keys =
             projects.iter().map(favorite_group_key).collect::<Vec<_>>();
         for group_key in &group_keys {
-            crate::state::favorite_groups::forget(group_key);
+            crate::state::favorite_groups::forget(group_key)?;
         }
         emit_favorite_groups_changed(&group_keys).await?;
         Ok(())
@@ -309,5 +357,29 @@ mod tests {
             favorite_group_key(&project("modrinth", "sodium")),
             "modrinth:sodium"
         );
+    }
+}
+
+#[cfg(test)]
+async fn prepare_fixture(pool: &sqlx::SqlitePool) {
+    if pool
+        .connect_options()
+        .get_filename()
+        .file_name()
+        .is_some_and(|name| name == "system.db")
+    {
+        return;
+    }
+    let persistence = crate::state::store::persistence_for_pool(pool);
+    let read = documents::domain(&persistence)
+        .document
+        .read()
+        .await
+        .expect("fixture authority");
+    if read.availability
+        == crate::state::persistence::status::Availability::Missing
+    {
+        crate::state::store::legacy_user_state::initialize_test_pool(pool)
+            .await;
     }
 }

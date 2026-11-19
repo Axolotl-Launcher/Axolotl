@@ -30,6 +30,23 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
+        id: 'launcher-1.11.2-beta.1',
+        version: '1.11.2-beta.1',
+        publishedAt: '2026-11-18',
+        title: {
+            'en-US': 'Axolotl Launcher 1.11.2-Beta.1',
+            'zh-CN': 'Axolotl Launcher 1.11.2-Beta.1',
+        },
+        changes: {
+            changed: [
+                {
+                    'en-US': 'Complete database schema refactor.',
+                    'zh-CN': '完整重构数据库架构。',
+                },
+            ],
+        },
+    },
+    {
         id: 'launcher-1.11.1',
         version: '1.11.1',
         publishedAt: '2026-11-18',

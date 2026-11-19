@@ -71,6 +71,7 @@ pub(super) fn work<'a>(
                     )
             });
             let context = RefreshCheckContext {
+                content_revision: Some(records.content_set.revision),
                 location_key: location_key(&records.instance),
                 content_root: records
                     .fingerprints

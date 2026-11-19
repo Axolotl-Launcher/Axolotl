@@ -25,6 +25,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const NEXTEST_VERSION = '0.9.150'
 export const MAX_APP_DB_CONNECTIONS = 100
+const DIAGNOSTICS_FILE = 'packages/app-lib/src/state/store/lock_diagnostics.rs'
 
 export const REQUIRED_TEST_SELECTORS = [
     'writing_version_info_creates_missing_parent_directory',
@@ -230,7 +231,9 @@ export function validateRequiredSelectors(source, file = '.github/workflows/axol
 }
 
 function extractRustFunction(source, name) {
-    const signature = new RegExp(`(?:pub(?:\\([^)]*\\))?\\s+)?(?:async\\s+)?fn\\s+${name}\\s*\\(`)
+    const signature = new RegExp(
+        `(?:pub(?:\\([^)]*\\))?\\s+)?(?:async\\s+)?fn\\s+${name}\\s*(?:<[^>]+>\\s*)?\\(`,
+    )
     const match = signature.exec(source)
     if (!match) return null
 
@@ -314,7 +317,24 @@ export function analyzeTransactionHelpers(files) {
                 issues.push(issue(file, 1, `Required transaction helper is missing: ${name}`))
                 continue
             }
-            if (!fn.body.includes('begin_with("BEGIN IMMEDIATE")')) {
+            const direct = /\.begin_with\(\s*"BEGIN IMMEDIATE"\s*\)/.test(fn.body)
+            const diagnosed =
+                /crate::state::store::lock_diagnostics::begin\(\s*pool\s*,\s*"BEGIN IMMEDIATE"\s*,?\s*\)/.test(
+                    fn.body,
+                )
+            if (diagnosed) {
+                const wrapper = extractRustFunction(files[DIAGNOSTICS_FILE] ?? '', 'begin')
+                if (!wrapper || !/pool\.begin_with\(\s*statement\s*\)/.test(wrapper.body)) {
+                    issues.push(
+                        issue(
+                            DIAGNOSTICS_FILE,
+                            wrapper?.line ?? 1,
+                            'The diagnostic transaction wrapper must forward the requested statement to pool.begin_with(statement).',
+                        ),
+                    )
+                }
+            }
+            if (!direct && !diagnosed) {
                 issues.push(
                     issue(
                         file,
@@ -489,6 +509,7 @@ function main() {
         dbSources[file] = rustSources[file]
     }
     dbSources['packages/app-lib/src/state/db.rs'] = rustSources['packages/app-lib/src/state/db.rs']
+    dbSources[DIAGNOSTICS_FILE] = rustSources[DIAGNOSTICS_FILE]
 
     const result = analyzeRepository({ workflows, rustSources, dbSources })
     if (result.issues.length > 0) {

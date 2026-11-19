@@ -1,4 +1,4 @@
-//! Local projection; no directory scan, remote query or dependency discovery.
+//! Local projection with cheap native facts; no remote query or dependency discovery.
 
 use super::*;
 use crate::resources::{ArtifactIntegrity, ContentHash, HashAlgorithm};
@@ -9,12 +9,25 @@ pub(crate) async fn get(
     state: &State,
 ) -> crate::Result<InstanceContentSnapshot> {
     let started = std::time::Instant::now();
-    let records = crate::state::store::content_snapshot::get_with_saved_pack(
+    let mut records =
+        crate::state::store::content_snapshot::get_with_saved_pack(
+            &state.data,
+            state.resource_cache(),
+            instance_id,
+        )
+        .await?;
+    let current = crate::state::instances::content_facts::overlay(
         &state.data,
-        &state.derived,
-        instance_id,
+        &records.instance,
+        &state.directories,
+        &mut records.files,
     )
     .await?;
+    records.fingerprints.retain(|id, _| current.contains(id));
+    records.presentations.retain(|id, _| current.contains(id));
+    records
+        .checks
+        .retain(|(_, record)| current.contains(&record.file_id));
     let result = project(records);
     tracing::debug!(
         instance_id,
@@ -130,7 +143,11 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
         let mut content = ContentItem {
             file_name: file.file_name.clone(),
             file_path: file.relative_path.clone(),
-            id: file.sha1.clone(),
+            id: if file.sha1.is_empty() {
+                file.id.clone()
+            } else {
+                file.sha1.clone()
+            },
             size: file.size,
             enabled: entry
                 .map_or(file.enabled, |entry| entry.enabled && file.enabled),
@@ -139,7 +156,7 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
                 id: local_mod
                     .as_ref()
                     .map(|metadata| format!("local:{}", metadata.mod_id))
-                    .unwrap_or_else(|| format!("local:file:{}", file.sha1)),
+                    .unwrap_or_else(|| format!("local:file:{}", file.id)),
                 slug: local_mod
                     .as_ref()
                     .map(|metadata| metadata.mod_id.clone()),
@@ -212,7 +229,7 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
             content.loader = content.loader.or(record.content.loader.clone());
             content.external = record.content.external;
         }
-        items.push(super::snapshot_item(
+        let mut item = super::snapshot_item(
             Some(file.id.clone()),
             entry.map(|entry| entry.id.clone()),
             member,
@@ -220,7 +237,16 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
             project_type,
             file.relative_path,
             Some(content),
-        ));
+        );
+        if file.sha1.is_empty() {
+            // Native enumeration can display a file immediately; byte-sensitive
+            // operations wait for the verified scan to establish its identity.
+            item.capabilities.can_toggle = false;
+            item.capabilities.can_delete = false;
+            item.capabilities.can_update = false;
+            item.capabilities.can_change_version = false;
+        }
+        items.push(item);
     }
 
     for member in &members {

@@ -6,7 +6,7 @@ use crate::launcher::instance_runtime::InstanceRuntimeAdapter;
 use crate::server_address::{parse_server_address, resolve_server_address};
 use crate::state::attached_world_data::AttachedWorldData;
 use crate::state::store::Collection as _;
-use crate::state::store::join_log::{InstanceJoins, JoinLog};
+use crate::state::user_state::joins::{InstanceJoins, JoinLog};
 use crate::state::{InstanceInstallStage, attached_world_data};
 use crate::util::protocol_version::OLD_PROTOCOL_VERSIONS;
 pub use crate::util::protocol_version::ProtocolVersion;
@@ -361,8 +361,8 @@ async fn get_all_worlds_in_instance(
         .await?;
 
     let attached_data =
-        AttachedWorldData::get_all_for_instance(instance_id, &state.pool)
-            .await?;
+        AttachedWorldData::get_all_for_instance(instance_id, &state.persistence)
+            .await.unwrap_or_else(|error| { tracing::warn!(%error,"World choices unavailable; showing native world data"); HashMap::new() });
     if !attached_data.is_empty() {
         for world in &mut worlds {
             if let Some(data) = attached_data
@@ -429,9 +429,9 @@ pub async fn get_singleplayer_world(
         &instance_id,
         world.world_type(),
         world.world_id(),
-        &state.pool,
+        &state.persistence,
     )
-    .await?
+    .await.unwrap_or_else(|error| { tracing::warn!(%error,"World choices unavailable; showing native world data"); None })
     {
         attach_world_data_to_world(&mut world, &data);
     }
@@ -645,7 +645,7 @@ pub async fn set_world_display_status(
         world_type,
         world_id,
         display_status,
-        &state.pool,
+        &state.persistence,
     )
     .await?;
     emit_instance(&instance_id, InstancePayloadType::Edited).await?;
@@ -961,7 +961,7 @@ pub async fn add_server_to_instance(
                 WorldType::Server,
                 &address,
                 project_id,
-                &state.pool,
+                &state.persistence,
             )
             .await?;
         }
@@ -971,7 +971,7 @@ pub async fn add_server_to_instance(
                 WorldType::Server,
                 &address,
                 content_kind,
-                &state.pool,
+                &state.persistence,
             )
             .await?;
         }
@@ -1537,7 +1537,7 @@ mod tests {
                 WorldType::Singleplayer,
                 "home-world",
                 DisplayStatus::Favorite,
-                &state.pool,
+                &state.persistence,
             )
             .await
             .unwrap();
@@ -1739,7 +1739,7 @@ mod tests {
             assert!(
                 AttachedWorldData::get_all_for_instance(
                     &instance.id,
-                    &state.pool
+                    &state.persistence
                 )
                 .await
                 .unwrap()

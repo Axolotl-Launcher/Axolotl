@@ -3482,6 +3482,7 @@ async fn mixed_backup_cleanup_recovers_only_staged_files() {
     assert_eq!(review.files[1].relative_path, path);
     let temporary = "resourcepacks/.cleanup-test.old";
     let mut draft = super::history_cleanup::CleanupDraft {
+        schema_version: 1,
         plan: review.clone(),
         moves: vec![temporary.into()],
         committed: false,
@@ -3743,4 +3744,143 @@ fn test_access() -> WriteAccess<'static> {
         critical_section::WhitelistSite::Tests,
     )
     .into()
+}
+
+#[tokio::test]
+async fn hydration_preserves_unknown_fields_in_unchanged_artifacts() {
+    use crate::resources::providers::*;
+    struct MetadataProvider;
+    #[async_trait::async_trait]
+    impl ResourceProvider for MetadataProvider {
+        fn source(&self) -> ResourceSource {
+            ResourceSource {
+                id: SourceId::modrinth(),
+                types: vec![ResourceType::ResourcePack],
+                capabilities: vec![
+                    SourceCapability::Project,
+                    SourceCapability::IdentifyHash,
+                ],
+                available: true,
+                supported_search_sorts: vec![],
+            }
+        }
+        fn namespace(&self) -> String {
+            "unknown-fields-hydration".into()
+        }
+        fn batch_limit(&self, _: &ProviderQuery) -> usize {
+            100
+        }
+        async fn fetch_many(
+            &self,
+            queries: &[ProviderQuery],
+        ) -> Vec<ResourceResult<ProviderValue>> {
+            queries
+                .iter()
+                .map(|query| {
+                    Ok(match query {
+                        ProviderQuery::Project { id, .. } => {
+                            let mut value =
+                                crate::resources::tests::project_value(
+                                    SourceId::modrinth(),
+                                    id.as_str(),
+                                    "Known pack",
+                                );
+                            if let ProviderValue::Project(document) = &mut value
+                            {
+                                document.metadata.types =
+                                    vec![ResourceType::ResourcePack];
+                            }
+                            value
+                        }
+                        ProviderQuery::Identify { .. } => {
+                            ProviderValue::Matches(Vec::new())
+                        }
+                        _ => ProviderValue::NotFound,
+                    })
+                })
+                .collect()
+        }
+    }
+    let (temporary, state, original, artifact, _) = fixture().await;
+    let mut payload = serde_json::to_value(&artifact).unwrap();
+    payload["futureMetadata"] = serde_json::json!({"keep": true});
+    payload["integrity"]["hashes"][0]["futureProof"] =
+        serde_json::json!("keep-hash-extension");
+    sqlx::query(
+        "UPDATE resource_installed_artifacts SET artifact=? WHERE entry_id=?",
+    )
+    .bind(payload.to_string())
+    .bind(original.entry_id.as_str())
+    .execute(&state.pool)
+    .await
+    .unwrap();
+    sqlx::raw_sql("CREATE TABLE hydration_write_observations (entry_id TEXT NOT NULL); CREATE TRIGGER observe_hydrated_artifact AFTER UPDATE ON resource_installed_artifacts BEGIN INSERT INTO hydration_write_observations VALUES(NEW.entry_id); END;")
+        .execute(&state.pool).await.unwrap();
+    let cache = Arc::new(
+        cache::ResourceCache::open(temporary.path().join("hydration-cache.db"))
+            .await,
+    );
+    let service =
+        ResourceService::new(cache, vec![Arc::new(MetadataProvider)]).unwrap();
+    let hydrated = super::installed::hydrate_selected_with_service(
+        &state,
+        "instance",
+        &CancellationToken::new(),
+        Some(&[original.entry_id.clone()]),
+        &service,
+    )
+    .await
+    .unwrap();
+    assert!(hydrated.failures.is_empty());
+    assert_eq!(hydrated.entries.len(), 1);
+    let raw: String = sqlx::query_scalar(
+        "SELECT artifact FROM resource_installed_artifacts WHERE entry_id=?",
+    )
+    .bind(original.entry_id.as_str())
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    let value: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    let writes: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM hydration_write_observations WHERE entry_id=?",
+    )
+    .bind(original.entry_id.as_str())
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert!(writes > 0, "hydration must actually persist the record");
+    assert_eq!(value["futureMetadata"]["keep"], true);
+    assert_eq!(
+        value["integrity"]["hashes"][0]["futureProof"],
+        "keep-hash-extension"
+    );
+}
+
+#[tokio::test]
+async fn future_execution_journal_does_not_move_or_remove_files() {
+    let (_temp, state, original, old, root) = fixture().await;
+    let plan =
+        local_plan(&state, original.clone(), old.clone(), "unused.zip", None)
+            .await;
+    let path = root.join(&original.relative_path);
+    let before = tokio::fs::read(&path).await.unwrap();
+    let payload = serde_json::json!({"schema_version": 2, "files": [{"path": original.relative_path, "previous_path": null, "backup": null, "old": null, "target": old.integrity}]}).to_string();
+    sqlx::query(
+        "INSERT INTO resource_execution_journals(plan_id,payload) VALUES(?,?)",
+    )
+    .bind(plan.id.as_str())
+    .bind(&payload)
+    .execute(&state.pool)
+    .await
+    .unwrap();
+    assert!(recover_plan(&plan, &state).await.is_err());
+    assert_eq!(tokio::fs::read(&path).await.unwrap(), before);
+    let stored: String = sqlx::query_scalar(
+        "SELECT payload FROM resource_execution_journals WHERE plan_id=?",
+    )
+    .bind(plan.id.as_str())
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(stored, payload);
 }

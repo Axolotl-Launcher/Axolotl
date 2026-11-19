@@ -8,11 +8,15 @@ use super::Collection;
 pub(crate) struct SyncedGameOptionState;
 
 /// There is one state per launcher.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) struct Singleton;
 
 /// What the state carries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) struct GameOptionStateRecord {
     pub revision: i64,
     pub catalog_revision: i64,
@@ -126,3 +130,21 @@ async fn write_row(
 
     Ok(())
 }
+
+impl crate::state::sync_state::collection::Collection
+    for SyncedGameOptionState
+{
+    type Key = Singleton;
+    type Scope = Singleton;
+    type Record = GameOptionStateRecord;
+    const NAME: &'static str = "synced_game_option_state";
+    fn in_scope(_scope: &Self::Scope, _key: &Self::Key) -> bool {
+        true
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    SyncedGameOptionState,
+    Singleton,
+    Singleton,
+    GameOptionStateRecord
+);

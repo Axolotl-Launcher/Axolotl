@@ -33,7 +33,12 @@ pub(crate) async fn set_backfill(
     revision: u64,
     backfill: &DependencyBackfill,
 ) -> crate::Result<()> {
-    let mut tx = handle.pool().begin_with("BEGIN IMMEDIATE").await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            handle.pool(),
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     let current =
         content_sets::get_applied_content_set(instance_id, &mut *tx).await?;
     if !current.is_some_and(|set| set.id == set_id && set.revision == revision)
@@ -41,6 +46,7 @@ pub(crate) async fn set_backfill(
         return Ok(());
     }
     persist_backfill(backfill, set_id, &mut tx).await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }

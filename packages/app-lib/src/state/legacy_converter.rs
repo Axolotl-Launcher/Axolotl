@@ -5,20 +5,15 @@ use crate::state;
 use crate::state::instances::adapters::sqlite::legacy_import::{
     self, LegacyLink, LegacyProfile,
 };
-use crate::state::store::Collection as _;
 use crate::state::store::Handle;
-use crate::state::store::modrinth_users::{ModrinthUserRecord, ModrinthUsers};
 use crate::state::{
     CacheValue, CachedEntry, CachedFileHash, CachedFileUpdate, Credentials,
-    DefaultPage, DependencyType, DeviceToken, DeviceTokenKey, DeviceTokenPair,
-    FileType, Hooks, InstanceInstallStage, JavaVersion, MemorySettings,
-    MinecraftAccountType, ModrinthHashMatch, ReleaseChannel, TeamMember, Theme,
-    VersionFile, WindowSize,
+    DefaultPage, DependencyType, FileType, Hooks, InstanceInstallStage,
+    JavaVersion, MemorySettings, MinecraftAccountType, ModrinthHashMatch,
+    ReleaseChannel, TeamMember, Theme, VersionFile, WindowSize,
 };
 use crate::util::fetch::{IoSemaphore, read_json};
 use chrono::{DateTime, Utc};
-use p256::ecdsa::SigningKey;
-use p256::pkcs8::DecodePrivateKey;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -41,13 +36,10 @@ pub struct LegacyMigration {
 /// Imports what the previous launcher left behind. The fetched responses it
 /// finds are returned rather than written: they belong to the derived
 /// database, which does not exist yet at this point of startup.
-pub async fn migrate_legacy_data<'a, E>(
+pub async fn migrate_legacy_data(
     handle: &Handle,
-    exec: E,
-) -> crate::Result<LegacyMigration>
-where
-    E: sqlx::Acquire<'a, Database = sqlx::Sqlite> + Copy,
-{
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<LegacyMigration> {
     let mut settings = state::Settings::get(handle).await?;
 
     if settings.migrated {
@@ -124,26 +116,6 @@ where
             }
         }
 
-        let modrinth_auth_path =
-            old_launcher_root.join("caches/metadata/auth.json");
-        if let Ok(creds) = read_json::<LegacyModrinthCredentials>(
-            &modrinth_auth_path,
-            &io_semaphore,
-        )
-        .await
-        {
-            ModrinthUsers::set(
-                handle,
-                &creds.user.id,
-                Some(&ModrinthUserRecord {
-                    session_id: creds.session,
-                    expires: creds.expires_at.timestamp(),
-                    active: true,
-                }),
-            )
-            .await?;
-        }
-
         let minecraft_auth_path =
             old_launcher_root.join("caches/metadata/minecraft_auth.json");
         if let Ok(minecraft_auth) = read_json::<LegacyMinecraftAuthStore>(
@@ -154,7 +126,8 @@ where
         {
             let minecraft_users_len = minecraft_auth.users.len();
             for (uuid, legacy_credentials) in minecraft_auth.users {
-                Credentials {
+                let account = Credentials {
+                    credential_persistence: None,
                     account_id: None,
                     offline_profile: MinecraftProfile {
                         id: legacy_credentials.id,
@@ -162,38 +135,16 @@ where
                         ..MinecraftProfile::default()
                     },
                     account_type: MinecraftAccountType::Microsoft,
-                    access_token: legacy_credentials.access_token,
-                    refresh_token: legacy_credentials.refresh_token,
+                    access_token: String::new(),
+                    refresh_token: String::new(),
                     expires: legacy_credentials.expires,
                     active: minecraft_auth.default_user == Some(uuid)
                         || minecraft_users_len == 1,
                     yggdrasil: None,
+                };
+                if let Err(error) = account.upsert(handle).await {
+                    tracing::warn!(%error, "Optional legacy account metadata could not be imported");
                 }
-                .upsert(handle)
-                .await?;
-            }
-
-            if let Some(device_token) = minecraft_auth.token
-                && let Ok(private_key) =
-                    SigningKey::from_pkcs8_pem(&device_token.private_key)
-                && let Ok(uuid) = Uuid::parse_str(&device_token.id)
-            {
-                DeviceTokenPair {
-                    token: DeviceToken {
-                        issue_instant: device_token.token.issue_instant,
-                        not_after: device_token.token.not_after,
-                        token: device_token.token.token,
-                        display_claims: device_token.token.display_claims,
-                    },
-                    key: DeviceTokenKey {
-                        id: uuid,
-                        key: private_key,
-                        x: device_token.x,
-                        y: device_token.y,
-                    },
-                }
-                .upsert(handle)
-                .await?;
             }
         }
 
@@ -342,7 +293,7 @@ where
                 }
 
                 upsert_legacy_instance(
-                    exec,
+                    pool,
                     LegacyInstanceUpsert {
                         path: profile.path,
                         install_stage: match profile.install_stage {
@@ -506,18 +457,15 @@ impl LegacyInstanceUpsert {
     }
 }
 
-async fn upsert_legacy_instance<'a, E>(
-    exec: E,
+async fn upsert_legacy_instance(
+    pool: &sqlx::SqlitePool,
     input: LegacyInstanceUpsert,
-) -> crate::Result<()>
-where
-    E: sqlx::Acquire<'a, Database = sqlx::Sqlite> + Copy,
-{
+) -> crate::Result<()> {
     let profile = input.into_profile();
 
-    let mut unit = exec.begin().await?;
+    let mut unit = pool.begin_with("BEGIN IMMEDIATE").await?;
     legacy_import::import_profile(&profile, &mut unit).await?;
-    unit.commit().await?;
+    crate::state::store::configuration::commit(unit, pool).await?;
 
     Ok(())
 }
@@ -611,17 +559,9 @@ struct LegacyModrinthUser {
     pub role: String,
 }
 
-#[derive(Deserialize, Clone, Debug)]
-struct LegacyModrinthCredentials {
-    pub session: String,
-    pub expires_at: DateTime<Utc>,
-    pub user: LegacyModrinthUser,
-}
-
 #[derive(Deserialize, Debug)]
 struct LegacyMinecraftAuthStore {
     pub users: HashMap<Uuid, LegacyCredentials>,
-    pub token: Option<LegacySaveDeviceToken>,
     pub default_user: Option<Uuid>,
 }
 
@@ -629,27 +569,7 @@ struct LegacyMinecraftAuthStore {
 struct LegacyCredentials {
     pub id: Uuid,
     pub username: String,
-    pub access_token: String,
-    pub refresh_token: String,
     pub expires: DateTime<Utc>,
-}
-
-#[derive(Deserialize, Debug)]
-struct LegacySaveDeviceToken {
-    pub id: String,
-    pub private_key: String,
-    pub x: String,
-    pub y: String,
-    pub token: LegacyDeviceToken,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(rename_all = "PascalCase")]
-struct LegacyDeviceToken {
-    pub issue_instant: DateTime<Utc>,
-    pub not_after: DateTime<Utc>,
-    pub token: String,
-    pub display_claims: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Deserialize, Clone, Debug)]

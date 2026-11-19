@@ -8,7 +8,7 @@
 use sqlx::migrate::{Migration, MigrationType, Migrator};
 use std::borrow::Cow;
 
-pub(crate) const CACHE_SCHEMA_VERSION: u32 = 2;
+pub(crate) const CACHE_SCHEMA_VERSION: u32 = 3;
 
 pub(crate) fn migrator() -> Migrator {
     Migrator {
@@ -61,7 +61,62 @@ pub(crate) fn migrator() -> Migrator {
                 ),
                 false,
             ),
+            Migration::new(
+                20261118090000,
+                "resource lookup and instance content cache".into(),
+                MigrationType::Simple,
+                sqlx::SqlStr::from_static(
+                    r#"
+            CREATE TABLE cache (
+                id TEXT NOT NULL,
+                data_type TEXT NOT NULL,
+                alias TEXT,
+                data JSONB,
+                expires INTEGER NOT NULL,
+                UNIQUE(data_type, alias),
+                PRIMARY KEY(id, data_type)
+            );
+            CREATE TABLE content_refresh_packs (
+                instance_id TEXT NOT NULL,
+                content_set_id TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                PRIMARY KEY(instance_id, content_set_id)
+            );
+            CREATE TABLE content_refresh_scan_failures (
+                instance_id TEXT NOT NULL,
+                location_key TEXT NOT NULL,
+                relative_path TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                PRIMARY KEY(instance_id, location_key, relative_path)
+            );
+            CREATE TABLE content_evidence (
+                kind TEXT NOT NULL,
+                instance_id TEXT NOT NULL,
+                record_id TEXT NOT NULL,
+                guard TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                PRIMARY KEY(kind, instance_id, record_id)
+            );
+            CREATE INDEX content_evidence_instance ON content_evidence(instance_id);
+            "#,
+                ),
+                false,
+            ),
         ]),
         ..Migrator::DEFAULT
     }
+}
+
+pub(crate) async fn clear_projections(
+    unit: &mut super::Atom,
+) -> crate::Result<()> {
+    sqlx::raw_sql(
+        "DELETE FROM cache;
+         DELETE FROM content_refresh_packs;
+         DELETE FROM content_refresh_scan_failures;
+         DELETE FROM content_evidence;",
+    )
+    .execute(unit.connection())
+    .await?;
+    Ok(())
 }

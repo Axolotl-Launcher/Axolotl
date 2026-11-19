@@ -460,7 +460,27 @@ pub(crate) async fn read(
 
     // The row is read whether or not a domain needs it, because
     // `personalized_ads` is in no document and only it can answer that key.
-    let (row_settings, row) = row_values(handle).await?;
+    let (row_settings, row) =
+        if crate::state::store::configuration_documents::runtime(
+            documents.pool(),
+        ) {
+            let mut defaults = Settings::default();
+            defaults.version = 3;
+            if let Ok(internal) =
+                crate::state::store::configuration_documents::composed(
+                    handle, "internal",
+                )
+                .await
+            {
+                defaults.personalized_ads = internal
+                    .get("personalized_ads")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+            }
+            (defaults, Map::new())
+        } else {
+            row_values(handle).await?
+        };
     for keys in without_a_document {
         contribute(&mut values, keys, &row);
     }
@@ -863,7 +883,7 @@ pub(crate) async fn sanitise(handle: &Handle) -> crate::Result<usize> {
     // Read under the lock: these values are what every document is rewritten
     // from, and a write landing between the two would be stated at this shape
     // without its value.
-    let settings = Settings::get(handle).await?;
+    let settings = read(&documents, handle).await?;
     let values: Document =
         serde_json::from_value(serde_json::to_value(settings.normalize())?)?;
     let mut written = 0_usize;
@@ -1006,7 +1026,7 @@ pub(crate) async fn import(
     // What each imported value is judged against: the settings as they read now,
     // so a key beside the one being judged answers this build's type for it.
     let mut projection: Document = serde_json::from_value(
-        serde_json::to_value(Settings::get(handle).await?)?,
+        serde_json::to_value(read(&documents, handle).await?)?,
     )?;
     // What a domain without a document is drafted from, taken before anything is
     // laid over the projection above.
@@ -1401,6 +1421,80 @@ pub(crate) async fn store_cut_over(
             );
         }
     }
+}
+
+/// Build document replacements before committing a volatile settings row.
+pub(crate) async fn staged_row_documents(
+    documents: &Documents<'_>,
+    settings: Settings,
+    changed: Option<&BTreeSet<String>>,
+) -> crate::Result<Vec<(String, Value)>> {
+    let defaults = default_values()?;
+    let values: Document =
+        serde_json::from_value(serde_json::to_value(settings.normalize())?)?;
+    let mut result = Vec::new();
+    for &(name, keys, version) in DOMAINS {
+        if changed.is_some_and(|changed| !carries(name, changed)) {
+            continue;
+        }
+        let existing = match documents.stored::<Document>(name, version).await {
+            Stored::Ready { document } => Some(document),
+            Stored::Missing => None,
+            Stored::Newer { .. } | Stored::Unreadable => {
+                if changed.is_none() {
+                    continue;
+                }
+                return Err(crate::ErrorKind::InputError(format!("The {name} settings document cannot be safely updated by this build")).into());
+            }
+        };
+        let shipped = match documents.shipped_keys(name, version).await {
+            Shipped::Keys(values) => values,
+            Shipped::Missing => Document::new(),
+            Shipped::Unreadable => {
+                if changed.is_none() {
+                    continue;
+                }
+                return Err(crate::ErrorKind::InputError(format!(
+                    "The deployment's {name} settings cannot be read"
+                ))
+                .into());
+            }
+        };
+        let mut target =
+            domain_values(keys, &values, &shipped, &defaults, changed);
+        if let Some(existing) = &existing {
+            for (key, value) in existing {
+                if !keys.contains(&key.as_str())
+                    || (name == "state" && key == "pending_update_failure")
+                {
+                    target.insert(key.clone(), value.clone());
+                }
+            }
+        }
+        if existing.is_none() && target.is_empty() {
+            continue;
+        }
+        if existing.as_ref() == Some(&target) {
+            continue;
+        }
+        let mut envelope = if existing.is_some() {
+            let path = documents.path(name);
+            let metadata = tokio::fs::metadata(&path).await?;
+            if !metadata.is_file() || metadata.len() > 1 << 20 {
+                return Err(crate::ErrorKind::InputError(
+                    "Settings document exceeds its bound".into(),
+                )
+                .into());
+            }
+            serde_json::from_slice::<Value>(&tokio::fs::read(path).await?)?
+        } else {
+            serde_json::json!({})
+        };
+        envelope["schema_version"] = Value::from(version);
+        envelope["data"] = Value::Object(target);
+        result.push((name.to_owned(), envelope));
+    }
+    Ok(result)
 }
 
 /// Whether a domain of `CUT_OVER` carries one of the keys a row write changed.
@@ -1810,7 +1904,16 @@ pub(crate) fn same_setting(
 async fn row_values(
     handle: &Handle,
 ) -> crate::Result<(Settings, Map<String, Value>)> {
-    let settings = Settings::read_row(handle).await?;
+    use crate::state::store::{
+        Collection,
+        settings::{Settings as LegacySettings, Singleton},
+    };
+    let record = <LegacySettings as Collection>::get(handle, &Singleton)
+        .await?
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError("Legacy settings row missing".into())
+        })?;
+    let settings = Settings::from_record(record);
     let values = serde_json::from_value(serde_json::to_value(&settings)?)?;
     Ok((settings, values))
 }
@@ -4058,4 +4161,43 @@ mod tests {
             "the domain falls back to the row, which holds the change that landed"
         );
     }
+}
+
+/// Resolve content storage before State exists using the same deployment and
+/// local bootstrap layers. The legacy row is handed over before this call.
+pub(crate) async fn content_root_before_state(
+    root: &Path,
+    documents: &Documents<'_>,
+) -> crate::Result<std::path::PathBuf> {
+    let mut values = default_values()?;
+    match documents.shipped_keys("bootstrap", 1).await {
+        Shipped::Keys(provided) => {
+            overlay(&mut values, &["custom_dir"], &provided, "bootstrap");
+        }
+        Shipped::Unreadable => {
+            return Err(crate::ErrorKind::FSError(
+                "Deployment storage bootstrap is unavailable".into(),
+            )
+            .into());
+        }
+        Shipped::Missing => {}
+    }
+    match documents.stored::<Document>("bootstrap", 1).await {
+        Stored::Ready { document, .. } | Stored::Newer { document, .. } => {
+            overlay(&mut values, &["custom_dir"], &document, "bootstrap")
+        }
+        Stored::Unreadable => {
+            return Err(crate::ErrorKind::FSError(
+                "Storage bootstrap document unavailable".into(),
+            )
+            .into());
+        }
+        Stored::Missing => {}
+    }
+    Ok(values
+        .get("custom_dir")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| root.to_owned()))
 }

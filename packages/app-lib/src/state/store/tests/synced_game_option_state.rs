@@ -1,7 +1,6 @@
 //! What the shared game option state collection promises.
 
 use super::support;
-use crate::state::store::Collection as _;
 use crate::state::store::synced_game_option_state::{
     GameOptionStateRecord, Singleton, SyncedGameOptionState,
 };
@@ -15,7 +14,7 @@ fn state() -> GameOptionStateRecord {
 
 #[tokio::test]
 async fn the_state_round_trips_and_clears() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     assert_eq!(
         SyncedGameOptionState::get(&handle, &Singleton)
             .await
@@ -56,7 +55,7 @@ async fn the_state_round_trips_and_clears() {
 
 #[tokio::test]
 async fn a_replacement_writes_exactly_what_it_was_given() {
-    let handle = support::handle().await;
+    let handle = support::sync_handle().await;
     SyncedGameOptionState::set(&handle, &Singleton, Some(&state()))
         .await
         .unwrap();

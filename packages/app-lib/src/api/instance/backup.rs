@@ -2886,6 +2886,9 @@ pub async fn restore_snapshot(
     snapshot_id: &str,
     plan_token: &str,
 ) -> crate::Result<Uuid> {
+    crate::state::store::recovery_mode::ensure_writable(
+        &State::get().await?.pool,
+    )?;
     let (instance_id, total_bytes) =
         snapshot_operation_metadata(snapshot_id).await?;
     let operation_id = Uuid::new_v4();

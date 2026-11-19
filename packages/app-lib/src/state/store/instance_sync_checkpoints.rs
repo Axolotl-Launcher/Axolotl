@@ -8,7 +8,7 @@ use super::{Collection, Handle};
 pub(crate) struct InstanceSyncCheckpoints;
 
 /// One checkpoint is identified by the instance, the feature and the variant.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CheckpointKey {
     pub instance_id: String,
     pub feature: String,
@@ -16,14 +16,16 @@ pub(crate) struct CheckpointKey {
 }
 
 /// Every checkpoint one instance keeps for one feature.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CheckpointScope {
     pub instance_id: String,
     pub feature: String,
 }
 
 /// Whether the write behind a checkpoint has landed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) enum CheckpointStatus {
     Pending,
     Ready,
@@ -47,7 +49,9 @@ impl CheckpointStatus {
 }
 
 /// How the synced file was kept in step with the one it was written from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) enum CheckpointLinkMode {
     Copy,
     Hard,
@@ -74,7 +78,7 @@ impl CheckpointLinkMode {
 }
 
 /// What a checkpoint carries.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CheckpointRecord {
     pub expected_sha1: String,
     pub merge_base: Option<Vec<u8>>,
@@ -307,21 +311,16 @@ impl InstanceSyncCheckpoints {
         expected_sha1: &str,
         except: &str,
     ) -> crate::Result<Vec<String>> {
-        let mut connection = handle.connection().await?;
-        let rows: Vec<String> = sqlx::query_scalar(
-            "
-            SELECT instance_id FROM instance_sync_checkpoints
-            WHERE feature = ? AND expected_sha1 = ?
-              AND instance_id != ?
-            ",
-        )
-        .bind(feature)
-        .bind(expected_sha1)
-        .bind(except)
-        .fetch_all(&mut *connection)
-        .await?;
-
-        Ok(rows)
+        Ok(Self::get_all(handle)
+            .await?
+            .into_iter()
+            .filter(|(key, record)| {
+                key.feature == feature
+                    && record.expected_sha1 == expected_sha1
+                    && key.instance_id != except
+            })
+            .map(|(key, _)| key.instance_id)
+            .collect())
     }
 }
 
@@ -397,3 +396,21 @@ fn to_link_mode(link_mode: &str) -> Option<CheckpointLinkMode> {
         None
     })
 }
+
+impl crate::state::sync_state::collection::Collection
+    for InstanceSyncCheckpoints
+{
+    type Key = CheckpointKey;
+    type Scope = CheckpointScope;
+    type Record = CheckpointRecord;
+    const NAME: &'static str = "instance_sync_checkpoints";
+    fn in_scope(scope: &Self::Scope, key: &Self::Key) -> bool {
+        scope.instance_id == key.instance_id && scope.feature == key.feature
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    InstanceSyncCheckpoints,
+    CheckpointKey,
+    CheckpointScope,
+    CheckpointRecord
+);

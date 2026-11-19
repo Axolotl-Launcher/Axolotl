@@ -20,7 +20,7 @@ use crate::state::{
     CacheBehaviour, CacheValue, CachedEntry, CachedFileHash, ContentProvider,
     ContentProviderRef, CurseForgeFileId, CurseForgeProjectId, Dependency,
     DependencyType, KnownModrinthFile, ModLoader, ModrinthProjectId,
-    ModrinthVersionId, Project, ProjectType, State, Version, cache_file_hash,
+    ModrinthVersionId, Project, ProjectType, State, Version,
 };
 use crate::util::fetch::{
     self, ContentValidation, DownloadMeta, DownloadReason, DownloadRequest,
@@ -1039,7 +1039,12 @@ pub(crate) async fn persist_resolved_plan_dependency_edges(
         .chain(plan.dependencies.iter())
         .collect::<Vec<_>>();
 
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     for (index, dependency) in plan.dependencies.iter().enumerate() {
         let Some(parent) = dependency
             .dependent_on_version_id
@@ -1175,7 +1180,8 @@ pub(crate) async fn persist_resolved_plan_dependency_edges(
         )
         .await?;
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     drop(database_permit);
     Ok(())
 }
@@ -1185,6 +1191,11 @@ pub(crate) async fn resolve_content_scope(
     content_set_id: Option<&str>,
     state: &State,
 ) -> crate::Result<ContentScope> {
+    crate::state::store::compatibility::ensure_instance_supported(
+        &state.pool,
+        instance_id,
+    )
+    .await?;
     let instance = instance_rows::get_instance_by_id(instance_id, &state.pool)
         .await?
         .ok_or_else(|| {
@@ -2478,6 +2489,8 @@ async fn add_project_bytes_with_provider(
     provider_ref: Option<&ContentProviderRef>,
     state: &State,
 ) -> crate::Result<String> {
+    let cache = state.resource_cache();
+    let cache_generation = cache.generation().await;
     let _instance_lock = state.lock_instance_content(instance_id).await;
 
     let scope = resolve_content_scope(instance_id, None, state).await?;
@@ -2524,17 +2537,21 @@ async fn add_project_bytes_with_provider(
         None => fetch::sha1_async(bytes.clone()).await?,
     };
 
-    cache_file_hash(
-        bytes.clone(),
-        &scope.instance.path,
-        &relative_path,
-        Some(&sha1),
-        Some(project_type),
-        None,
-        &state.cache_handle(),
-    )
-    .await?;
     fetch::write(&full_path, &bytes, &state.io_semaphore).await?;
+    let hash_cache = CacheValue::FileHash(CachedFileHash {
+        path: format!("{}/{}", scope.instance.path, relative_path),
+        size: bytes.len() as u64,
+        hash: sha1.clone(),
+        project_type: Some(project_type),
+        project_id: None,
+        version_id: None,
+    })
+    .get_entry();
+    CachedEntry::invalidate_install_hashes(
+        cache,
+        std::slice::from_ref(&hash_cache),
+    )
+    .await;
 
     let local_mod_data = if project_type == ProjectType::Mod {
         crate::mod_metadata::extract_mod_metadata(&bytes)
@@ -2569,6 +2586,20 @@ async fn add_project_bytes_with_provider(
         state,
     )
     .await?;
+
+    CachedEntry::store_install_hashes(cache, cache_generation, &[hash_cache])
+        .await;
+    if let Ok(size) = i64::try_from(file.size) {
+        crate::state::store::content_evidence::remember_parsed(
+            cache,
+            cache_generation,
+            &sha1,
+            size,
+            local_mod_data.as_deref(),
+            None,
+        )
+        .await;
+    }
 
     Ok(relative_path)
 }
@@ -2931,14 +2962,35 @@ async fn record_project_files_transaction(
     let _instance_lock = state.lock_instance_content(instance_id).await;
 
     let scope = resolve_content_scope(instance_id, None, state).await?;
-    let mut tx = begin_content_write(&state.pool).await?;
+    let hash_cache_entries: Vec<_> = records
+        .iter()
+        .map(|record| {
+            CacheValue::FileHash(CachedFileHash {
+                path: format!(
+                    "{}/{}",
+                    scope.instance.path, record.relative_path
+                ),
+                size: record.size,
+                hash: record.sha1.clone(),
+                project_type: Some(record.project_type),
+                project_id: record.known_modrinth_project_id.clone(),
+                version_id: record.known_modrinth_version_id.clone(),
+            })
+            .get_entry()
+        })
+        .collect();
+    CachedEntry::invalidate_install_hashes(
+        state.resource_cache(),
+        &hash_cache_entries,
+    )
+    .await;
+    let (mut tx, tx_diagnostics) = begin_content_write(&state.pool).await?;
     write_guards::ensure_content_write_parents(
         &scope.instance.id,
         &scope.content_set_id,
         &mut tx,
     )
     .await?;
-    let mut hash_cache_entries = Vec::with_capacity(records.len());
     for record in records {
         let file_name = Path::new(&record.relative_path)
             .file_name()
@@ -3088,20 +3140,6 @@ async fn record_project_files_transaction(
             )
             .await?;
         }
-        hash_cache_entries.push(
-            CacheValue::FileHash(CachedFileHash {
-                path: format!(
-                    "{}/{}",
-                    scope.instance.path, record.relative_path
-                ),
-                size: record.size,
-                hash: record.sha1.clone(),
-                project_type: Some(record.project_type),
-                project_id: record.known_modrinth_project_id.clone(),
-                version_id: record.known_modrinth_version_id.clone(),
-            })
-            .get_entry(),
-        );
     }
     if let Some(plan) = plan {
         let paths = records
@@ -3121,11 +3159,8 @@ async fn record_project_files_transaction(
         &mut tx,
     )
     .await?;
-    CachedEntry::forget_best_effort(&hash_cache_entries, state.cache_pool())
-        .await;
-    tx.commit().await?;
-    CachedEntry::store_best_effort(&hash_cache_entries, state.cache_pool())
-        .await;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 
@@ -3232,10 +3267,19 @@ async fn record_resolved_plan_edges(
     Ok(())
 }
 
-async fn begin_content_write(
+#[track_caller]
+fn begin_content_write(
     pool: &sqlx::SqlitePool,
-) -> crate::Result<sqlx::Transaction<'static, sqlx::Sqlite>> {
-    Ok(pool.begin_with("BEGIN IMMEDIATE").await?)
+) -> impl std::future::Future<
+    Output = crate::Result<(
+        sqlx::Transaction<'static, sqlx::Sqlite>,
+        crate::state::store::lock_diagnostics::Scope,
+    )>,
+> + Send
++ '_ {
+    let pending =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE");
+    async move { Ok(pending.await?) }
 }
 
 /// Runs the pre-section recovery of a previous file operation under a
@@ -3411,7 +3455,7 @@ pub(crate) async fn toggle_content_entries(
             }
 
             let database_result = async {
-                let mut tx = begin_content_write(&state.pool).await?;
+                let (mut tx, tx_diagnostics) = begin_content_write(&state.pool).await?;
                 let modified_at = chrono::Utc::now().timestamp();
                 let mut results = Vec::with_capacity(operations.len());
 
@@ -3488,7 +3532,8 @@ pub(crate) async fn toggle_content_entries(
                 )
                 .await?;
                 content_file_operations::mark_committed(instance_id, &mut tx).await?;
-                tx.commit().await?;
+                tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+                tx_diagnostics.complete("committed");
                 Ok(results)
             }
             .await;
@@ -3698,7 +3743,8 @@ async fn remove_project_with_expected(
             }
 
             let db_result = async {
-                let mut tx = begin_content_write(&state.pool).await?;
+                let (mut tx, tx_diagnostics) =
+                    begin_content_write(&state.pool).await?;
                 if let Some(file) = file {
                     let modified_at = chrono::Utc::now().timestamp();
                     if expected.is_none() {
@@ -3730,7 +3776,8 @@ async fn remove_project_with_expected(
                 .await?;
                 content_file_operations::mark_committed(instance_id, &mut tx)
                     .await?;
-                tx.commit().await?;
+                tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+                tx_diagnostics.complete("committed");
                 Ok::<(), crate::Error>(())
             }
             .await;
@@ -3843,6 +3890,8 @@ async fn rollback_project_inner(
     project_path: &str,
     state: &State,
 ) -> crate::Result<String> {
+    let cache = state.resource_cache();
+    let cache_generation = cache.generation().await;
     let _writer = state.acquire_install_db_permit().await?;
     let _instance_lock =
         state.lock_instance_content_exclusive(instance_id).await;
@@ -3938,6 +3987,7 @@ async fn rollback_project_inner(
     let (active_size, active_sha1) =
         fetch::sha1_file_async(&full_active).await?;
     let journal = LegacyRollbackJournal {
+        schema_version: 1,
         active: project_path.into(),
         backup: format!("{active_dir}/{backup_name}"),
         restored: restored_relative_path.clone(),
@@ -3951,7 +4001,7 @@ async fn rollback_project_inner(
     rollback_journals::set_journal(
         instance_id,
         &serde_json::to_string(&journal)?,
-        &state.pool,
+        &mut *state.pool.acquire().await?,
     )
     .await?;
     let work = critical_section::SharedWork::new(
@@ -3994,7 +4044,17 @@ async fn rollback_project_inner(
                 None
             };
 
-            let mut tx = state.pool.begin().await?;
+            let hash_cache = CacheValue::FileHash(CachedFileHash {
+                path: format!("{}/{}", scope.instance.path, final_relative_path),
+                size: restored_size,
+                hash: restored_sha1.clone(),
+                project_type: project_type_for_file_path(&final_relative_path),
+                project_id: None,
+                version_id: None,
+            })
+            .get_entry();
+            CachedEntry::invalidate_install_hashes(cache, std::slice::from_ref(&hash_cache)).await;
+            let (mut tx, tx_diagnostics) = crate::state::store::lock_diagnostics::begin(&state.pool, "BEGIN IMMEDIATE").await?;
             files::rename_file_in_place_in_transaction(
                 &scope.instance.id,
                 project_path,
@@ -4050,27 +4110,20 @@ async fn rollback_project_inner(
                 .await?;
             }
             content_store_files::remove_instance_files(&mut tx, instance_id, &[project_path, final_relative_path.as_str()]).await?;
-            let hash_cache = CacheValue::FileHash(CachedFileHash {
-                path: format!("{}/{}", scope.instance.path, final_relative_path),
-                size: restored_size,
-                hash: restored_sha1,
-                project_type: project_type_for_file_path(&final_relative_path),
-                project_id: None,
-                version_id: None,
-            })
-            .get_entry();
             content_sets::bump_content_set_revision_in_transaction(
                 &scope.content_set_id,
                 &mut tx,
             )
             .await?;
             rollback_journals::delete_journal(instance_id, &mut *tx).await?;
-            // The hash cache lives in the derived database: forget the old
-            // entry before the commit, store the new one after it.
-            CachedEntry::forget_best_effort(std::slice::from_ref(&hash_cache), state.cache_pool())
-                .await;
-            tx.commit().await?;
-            CachedEntry::store_best_effort(&[hash_cache], state.cache_pool()).await;
+            tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
+            CachedEntry::store_install_hashes(cache, cache_generation, &[hash_cache]).await;
+            if let Ok(size) = i64::try_from(restored_size) {
+                crate::state::store::content_evidence::remember_parsed(
+                    cache, cache_generation, &restored_sha1, size, local_mod_data.as_deref(), None
+                ).await;
+            }
 
             Ok(final_relative_path)
             }.await;
@@ -4094,6 +4147,11 @@ async fn rollback_project_inner(
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct LegacyRollbackJournal {
+    #[serde(
+        default = "crate::state::store::compatibility::legacy_protocol",
+        alias = "schemaVersion"
+    )]
+    schema_version: u32,
     active: String,
     backup: String,
     restored: String,
@@ -4137,12 +4195,23 @@ async fn recover_legacy_rollback_with(
     state: &State,
     _access: critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
-    let payload =
-        rollback_journals::get_journal(instance_id, &state.pool).await?;
+    if crate::state::instance_has_running_process(instance_id, state).await? {
+        return Err(crate::ErrorKind::InputError(
+            "Legacy file recovery deferred while the instance is running"
+                .into(),
+        )
+        .into());
+    }
+    let payload = rollback_journals::get_journal(
+        instance_id,
+        &mut *state.pool.acquire().await?,
+    )
+    .await?;
     let Some(payload) = payload else {
         return Ok(());
     };
-    let journal: LegacyRollbackJournal = serde_json::from_str(&payload)?;
+    let journal: LegacyRollbackJournal =
+        crate::state::store::compatibility::decode_payload(&payload)?;
     let path = |relative: &str| {
         crate::resources::execution::checked_path(root, relative)
     };
@@ -4211,25 +4280,50 @@ async fn recover_legacy_rollback_with(
         )
         .into());
     }
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     rollback_journals::delete_journal_matching(&mut tx, instance_id, &payload)
         .await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     Ok(())
 }
 
 pub(crate) async fn recover_legacy_rollbacks(
     state: &State,
 ) -> crate::Result<()> {
-    let instances =
-        rollback_journals::get_journal_instance_ids(&state.pool).await?;
+    let instances = rollback_journals::get_journal_instance_ids(
+        &mut *state.pool.acquire().await?,
+    )
+    .await?;
     for instance_id in instances {
-        let _writer = state.acquire_install_db_permit().await?;
-        let _lock = state.lock_instance_content_exclusive(&instance_id).await;
-        let scope = resolve_content_scope(&instance_id, None, state).await?;
-        let root = instance_content_root(&state.directories, &scope.instance)?;
-        recover_legacy_rollback_for_instance(&instance_id, &root, state)
-            .await?;
+        let result = async {
+            let _maintenance =
+                crate::api::instance::lock_instance_maintenance(&instance_id)
+                    .await;
+            if crate::state::instance_has_running_process(&instance_id, state)
+                .await?
+            {
+                return Ok::<_, crate::Error>(());
+            }
+            let _writer = state.acquire_install_db_permit().await?;
+            let _lock =
+                state.lock_instance_content_exclusive(&instance_id).await;
+            let scope =
+                resolve_content_scope(&instance_id, None, state).await?;
+            let root =
+                instance_content_root(&state.directories, &scope.instance)?;
+            recover_legacy_rollback_for_instance(&instance_id, &root, state)
+                .await
+        }
+        .await;
+        if let Err(error) = result {
+            tracing::warn!(%instance_id,%error,"Legacy operation retained; other instances continue");
+        }
     }
     Ok(())
 }
@@ -4799,7 +4893,8 @@ mod tests {
             .await
             .unwrap();
 
-        let first = begin_content_write(&pool).await.unwrap();
+        let (first, first_diagnostics) =
+            begin_content_write(&pool).await.unwrap();
         let second_pool = pool.clone();
         let second =
             tokio::spawn(
@@ -4809,13 +4904,16 @@ mod tests {
 
         assert!(!second.is_finished());
         first.commit().await.unwrap();
+        first_diagnostics.complete("committed");
 
-        let second = tokio::time::timeout(Duration::from_secs(2), second)
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
+        let (second, second_diagnostics) =
+            tokio::time::timeout(Duration::from_secs(2), second)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
         second.rollback().await.unwrap();
+        second_diagnostics.complete("rolled_back");
     }
 
     #[test]

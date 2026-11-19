@@ -36,6 +36,7 @@ export function createTooltipLayer() {
     let hideTimer: ReturnType<typeof setTimeout> | undefined
     let removeTimer: ReturnType<typeof setTimeout> | undefined
     let revealFrame: number | undefined
+    let updateFrame: number | undefined
     let generation = 0
     let activation = 0
     let positioned = false
@@ -60,6 +61,7 @@ export function createTooltipLayer() {
 
     function remove() {
         cancelExit()
+        cancelUpdate()
         if (revealFrame !== undefined) cancelAnimationFrame(revealFrame)
         revealFrame = undefined
         generation++
@@ -76,6 +78,7 @@ export function createTooltipLayer() {
 
     function close() {
         generation++
+        cancelUpdate()
         if (revealFrame !== undefined) cancelAnimationFrame(revealFrame)
         revealFrame = undefined
         stopAutoUpdate?.()
@@ -182,6 +185,33 @@ export function createTooltipLayer() {
         }
     }
 
+    /**
+     * Coalesces every source `autoUpdate` reports -- scroll, resize, element
+     * resize, layout shift -- into one measurement per frame. A picker with
+     * hundreds of triggers fires several of them for a single scroll, and each
+     * one re-reads layout for a position that is already out of date.
+     *
+     * The first measurement of a fresh surface has nothing to coalesce with and
+     * is what makes the surface visible, so it runs immediately.
+     */
+    function scheduleUpdate(trigger: HTMLElement, placement: Placement) {
+        if (!positioned) {
+            void updatePosition(trigger, placement)
+            return
+        }
+        if (updateFrame !== undefined) return
+        updateFrame = requestAnimationFrame(() => {
+            updateFrame = undefined
+            void updatePosition(trigger, placement)
+        })
+    }
+
+    function cancelUpdate() {
+        if (updateFrame === undefined) return
+        cancelAnimationFrame(updateFrame)
+        updateFrame = undefined
+    }
+
     return {
         beginActivation: () => ++activation,
         isCurrentActivation: (request: number) => request === activation,
@@ -190,6 +220,9 @@ export function createTooltipLayer() {
         isVisible: () => positioner.isConnected,
         show(trigger: HTMLElement, resolved: Content, placement: Placement) {
             cancelExit()
+            // A frame queued for the previous owner would swallow this one's first
+            // measurement, so drop it before arming autoUpdate.
+            cancelUpdate()
             stopAutoUpdate?.()
             clearDescription()
             if (owner !== trigger) positioner.removeAttribute('data-hidden')
@@ -208,10 +241,8 @@ export function createTooltipLayer() {
             )
             ids.add(popper.id)
             trigger.setAttribute('aria-describedby', [...ids].join(' '))
-            stopAutoUpdate = autoUpdate(
-                trigger,
-                positioner,
-                () => void updatePosition(trigger, placement),
+            stopAutoUpdate = autoUpdate(trigger, positioner, () =>
+                scheduleUpdate(trigger, placement),
             )
         },
         leave(trigger: HTMLElement, immediate = false) {

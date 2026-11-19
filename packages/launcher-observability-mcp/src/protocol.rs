@@ -165,12 +165,28 @@ pub fn call(
 }
 
 /// Rust-typed handler used by the protocol layer.
+///
+/// The flush reaches the synchronous provider flush, which can block for its
+/// whole budget, so it runs on a blocking worker instead of pinning a runtime
+/// thread that unrelated Tauri commands also use.
 pub async fn handle(
     source: &Arc<dyn Source>,
     request: CallToolRequestParams,
     _context: RequestContext<RoleServer>,
 ) -> Result<CallToolResponse, ErrorData> {
-    call(source, request).map(Into::into)
+    if request.name.as_ref() != "observability_flush" {
+        return call(source, request).map(Into::into);
+    }
+    let source = Arc::clone(source);
+    let flushed = tokio::task::spawn_blocking(move || source.flush())
+        .await
+        .map_err(|error| {
+            ErrorData::internal_error(
+                format!("flush task failed: {error}"),
+                None,
+            )
+        })?;
+    Ok(success(json!({"flushed": flushed})).into())
 }
 
 fn limit(arguments: &Map<String, Value>) -> Result<usize, ErrorData> {

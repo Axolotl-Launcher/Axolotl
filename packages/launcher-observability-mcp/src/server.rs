@@ -45,7 +45,8 @@ pub struct Snapshot {
 
 struct Shared {
     source: Arc<dyn Source>,
-    token: String,
+    /// Precomputed `Bearer <token>`, so the gate does no allocation.
+    expected_authorization: String,
     require_auth: bool,
     version: String,
     shutdown: CancellationToken,
@@ -73,7 +74,7 @@ impl Server {
         let port = listener.local_addr()?.port();
         let shared = Arc::new(Shared {
             source,
-            token,
+            expected_authorization: format!("Bearer {token}"),
             require_auth,
             version: version.into(),
             shutdown: CancellationToken::new(),
@@ -165,16 +166,32 @@ async fn gate(
     if shared.shutdown.is_cancelled() {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
-    if shared.require_auth
-        && request
+    if shared.require_auth {
+        let presented = request
             .headers()
             .get("Authorization")
             .and_then(|header| header.to_str().ok())
-            != Some(format!("Bearer {}", shared.token).as_str())
-    {
-        return StatusCode::UNAUTHORIZED.into_response();
+            .unwrap_or_default();
+        if !token_matches(presented, &shared.expected_authorization) {
+            return StatusCode::UNAUTHORIZED.into_response();
+        }
     }
     next.run(request).await
+}
+
+/// Compare the presented header against the expected one in constant time, so
+/// a local client cannot learn the token by timing the failure.
+fn token_matches(presented: &str, expected: &str) -> bool {
+    let presented = presented.as_bytes();
+    let expected = expected.as_bytes();
+    if presented.len() != expected.len() {
+        return false;
+    }
+    presented
+        .iter()
+        .zip(expected)
+        .fold(0u8, |acc, (left, right)| acc | (left ^ right))
+        == 0
 }
 
 struct Handler {

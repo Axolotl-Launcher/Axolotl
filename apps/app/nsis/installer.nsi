@@ -1417,7 +1417,16 @@ Section Install
           ClearErrors
           ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
           ${If} $R0 == ""
-            !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+            ; A per-user install writes to HKCU, which outranks a machine-wide
+            ; handler. A default recorded machine-wide still counts as taken, so
+            ; the launcher is only offered instead of replacing it.
+            ClearErrors
+            ReadRegStr $R1 HKLM "Software\Classes\.{{ext}}" ""
+            ${If} $R1 == ""
+              !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+            ${Else}
+              !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+            ${EndIf}
           ${Else}
             !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
           ${EndIf}

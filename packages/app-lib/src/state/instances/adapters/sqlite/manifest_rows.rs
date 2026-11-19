@@ -202,16 +202,16 @@ pub(crate) async fn snapshot(
         Map<String, Value>,
     )>,
 > {
+    // Capture one consistent view without reserving the writer. Publication
+    // independently checks that the captured revision is still current.
     let (mut tx, tx_diagnostics) =
-        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
-            .await?;
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN").await?;
     let current:Option<i64>=sqlx::query_scalar("SELECT revision FROM instance_recovery_publications WHERE instance_id=? AND deleted=0").bind(id).fetch_optional(&mut *tx).await?;
     if current != Some(expected) {
         return Ok(None);
     }
-    if crate::state::store::compatibility::unsupported_on(&mut tx)
+    if crate::state::store::compatibility::unsupported_instance_on(&mut *tx, id)
         .await?
-        .contains(id)
     {
         return Err(crate::ErrorKind::InputError("Unsupported instance data cannot be published as a supported recovery copy".into()).into());
     }
@@ -330,9 +330,11 @@ pub(crate) async fn metadata(
 ) -> crate::Result<Option<crate::state::instances::InstanceMetadata>> {
     let (mut transaction, transaction_diagnostics) =
         crate::state::store::lock_diagnostics::begin(pool, "BEGIN").await?;
-    if crate::state::store::compatibility::unsupported_on(&mut transaction)
-        .await?
-        .contains(id)
+    if crate::state::store::compatibility::unsupported_instance_on(
+        &mut *transaction,
+        id,
+    )
+    .await?
     {
         return Err(crate::ErrorKind::InputError(
             "Unsupported instance recovery descriptor".into(),

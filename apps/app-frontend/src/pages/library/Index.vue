@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import { PlusIcon } from '@modrinth/assets'
 import { Button, defineMessages, injectNotificationManager, NavTabs, useVIntl } from '@modrinth/ui'
-import { shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { NewInstanceImage } from '@/assets/icons'
-import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
-import { DIRECT_LINKS_CHANGED_EVENT } from '@/helpers/direct-link-sync'
-import { instance_groups_listener, instance_listener } from '@/helpers/events.js'
-import { list } from '@/helpers/instance'
+import { useInstanceList } from '@/composables/instances/use-instance-list'
 import { useBreadcrumbs } from '@/store/breadcrumbs.js'
 
 const { handleError } = injectNotificationManager()
@@ -34,19 +30,8 @@ const messages = defineMessages({
 
 breadcrumbs.setRootContext({ name: formatMessage(messages.library), link: route.path })
 
-const { subscribe } = useScopedEventListeners()
-const instances = shallowRef(await list().catch(handleError))
-
-const refreshInstances = async () => {
-    instances.value = await list().catch(handleError)
-}
-
-await subscribe<Event>((callback) => {
-    window.addEventListener(DIRECT_LINKS_CHANGED_EVENT, callback)
-    return () => window.removeEventListener(DIRECT_LINKS_CHANGED_EVENT, callback)
-}, refreshInstances)
-await subscribe(instance_listener, refreshInstances)
-await subscribe(instance_groups_listener, refreshInstances)
+const { data: instances, load } = useInstanceList(handleError)
+if (!instances.value) await load().catch(() => {})
 </script>
 
 <template>
@@ -66,7 +51,10 @@ await subscribe(instance_groups_listener, refreshInstances)
         <template v-if="instances && instances.length > 0">
             <RouterView v-if="route.path.startsWith('/library')" :instances="instances" />
         </template>
-        <div v-else class="no-instance flex flex-col items-center justify-center h-full gap-3">
+        <div
+            v-else-if="instances"
+            class="no-instance flex flex-col items-center justify-center h-full gap-3"
+        >
             <div class="icon">
                 <NewInstanceImage />
             </div>

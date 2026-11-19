@@ -482,13 +482,12 @@ pub async fn screenshot_thumbnail(
 }
 
 pub(crate) async fn local_instance_icon_path(
-    instance_id: &str,
+    base: &Path,
     max_dimension: u32,
 ) -> Result<Option<String>> {
     const LOCAL_ICON_NAMES: [&str; 4] =
         ["icon.png", "icon.jpg", "icon.jpeg", "icon.webp"];
     const MAX_LOCAL_ICON_BYTES: usize = 2 * 1024 * 1024;
-    let base = get_full_path(instance_id).await?;
     let max_dimension = max_dimension.max(1);
 
     for file_name in LOCAL_ICON_NAMES {
@@ -615,7 +614,8 @@ pub async fn instance_icon_thumbnail(
     instance_id: &str,
     max_dimension: u32,
 ) -> Result<Option<String>> {
-    local_instance_icon_path(instance_id, max_dimension).await
+    let base = get_full_path(instance_id).await?;
+    local_instance_icon_path(&base, max_dimension).await
 }
 
 fn thumbnail_error(error: image::ImageError) -> theseus::Error {

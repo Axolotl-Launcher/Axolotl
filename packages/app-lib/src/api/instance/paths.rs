@@ -1,5 +1,5 @@
 use crate::launcher::instance_runtime::InstanceRuntimeAdapter;
-use crate::state::State;
+use crate::state::{DirectoryInfo, Instance, State};
 use crate::util::io;
 use std::path::PathBuf;
 
@@ -11,18 +11,19 @@ pub async fn get_full_path(instance_id: &str) -> crate::Result<PathBuf> {
         .ok_or_else(|| {
             crate::ErrorKind::InputError("Unknown instance".to_string())
         })?;
+    full_path_for_instance(&instance.instance, &state.directories)
+}
 
+/// Resolve an already loaded instance without requerying its metadata.
+pub fn full_path_for_instance(
+    instance: &Instance,
+    directories: &DirectoryInfo,
+) -> crate::Result<PathBuf> {
     // Directly associated instances never have a profile directory under
     // `profiles`; interactive APIs (open folder, worlds, servers, ...) must
     // operate on the linked `.minecraft` instead.
-    let adapter = InstanceRuntimeAdapter::for_instance(
-        &instance.instance,
-        &state.directories,
-    )?;
+    let adapter = InstanceRuntimeAdapter::for_instance(instance, directories)?;
     Ok(io::canonicalize(adapter.game_dir())?)
-
-    // `instance_game_dir` honours a per-instance `game_dir_override` before
-    // falling back to the profile directory.
 }
 
 #[tracing::instrument(skip_all, level = "info")]

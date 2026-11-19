@@ -95,14 +95,6 @@ pub(crate) fn detect_direct_link_source(
     }
 }
 
-/// Returns the stable user-facing group for a directly linked `.minecraft`
-/// root. The complete normalized path is used as the group name so two roots
-/// with the same display folder name remain distinct.
-pub(crate) fn direct_link_group(dot_minecraft: &Path) -> Option<String> {
-    let path = dot_minecraft.to_string_lossy().trim().to_string();
-    (!path.is_empty()).then_some(path)
-}
-
 impl ResolvedDirectLink {
     pub(crate) fn launcher_key(&self) -> &'static str {
         launcher_key(self.launcher)
@@ -833,23 +825,6 @@ mod tests {
         assert_eq!(launcher_key(ImportLauncherType::HMCL), Some("hmcl"));
         assert_eq!(launcher_key(ImportLauncherType::PCL2), Some("pcl2"));
         assert_eq!(launcher_key(ImportLauncherType::PCL2CE), Some("pcl2_ce"));
-    }
-
-    #[test]
-    fn groups_direct_links_by_their_complete_path() {
-        assert_eq!(
-            direct_link_group(&Path::new("A").join(".minecraft")),
-            Some(
-                Path::new("A")
-                    .join(".minecraft")
-                    .to_string_lossy()
-                    .to_string()
-            )
-        );
-        assert_eq!(
-            direct_link_group(Path::new(".minecraft")),
-            Some(".minecraft".to_string())
-        );
     }
 
     #[test]

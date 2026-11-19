@@ -1,5 +1,4 @@
 //! Logic for launching Minecraft
-use crate::api::pack::import::direct_link::direct_link_group;
 use crate::data::ModLoader;
 use crate::event::emit::{emit_instance, emit_loading, init_loading};
 use crate::event::{InstancePayloadType, LoadingBarType};
@@ -1083,12 +1082,6 @@ async fn promote_external_instance_link(
     .await?;
     tx_diagnostics.observe("commit_wait", tx.commit()).await?;
     tx_diagnostics.complete("committed");
-    if let Some(group) = direct_link_group(&direct.dot_minecraft) {
-        crate::state::instance_groups::set_instance_groups(
-            &instance.id,
-            &[group],
-        )?;
-    }
     emit_instance(&instance.id, InstancePayloadType::Edited).await?;
     Ok(())
 }

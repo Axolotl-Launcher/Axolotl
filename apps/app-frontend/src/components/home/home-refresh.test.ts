@@ -1,11 +1,12 @@
 import { expect, it } from 'vitest'
 
-import { createHomeRefresh, homeWorldsChanged } from './home-refresh.ts'
+import { createCoalescedRefresh } from '../../helpers/coalesced-refresh.ts'
+import { homeWorldsChanged } from './home-refresh.ts'
 
 it('bursts share one read, with one trailing read for changes arriving in flight', async () => {
     let calls = 0
     let finish!: () => void
-    const refresh = createHomeRefresh(
+    const refresh = createCoalescedRefresh(
         async () => {
             calls++
             if (calls === 1)
@@ -28,7 +29,7 @@ it('bursts share one read, with one trailing read for changes arriving in flight
 it('disposed pages do not dispatch queued reads', async () => {
     let disposed = false
     let calls = 0
-    const refresh = createHomeRefresh(
+    const refresh = createCoalescedRefresh(
         async () => {
             calls++
         },

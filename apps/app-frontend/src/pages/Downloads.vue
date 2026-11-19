@@ -615,7 +615,7 @@ import {
     useFormatDateTime,
     useVIntl,
 } from '@modrinth/ui'
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useQuery } from '@tanstack/vue-query'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useLocalStorage } from '@vueuse/core'
@@ -624,7 +624,6 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { exportMessages } from '@/components/ui/export/messages'
 import MissingModpackContentModal from '@/components/ui/modal/MissingModpackContentModal.vue'
-import { useAppEvent } from '@/composables/use-app-event'
 import { useDownloadTelemetry } from '@/composables/useDownloadTelemetry'
 import { listPendingCurseForgeManualDownloads } from '@/helpers/curseforge'
 import type { CurseForgeManualDownloadItem } from '@/helpers/curseforge-manual'
@@ -650,7 +649,7 @@ import {
     parallelInstallProgressTextSource,
 } from '@/helpers/install-progress'
 import type { LoadingBar } from '@/helpers/state'
-import { instanceKeys, instanceListQueryOptions } from '@/pages/instance/query-options'
+import { instanceListQueryOptions } from '@/pages/instance/query-options'
 import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
 import { useTheming } from '@/store/state'
@@ -668,15 +667,11 @@ type DownloadItem = InstallJobSnapshot['items'][number]
 
 const manager = injectDownloadManager()
 const themeStore = useTheming()
-const queryClient = useQueryClient()
 const instancesQuery = useQuery(instanceListQueryOptions())
 const instanceNames = computed(
     () =>
         new Map((instancesQuery.data.value ?? []).map((instance) => [instance.id, instance.name])),
 )
-useAppEvent('instance', () => {
-    void queryClient.invalidateQueries({ queryKey: instanceKeys.list() })
-})
 const fileDetailsModal = ref<InstanceType<typeof NewModal>>()
 const selectedFileKey = ref<{ jobId: string; itemId: string } | null>(null)
 const selectedFile = computed(() => {

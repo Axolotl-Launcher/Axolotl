@@ -823,17 +823,20 @@ const LOCAL_INSTANCE_ICON_MAX_DIMENSION: u32 = 256;
 async fn instance_from_metadata(
     metadata: InstanceMetadata,
 ) -> Result<Instance> {
-    let mut instance = Instance::from(metadata);
-    if instance.icon_path.is_none()
-        && let Ok(Some(local_icon)) = local_instance_icon_path(
-            &instance.id,
-            LOCAL_INSTANCE_ICON_MAX_DIMENSION,
+    let mut metadata = metadata;
+    if metadata.instance.icon_path.is_none()
+        && let Ok(state) = State::get().await
+        && let Ok(base) = theseus::instance::full_path_for_instance(
+            &metadata.instance,
+            &state.directories,
         )
-        .await
+        && let Ok(Some(local_icon)) =
+            local_instance_icon_path(&base, LOCAL_INSTANCE_ICON_MAX_DIMENSION)
+                .await
     {
-        instance.icon_path = Some(local_icon);
+        metadata.instance.icon_path = Some(local_icon);
     }
-    Ok(instance)
+    Ok(Instance::from(metadata))
 }
 
 #[tracing::instrument(skip_all, level = "info")]

@@ -48,11 +48,9 @@ import HomeMinecraftNews from '@/components/home/HomeMinecraftNews.vue'
 import HomeMinimal from '@/components/home/HomeMinimal.vue'
 import HomeMinimalCustomizer from '@/components/home/HomeMinimalCustomizer.vue'
 import HomePlayInsights from '@/components/home/HomePlayInsights.vue'
+import { useInstanceList } from '@/composables/instances/use-instance-list'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { get_default_user, users } from '@/helpers/auth'
-import { DIRECT_LINKS_CHANGED_EVENT } from '@/helpers/direct-link-sync'
-import { instance_groups_listener, instance_listener } from '@/helpers/events'
-import { list } from '@/helpers/instance'
 import {
     appSettingsKeys,
     appSettingsQueryOptions,
@@ -123,7 +121,8 @@ const recentProjectsInHomeFlag: FeatureFlag = 'worlds_in_home'
 
 breadcrumbs.setRootContext({ name: formatMessage(messages.home), link: route.path })
 
-const instances = ref<GameInstance[]>([])
+const { data: instanceData, load: loadInstances } = useInstanceList(handleError)
+const instances = computed(() => instanceData.value ?? [])
 const playerName = ref<string | null>(null)
 const playerAccountId = ref<string | null>(null)
 const dashboardConfig = ref<HomeDashboardConfig | null>(null)
@@ -210,20 +209,9 @@ async function clearMissingMinimalInstance() {
     }
 }
 
-let instanceRequest = 0
-async function fetchInstances() {
-    const request = ++instanceRequest
-    try {
-        const result = await list()
-        if (disposed || request !== instanceRequest) return false
-        instances.value = result
-        void clearMissingMinimalInstance()
-        return true
-    } catch (error) {
-        handleError(error)
-        return false
-    }
-}
+watch(instanceData, (data) => {
+    if (data) void clearMissingMinimalInstance()
+})
 
 async function fetchPlayerName() {
     const [selectedUser, accounts] = await Promise.all([
@@ -410,35 +398,17 @@ function openWidgetPicker() {
 }
 
 let disposed = false
-const unlisteners: Array<() => void> = []
-function keepListener(request: Promise<() => void>) {
-    void request
-        .then((unlisten) => {
-            if (disposed) unlisten()
-            else unlisteners.push(unlisten)
-        })
-        .catch(handleError)
-}
-window.addEventListener(DIRECT_LINKS_CHANGED_EVENT, fetchInstances)
-keepListener(
-    instance_listener(() => {
-        if (!disposed) void fetchInstances()
-    }),
-)
-keepListener(
-    instance_groups_listener(() => {
-        if (!disposed) void fetchInstances()
-    }),
-)
 onUnmounted(() => {
     disposed = true
     clearTimeout(sidebarTimer)
-    unlisteners.forEach((unlisten) => unlisten())
-    window.removeEventListener(DIRECT_LINKS_CHANGED_EVENT, fetchInstances)
 })
 
-const [instancesLoaded] = await Promise.all([fetchInstances(), loadDashboardConfig()])
-if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
+const [loadedInstances] = await Promise.all([
+    loadInstances().catch(() => undefined),
+    loadDashboardConfig(),
+])
+if (loadedInstances && !disposed) void clearMissingMinimalInstance()
+if (!loadedInstances || loadedInstances.length > 0) void fetchPlayerName()
 </script>
 
 <template>

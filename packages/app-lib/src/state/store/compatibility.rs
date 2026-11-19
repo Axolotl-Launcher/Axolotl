@@ -1,7 +1,7 @@
 //! Unsupported persistent data is opaque, not absent. Reads may omit it, but
 //! mutation and collection cleanup must not consume its recovery information.
 
-use sqlx::{Executor, SqliteConnection, SqlitePool};
+use sqlx::{Executor, Sqlite, SqliteConnection, SqlitePool};
 use std::collections::HashSet;
 
 const STAGES: &str = "'installed','minecraft_installing','installing','pack_installed','pack_installing','not_installed'";
@@ -21,48 +21,55 @@ fn unsupported(id: &str) -> String {
 pub(crate) async fn unsupported_instances(
     pool: &SqlitePool,
 ) -> crate::Result<HashSet<String>> {
-    let mut connection = pool.acquire().await?;
-    let file: String = sqlx::query_scalar(
-        "SELECT file FROM pragma_database_list WHERE name='main'",
-    )
-    .fetch_one(&mut *connection)
-    .await?;
-    if std::path::Path::new(&file)
-        .file_name()
-        .and_then(|name| name.to_str())
-        != Some("system.db")
-    {
+    if !has_core_protocol(pool) {
         return Ok(HashSet::new());
     }
     // One SELECT supplies a consistent read snapshot without reserving the
     // writer needed by installation, synchronization or recovery publication.
-    Ok(unsupported_on(&mut connection).await?)
+    Ok(unsupported_on(&mut *pool.acquire().await?).await?)
+}
+
+fn has_core_protocol(pool: &SqlitePool) -> bool {
+    pool.connect_options()
+        .get_filename()
+        .file_name()
+        .is_some_and(|name| name == "system.db")
+}
+
+pub(crate) async fn unsupported_instance(
+    pool: &SqlitePool,
+    instance_id: &str,
+) -> crate::Result<bool> {
+    Ok(has_core_protocol(pool)
+        && unsupported_instance_on(pool, instance_id).await?)
+}
+
+pub(crate) async fn unsupported_instance_on<'e>(
+    executor: impl Executor<'e, Database = Sqlite>,
+    instance_id: &str,
+) -> Result<bool, sqlx::Error> {
+    let statement = format!(
+        "SELECT EXISTS(SELECT 1 FROM instances known WHERE known.id=? AND ({}))",
+        unsupported("known.id")
+    );
+    sqlx::query_scalar(sqlx::AssertSqlSafe(statement))
+        .bind(instance_id)
+        .fetch_one(executor)
+        .await
 }
 
 pub(crate) async fn ensure_instance_supported(
     pool: &SqlitePool,
     instance_id: &str,
 ) -> crate::Result<()> {
-    if pool
-        .connect_options()
-        .get_filename()
-        .file_name()
-        .is_none_or(|name| name != "system.db")
-    {
+    if !has_core_protocol(pool) {
         return Ok(());
     }
-    let statement = format!(
-        "SELECT EXISTS(SELECT 1 FROM instances known WHERE known.id=? AND ({}))",
-        unsupported("known.id")
-    );
     let (mut transaction, transaction_diagnostics) =
         crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
             .await?;
     let unsupported =
-        sqlx::query_scalar::<_, bool>(sqlx::AssertSqlSafe(statement))
-            .bind(instance_id)
-            .fetch_one(&mut *transaction)
-            .await?;
+        unsupported_instance_on(&mut *transaction, instance_id).await?;
     transaction_diagnostics
         .observe("commit_wait", transaction.commit())
         .await?;

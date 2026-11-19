@@ -108,6 +108,7 @@ import { themeSuiteMessages } from '@/components/ui/settings/theme-suite/message
 import SplashScreen from '@/components/ui/SplashScreen.vue'
 import UnsavedSelectionModal from '@/components/ui/UnsavedSelectionModal.vue'
 import WindowControls from '@/components/ui/WindowControls.vue'
+import { useInstanceListUpdates } from '@/composables/instances/use-instance-list'
 import { useCheckDisableMouseover } from '@/composables/macCssFix.js'
 import { isOfflineAccountRestrictedError } from '@/composables/useAntiPiracyStatus'
 import { useDropImport } from '@/composables/useDropImport'
@@ -1551,6 +1552,7 @@ async function applyThemeFromSettings(s: Awaited<ReturnType<typeof getSettings>>
 }
 
 const queryClient = useQueryClient()
+useInstanceListUpdates(queryClient, handleError)
 
 async function setupApp() {
     const initialSettings = await getSettings()

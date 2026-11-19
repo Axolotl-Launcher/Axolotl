@@ -22,14 +22,11 @@ vi.mock('@tanstack/vue-query', async () => {
     const { ref } = await import('vue')
     return {
         useQuery: () => ({ data: ref(fixture.instances) }),
-        useQueryClient: () => ({ invalidateQueries: vi.fn() }),
     }
 })
 vi.mock('@/pages/instance/query-options', () => ({
-    instanceKeys: { list: () => ['instances', 'list'] },
     instanceListQueryOptions: () => ({}),
 }))
-vi.mock('@/composables/use-app-event', () => ({ useAppEvent: () => {} }))
 
 // Keep the actual page and ProgressBar; isolate native APIs and unrelated controls.
 vi.mock('@/providers/download-manager', () => ({

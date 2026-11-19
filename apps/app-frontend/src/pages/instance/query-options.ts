@@ -18,6 +18,9 @@ export function instanceListQueryOptions() {
     return queryOptions({
         queryKey: instanceKeys.list(),
         queryFn: list,
+        networkMode: 'always',
+        staleTime: 5_000,
+        retry: false,
     })
 }
 

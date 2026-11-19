@@ -31,9 +31,11 @@ pub(crate) async fn get_instance_metadata(
     instance_id: &str,
     pool: &SqlitePool,
 ) -> crate::Result<Option<InstanceMetadata>> {
-    if crate::state::store::compatibility::unsupported_instances(pool)
-        .await?
-        .contains(instance_id)
+    if crate::state::store::compatibility::unsupported_instance(
+        pool,
+        instance_id,
+    )
+    .await?
     {
         return Err(crate::ErrorKind::InputError(format!(
             "Instance {instance_id} uses unsupported persistent data"

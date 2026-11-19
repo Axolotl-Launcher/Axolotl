@@ -4,17 +4,13 @@ use super::{
 };
 use launcher_observability_mcp::{Server, Snapshot};
 use serde::Serialize;
-use std::sync::{
-    Arc,
-    atomic::{AtomicU64, Ordering},
-};
+use std::sync::Arc;
 use tauri::{Emitter, Manager};
 use tokio::sync::Mutex;
 
 pub(super) const EVENT: &str = "observability-mcp-state-changed";
 /// Fixed loopback port, distinct from the launcher tools MCP on 5219.
 pub(super) const PORT: u16 = 5220;
-static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Serialize)]
 pub(crate) struct ObservabilityMcpState {
@@ -120,10 +116,6 @@ impl Controller {
     }
 }
 
-fn next_generation() -> u64 {
-    (GENERATION.fetch_add(1, Ordering::SeqCst) + 1) << 32
-}
-
 pub async fn initialize(app: &tauri::AppHandle) {
     let service = app.state::<ObservabilityMcpService>();
     let mut controller = service.0.lock().await;
@@ -131,7 +123,6 @@ pub async fn initialize(app: &tauri::AppHandle) {
         return;
     }
     controller.loaded = true;
-    let _ = next_generation();
     let result = (|| match std::fs::read(config_path(app)?) {
         Ok(contents) => {
             serde_json::from_slice(&contents).map_err(|error| error.to_string())

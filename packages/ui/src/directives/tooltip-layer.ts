@@ -38,6 +38,8 @@ export function createTooltipLayer() {
     let generation = 0
     let activation = 0
     let positioned = false
+    /** The owner and trigger box of the last applied position, to tell a move from a handoff. */
+    let tracked: { owner: HTMLElement; left: number; top: number } | undefined
 
     function clearDescription() {
         if (!owner) return
@@ -64,6 +66,7 @@ export function createTooltipLayer() {
         stopAutoUpdate = undefined
         clearDescription()
         owner = null
+        tracked = undefined
         positioner.remove()
         positioner.dataset.state = 'closed'
         positioner.dataset.positioned = 'false'
@@ -87,6 +90,9 @@ export function createTooltipLayer() {
     async function updatePosition(trigger: HTMLElement, placement: Placement) {
         if (owner !== trigger) return
         const request = ++generation
+        // Read the trigger's own box before awaiting: `computePosition` resolves a
+        // frame later, and the movement test below has to compare like with like.
+        const box = trigger.getBoundingClientRect()
         const result = await computePosition(trigger, positioner, {
             placement,
             strategy: 'fixed',
@@ -105,11 +111,27 @@ export function createTooltipLayer() {
         )
             return
 
-        if (positioned) {
-            const box = positioner.getBoundingClientRect()
-            const safeX = Math.max(8, Math.min(box.left, innerWidth - box.width - 8))
-            const safeY = Math.max(8, Math.min(box.top, innerHeight - box.height - 8))
-            if (Math.abs(safeX - box.left) > 1 || Math.abs(safeY - box.top) > 1) {
+        // A surface follows a scrolling or resizing trigger exactly; only a handoff
+        // between grouped triggers is animated. Animating the former would leave the
+        // tooltip trailing its trigger for the length of the transition, which reads
+        // as drift -- and, once the trigger nears an edge, as a tooltip outside the
+        // dialog it belongs to.
+        const tracking =
+            tracked?.owner === trigger &&
+            (Math.abs(box.left - tracked.left) > 0.5 || Math.abs(box.top - tracked.top) > 0.5)
+        tracked = { owner: trigger, left: box.left, top: box.top }
+        positioner.dataset.motion = tracking ? 'track' : 'move'
+
+        // A handoff animates from wherever the surface currently sits, and the new
+        // content can be far wider than the old one. If that starting point is now
+        // outside the viewport, snap it inside first so the glide never begins off
+        // screen. A tracking update needs none of this: it lands exactly, and the
+        // middleware already keeps its target inside the viewport.
+        if (!tracking && positioned) {
+            const current = positioner.getBoundingClientRect()
+            const safeX = Math.max(8, Math.min(current.left, innerWidth - current.width - 8))
+            const safeY = Math.max(8, Math.min(current.top, innerHeight - current.height - 8))
+            if (Math.abs(safeX - current.left) > 1 || Math.abs(safeY - current.top) > 1) {
                 positioner.dataset.positioned = 'false'
                 positioner.style.transform = `translate(${safeX}px, ${safeY}px)`
                 positioner.getBoundingClientRect()

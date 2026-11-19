@@ -21,6 +21,13 @@
     transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Only a handoff between grouped triggers animates. A surface following a
+   scrolling or resizing trigger must land on its exact position in the same
+   frame; animating it leaves the tooltip trailing behind the trigger. */
+.tooltip-positioner[data-positioned='true'][data-motion='track'] {
+    transition: none;
+}
+
 .tooltip-positioner > .tooltip-popper {
     position: relative;
     opacity: 0;

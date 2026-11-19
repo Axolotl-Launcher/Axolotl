@@ -398,7 +398,9 @@ it('isolates saved marker rendering and selection by dimension and preserves the
     vm.workspace.dimension = 'overworld'
     await flushPromises()
     expect(vm.dimensionMarkers).toEqual([overworld])
-    vm.selectAt(point.x, point.y)
+    // The split view can resize the canvas between awaits, so project at click time.
+    const currentPoint = vm.worldToScreen(overworld.x, overworld.z)
+    vm.selectAt(currentPoint.x, currentPoint.y)
     expect(vm.selection).toHaveProperty('markerId', overworld.id)
 })
 

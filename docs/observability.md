@@ -63,6 +63,10 @@ on port 4318. The launcher does not ship a collector or a bundled endpoint.
   allowlisted set of product actions. It cannot send arbitrary attributes,
   names, paths, or user content.
 
+Attribute values are only length-checked; a key that names credentials or user
+content is what keeps such values out. Treat any new instrumented field as
+visible to every local client the user connects.
+
 Attribute and event names are defined in
 `packages/launcher-observability/src/{attrs,events}.rs`. Do not put file paths,
 URLs, account names, instance names, or raw error text in a metric label or
@@ -84,7 +88,10 @@ next to the launcher tools MCP on 5219. It needs no collector and no
   and duration of the last 256 domain spans. Span fields are never read, which
   matches the `skip_all` instrumentation rule above.
 - Turning the setting off stops the listener and drops everything retained. The
-  data never leaves the process and is never written to disk.
+  capture itself never writes to disk and never contacts the network; it is
+  served on loopback to whichever local client the user connects. The
+  `observability_flush` tool forwards to the OTLP providers, so when OTLP export
+  is also enabled a flush pushes whatever those providers still hold.
 
 The MCP exposes five read-only tools: `observability_status`,
 `observability_events`, `observability_metrics`, `observability_spans` and

@@ -75,7 +75,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         label: message('app.observability-mcp.enabled', 'Enable the observability MCP'),
         description: message(
             'app.observability-mcp.enabled-description',
-            'Keep the most recent telemetry in memory so a local AI client can read it.',
+            'Keep the most recent telemetry in memory so a local AI client can read it. Nothing is uploaded, and turning this off drops everything that was kept.',
         ),
     },
     {
@@ -85,7 +85,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         label: message('app.observability-mcp.require-auth', 'Require authentication'),
         description: message(
             'app.observability-mcp.require-auth-description',
-            'Require clients to provide a connection token.',
+            'Require clients to provide a connection token. Changing this setting restarts the listener.',
         ),
     },
     {

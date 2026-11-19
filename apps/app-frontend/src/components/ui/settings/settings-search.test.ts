@@ -178,6 +178,17 @@ it('developer-only settings stay out of the normal search categories', () => {
             (category) => category.id === 'feature-flags',
         ),
     ).toBe(true)
+
+    expect(visibleCategoryIds.has('observability-mcp')).toBe(false)
+    expect(visibleEntries.some((entry) => entry.categoryId === 'observability-mcp')).toBe(false)
+    expect(settingsSearchEntries.some((entry) => entry.categoryId === 'observability-mcp')).toBe(
+        true,
+    )
+    expect(
+        getVisibleSettingsCategoryDefinitions(true).some(
+            (category) => category.id === 'observability-mcp',
+        ),
+    ).toBe(true)
 })
 
 it('settings navigation groups preserve the intended Axolotl information architecture', () => {
@@ -224,6 +235,19 @@ it('Chinese contains every user-facing settings category label', () => {
         if (category.id === 'feature-flags') continue
 
         expect(typeof chineseLocale[category.name.id]?.message, category.name.id).toBe('string')
+    }
+
+    // The search entries are user-facing too, and the fallback to English is
+    // silent, so assert the new labels and descriptions are translated.
+    for (const entry of settingsSearchEntries.filter(
+        (entry) => entry.categoryId === 'observability-mcp',
+    )) {
+        expect(typeof chineseLocale[entry.label.id]?.message, entry.label.id).toBe('string')
+        if (entry.description) {
+            expect(typeof chineseLocale[entry.description.id]?.message, entry.description.id).toBe(
+                'string',
+            )
+        }
     }
 })
 

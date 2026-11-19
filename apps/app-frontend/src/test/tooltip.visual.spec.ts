@@ -249,6 +249,32 @@ it('keeps a handed-off surface hidden until the new owner has been measured', as
     })
 })
 
+it('lands on a resized trigger instead of animating towards it', async () => {
+    applyTheme('dark')
+    const { trigger } = mountTrigger(ref<unknown>('Grows with its label'))
+    trigger.style.cssText = 'position:absolute;top:200px;left:200px;width:80px;height:32px'
+
+    trigger.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    await waitFor(() => (popper() as HTMLElement).parentElement!.style.transform !== '', {
+        label: 'positioning to settle',
+    })
+    const positioner = popper()!.parentElement as HTMLElement
+    expect(getComputedStyle(positioner).transitionDuration).toBe('0.18s')
+
+    // The anchor keeps its top-left and grows, so only its centre moves.
+    trigger.style.width = '200px'
+    await nextFrames(4)
+
+    const surface = popper()!.getBoundingClientRect()
+    const anchor = trigger.getBoundingClientRect()
+    // The centre moved 60px; a surface still animating towards it would be tens of
+    // pixels away after four frames.
+    expect(
+        Math.abs(surface.left + surface.width / 2 - (anchor.left + anchor.width / 2)),
+    ).toBeLessThanOrEqual(1)
+})
+
 it('transfers descriptions on keyboard focus without deleting existing descriptions', async () => {
     const { items } = mountGroup()
     const [a, b] = items.map((item) => item.trigger)

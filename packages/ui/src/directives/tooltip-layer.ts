@@ -41,7 +41,8 @@ export function createTooltipLayer() {
     let activation = 0
     let positioned = false
     /** The owner and trigger box of the last applied position, to tell a move from a handoff. */
-    let tracked: { owner: HTMLElement; left: number; top: number } | undefined
+    let tracked:
+        { owner: HTMLElement; left: number; top: number; width: number; height: number } | undefined
 
     function clearDescription() {
         if (!owner) return
@@ -119,15 +120,27 @@ export function createTooltipLayer() {
         )
             return
 
-        // A surface follows a scrolling or resizing trigger exactly; only a handoff
-        // between grouped triggers is animated. Animating the former would leave the
-        // tooltip trailing its trigger for the length of the transition, which reads
-        // as drift -- and, once the trigger nears an edge, as a tooltip outside the
-        // dialog it belongs to.
+        // A surface follows a trigger that moved or resized under it -- by a scroll,
+        // a layout change, or a sub-pixel step -- exactly; only a handoff between
+        // grouped triggers is animated. Animating a follow would leave the tooltip
+        // trailing its trigger for the length of the transition, which reads as
+        // drift -- and, once the trigger nears an edge, as a tooltip outside the
+        // dialog it belongs to. The comparison is deliberately tight: a trigger that
+        // moved by a fraction of a pixel still moved, and a resize moves its anchor
+        // even when its top-left stays put.
         const tracking =
             tracked?.owner === trigger &&
-            (Math.abs(box.left - tracked.left) > 0.5 || Math.abs(box.top - tracked.top) > 0.5)
-        tracked = { owner: trigger, left: box.left, top: box.top }
+            (Math.abs(box.left - tracked.left) > 0.01 ||
+                Math.abs(box.top - tracked.top) > 0.01 ||
+                Math.abs(box.width - tracked.width) > 0.01 ||
+                Math.abs(box.height - tracked.height) > 0.01)
+        tracked = {
+            owner: trigger,
+            left: box.left,
+            top: box.top,
+            width: box.width,
+            height: box.height,
+        }
         positioner.dataset.motion = tracking ? 'track' : 'move'
 
         // A handoff animates from wherever the surface currently sits, and the new

@@ -7599,25 +7599,25 @@
     "message": "把执行坐标对齐到方块网格"
   },
   "app.lab.command-generator.execute.align.label": {
-    "message": "align · 对齐坐标"
+    "message": "align"
   },
   "app.lab.command-generator.execute.anchored.desc": {
     "message": "改变执行基准点（脚或眼睛），影响 ^ 坐标计算"
   },
   "app.lab.command-generator.execute.anchored.label": {
-    "message": "anchored · 改变基准点"
+    "message": "anchored"
   },
   "app.lab.command-generator.execute.as.desc": {
     "message": "以指定实体作为执行者，位置和朝向不变"
   },
   "app.lab.command-generator.execute.as.label": {
-    "message": "as · 改变执行者"
+    "message": "as"
   },
   "app.lab.command-generator.execute.at.desc": {
     "message": "使用目标的位置和朝向"
   },
   "app.lab.command-generator.execute.at.label": {
-    "message": "at · 改变位置和朝向"
+    "message": "at"
   },
   "app.lab.command-generator.execute.build-first": {
     "message": "请先构建子命令链"
@@ -7752,7 +7752,7 @@
     "message": "切换执行维度，位置坐标不变"
   },
   "app.lab.command-generator.execute.in.label": {
-    "message": "in · 切换维度"
+    "message": "in"
   },
   "app.lab.command-generator.execute.move-down": {
     "message": "下移"
@@ -7764,7 +7764,7 @@
     "message": "根据攻击者、乘客、目标等关系选取执行者"
   },
   "app.lab.command-generator.execute.on.label": {
-    "message": "on · 按关系选择执行者"
+    "message": "on"
   },
   "app.lab.command-generator.execute.picker-title": {
     "message": "可用子命令"
@@ -7839,7 +7839,7 @@
     "message": "在执行位置生成实体，并以该实体为执行者"
   },
   "app.lab.command-generator.execute.summon.label": {
-    "message": "summon · 生成实体作为执行者"
+    "message": "summon"
   },
   "app.lab.command-generator.execute.unless-biome.desc": {
     "message": "如果位置不在指定生物群系则继续"

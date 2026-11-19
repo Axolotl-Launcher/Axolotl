@@ -7599,25 +7599,25 @@
     "message": "Align the execution coordinates to the block grid"
   },
   "app.lab.command-generator.execute.align.label": {
-    "message": "align · Align to block grid"
+    "message": "align"
   },
   "app.lab.command-generator.execute.anchored.desc": {
     "message": "Change the anchor point (feet or eyes) for ^ coordinates"
   },
   "app.lab.command-generator.execute.anchored.label": {
-    "message": "anchored · Change anchor point"
+    "message": "anchored"
   },
   "app.lab.command-generator.execute.as.desc": {
     "message": "Run as the given entity, keeping position and rotation"
   },
   "app.lab.command-generator.execute.as.label": {
-    "message": "as · Change executor"
+    "message": "as"
   },
   "app.lab.command-generator.execute.at.desc": {
     "message": "Use the target's position and rotation"
   },
   "app.lab.command-generator.execute.at.label": {
-    "message": "at · Change position and rotation"
+    "message": "at"
   },
   "app.lab.command-generator.execute.build-first": {
     "message": "Please build the subcommand chain first"
@@ -7752,7 +7752,7 @@
     "message": "Switch the execution dimension, keeping coordinates"
   },
   "app.lab.command-generator.execute.in.label": {
-    "message": "in · Switch dimension"
+    "message": "in"
   },
   "app.lab.command-generator.execute.move-down": {
     "message": "Move down"
@@ -7764,7 +7764,7 @@
     "message": "Pick the executor from a relationship such as attacker, passenger or target"
   },
   "app.lab.command-generator.execute.on.label": {
-    "message": "on · Select executor by relation"
+    "message": "on"
   },
   "app.lab.command-generator.execute.picker-title": {
     "message": "Available subcommands"
@@ -7839,7 +7839,7 @@
     "message": "Summon an entity at the execution position and make it the executor"
   },
   "app.lab.command-generator.execute.summon.label": {
-    "message": "summon · Summon an executor"
+    "message": "summon"
   },
   "app.lab.command-generator.execute.unless-biome.desc": {
     "message": "Continue if the position is NOT in the given biome"

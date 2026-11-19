@@ -754,7 +754,7 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.execute.as.label': {
         id: 'app.lab.command-generator.execute.as.label',
-        defaultMessage: 'as · Change executor',
+        defaultMessage: 'as',
     },
     'app.lab.command-generator.execute.as.desc': {
         id: 'app.lab.command-generator.execute.as.desc',
@@ -762,7 +762,7 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.execute.at.label': {
         id: 'app.lab.command-generator.execute.at.label',
-        defaultMessage: 'at · Change position and rotation',
+        defaultMessage: 'at',
     },
     'app.lab.command-generator.execute.at.desc': {
         id: 'app.lab.command-generator.execute.at.desc',
@@ -770,7 +770,7 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.execute.on.label': {
         id: 'app.lab.command-generator.execute.on.label',
-        defaultMessage: 'on · Select executor by relation',
+        defaultMessage: 'on',
     },
     'app.lab.command-generator.execute.on.desc': {
         id: 'app.lab.command-generator.execute.on.desc',
@@ -819,7 +819,7 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.execute.in.label': {
         id: 'app.lab.command-generator.execute.in.label',
-        defaultMessage: 'in · Switch dimension',
+        defaultMessage: 'in',
     },
     'app.lab.command-generator.execute.in.desc': {
         id: 'app.lab.command-generator.execute.in.desc',
@@ -827,7 +827,7 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.execute.anchored.label': {
         id: 'app.lab.command-generator.execute.anchored.label',
-        defaultMessage: 'anchored · Change anchor point',
+        defaultMessage: 'anchored',
     },
     'app.lab.command-generator.execute.anchored.desc': {
         id: 'app.lab.command-generator.execute.anchored.desc',
@@ -835,7 +835,7 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.execute.align.label': {
         id: 'app.lab.command-generator.execute.align.label',
-        defaultMessage: 'align · Align to block grid',
+        defaultMessage: 'align',
     },
     'app.lab.command-generator.execute.align.desc': {
         id: 'app.lab.command-generator.execute.align.desc',
@@ -843,7 +843,7 @@ const commandCatalogMessages = defineMessages({
     },
     'app.lab.command-generator.execute.summon.label': {
         id: 'app.lab.command-generator.execute.summon.label',
-        defaultMessage: 'summon · Summon an executor',
+        defaultMessage: 'summon',
     },
     'app.lab.command-generator.execute.summon.desc': {
         id: 'app.lab.command-generator.execute.summon.desc',

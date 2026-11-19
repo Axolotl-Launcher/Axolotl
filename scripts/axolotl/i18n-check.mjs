@@ -84,6 +84,13 @@ const allowedUntranslatedMessages = new Set([
     'positioned',
     'rotated',
     'facing',
+    'as',
+    'at',
+    'on',
+    'in',
+    'align',
+    'anchored',
+    'summon',
 ])
 
 function messageText(value) {

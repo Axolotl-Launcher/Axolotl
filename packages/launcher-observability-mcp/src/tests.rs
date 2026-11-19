@@ -511,3 +511,22 @@ async fn stops_listening_after_stop() {
         "listener kept accepting requests after stop"
     );
 }
+
+#[tokio::test]
+async fn restarting_on_the_same_port_immediately_reuses_it() {
+    // The settings toggle stops and starts the listener on a fixed port, so a
+    // stop must release the socket before the caller can bind it again.
+    let port = {
+        let probe = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        probe.local_addr().unwrap().port()
+    };
+    for _ in 0..3 {
+        let server =
+            Server::start(port, String::new(), false, "9.8.7-test", source())
+                .await
+                .expect("bind should succeed after the previous stop");
+        server.stop().await;
+    }
+}

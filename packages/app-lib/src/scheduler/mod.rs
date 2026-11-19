@@ -5,6 +5,7 @@
 
 pub mod aging;
 pub mod bands;
+pub mod bus;
 pub mod bypass;
 pub mod contract;
 #[cfg(test)]

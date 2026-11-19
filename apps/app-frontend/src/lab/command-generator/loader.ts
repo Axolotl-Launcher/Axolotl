@@ -2,6 +2,8 @@ import type {
     BaseDataFile,
     CommandDataFile,
     CommandDefinition,
+    ExecuteChainOptionPatch,
+    ExecuteChainVariantOption,
     PatchDataFile,
     VersionManifest,
 } from './commands/types.ts'
@@ -143,18 +145,47 @@ function applyPatch(base: CommandDefinition[], patch: PatchDataFile): CommandDef
                         const extra = (chainPatch.addedOptions ?? [])
                             .filter((entry) => entry.subcommandId === subcommand.id)
                             .map((entry) => entry.option)
-                        if (!extra.length || !subcommand.variants) return subcommand
+                        const overrides = (chainPatch.patchedOptions ?? []).filter(
+                            (entry) => entry.subcommandId === subcommand.id,
+                        )
+                        if ((!extra.length && !overrides.length) || !subcommand.variants) {
+                            return subcommand
+                        }
                         return {
                             ...subcommand,
                             variants: {
                                 ...subcommand.variants,
-                                options: [...subcommand.variants.options, ...extra],
+                                options: [
+                                    ...subcommand.variants.options.map((option) => {
+                                        const override = overrides.find(
+                                            (entry) => entry.optionId === option.id,
+                                        )
+                                        return override ? patchOption(option, override) : option
+                                    }),
+                                    ...extra,
+                                ],
                             },
                         }
                     }),
             })),
         }
     })
+}
+
+/** 只改列出的参数，没列出的保持原样。 */
+function patchOption(
+    option: ExecuteChainVariantOption,
+    override: ExecuteChainOptionPatch,
+): ExecuteChainVariantOption {
+    const patches = override.arguments ?? []
+    if (!patches.length) return option
+    return {
+        ...option,
+        arguments: option.arguments.map((argument) => {
+            const patch = patches.find((candidate) => candidate.name === argument.name)
+            return patch ? { ...argument, ...patch } : argument
+        }),
+    }
 }
 
 function mergeCommand(

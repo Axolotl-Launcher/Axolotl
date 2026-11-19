@@ -137,6 +137,18 @@ export interface ExecuteChainCategory {
     subcommands: ExecuteChainSubcommand[]
 }
 
+/**
+ * 对已有写法的一次改动：只列要改的参数，其余字段与参数保持原样。
+ *
+ * 用于语法位置不变、只是某个字段换意思的版本差异（26.3 的 `if items`
+ * 把槽位换成槽位来源），整张参数表照抄一遍容易和基础数据走偏。
+ */
+export interface ExecuteChainOptionPatch {
+    subcommandId: string
+    optionId: string
+    arguments?: Array<Partial<CommandArgument> & { name: string }>
+}
+
 export interface CommandDefinition {
     id: string
     name: string
@@ -178,6 +190,11 @@ export interface PatchDataFile {
                 subcommandId: string
                 option: ExecuteChainVariantOption
             }>
+            /**
+             * 按参数名改动已有写法里的参数，例如 26.3 把 `if items` 的槽位换成槽位来源。
+             * 语法位置没变，所以只改字段说明，不重写整张参数表。
+             */
+            patchedOptions?: ExecuteChainOptionPatch[]
         }
     >
     sources?: string[]

@@ -7,6 +7,8 @@ pub mod aging;
 pub mod bands;
 pub mod bypass;
 pub mod contract;
+#[cfg(test)]
+mod declared_holds;
 pub mod eviction;
 pub mod fairness;
 pub mod idle_policy;

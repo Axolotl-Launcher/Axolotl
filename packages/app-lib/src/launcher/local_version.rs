@@ -995,7 +995,19 @@ mod tests {
             json!({"id": "child", "inheritsFrom": "base"}),
         );
         let path = dir.path().join("versions").join("base").join("client.json");
-        for rules in [Value::Null, json!([{"action": "private-test-action"}])] {
+        for (rules, location, expected) in [
+            (Value::Null, "rules", "an array of rules"),
+            (
+                json!([{"action": "private-test-action"}]),
+                "rules[0].action",
+                "allow or disallow",
+            ),
+            (
+                json!([{"action": "allow", "features": {"is_demo_user": "private-test-feature"}}]),
+                "rules[0].features",
+                "an object with boolean feature flags",
+            ),
+        ] {
             write_json(
                 dir.path(),
                 "base",
@@ -1016,9 +1028,17 @@ mod tests {
             .unwrap_err();
             let message = error.to_string();
             assert!(message.contains(&path.display().to_string()), "{message}");
-            assert!(message.contains("patches[1].arguments.jvm[1]"));
-            assert!(!message.contains("private-test-token"));
-            assert!(!message.contains("private-test-action"));
+            assert!(
+                message.contains(&format!(
+                    "patches[1].arguments.jvm[1].{location}"
+                )),
+                "{message}"
+            );
+            assert!(
+                message.contains(&format!("expected {expected}")),
+                "{message}"
+            );
+            assert!(!message.contains("private-test-"));
         }
     }
 
@@ -1038,7 +1058,7 @@ mod tests {
             json!({
                 "id": "child",
                 "inheritsFrom": "base",
-                "arguments": {"game": [{"rules": false, "value": "private-test-token"}]}
+                "arguments": {"game": [{"value": ["private-test-token", 10]}]}
             }),
         );
         let path = dir.path().join("versions/child/client.json");
@@ -1055,7 +1075,10 @@ mod tests {
             let message = error.to_string();
             assert!(message.contains("merged version JSON"));
             assert!(message.contains(&path.display().to_string()));
-            assert!(message.contains("arguments.game[1]"));
+            assert!(message.contains("arguments.game[1].value"));
+            assert!(
+                message.contains("expected a string or an array of strings")
+            );
             assert!(!message.contains("private-test-token"));
         }
     }

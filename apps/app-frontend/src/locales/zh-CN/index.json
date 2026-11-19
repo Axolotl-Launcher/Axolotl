@@ -8876,18 +8876,6 @@
   "app.lab.command-generator.preset.rotation.west": {
     "message": "西 -90"
   },
-  "app.lab.command-generator.preset.sample.insert": {
-    "message": "插入旧版示例"
-  },
-  "app.lab.command-generator.preset.sample.inserted": {
-    "message": "已插入两条旧版预置"
-  },
-  "app.lab.command-generator.preset.sample.migratable": {
-    "message": "旧版示例（可迁移）"
-  },
-  "app.lab.command-generator.preset.sample.string-only": {
-    "message": "旧版示例（仅字符串）"
-  },
   "app.lab.command-generator.preset.save": {
     "message": "保存为预设"
   },

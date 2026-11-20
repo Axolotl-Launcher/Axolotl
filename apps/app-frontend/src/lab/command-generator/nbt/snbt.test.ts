@@ -44,6 +44,12 @@ describe('SNBT 序列化', () => {
         expect(serializeNbtValue(createNbtTag('a', 'double', '1.5'))).toBe('1.5d')
     })
 
+    it('值里已经带了后缀时不会重复补', () => {
+        expect(serializeNbtValue(createNbtTag('a', 'byte', '1b'))).toBe('1b')
+        expect(serializeNbtValue(createNbtTag('a', 'int', '1b'))).toBe('1')
+        expect(serializeNbtValue(createNbtTag('a', 'long', '1L'))).toBe('1L')
+    })
+
     it('三种整型数组按 [B;]/[I;]/[L;] 写出', () => {
         expect(serializeNbtValue(createNbtTag('a', 'byte_array', '1,2'))).toBe('[B;1b,2b]')
         expect(serializeNbtValue(createNbtTag('a', 'int_array', '1,2'))).toBe('[I;1,2]')

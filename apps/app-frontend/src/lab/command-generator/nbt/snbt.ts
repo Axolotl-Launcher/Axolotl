@@ -50,7 +50,12 @@ export function serializeNbtValue(node: NbtTagNode): string {
         case 'long':
         case 'float':
         case 'double': {
-            const text = String(node.value).trim() || '0'
+            // 值本身可能已经带着后缀（用户手写 `5b`，或者从别处粘贴），
+            // 先剥掉再按类型补，否则会输出 `5bb`。
+            const text =
+                String(node.value)
+                    .trim()
+                    .replace(/[bslfd]$/i, '') || '0'
             return `${text}${nbtNumericSuffix(node.type)}`
         }
         case 'string':

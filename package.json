@@ -54,16 +54,7 @@
   "pnpm": {
     "overrides": {
       "typescript": "5.9.3",
-      "@nuxt/devtools": ">=3.3.1 <4.0.0",
       "vue": ">=3.5.44 <4.0.0",
-      "launch-editor": ">=2.14.2 <3.0.0",
-      "shell-quote": ">=1.9.0 <2.0.0",
-      "h3": ">=1.15.9 <2.0.0",
-      "defu": ">=6.1.7 <7.0.0",
-      "devalue": ">=5.9.3 <6.0.0",
-      "nanotar": ">=0.2.1 <0.3.0",
-      "nitropack": ">=2.13.4 <3.0.0",
-      "seroval": ">=1.6.3 <2.0.0",
       "axios": ">=1.20.0 <2.0.0",
       "follow-redirects": ">=1.16.2 <2.0.0",
       "glob": "14.0.3",
@@ -101,9 +92,6 @@
       "source-map-js": ">=1.2.2 <2.0.0",
       "browserslist": ">=4.28.7 <5.0.0",
       "baseline-browser-mapping": ">=2.11.0 <3.0.0",
-      "@nuxt/vite-builder>esbuild": ">=0.28.2 <0.29.0",
-      "nitropack>esbuild": ">=0.28.2 <0.29.0",
-      "srvx": ">=0.11.13 <0.12.0",
       "serialize-javascript": ">=7.0.5 <8.0.0",
       "postcss-selector-parser": ">=7.1.6 <8.0.0",
       "qs": "6.16.1"

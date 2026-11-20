@@ -144,13 +144,8 @@ function fromTag(name: string, tag: NbtTag): NbtTagNode {
         }
     }
 
-    if (isNbtArray({ type })) {
-        const values = Array.from({ length: tag.length }, (_, index) =>
-            tag
-                .get(index)!
-                .toString()
-                .replace(/[bslfd]$/i, ''),
-        )
+    if (tag.isListOrArray()) {
+        const values = tag.getItems().map((item) => item.toString().replace(/[bslfd]$/i, ''))
         return createNbtTag(name, type, values.join(','))
     }
 

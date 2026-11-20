@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { CodeIcon, PlusIcon } from '@modrinth/assets'
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 
 import { errorText } from '@/helpers/error-text'
+import { nodeFromField } from '@/lab/command-generator/nbt/from-spec.ts'
+import { findNbtNode, removeNbtNode } from '@/lab/command-generator/nbt/model.ts'
+import type { NbtDomain, NbtFieldSpec } from '@/lab/command-generator/nbt/schema.ts'
 import {
     createItemNbtTree,
     createNbtTag,
@@ -13,12 +16,17 @@ import {
 } from '@/lab/command-generator/nbt-tree.ts'
 
 import CommandGeneratorNbtNode from './CommandGeneratorNbtNode.vue'
+import CommandGeneratorNbtPalette from './CommandGeneratorNbtPalette.vue'
 
 const props = defineProps<{
     modelValue?: string
     kind?: 'item' | 'entity' | 'generic'
     version?: string
     forceDataComponents?: boolean
+    /** 目录域；不传时按 `kind` 推断（物品 → 组件，其余 → 实体）。 */
+    domain?: NbtDomain
+    /** 已知实体 / 物品 ID 时，搜索面板只列适用于它的字段。 */
+    targetId?: string
 }>()
 
 const emit = defineEmits<{
@@ -34,7 +42,7 @@ const messages = defineMessages({
     },
     addRoot: {
         id: 'app.lab.command-generator.nbt.advanced.add-root',
-        defaultMessage: 'Add root tag',
+        defaultMessage: 'Add tag',
     },
     snbtPreview: {
         id: 'app.lab.command-generator.nbt.advanced.snbt-preview',
@@ -114,7 +122,7 @@ function applyPreset(preset: (typeof presets)[number]) {
 }
 
 function onUpdate(id: string, field: string, value: string) {
-    const node = findNodeById(nodes.value, id)
+    const node = findNbtNode(nodes.value, id)
     if (node) {
         if (field === 'name') node.name = value
         else if (field === 'value') node.value = value
@@ -128,42 +136,56 @@ function onRemove(id: string) {
     publish()
 }
 
-function onAddChild(parentId: string) {
-    const parent = findNodeById(nodes.value, parentId)
-    if (parent) {
-        if (!parent.children) parent.children = []
-        parent.children.push(createNbtTag('new_tag', 'string', ''))
-        publish()
-    }
+const palette = useTemplateRef<InstanceType<typeof CommandGeneratorNbtPalette>>('palette')
+/** 搜索面板添加到的容器；`null` 表示根层。 */
+const paletteParentId = ref<string | null>(null)
+
+const domain = computed<NbtDomain>(
+    () => props.domain ?? (props.kind === 'item' ? 'item' : 'entity'),
+)
+
+const paletteExistingKeys = computed(() => {
+    const target =
+        paletteParentId.value === null
+            ? nodes.value
+            : (findNbtNode(nodes.value, paletteParentId.value)?.children ?? [])
+    return target.map((node) => node.name)
+})
+
+function openPalette(parentId: string | null = null) {
+    paletteParentId.value = parentId
+    palette.value?.show()
 }
 
-function addRootNode() {
-    nodes.value.push(createNbtTag('new_tag', 'string', ''))
+/** 把新节点放到当前目标容器里：根层或某个复合标签的子节点。 */
+function appendNode(node: NbtTagNode) {
+    if (paletteParentId.value === null) {
+        nodes.value.push(node)
+        publish()
+        return
+    }
+    const parent = findNbtNode(nodes.value, paletteParentId.value)
+    if (!parent) return
+    if (!parent.children) parent.children = []
+    parent.children.push(node)
     publish()
 }
 
-function findNodeById(list: NbtTagNode[], id: string): NbtTagNode | undefined {
-    for (const node of list) {
-        if (node.id === id) return node
-        if (node.children) {
-            const found = findNodeById(node.children, id)
-            if (found) return found
-        }
-    }
-    return undefined
+function onPalettePick(spec: NbtFieldSpec) {
+    appendNode(nodeFromField(spec))
+}
+
+function onAddChild(parentId: string) {
+    openPalette(parentId)
+}
+
+/** 手动添加：面板底部的「自己写一个」走这里，落在当前选中的容器里。 */
+function addRootNode() {
+    appendNode(createNbtTag('new_tag', 'string', ''))
 }
 
 function removeNodeById(list: NbtTagNode[], id: string): boolean {
-    for (let i = 0; i < list.length; i++) {
-        if (list[i].id === id) {
-            list.splice(i, 1)
-            return true
-        }
-        if (list[i].children) {
-            if (removeNodeById(list[i].children!, id)) return true
-        }
-    }
-    return false
+    return removeNbtNode(list, id)
 }
 </script>
 
@@ -203,7 +225,7 @@ function removeNodeById(list: NbtTagNode[], id: string): boolean {
             <button
                 class="mt-1 flex items-center gap-2 self-start rounded-lg bg-surface-3 px-3 py-2 text-sm font-medium hover:bg-surface-4 focus-visible:outline-brand"
                 type="button"
-                @click="addRootNode"
+                @click="openPalette(null)"
             >
                 <PlusIcon class="h-4 w-4" />
                 {{ formatMessage(messages.addRoot) }}
@@ -219,5 +241,15 @@ function removeNodeById(list: NbtTagNode[], id: string): boolean {
                 >{{ snbtPreview }}</code
             >
         </div>
+
+        <CommandGeneratorNbtPalette
+            ref="palette"
+            :domain="domain"
+            :version="version ?? '1.21'"
+            :target-id="targetId"
+            :existing-keys="paletteExistingKeys"
+            @pick="onPalettePick"
+            @manual="addRootNode"
+        />
     </div>
 </template>

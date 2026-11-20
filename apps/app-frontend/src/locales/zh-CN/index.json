@@ -7923,7 +7923,7 @@
     "message": "高级模式"
   },
   "app.lab.command-generator.nbt.advanced.add-root": {
-    "message": "添加根节点"
+    "message": "添加标签"
   },
   "app.lab.command-generator.nbt.advanced.preset-custom-name": {
     "message": "自定义名称"
@@ -7937,8 +7937,65 @@
   "app.lab.command-generator.nbt.advanced.title": {
     "message": "高级 NBT 树"
   },
+  "app.lab.command-generator.nbt.category.advanced": {
+    "message": "高级"
+  },
+  "app.lab.command-generator.nbt.category.ai": {
+    "message": "行为"
+  },
+  "app.lab.command-generator.nbt.category.appearance": {
+    "message": "外观"
+  },
+  "app.lab.command-generator.nbt.category.basic": {
+    "message": "通用"
+  },
+  "app.lab.command-generator.nbt.category.combat": {
+    "message": "战斗"
+  },
+  "app.lab.command-generator.nbt.category.data": {
+    "message": "数据"
+  },
+  "app.lab.command-generator.nbt.category.effect": {
+    "message": "状态效果"
+  },
+  "app.lab.command-generator.nbt.category.inventory": {
+    "message": "物品栏"
+  },
+  "app.lab.command-generator.nbt.category.movement": {
+    "message": "移动"
+  },
   "app.lab.command-generator.nbt.child-count": {
     "message": "{count} 个子项"
+  },
+  "app.lab.command-generator.nbt.palette.added": {
+    "message": "已添加"
+  },
+  "app.lab.command-generator.nbt.palette.empty": {
+    "message": "没有匹配的标签，可以手动添加一个。"
+  },
+  "app.lab.command-generator.nbt.palette.manual": {
+    "message": "手动添加自定义标签"
+  },
+  "app.lab.command-generator.nbt.palette.only-applicable": {
+    "message": "只显示适用于 {target} 的标签"
+  },
+  "app.lab.command-generator.nbt.palette.only-applicable-unknown": {
+    "message": "先选一个实体才能按它筛选"
+  },
+  "app.lab.command-generator.nbt.palette.search": {
+    "message": "按名称或说明搜索标签"
+  },
+  "app.lab.command-generator.nbt.palette.show-advanced": {
+    "message": "显示高级标签"
+  },
+  "app.lab.command-generator.nbt.palette.title.block-entity": {
+    "message": "添加方块实体标签"
+  },
+  "app.lab.command-generator.nbt.palette.title.entity": {
+    "message": "添加实体标签"
+  },
+  "app.lab.command-generator.nbt.palette.title.item": {
+    "message": "添加物品组件"
   },
   "app.lab.command-generator.nbt.remove-tag": {
     "message": "移除标签"

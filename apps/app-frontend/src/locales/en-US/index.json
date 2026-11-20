@@ -7923,7 +7923,7 @@
     "message": "Advanced"
   },
   "app.lab.command-generator.nbt.advanced.add-root": {
-    "message": "Add root tag"
+    "message": "Add tag"
   },
   "app.lab.command-generator.nbt.advanced.preset-custom-name": {
     "message": "Custom name"
@@ -7937,8 +7937,65 @@
   "app.lab.command-generator.nbt.advanced.title": {
     "message": "Advanced NBT tree"
   },
+  "app.lab.command-generator.nbt.category.advanced": {
+    "message": "Advanced"
+  },
+  "app.lab.command-generator.nbt.category.ai": {
+    "message": "Behaviour"
+  },
+  "app.lab.command-generator.nbt.category.appearance": {
+    "message": "Appearance"
+  },
+  "app.lab.command-generator.nbt.category.basic": {
+    "message": "General"
+  },
+  "app.lab.command-generator.nbt.category.combat": {
+    "message": "Combat"
+  },
+  "app.lab.command-generator.nbt.category.data": {
+    "message": "Data"
+  },
+  "app.lab.command-generator.nbt.category.effect": {
+    "message": "Effects"
+  },
+  "app.lab.command-generator.nbt.category.inventory": {
+    "message": "Inventory"
+  },
+  "app.lab.command-generator.nbt.category.movement": {
+    "message": "Movement"
+  },
   "app.lab.command-generator.nbt.child-count": {
     "message": "{count} children"
+  },
+  "app.lab.command-generator.nbt.palette.added": {
+    "message": "added"
+  },
+  "app.lab.command-generator.nbt.palette.empty": {
+    "message": "No tag matches. Add it by hand instead."
+  },
+  "app.lab.command-generator.nbt.palette.manual": {
+    "message": "Add a custom tag by hand"
+  },
+  "app.lab.command-generator.nbt.palette.only-applicable": {
+    "message": "Only tags that apply to {target}"
+  },
+  "app.lab.command-generator.nbt.palette.only-applicable-unknown": {
+    "message": "Pick an entity first to filter by it"
+  },
+  "app.lab.command-generator.nbt.palette.search": {
+    "message": "Search tags by name or description"
+  },
+  "app.lab.command-generator.nbt.palette.show-advanced": {
+    "message": "Show advanced tags"
+  },
+  "app.lab.command-generator.nbt.palette.title.block-entity": {
+    "message": "Add block entity tag"
+  },
+  "app.lab.command-generator.nbt.palette.title.entity": {
+    "message": "Add entity tag"
+  },
+  "app.lab.command-generator.nbt.palette.title.item": {
+    "message": "Add item component"
   },
   "app.lab.command-generator.nbt.remove-tag": {
     "message": "Remove tag"

@@ -139,7 +139,7 @@
         "ids": ["hanging_sign"]
       },
       "zh": "允许管理员特性",
-      "desc": "1 or 0 (true/false), defaults to false. If true, the sign will execute run_command, show_dialog, and custom…"
+      "desc": "1 or 0 (true/false), defaults to false. If true, the sign will execute run_command, show_dialog, and custom click events from or when the relevant side of the sign is . Only events on the root component of each line will be executed; click events in nested text components are ignored. Unlike the normal behavior of run_command, commands are not limited by chat restrictions. Commands run with permission level 2 (like command blocks), at the center of the sign block, and as the player who clicked."
     },
     {
       "key": "allow_op_features",
@@ -150,7 +150,7 @@
         "ids": ["sign"]
       },
       "zh": "允许管理员特性",
-      "desc": "1 or 0 (true/false), defaults to false. If true, the sign will execute run_command, show_dialog, and custom…"
+      "desc": "1 or 0 (true/false), defaults to false. If true, the sign will execute run_command, show_dialog, and custom click events from or when the relevant side of the sign is . Only events on the root component of each line will be executed; click events in nested text components are ignored. Unlike the normal behavior of run_command, commands are not limited by chat restrictions. Commands run with permission level 2 (like command blocks), at the center of the sign block, and as the player who clicked."
     },
     {
       "key": "asset_id",
@@ -251,7 +251,7 @@
         "group": "profile"
       },
       "zh": "披风",
-      "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specifi…"
+      "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a cape, overriding the cape texture provided by a profile. If the resolved profile (or lack thereof) does not have a cape, it will gain one. This does not affect the elytra texture."
     },
     {
       "key": "color",
@@ -579,7 +579,7 @@
         "group": "entity"
       },
       "zh": "名称始终显示",
-      "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity,…"
+      "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist."
     },
     {
       "key": "data",
@@ -599,7 +599,7 @@
         "ids": ["mob_spawner"]
       },
       "zh": "延迟",
-      "desc": "Ticks until next spawn. If 0, it spawns immediately when a player enters its range. If set to -1 (this stat…"
+      "desc": "Ticks until next spawn. If 0, it spawns immediately when a player enters its range. If set to -1 (this state never occurs in a natural spawner; it seems to be a feature accessed only via NBT editing), the spawner resets this and SpawnData as though it had just completed a successful spawn cycle, immediately when a player enters its range. Setting this to -1 can be useful if the player wants the game to properly randomize the spawner's Delay and SpawnData, rather than starting with pre-defined values."
     },
     {
       "key": "disabled_slots",
@@ -629,7 +629,7 @@
         "group": "profile"
       },
       "zh": "鞘翅",
-      "desc": "Optional. path to an elytra texture, relative to the textures folder in a resource pack. If specified, this…"
+      "desc": "Optional. path to an elytra texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering an elytra, overriding the elytra texture provided by a profile. This does not affect the cape texture. If omitted and no elytra texture is provided by a profile, the normal elytra texture is used (minecraft:entity/equipment/wings/elytra)."
     },
     {
       "key": "entity",
@@ -777,7 +777,7 @@
         "group": "sign-text-object"
       },
       "zh": "已过滤消息",
-      "desc": "Only in Realms. The lines of text shown to players with the profanity filter turned on instead of the regul…"
+      "desc": "Only in Realms. The lines of text shown to players with the profanity filter turned on instead of the regular lines. This tag is automatically set to \"\" for lines containing blocked words and to the line's normal contents for the other lines when a player with the profanity filter turned off edits the sign, so players with the filter on cannot see the blocked words. If a player with the filter on tries to use blocked words in one or more lines, the line(s) in containing blocked words are set to \"\", which makes them render completely blank, and this tag is also given the same contents. If multiple lines have been edited before the sign editing GUI is closed, only the lines containing blocked words are blanked."
     },
     {
       "key": "final_state",
@@ -938,7 +938,7 @@
         "group": "profile"
       },
       "zh": "ID",
-      "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile…"
+      "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile of a player with that UUID from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given UUID)."
     },
     {
       "key": "ignoreEntities",
@@ -981,7 +981,7 @@
         "group": "entity"
       },
       "zh": "无敌时间",
-      "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks.…"
+      "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds)."
     },
     {
       "key": "is_waxed",
@@ -992,7 +992,7 @@
         "ids": ["hanging_sign"]
       },
       "zh": "已打蜡",
-      "desc": "1 or 0 (true/false), defaults to false. true if the text is locked with honeycomb. Represents the minecraft…"
+      "desc": "1 or 0 (true/false), defaults to false. true if the text is locked with honeycomb. Represents the minecraft:waxed component."
     },
     {
       "key": "is_waxed",
@@ -1003,7 +1003,7 @@
         "ids": ["sign"]
       },
       "zh": "已打蜡",
-      "desc": "1 or 0 (true/false), defaults to false. true if the text is locked with honeycomb. Represents the minecraft…"
+      "desc": "1 or 0 (true/false), defaults to false. true if the text is locked with honeycomb. Represents the minecraft:waxed component."
     },
     {
       "key": "item",
@@ -1035,7 +1035,7 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in the container. Represents the minecraft:container component. The component is still presen…"
+      "desc": "List of items in the container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
     },
     {
       "key": "Items",
@@ -1094,7 +1094,7 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
     },
     {
       "key": "Items",
@@ -1106,7 +1106,7 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
     },
     {
       "key": "Items",
@@ -1118,7 +1118,7 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
     },
     {
       "key": "Items",
@@ -1130,7 +1130,7 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
     },
     {
       "key": "Items",
@@ -1154,7 +1154,7 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
     },
     {
       "key": "Items",
@@ -1166,7 +1166,7 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Does not exist if the shulker box is empty (unlike all other container blo…"
+      "desc": "List of items in this container. Does not exist if the shulker box is empty (unlike all other container blocks with the Items tag, which store an empty list). Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist."
     },
     {
       "key": "Items",
@@ -1202,7 +1202,7 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
     },
     {
       "key": "items_to_drop_when_ominous",
@@ -1233,7 +1233,7 @@
         "group": "blockentity"
       },
       "zh": "保留未加载",
-      "desc": "1 or 0 (true/false) - If true, this is an invalid block entity, and this block is not immediately placed wh…"
+      "desc": "1 or 0 (true/false) - If true, this is an invalid block entity, and this block is not immediately placed when a loaded chunk is loaded. If false, this is a normal block entity that can be immediately placed."
     },
     {
       "key": "last_interacted_slot",
@@ -1527,7 +1527,7 @@
         "group": "lockable"
       },
       "zh": "锁",
-      "desc": "Optional. An item predicate representing the \"key\" to open this container. If the player is not holding an…"
+      "desc": "Optional. An item predicate representing the \"key\" to open this container. If the player is not holding an item that passes this predicate in their main hand, they cannot open the container. Does not exist if empty. Represents the minecraft:lock component."
     },
     {
       "key": "loot_tables_to_eject",
@@ -1537,7 +1537,7 @@
         "group": "trial-spawner-config"
       },
       "zh": "待喷出战利品表",
-      "desc": "Defaults to a list of minecraft:spawners/trial_chamber/consumables and minecraft:spawners/trial_chamber/key…"
+      "desc": "Defaults to a list of minecraft:spawners/trial_chamber/consumables and minecraft:spawners/trial_chamber/key, both with weight 1 — List of possible loot tables to give as reward."
     },
     {
       "key": "LootTable",
@@ -1547,7 +1547,7 @@
         "group": "lootable"
       },
       "zh": "战利品表",
-      "desc": "Optional. Name of the loot table to use. If this is used in a chest-like container, the loot table generate…"
+      "desc": "Optional. Name of the loot table to use. If this is used in a chest-like container, the loot table generates its content when it is opened. Generating the items in the container removes both loot table tags ( and ). Represents the loot_table field of the minecraft:container_loot component."
     },
     {
       "key": "LootTableSeed",
@@ -1557,7 +1557,7 @@
         "group": "lootable"
       },
       "zh": "战利品表种子",
-      "desc": "Optional. Seed for generating the loot table. The default value works similarly to the seeds for worlds, wh…"
+      "desc": "Optional. Seed for generating the loot table. The default value works similarly to the seeds for worlds, where value of 0 or an omitted value causes the game to use a random seed. If set to 0, the tag is removed. Cannot exist unless the tag is also present. Represents the seed field of the minecraft:container_loot component."
     },
     {
       "key": "Lunar",
@@ -1577,7 +1577,7 @@
         "ids": ["mob_spawner"]
       },
       "zh": "附近实体上限",
-      "desc": "Overrides the maximum number of nearby (within a box of SpawnRange*2+1 × SpawnRange*2+1 × 8 centered around…"
+      "desc": "Overrides the maximum number of nearby (within a box of SpawnRange*2+1 × SpawnRange*2+1 × 8 centered around the spawner block) entities whose IDs match this spawner's entity ID. This is relative to a mob's hitbox, not its physical position. Also, all entities within all chunk sections (16×16×16 cubes) overlapped by this box are tested for their ID and hitbox overlap, rather than just entities within the box, meaning that a large amount of entities outside the box (or within it, of course) can cause substantial lag."
     },
     {
       "key": "MaxSpawnDelay",
@@ -1628,7 +1628,7 @@
         "ids": ["structure_block"]
       },
       "zh": "镜像",
-      "desc": "How the structure is mirrored, one of \"NONE\", \"LEFT_RIGHT\" (mirrored over X axis when not rotated), or \"FRO…"
+      "desc": "How the structure is mirrored, one of \"NONE\", \"LEFT_RIGHT\" (mirrored over X axis when not rotated), or \"FRONT_BACK\" (mirrored over Z axis when not rotated)."
     },
     {
       "key": "mode",
@@ -1648,7 +1648,7 @@
         "group": "profile"
       },
       "zh": "模型",
-      "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model…"
+      "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model type provided by a profile. If omitted and no model type is provided by a profile, a slim model type is used."
     },
     {
       "key": "Motion",
@@ -1669,7 +1669,7 @@
         "ids": ["jigsaw"]
       },
       "zh": "名称",
-      "desc": "The jigsaw block's name. This jigsaw block gets aligned with another structure's jigsaw block that has this…"
+      "desc": "The jigsaw block's name. This jigsaw block gets aligned with another structure's jigsaw block that has this value in the target tag."
     },
     {
       "key": "name",
@@ -1689,7 +1689,7 @@
         "group": "profile"
       },
       "zh": "名称",
-      "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive…"
+      "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive than actual player usernames, which must be 3-16 characters and may only contain letters, numbers, and underscores). If no other profile fields are specified, this is used to dynamically request the profile of a player with that username from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given name)."
     },
     {
       "key": "next_mob_spawns_at",
@@ -1720,7 +1720,7 @@
         "ids": ["trial_spawner"]
       },
       "zh": "普通配置",
-      "desc": "(optional) One trial spawner configuration (an ID, or a new trial spawner configuration definition) — The c…"
+      "desc": "(optional) One trial spawner configuration (an ID, or a new trial spawner configuration definition) — The configuration to use when not ominous."
     },
     {
       "key": "note_block_sound",
@@ -1730,7 +1730,7 @@
         "ids": ["skull"]
       },
       "zh": "音符盒音效",
-      "desc": "Optional. If this block is a player head, this is the sound event produced by the note block that this head…"
+      "desc": "Optional. If this block is a player head, this is the sound event produced by the note block that this head is placed on. Does nothing if present on any other head or skull type. Represents the minecraft:note_block_sound component."
     },
     {
       "key": "ominous_config",
@@ -1740,7 +1740,7 @@
         "ids": ["trial_spawner"]
       },
       "zh": "不祥配置",
-      "desc": "(optional) One trial spawner configuration (an ID, or a new trial spawner configuration definition) — The c…"
+      "desc": "(optional) One trial spawner configuration (an ID, or a new trial spawner configuration definition) — The configuration to use when ominous. The following fields are used to keep track of the current state of the trial spawner."
     },
     {
       "key": "OnGround",
@@ -1894,7 +1894,7 @@
         "ids": ["beacon"]
       },
       "zh": "主要效果",
-      "desc": "Optional. The primary effect selected, see Potion effects for resource locations. Cannot be set to an effec…"
+      "desc": "Optional. The primary effect selected, see Potion effects for resource locations. Cannot be set to an effect that beacons do not normally use. Although Regeneration cannot normally be chosen as the primary effect, setting this value to minecraft:regeneration works and even allows Regeneration II to be chosen as the secondary via the normal beacon GUI."
     },
     {
       "key": "profile",
@@ -1904,7 +1904,7 @@
         "ids": ["skull"]
       },
       "zh": "玩家档案",
-      "desc": "Optional. The textures and/or player profile used to render a player head. If specified as a string, it cor…"
+      "desc": "Optional. The textures and/or player profile used to render a player head. If specified as a string, it corresponds to and is always saved as a compound. If omitted, a the wide Steve skin is used. Does nothing if present on any other head or skull type. Represents the minecraft:profile component."
     },
     {
       "key": "progress",
@@ -1914,7 +1914,7 @@
         "ids": ["piston"]
       },
       "zh": "进度",
-      "desc": "How far the block has been moved. Starts at 0.0, and increments by 0.5 each tick, including the tick on whi…"
+      "desc": "How far the block has been moved. Starts at 0.0, and increments by 0.5 each tick, including the tick on which moving the piston is created. If the value is 1.0 or higher at the start of a tick of the block entity (before incrementing), then the block transforms into the stored blockState. Negative values can be used to increase the time until transformation."
     },
     {
       "key": "properties",
@@ -1934,7 +1934,7 @@
         "group": "profile"
       },
       "zh": "属性",
-      "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are…"
+      "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component."
     },
     {
       "key": "RecipesUsed",
@@ -2011,7 +2011,7 @@
         "ids": ["trial_spawner"]
       },
       "zh": "已登记玩家",
-      "desc": "A set of player UUIDs. — All the players that have joined the battle. The length of this array determines t…"
+      "desc": "A set of player UUIDs. — All the players that have joined the battle. The length of this array determines the amount of mobs and amount of rewards."
     },
     {
       "key": "required_player_range",
@@ -2061,14 +2061,14 @@
           "type": "float",
           "category": "data",
           "zh": "第一项",
-          "desc": "The entity's yaw. Yaw is rotation about the Y axis. It is measured in degrees and ranges from -180 to +180.…"
+          "desc": "The entity's yaw. Yaw is rotation about the Y axis. It is measured in degrees and ranges from -180 to +180. The yaw increases as the entity turns clockwise (right from their perspective). A yaw of 0 means the entity is facing south. See table of specific values here: Rotation (yaw)."
         },
         {
           "key": "1",
           "type": "float",
           "category": "data",
           "zh": "第二项",
-          "desc": "The entity's pitch. Pitch is rotation about the local X axis after yaw is applied. It is measured in degree…"
+          "desc": "The entity's pitch. Pitch is rotation about the local X axis after yaw is applied. It is measured in degrees and ranges from -90 to +90. A pitch of 0 means the entity is facing parallel to the ground or directly towards the horizon. The pitch increases as the entity looks downwards, so a pitch of 90 is facing directly down and a pitch of -90 facing directly up."
         }
       ]
     },
@@ -2080,7 +2080,7 @@
         "ids": ["beacon"]
       },
       "zh": "次要效果",
-      "desc": "Optional. The secondary effect selected, see Potion effects for resource locations. Cannot be set to an eff…"
+      "desc": "Optional. The secondary effect selected, see Potion effects for resource locations. Cannot be set to an effect that beacons do not normally use. When set without a primary effect, does nothing. When set to the same as the primary, the effect is given at level 2 (the normally available behavior for 5 effects). When set to a different value than the primary (normally only Regeneration), gives the effect at level 1."
     },
     {
       "key": "seed",
@@ -2124,7 +2124,7 @@
           "type": "long",
           "category": "data",
           "zh": "状态恢复时间",
-          "desc": "The game time when the vault processes block state changes, such as changing from unlocking to ejecting aft…"
+          "desc": "The game time when the vault processes block state changes, such as changing from unlocking to ejecting after a delay."
         },
         {
           "key": "items_to_eject",
@@ -2184,7 +2184,7 @@
         "ids": ["decorated_pot"]
       },
       "zh": "陶片",
-      "desc": "A map for face to the item stacks. Represents the minecraft:pot_decorations component. Item stacks with the…",
+      "desc": "A map for face to the item stacks. Represents the minecraft:pot_decorations component. Item stacks with the minecraft:provides_pottery_pattern component define the face texture.",
       "children": [
         {
           "key": "left",
@@ -2307,7 +2307,7 @@
         "ids": ["piston"]
       },
       "zh": "来源",
-      "desc": "1 or 0 (true/false) – true if the block represents the piston head itself, false if it represents a block b…"
+      "desc": "1 or 0 (true/false) – true if the block represents the piston head itself, false if it represents a block being pushed."
     },
     {
       "key": "spawn_data",
@@ -2317,7 +2317,7 @@
         "ids": ["trial_spawner"]
       },
       "zh": "生成数据",
-      "desc": "The next mob to attempt to spawn. Selected from after the last attempt. Determines the mob displayed in the…"
+      "desc": "The next mob to attempt to spawn. Selected from after the last attempt. Determines the mob displayed in the spawner."
     },
     {
       "key": "spawn_potentials",
@@ -2368,7 +2368,7 @@
         "ids": ["mob_spawner"]
       },
       "zh": "可能生成项",
-      "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft g…"
+      "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft generates it the next time the spawner tries to spawn an entity. The generated list contains a single entry derived from the SpawnData tag."
     },
     {
       "key": "SpawnRange",
@@ -2409,7 +2409,7 @@
         "ids": ["jigsaw"]
       },
       "zh": "目标",
-      "desc": "The jigsaw block's target name. This jigsaw block gets aligned with another structure's jigsaw block that h…"
+      "desc": "The jigsaw block's target name. This jigsaw block gets aligned with another structure's jigsaw block that has this value in the name tag."
     },
     {
       "key": "Target",
@@ -2440,7 +2440,7 @@
         "group": "profile"
       },
       "zh": "纹理",
-      "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If…"
+      "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a player model or skin, overriding the skin texture provided by a profile. This skin texture may have transparent pixels on the inner body layers whereas resolved skins' are always opaque. If omitted and no skin is provided by a profile, the slim Alex skin is used (minecraft:entity/player/slim/alex)."
     },
     {
       "key": "ticks_between_spawn",
@@ -2472,7 +2472,7 @@
         "group": "entity"
       },
       "zh": "冰冻刻数",
-      "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in p…"
+      "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing."
     },
     {
       "key": "total_mobs",
@@ -2555,7 +2555,7 @@
         "ids": ["command_block"]
       },
       "zh": "更新上次执行",
-      "desc": "1 or 0 (true/false) - Defaults to true. If set to false, loops can be created where the same command block…"
+      "desc": "1 or 0 (true/false) - Defaults to true. If set to false, loops can be created where the same command block can run multiple times in one tick."
     },
     {
       "key": "UUID",

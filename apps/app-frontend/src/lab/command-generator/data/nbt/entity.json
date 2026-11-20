@@ -430,7 +430,7 @@
         "ids": ["area_effect_cloud"]
       },
       "zh": "成长时间",
-      "desc": "Age of the field. Increases by 1 every tick. When this is bigger than Duration + WaitTime the area effect c…"
+      "desc": "Age of the field. Increases by 1 every tick. When this is bigger than Duration + WaitTime the area effect cloud dissipates."
     },
     {
       "key": "Age",
@@ -512,7 +512,7 @@
         "group": "angerable"
       },
       "zh": "怒气结束时间",
-      "desc": "Ticks until the mob becomes neutral. Depletes by 1 every tick if the value is greater than 0 and the target…"
+      "desc": "Ticks until the mob becomes neutral. Depletes by 1 every tick if the value is greater than 0 and the target is a player beyond detection radius or a mob within detection radius. Set to 0 when mob targets exit detection radius or are killed. For bees, depletes by 1 every tick for player targets regardless of detection radius, and is set to 0 when target is stung. When aggravated, value is set to a random number between 400 and 800."
     },
     {
       "key": "angry_at",
@@ -584,7 +584,7 @@
         "group": "mob"
       },
       "zh": "属性",
-      "desc": "A list of attributes for this mob. These are used for many purposes in internal calculations, and can be co…"
+      "desc": "A list of attributes for this mob. These are used for many purposes in internal calculations, and can be considered a mob's \"statistics\". Valid attributes for a given mob are listed in the main article."
     },
     {
       "key": "background",
@@ -595,7 +595,7 @@
         "ids": ["text_display"]
       },
       "zh": "背景",
-      "desc": "The background color, arranged by ARGB. Since pixels with an alpha channel less than 0.1 are discarded when…"
+      "desc": "The background color, arranged by ARGB. Since pixels with an alpha channel less than 0.1 are discarded when rendering in vanilla shader, the background becomes fully transparent when A is less than 26 (0x1A). Defaults to 1073741824 (0x40000000). Interpolated."
     },
     {
       "key": "BatFlags",
@@ -742,7 +742,7 @@
         "ids": ["camel"]
       },
       "zh": "繁殖冷却",
-      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with this flag set."
     },
     {
       "key": "Bred",
@@ -752,7 +752,7 @@
         "ids": ["camel_husk"]
       },
       "zh": "繁殖冷却",
-      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with this flag set."
     },
     {
       "key": "Bred",
@@ -762,7 +762,7 @@
         "ids": ["donkey"]
       },
       "zh": "繁殖冷却",
-      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with this flag set."
     },
     {
       "key": "Bred",
@@ -772,7 +772,7 @@
         "ids": ["horse"]
       },
       "zh": "繁殖冷却",
-      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with this flag set."
     },
     {
       "key": "Bred",
@@ -782,7 +782,7 @@
         "ids": ["llama"]
       },
       "zh": "繁殖冷却",
-      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with this flag set."
     },
     {
       "key": "Bred",
@@ -792,7 +792,7 @@
         "ids": ["mule"]
       },
       "zh": "繁殖冷却",
-      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with this flag set."
     },
     {
       "key": "Bred",
@@ -802,7 +802,7 @@
         "ids": ["skeleton_horse"]
       },
       "zh": "繁殖冷却",
-      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with this flag set."
     },
     {
       "key": "Bred",
@@ -812,7 +812,7 @@
         "ids": ["trader_llama"]
       },
       "zh": "繁殖冷却",
-      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with this flag set."
     },
     {
       "key": "Bred",
@@ -822,7 +822,7 @@
         "ids": ["zombie_horse"]
       },
       "zh": "繁殖冷却",
-      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with this flag set."
     },
     {
       "key": "brightness",
@@ -929,7 +929,7 @@
         "group": "raidable"
       },
       "zh": "可加入袭击",
-      "desc": "1 or 0 (true/false) - If false, the entity will not participate in raids and will not be counted in the pro…"
+      "desc": "1 or 0 (true/false) - If false, the entity will not participate in raids and will not be counted in the progress bar."
     },
     {
       "key": "CannotBeHunted",
@@ -981,7 +981,7 @@
         "group": "profile"
       },
       "zh": "披风",
-      "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specifi…"
+      "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a cape, overriding the cape texture provided by a profile. If the resolved profile (or lack thereof) does not have a cape, it will gain one. This does not affect the elytra texture."
     },
     {
       "key": "carriedBlockState",
@@ -1041,7 +1041,7 @@
         "ids": ["cat"]
       },
       "zh": "项圈颜色",
-      "desc": "The color of the cat's collar. Present even for stray cats (but does not render). Assuming no custom data p…"
+      "desc": "The color of the cat's collar. Present even for stray cats (but does not render). Assuming no custom data packs, this is always a value from the table below. The default is 14, corresponding to red."
     },
     {
       "key": "CollarColor",
@@ -1051,7 +1051,7 @@
         "ids": ["wolf"]
       },
       "zh": "项圈颜色",
-      "desc": "The color of the wolf's collar. Present even for wild wolves (but does not render). Assuming no custom data…"
+      "desc": "The color of the wolf's collar. Present even for wild wolves (but does not render). Assuming no custom data packs, this is always a value from the table below. The default is 14, corresponding to red."
     },
     {
       "key": "color",
@@ -1081,7 +1081,7 @@
         "ids": ["shulker"]
       },
       "zh": "颜色",
-      "desc": "The color of the shulker. Default is 0 (white). Shulkers that spawn naturally in end cities or that are spa…"
+      "desc": "The color of the shulker. Default is 0 (white). Shulkers that spawn naturally in end cities or that are spawned from shulker spawn eggs have value 16 (not dyed). Represents the minecraft:shulker/color component, with 16 encoding the absence of the component."
     },
     {
       "key": "Color",
@@ -1121,7 +1121,7 @@
         "ids": ["zombie_villager"]
       },
       "zh": "转化时间",
-      "desc": "-1 when not being converted back to a villager, positive for the number of ticks until conversion back into…"
+      "desc": "-1 when not being converted back to a villager, positive for the number of ticks until conversion back into a villager. The regeneration effect parallels this."
     },
     {
       "key": "count",
@@ -1307,7 +1307,7 @@
         "group": "entity"
       },
       "zh": "名称始终显示",
-      "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity,…"
+      "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist."
     },
     {
       "key": "damage",
@@ -1318,7 +1318,7 @@
         "group": "arrow"
       },
       "zh": "伤害",
-      "desc": "Damage multiplier of the projectile. Defaults to 2. If shot from a bow, this is increased by a flat 0.5 if…"
+      "desc": "Damage multiplier of the projectile. Defaults to 2. If shot from a bow, this is increased by a flat 0.5 if any level of Power is present. 0.5 is then added for each level of Power over the first (i.e Power I would result in 3.0, Power II would result in 3.5, etc.)[]"
     },
     {
       "key": "dangerous",
@@ -1329,7 +1329,7 @@
         "ids": ["wither_skull"]
       },
       "zh": "危险",
-      "desc": ": 1 or 0 (true/false) - If true, the wither skull renders as blue, moves more slowly, and ignores the hardn…"
+      "desc": "1 or 0 (true/false) - If true, the wither skull renders as blue, moves more slowly, and ignores the hardness values of most blocks upon exploding."
     },
     {
       "key": "DarkTicksRemaining",
@@ -1371,7 +1371,7 @@
         "ids": ["trident"]
       },
       "zh": "已造成伤害",
-      "desc": "1 or 0 (true/false) - If true, the trident has already damaged an entity or been stuck in the ground for mo…"
+      "desc": "1 or 0 (true/false) - If true, the trident has already damaged an entity or been stuck in the ground for more than 4 ticks, in which case subsequent collisions with entities deal no damage and Loyalty tridents begin to return to the player."
     },
     {
       "key": "DeathTime",
@@ -1403,7 +1403,7 @@
         "ids": ["spawner_minecart"]
       },
       "zh": "延迟",
-      "desc": "Ticks until next spawn. If 0, it spawns immediately when a player enters its range. If set to -1 (this stat…"
+      "desc": "Ticks until next spawn. If 0, it spawns immediately when a player enters its range. If set to -1 (this state never occurs in a natural spawner; it seems to be a feature accessed only via NBT editing), the spawner resets this and SpawnData as though it had just completed a successful spawn cycle, immediately when a player enters its range. Setting this to -1 can be useful if the player wants the game to properly randomize the spawner's Delay and SpawnData, rather than starting with pre-defined values."
     },
     {
       "key": "description",
@@ -1473,7 +1473,7 @@
         "group": "vehicle"
       },
       "zh": "显示偏移",
-      "desc": "Optional. The offset of the block displayed in the Minecart in pixels. Positive values move the block upwar…"
+      "desc": "Optional. The offset of the block displayed in the Minecart in pixels. Positive values move the block upward, while negative values move it downward. A value of 16 moves the block up by exactly one multiple of its height."
     },
     {
       "key": "DisplayState",
@@ -1818,7 +1818,7 @@
         "group": "profile"
       },
       "zh": "鞘翅",
-      "desc": "Optional. path to an elytra texture, relative to the textures folder in a resource pack. If specified, this…"
+      "desc": "Optional. path to an elytra texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering an elytra, overriding the elytra texture provided by a profile. This does not affect the cape texture. If omitted and no elytra texture is provided by a profile, the normal elytra texture is used (minecraft:entity/equipment/wings/elytra)."
     },
     {
       "key": "Enabled",
@@ -1851,7 +1851,7 @@
         "ids": ["player"]
       },
       "zh": "进入下界位置",
-      "desc": "May not exist. A list of 3 doubles, describing the Overworld position from which the player entered the Net…",
+      "desc": "May not exist. A list of 3 doubles, describing the Overworld position from which the player entered the Nether. Used by the nether_travel advancement trigger. Set every time the player passes through a portal from the Overworld to the Nether. When entering a dimension other than the nether (not by respawning) this tag is removed. Entering the Nether without using a portal does not update this tag.",
       "children": [
         {
           "key": "x",
@@ -2044,7 +2044,7 @@
         "ids": ["tnt_minecart"]
       },
       "zh": "爆炸威力",
-      "desc": "A value from 0 to 128. Additional explosion power, which is added to the speed-based explosion power. Defau…"
+      "desc": "A value from 0 to 128. Additional explosion power, which is added to the speed-based explosion power. Defaults to 4.0. If set to the default value, this field is not saved to the entity's NBT."
     },
     {
       "key": "explosion_power",
@@ -2055,7 +2055,7 @@
         "ids": ["tnt"]
       },
       "zh": "爆炸威力",
-      "desc": "A value from 0 to 128. The power of the explosion. Defaults to 4.0. If set to the default value, this field…"
+      "desc": "A value from 0 to 128. The power of the explosion. Defaults to 4.0. If set to the default value, this field is not saved to the entity's NBT."
     },
     {
       "key": "explosion_speed_factor",
@@ -2201,7 +2201,7 @@
         "ids": ["glow_item_frame"]
       },
       "zh": "固定位置",
-      "desc": "1, or 0 (true/false) - If true: the item frame does not drop when it has no support block, it can not be mo…"
+      "desc": "1, or 0 (true/false) - If true: the item frame does not drop when it has no support block, it can not be moved by pistons, and it won't take damage (except from creative players). An item cannot be placed in or removed from a fixed item frame. The item in a fixed item frame (if any) can not be rotated."
     },
     {
       "key": "Fixed",
@@ -2212,7 +2212,7 @@
         "ids": ["item_frame"]
       },
       "zh": "固定位置",
-      "desc": "1, or 0 (true/false) - If true: the item frame does not drop when it has no support block, it can not be mo…"
+      "desc": "1, or 0 (true/false) - If true: the item frame does not drop when it has no support block, it can not be moved by pistons, and it won't take damage (except from creative players). An item cannot be placed in or removed from a fixed item frame. The item in a fixed item frame (if any) can not be rotated."
     },
     {
       "key": "flower_pos",
@@ -2445,7 +2445,7 @@
         "ids": ["creeper"]
       },
       "zh": "引信时间",
-      "desc": "States the initial value of the creeper's internal fuse timer (does not affect creepers that fall and explo…"
+      "desc": "States the initial value of the creeper's internal fuse timer (does not affect creepers that fall and explode upon impacting their victim). The internal fuse timer returns to this value if the creeper is no longer within attack range. Default 30."
     },
     {
       "key": "glow_color_override",
@@ -2456,7 +2456,7 @@
         "group": "display-entity"
       },
       "zh": "发光颜色覆盖",
-      "desc": "Overrides the glow border color. If -1, uses the color of the team that the display entity is in. Defaults…"
+      "desc": "Overrides the glow border color. If -1, uses the color of the team that the display entity is in. Defaults to -1. Is not preserved when removed. Glowing does not work on text displays."
     },
     {
       "key": "Glowing",
@@ -2581,7 +2581,7 @@
         "ids": ["experience_orb"]
       },
       "zh": "生命值",
-      "desc": "The health of XP orbs. XP orbs take damage from fire, lava, falling anvils, and explosions. The orb is dest…"
+      "desc": "The health of XP orbs. XP orbs take damage from fire, lava, falling anvils, and explosions. The orb is destroyed when its health reaches 0."
     },
     {
       "key": "Health",
@@ -2623,7 +2623,7 @@
         "group": "display-entity"
       },
       "zh": "高度",
-      "desc": "The maximum height of the entity. Rendering culling bounding box spans vertically y to y+height, and the pa…"
+      "desc": "The maximum height of the entity. Rendering culling bounding box spans vertically y to y+height, and the part beyond will be culled. If set to 0, no culling on both vertical and horizontal directions. Defaults to 0."
     },
     {
       "key": "hidden_layers",
@@ -2675,7 +2675,7 @@
         "group": "mob"
       },
       "zh": "家位置",
-      "desc": "The mob's \"home\" position. Mobs will limit their pathfinding to stay within the indicated area. Some mobs,…"
+      "desc": "The mob's \"home\" position. Mobs will limit their pathfinding to stay within the indicated area. Some mobs, like bats, slimes, magma cubes, phantoms and ender dragons may ignore it. Interacting with leashes or riding may change the home position of the mob. For creakings, this is the position of their creaking heart."
     },
     {
       "key": "home_radius",
@@ -2774,7 +2774,7 @@
         "group": "profile"
       },
       "zh": "ID",
-      "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile…"
+      "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile of a player with that UUID from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given UUID)."
     },
     {
       "key": "ignited",
@@ -2886,7 +2886,7 @@
       },
       "editor": "item_list",
       "zh": "物品栏",
-      "desc": "List of items the allay has picked up. This list can contain at most one compound tag. The item given by th…"
+      "desc": "List of items the allay has picked up. This list can contain at most one compound tag. The item given by the player to the allay is stored in its equipment.mainhand tag, not here."
     },
     {
       "key": "Inventory",
@@ -3018,7 +3018,7 @@
         "group": "entity"
       },
       "zh": "无敌时间",
-      "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks.…"
+      "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds)."
     },
     {
       "key": "InWaterTime",
@@ -3240,7 +3240,7 @@
         "ids": ["hoglin"]
       },
       "zh": "免疫僵尸化",
-      "desc": "1 or 0 (true/false) – if true, the hoglin does not transform to a zoglin when in the Overworld and TimeInOv…"
+      "desc": "1 or 0 (true/false) – if true, the hoglin does not transform to a zoglin when in the Overworld and TimeInOverworld does not increment."
     },
     {
       "key": "IsImmuneToZombification",
@@ -3260,7 +3260,7 @@
         "ids": ["piglin_brute"]
       },
       "zh": "免疫僵尸化",
-      "desc": "1 or 0 (true/false) – if true, the piglin brute does not transform to a zombified piglin when in the Overwo…"
+      "desc": "1 or 0 (true/false) – if true, the piglin brute does not transform to a zombified piglin when in the Overworld."
     },
     {
       "key": "IsScreamingGoat",
@@ -3430,7 +3430,7 @@
         "ids": ["glow_item_frame"]
       },
       "zh": "物品",
-      "desc": "The item placed into the item frame. If the item frame is empty, this tag does not exist. Represents the en…"
+      "desc": "The item placed into the item frame. If the item frame is empty, this tag does not exist. Represents the entity's contents (container.0) slot."
     },
     {
       "key": "Item",
@@ -3440,7 +3440,7 @@
         "ids": ["item_frame"]
       },
       "zh": "物品",
-      "desc": "The item placed into the item frame. If the item frame is empty, this tag does not exist. Represents the en…"
+      "desc": "The item placed into the item frame. If the item frame is empty, this tag does not exist. Represents the entity's contents (container.0) slot."
     },
     {
       "key": "item_based_steering",
@@ -3483,7 +3483,7 @@
         "ids": ["item_display"]
       },
       "zh": "物品展示",
-      "desc": "The model to display. Describes item model transform applied to item (as defined in display field in model…"
+      "desc": "The model to display. Describes item model transform applied to item (as defined in display field in model JSON). Can be none, thirdperson_lefthand, thirdperson_righthand, firstperson_lefthand, firstperson_righthand, head, gui, ground, and fixed.[] Defaults to none."
     },
     {
       "key": "ItemDropChance",
@@ -3604,7 +3604,7 @@
         "group": "blockentity"
       },
       "zh": "保留未加载",
-      "desc": "1 or 0 (true/false) - If true, this is an invalid block entity, and this block is not immediately placed wh…"
+      "desc": "1 or 0 (true/false) - If true, this is an invalid block entity, and this block is not immediately placed when a loaded chunk is loaded. If false, this is a normal block entity that can be immediately placed."
     },
     {
       "key": "last_hurt_by_mob",
@@ -3636,7 +3636,7 @@
         "group": "mob"
       },
       "zh": "上次被玩家伤害记忆时间",
-      "desc": "(when exists and is valid) Gets set to 100 game ticks (5 seconds) when attacked by a player, and decreases…"
+      "desc": "(when exists and is valid) Gets set to 100 game ticks (5 seconds) when attacked by a player, and decreases by 1 for every game tick. Clears when the value reaches 0."
     },
     {
       "key": "LastDeathLocation",
@@ -3782,7 +3782,7 @@
         "group": "projectile"
       },
       "zh": "发射者",
-      "desc": "1 or 0 (true/false) - If true, this projectile has escaped its owner's hitbox for the first time and can no…"
+      "desc": "1 or 0 (true/false) - If true, this projectile has escaped its owner's hitbox for the first time and can now collide with entities. Not present when false."
     },
     {
       "key": "life",
@@ -3897,14 +3897,14 @@
               "type": "int_array",
               "category": "data",
               "zh": "弹射物主人",
-              "desc": "Optional. The projectile owner's UUID. The 128-bit UUID is stored as four 32-bit integers, ordered from mos…"
+              "desc": "Optional. The projectile owner's UUID. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant."
             },
             {
               "key": "source",
               "type": "int_array",
               "category": "data",
               "zh": "来源",
-              "desc": "Optional. The source entity's UUID. The 128-bit UUID is stored as four 32-bit integers, ordered from most t…"
+              "desc": "Optional. The source entity's UUID. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant."
             }
           ]
         },
@@ -4049,7 +4049,7 @@
           "type": "int",
           "category": "data",
           "zh": "颜色",
-          "desc": "The waypoint's color stored as 32-bit signed integer using two's complement, assuming the color is fully op…"
+          "desc": "The waypoint's color stored as 32-bit signed integer using two's complement, assuming the color is fully opaque."
         },
         {
           "key": "style",
@@ -4068,7 +4068,7 @@
         "group": "container-entity"
       },
       "zh": "战利品表",
-      "desc": "Optional. Loot table to be used to fill the entity's container when it is next opened, or the items are oth…"
+      "desc": "Optional. Loot table to be used to fill the entity's container when it is next opened, or the items are otherwise interacted with. Both LootTable and LootTableSeed are removed once the items have been generated."
     },
     {
       "key": "LootTableSeed",
@@ -4108,7 +4108,7 @@
         "ids": ["panda"]
       },
       "zh": "主要基因",
-      "desc": "The primary gene this panda has, that determines the behavior and appearance of the panda and that can tran…"
+      "desc": "The primary gene this panda has, that determines the behavior and appearance of the panda and that can transfer to the child."
     },
     {
       "key": "Marker",
@@ -4118,7 +4118,7 @@
         "ids": ["armor_stand"]
       },
       "zh": "标记",
-      "desc": "1 or 0 (true/false) - if true, ArmorStand's size is set to 0, has a tiny hitbox, and disables interactions…"
+      "desc": "1 or 0 (true/false) - if true, ArmorStand's size is set to 0, has a tiny hitbox, and disables interactions with it. May not exist."
     },
     {
       "key": "MaxNearbyEntities",
@@ -4128,7 +4128,7 @@
         "ids": ["spawner_minecart"]
       },
       "zh": "附近实体上限",
-      "desc": "Overrides the maximum number of nearby (within a box of SpawnRange*2+1 × SpawnRange*2+1 × 8 centered around…"
+      "desc": "Overrides the maximum number of nearby (within a box of SpawnRange*2+1 × SpawnRange*2+1 × 8 centered around the spawner block) entities whose IDs match this spawner's entity ID. This is relative to a mob's hitbox, not its physical position. Also, all entities within all chunk sections (16×16×16 cubes) overlapped by this box are tested for their ID and hitbox overlap, rather than just entities within the box, meaning that a large amount of entities outside the box (or within it, of course) can cause substantial lag."
     },
     {
       "key": "MaxSpawnDelay",
@@ -4159,7 +4159,7 @@
         "group": "profile"
       },
       "zh": "模型",
-      "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model…"
+      "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model type provided by a profile. If omitted and no model type is provided by a profile, a slim model type is used."
     },
     {
       "key": "Moistness",
@@ -4169,7 +4169,7 @@
         "ids": ["dolphin"]
       },
       "zh": "湿润度",
-      "desc": "How moist this dolphin is. Set to 2400 when in water or rain. Decreases by 1 every tick otherwise. The dolp…"
+      "desc": "How moist this dolphin is. Set to 2400 when in water or rain. Decreases by 1 every tick otherwise. The dolphin takes damage when 0 or below."
     },
     {
       "key": "MoreCarrotTicks",
@@ -4202,7 +4202,7 @@
         "group": "profile"
       },
       "zh": "名称",
-      "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive…"
+      "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive than actual player usernames, which must be 3-16 characters and may only contain letters, numbers, and underscores). If no other profile fields are specified, this is used to dynamically request the profile of a player with that username from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given name)."
     },
     {
       "key": "next_weather_age",
@@ -4552,7 +4552,7 @@
         "group": "arrow"
       },
       "zh": "可拾取",
-      "desc": "0 = cannot be picked up by players. 1 = can be picked up by players in survival or creative. 2 = can be pic…"
+      "desc": "0 = cannot be picked up by players. 1 = can be picked up by players in survival or creative. 2 = can be picked up by players only in creative."
     },
     {
       "key": "pickup_timer",
@@ -4602,7 +4602,7 @@
         "ids": ["player"]
       },
       "zh": "游戏模式",
-      "desc": "The current game mode of the player. 0 means Survival, 1 means Creative, 2 means Adventure, and 3 means Spe…"
+      "desc": "The current game mode of the player. 0 means Survival, 1 means Creative, 2 means Adventure, and 3 means Spectator."
     },
     {
       "key": "PortalCooldown",
@@ -4772,7 +4772,7 @@
         "group": "profile"
       },
       "zh": "属性",
-      "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are…"
+      "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component."
     },
     {
       "key": "PuffState",
@@ -4822,7 +4822,7 @@
         "ids": ["rabbit", "killer_bunny"]
       },
       "zh": "兔子变种",
-      "desc": "Determines the skin of the rabbit. Also determines if rabbit should be hostile. Represents the minecraft:ra…"
+      "desc": "Determines the skin of the rabbit. Also determines if rabbit should be hostile. Represents the minecraft:rabbit/variant component."
     },
     {
       "key": "Radius",
@@ -4912,7 +4912,7 @@
         "ids": ["player"]
       },
       "zh": "重生点",
-      "desc": "May not exist. The respawn information of the player. Removed when the player attempts to respawn with no v…",
+      "desc": "May not exist. The respawn information of the player. Removed when the player attempts to respawn with no valid bed or respawn anchor to spawn at these coordinates. They are unaffected by breaking a bed or respawn anchor at these coordinates, and are unaffected by the player's death.",
       "children": [
         {
           "key": "pos",
@@ -4962,7 +4962,7 @@
         "ids": ["interaction"]
       },
       "zh": "响应",
-      "desc": "1 or 0 (true/false). Specifies whether an interaction should trigger a response (hand animation). Defaults…"
+      "desc": "1 or 0 (true/false). Specifies whether an interaction should trigger a response (hand animation). Defaults to 0 (false)."
     },
     {
       "key": "RestocksToday",
@@ -4972,7 +4972,7 @@
         "ids": ["villager"]
       },
       "zh": "今日补货次数",
-      "desc": "The number of restocks a villager has done in 10 minutes from the last restock, or 0 if the villager has no…"
+      "desc": "The number of restocks a villager has done in 10 minutes from the last restock, or 0 if the villager has not restocked in the last 10 minutes. When a villager has restocked twice in less than 10 minutes, it waits at least 10 minutes for another restock."
     },
     {
       "key": "RestocksToday",
@@ -4982,7 +4982,7 @@
         "ids": ["zombie_villager"]
       },
       "zh": "今日补货次数",
-      "desc": "The number of restocks a villager has done in 10 minutes from the last restock, or 0 if the villager has no…"
+      "desc": "The number of restocks a villager has done in 10 minutes from the last restock, or 0 if the villager has not restocked in the last 10 minutes. When a villager has restocked twice in less than 10 minutes, it waits at least 10 minutes for another restock."
     },
     {
       "key": "RoarTick",
@@ -5038,14 +5038,14 @@
           "type": "float",
           "category": "data",
           "zh": "第一项",
-          "desc": "The entity's yaw. Yaw is rotation about the Y axis. It is measured in degrees and ranges from -180 to +180.…"
+          "desc": "The entity's yaw. Yaw is rotation about the Y axis. It is measured in degrees and ranges from -180 to +180. The yaw increases as the entity turns clockwise (right from their perspective). A yaw of 0 means the entity is facing south. See table of specific values here: Rotation (yaw)."
         },
         {
           "key": "1",
           "type": "float",
           "category": "data",
           "zh": "第二项",
-          "desc": "The entity's pitch. Pitch is rotation about the local X axis after yaw is applied. It is measured in degree…"
+          "desc": "The entity's pitch. Pitch is rotation about the local X axis after yaw is applied. It is measured in degrees and ranges from -90 to +90. A pitch of 0 means the entity is facing parallel to the ground or directly towards the horizon. The pitch increases as the entity looks downwards, so a pitch of 90 is facing directly down and a pitch of -90 facing directly up."
         }
       ]
     },
@@ -5108,7 +5108,7 @@
         "ids": ["player"]
       },
       "zh": "选中槽位",
-      "desc": "The selected hotbar slot of the player. Values are 0-indexed, so the leftmost slot is 0 and the rightmost s…"
+      "desc": "The selected hotbar slot of the player. Values are 0-indexed, so the leftmost slot is 0 and the rightmost slot is 8."
     },
     {
       "key": "shadow",
@@ -5130,7 +5130,7 @@
         "group": "display-entity"
       },
       "zh": "阴影半径",
-      "desc": "Shadow radius. Value is treated as 64 when higher than 64. If less than or equal to 0, the entity has no sh…"
+      "desc": "Shadow radius. Value is treated as 64 when higher than 64. If less than or equal to 0, the entity has no shadow. Defaults to 0. Interpolated."
     },
     {
       "key": "shadow_strength",
@@ -5286,7 +5286,7 @@
         "ids": ["phantom"]
       },
       "zh": "大小",
-      "desc": "The size of the phantom. Ranges from 0 to 64, similar to slimes. Unlike slimes, phantoms always have a cons…"
+      "desc": "The size of the phantom. Ranges from 0 to 64, similar to slimes. Unlike slimes, phantoms always have a constant 20HP HP, and deal 6HP+size damage. Naturally spawned phantoms are always size 0."
     },
     {
       "key": "Size",
@@ -5378,7 +5378,7 @@
         "ids": ["cat"]
       },
       "zh": "音效变种",
-      "desc": "The sound variant of the cat. Assuming no custom data packs, this is always minecraft: followed by either c…"
+      "desc": "The sound variant of the cat. Assuming no custom data packs, this is always minecraft: followed by either classic or royal."
     },
     {
       "key": "sound_variant",
@@ -5388,7 +5388,7 @@
         "ids": ["chicken"]
       },
       "zh": "音效变种",
-      "desc": "The sound variant of the chicken. Assuming no custom data packs, this is always minecraft: followed by eith…"
+      "desc": "The sound variant of the chicken. Assuming no custom data packs, this is always minecraft: followed by either classic or picky."
     },
     {
       "key": "sound_variant",
@@ -5398,7 +5398,7 @@
         "ids": ["cow"]
       },
       "zh": "音效变种",
-      "desc": "The sound variant of the cow. Assuming no custom data packs, this is always minecraft: followed by either c…"
+      "desc": "The sound variant of the cow. Assuming no custom data packs, this is always minecraft: followed by either classic or moody."
     },
     {
       "key": "sound_variant",
@@ -5408,7 +5408,7 @@
         "ids": ["pig"]
       },
       "zh": "音效变种",
-      "desc": "The sound variant of the pig. Assuming no custom data packs, this is always minecraft: followed by one of b…"
+      "desc": "The sound variant of the pig. Assuming no custom data packs, this is always minecraft: followed by one of big, classic or mini."
     },
     {
       "key": "sound_variant",
@@ -5418,7 +5418,7 @@
         "ids": ["wolf"]
       },
       "zh": "音效变种",
-      "desc": "The sound variant of the wolf. Assuming no custom data packs, this is always minecraft: followed by one of…"
+      "desc": "The sound variant of the wolf. Assuming no custom data packs, this is always minecraft: followed by one of angry, big, classic, cute, grumpy, puglin or sad."
     },
     {
       "key": "SoundEvent",
@@ -5478,7 +5478,7 @@
         "ids": ["spawner_minecart"]
       },
       "zh": "可能生成项",
-      "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft g…"
+      "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft generates it the next time the spawner tries to spawn an entity. The generated list contains a single entry derived from the SpawnData tag."
     },
     {
       "key": "SpawnRange",
@@ -5518,7 +5518,7 @@
         "group": "display-entity"
       },
       "zh": "开始插值",
-      "desc": "Delay before starting interpolation. If 0, interpolation starts immediately. (Not saved to entity, but can…"
+      "desc": "Delay before starting interpolation. If 0, interpolation starts immediately. (Not saved to entity, but can be set by commands.)"
     },
     {
       "key": "state",
@@ -5569,7 +5569,7 @@
         "ids": ["skeleton", "parched"]
       },
       "zh": "流浪者转化时间",
-      "desc": "The number of ticks until this skeleton converts to a stray (default value is -1, when no conversion is und…"
+      "desc": "The number of ticks until this skeleton converts to a stray (default value is -1, when no conversion is under way)."
     },
     {
       "key": "Strength",
@@ -5580,7 +5580,7 @@
         "ids": ["llama"]
       },
       "zh": "强度",
-      "desc": "Ranges from 1 to 5, defaults to 3. Determines the number of items the llama can carry (items = 3 × strength…"
+      "desc": "Ranges from 1 to 5, defaults to 3. Determines the number of items the llama can carry (items = 3 × strength). Also increases the tendency of wolves to run away when attacked by llama spit. Strengths 4 and 5 always causes a wolf to flee."
     },
     {
       "key": "Strength",
@@ -5591,7 +5591,7 @@
         "ids": ["trader_llama"]
       },
       "zh": "强度",
-      "desc": "Ranges from 1 to 5, defaults to 3. Determines the number of items the llama can carry (items = 3 × strength…"
+      "desc": "Ranges from 1 to 5, defaults to 3. Determines the number of items the llama can carry (items = 3 × strength). Also increases the tendency of wolves to run away when attacked by llama spit. Strengths 4 and 5 always causes a wolf to flee."
     },
     {
       "key": "StunTick",
@@ -5732,7 +5732,7 @@
         "group": "mob"
       },
       "zh": "队伍",
-      "desc": "This tag is actually not part of the NBT data of a mob, but instead used when spawning it, so it cannot be…"
+      "desc": "This tag is actually not part of the NBT data of a mob, but instead used when spawning it, so it cannot be tested for. It makes the mob instantly join the team with that name."
     },
     {
       "key": "teleport_duration",
@@ -5842,7 +5842,7 @@
         "ids": ["text_display"]
       },
       "zh": "文本",
-      "desc": "The text to be displayed, in the text component format, which is resolved with the context of the display e…"
+      "desc": "The text to be displayed, in the text component format, which is resolved with the context of the display entity."
     },
     {
       "key": "text_opacity",
@@ -5853,7 +5853,7 @@
         "ids": ["text_display"]
       },
       "zh": "文字不透明度",
-      "desc": "Alpha value of rendered text. Value ranges from 0 to 255. Values up to 3 are treated as fully opaque (255).…"
+      "desc": "Alpha value of rendered text. Value ranges from 0 to 255. Values up to 3 are treated as fully opaque (255). Similar to the background, the text rendering is discarded for values between 4 and 26. NBT stores the value as signed byte, -128 to 127. Defaults to -1, which represents 255 and is completely opaque. SNBT to NBT handles conversion from unsigned to signed, but if needed, replace values greater than 127 with alpha-256 or alphaUB. Interpolated."
     },
     {
       "key": "texture",
@@ -5863,7 +5863,7 @@
         "group": "profile"
       },
       "zh": "纹理",
-      "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If…"
+      "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a player model or skin, overriding the skin texture provided by a profile. This skin texture may have transparent pixels on the inner body layers whereas resolved skins' are always opaque. If omitted and no skin is provided by a profile, the slim Alex skin is used (minecraft:entity/player/slim/alex)."
     },
     {
       "key": "Thrower",
@@ -5884,7 +5884,7 @@
         "group": "mob"
       },
       "zh": "距上次被生物伤害刻数",
-      "desc": "(when exists and is valid) The number of game ticks since the last time the mob was attacked by the mob des…"
+      "desc": "(when exists and is valid) The number of game ticks since the last time the mob was attacked by the mob described by . Clears when the value reaches 100 game ticks (5 seconds)."
     },
     {
       "key": "TicksFrozen",
@@ -5895,7 +5895,7 @@
         "group": "entity"
       },
       "zh": "冰冻刻数",
-      "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in p…"
+      "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing."
     },
     {
       "key": "TicksSincePollination",
@@ -5935,7 +5935,7 @@
         "ids": ["hoglin"]
       },
       "zh": "主世界停留时间",
-      "desc": "The number of ticks that the hoglin has existed in the Overworld; the hoglin converts to a zoglin when this…"
+      "desc": "The number of ticks that the hoglin has existed in the Overworld; the hoglin converts to a zoglin when this is greater than 300."
     },
     {
       "key": "TimeInOverworld",
@@ -5945,7 +5945,7 @@
         "ids": ["piglin"]
       },
       "zh": "主世界停留时间",
-      "desc": "The number of ticks that the piglin has existed in the Overworld; the piglin converts to a zombified piglin…"
+      "desc": "The number of ticks that the piglin has existed in the Overworld; the piglin converts to a zombified piglin when this is greater than 300."
     },
     {
       "key": "TimeInOverworld",
@@ -5955,7 +5955,7 @@
         "ids": ["piglin_brute"]
       },
       "zh": "主世界停留时间",
-      "desc": "The number of ticks that the piglin brute has existed in the Overworld; the piglin brute converts to a zomb…"
+      "desc": "The number of ticks that the piglin brute has existed in the Overworld; the piglin brute converts to a zombified piglin when this is greater than 300."
     },
     {
       "key": "toBeDisplayed",
@@ -5986,14 +5986,14 @@
         "group": "display-entity"
       },
       "zh": "变换",
-      "desc": "The rendering transformation applied to model after normal entity orientation, taking the position of the e…",
+      "desc": "The rendering transformation applied to model after normal entity orientation, taking the position of the entity as the origin. Defaults to no transformation. Interpolated.",
       "children": [
         {
           "key": "right_rotation",
           "type": "compound",
           "category": "data",
           "zh": "右旋转",
-          "desc": "(Required) Initial rotation. This tag corresponds to the right-singular vector matrix after the matrix sing…",
+          "desc": "(Required) Initial rotation. This tag corresponds to the right-singular vector matrix after the matrix singular value decomposition.",
           "children": [
             {
               "key": "angle",
@@ -6023,7 +6023,7 @@
           "type": "compound",
           "category": "data",
           "zh": "左旋转",
-          "desc": "(Required) Rotates the model again. This tag corresponds to the left-singular vector matrix after the matri…",
+          "desc": "(Required) Rotates the model again. This tag corresponds to the left-singular vector matrix after the matrix singular value decomposition.",
           "children": [
             {
               "key": "angle",
@@ -6046,7 +6046,7 @@
           "type": "list",
           "category": "data",
           "zh": "平移",
-          "desc": "(Required) Translation transformation. This tag corresponds to the last column in the matrix form. This tag…"
+          "desc": "(Required) Translation transformation. This tag corresponds to the last column in the matrix form. This tag is a list of float numbers with 3 elements:"
         }
       ]
     },
@@ -6058,7 +6058,7 @@
         "ids": ["fox"]
       },
       "zh": "信任玩家",
-      "desc": "A list of players that the fox trusts. For a list with more than 2 elements, only the first and the last ar…"
+      "desc": "A list of players that the fox trusts. For a list with more than 2 elements, only the first and the last are considered."
     },
     {
       "key": "Trusting",
@@ -6170,7 +6170,7 @@
         "ids": ["chicken"]
       },
       "zh": "变种",
-      "desc": "The variant of the chicken. Assuming no custom data packs, this is always minecraft: followed by one of col…"
+      "desc": "The variant of the chicken. Assuming no custom data packs, this is always minecraft: followed by one of cold, temperate or warm."
     },
     {
       "key": "variant",
@@ -6180,7 +6180,7 @@
         "ids": ["cow"]
       },
       "zh": "变种",
-      "desc": "The variant of the cow. Assuming no custom data packs, this is always minecraft: followed by one of cold, t…"
+      "desc": "The variant of the cow. Assuming no custom data packs, this is always minecraft: followed by one of cold, temperate or warm."
     },
     {
       "key": "variant",
@@ -6200,7 +6200,7 @@
         "ids": ["pig"]
       },
       "zh": "变种",
-      "desc": "The variant of the pig. Assuming no custom data packs, this is always minecraft: followed by one of cold, t…"
+      "desc": "The variant of the pig. Assuming no custom data packs, this is always minecraft: followed by one of cold, temperate or warm."
     },
     {
       "key": "variant",
@@ -6210,7 +6210,7 @@
         "ids": ["wolf"]
       },
       "zh": "变种",
-      "desc": "The variant of the wolf. Assuming no custom data packs, this is always minecraft: followed by one of ashen,…"
+      "desc": "The variant of the wolf. Assuming no custom data packs, this is always minecraft: followed by one of ashen, black, chestnut, pale (default) rusty, snowy, spotted, striped or woods."
     },
     {
       "key": "variant",
@@ -6250,7 +6250,7 @@
         "ids": ["horse"]
       },
       "zh": "变种",
-      "desc": "The variant and markings of the horse. Encoded as variant | (markings << 8). Unused values lead to white ho…"
+      "desc": "The variant and markings of the horse. Encoded as variant | (markings << 8). Unused values lead to white horses. The encoded variant field represents the minecraft:horse/variant component."
     },
     {
       "key": "Variant",
@@ -6290,7 +6290,7 @@
         "ids": ["tropical_fish"]
       },
       "zh": "变种",
-      "desc": "A 4-byte integer. Encodes the minecraft:tropical_fish/base_color, minecraft:tropical_fish/pattern, and mine…"
+      "desc": "A 4-byte integer. Encodes the minecraft:tropical_fish/base_color, minecraft:tropical_fish/pattern, and minecraft:tropical_fish/pattern_color components."
     },
     {
       "key": "view_range",
@@ -6301,7 +6301,7 @@
         "group": "display-entity"
       },
       "zh": "视距",
-      "desc": "Maximum view range of the entity. When the distance is more than <view_range>×<options.txt|entityDistanceSc…"
+      "desc": "Maximum view range of the entity. When the distance is more than <view_range>×<options.txt|entityDistanceScaling>×64, the entity is not rendered. Defaults to 1.0."
     },
     {
       "key": "VillagerData",
@@ -6377,7 +6377,7 @@
         "ids": ["villager"]
       },
       "zh": "村民数据已定型",
-      "desc": "This field is seemingly only used by the game's data fixer, and is always 1b for villagers and zombie villa…"
+      "desc": "This field is seemingly only used by the game's data fixer, and is always 1b for villagers and zombie villagers spawned in 26.1 Snapshot 1 and later."
     },
     {
       "key": "VillagerDataFinalized",
@@ -6387,7 +6387,7 @@
         "ids": ["zombie_villager"]
       },
       "zh": "村民数据已定型",
-      "desc": "This field is seemingly only used by the game's data fixer, and is always 1b for villagers and zombie villa…"
+      "desc": "This field is seemingly only used by the game's data fixer, and is always 1b for villagers and zombie villagers spawned in 26.1 Snapshot 1 and later."
     },
     {
       "key": "WaitTime",
@@ -6397,7 +6397,7 @@
         "ids": ["area_effect_cloud"]
       },
       "zh": "等待时间",
-      "desc": "The time before deploying the field. The Radius is ignored, meaning that any specified effects is not appli…"
+      "desc": "The time before deploying the field. The Radius is ignored, meaning that any specified effects is not applied and specified particles appear only at the center of the field, until Age hits this number."
     },
     {
       "key": "wander_target",
@@ -6450,7 +6450,7 @@
         "ids": ["evoker_fangs"]
       },
       "zh": "预热时间",
-      "desc": "Time in ticks until the fangs appear. The fangs appear and begin to close as soon as this value becomes zer…"
+      "desc": "Time in ticks until the fangs appear. The fangs appear and begin to close as soon as this value becomes zero or less; negative values simply result in no delay. The value continues ticking down while the closing animation is playing, reaching -20 on naturally spawned fangs."
     },
     {
       "key": "wasOnGround",
@@ -6512,7 +6512,7 @@
         "group": "display-entity"
       },
       "zh": "宽度",
-      "desc": "The maximum width of the entity. Rendering culling bounding box spans horizontally width/2 from entity posi…"
+      "desc": "The maximum width of the entity. Rendering culling bounding box spans horizontally width/2 from entity position, and the part beyond will be culled. If set to 0, no culling on both vertical and horizontal directions. Defaults to 0."
     },
     {
       "key": "x",

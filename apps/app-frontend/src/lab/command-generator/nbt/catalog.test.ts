@@ -30,6 +30,16 @@ const TYPES = new Set([
 ])
 const ARRAY_TYPES = new Set(['list', 'byte_array', 'int_array', 'long_array'])
 
+/**
+ * wiki 自己在这几条上写的是 `[more information needed]`，没有可引用的说明。
+ * wiki 补上之后从集合里删掉对应键，测试就会重新要求 desc。
+ */
+const UNDOCUMENTED = new Set([
+    'current_impulse_context_reset_grace_time',
+    'item_based_steering',
+    'spawn_extra_particles_on_fall',
+])
+
 function walk(
     fields: NbtFieldSpec[],
     visit: (field: NbtFieldSpec, path: string, root: string) => void,
@@ -139,6 +149,23 @@ describe('NBT 目录数据', () => {
                 expect(ARRAY_TYPES.has(field.type), `${domain}:${path} 有长度但不是数组`).toBe(true)
                 if (field.type !== 'list') return
                 expect(field.elementType, `${domain}:${path} 是列表但缺元素类型`).toBeDefined()
+            })
+        }
+    })
+
+    /**
+     * 说明文字是面板唯一的引导来源：字段名大多是从 wiki 直译的 PascalCase 或
+     * snake_case，用户光看键名猜不出含义。这里挡两类历史问题——照抄示例命令
+     * （`Example: /give @s diamond`）和截断到 108 字符（结尾一个省略号）。
+     */
+    it('每个字段都有可用的说明文字', () => {
+        for (const domain of DOMAINS) {
+            walk(catalogFor(domain).fields, (field, path) => {
+                if (UNDOCUMENTED.has(field.key)) return
+                const desc = (field.desc ?? '').trim()
+                expect(desc.length, `${domain}:${path} 缺少说明`).toBeGreaterThan(0)
+                expect(/^Example/i.test(desc), `${domain}:${path} 的说明是示例命令`).toBe(false)
+                expect(desc.endsWith('…'), `${domain}:${path} 的说明被截断`).toBe(false)
             })
         }
     })

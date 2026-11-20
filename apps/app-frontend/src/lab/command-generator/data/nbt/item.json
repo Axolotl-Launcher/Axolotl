@@ -283,7 +283,7 @@
       "category": "appearance",
       "since": "1.20.5",
       "zh": "染色颜色",
-      "desc": "The RGB color of the tint applied to a dyed item, typically as a result of combining the item with dyes in a minecraft:crafting_dyed type crafting recipe. More generally, this component is used as the minecraft:dye color provider in item model definitions (so only item models that explicitly use this color provider will be tinted). If present on an item, gray text is added to the tooltip showing either an italic \"Dyed\" when advanced tooltips is off, or a non-italic \"Color: #<hex color code>\"[note 1] instead when advanced tooltips is on. The color is stored as an integer which packs the color's red, green and blue channels using this formula:( Red << 16) + ( Green << 8) + Blue[note 2]"
+      "desc": "The RGB color of the tint applied to a dyed item, typically as a result of combining the item with dyes in a minecraft:crafting_dyed type crafting recipe. More generally, this component is used as the minecraft:dye color provider in item model definitions (so only item models that explicitly use this color provider will be tinted). If present on an item, gray text is added to the tooltip showing either an italic \"Dyed\" when advanced tooltips is off, or a non-italic \"Color: #<hex color code>\" instead when advanced tooltips is on. The color is stored as an integer which packs the color's red, green and blue channels using this formula:( Red << 16) + ( Green << 8) + Blue"
     },
     {
       "key": "enchantable",
@@ -585,7 +585,7 @@
       "category": "basic",
       "since": "1.20.5",
       "zh": "提供盔甲纹饰材料",
-      "desc": "One trim material (an [String] ID, or a new [NBT Compound / JSON Object] trim material definition). When present, this item provides the specified trim material when used in a trimming recipe.[note 7]"
+      "desc": "One trim material (an [String] ID, or a new [NBT Compound / JSON Object] trim material definition). When present, this item provides the specified trim material when used in a trimming recipe."
     },
     {
       "key": "rarity",

@@ -1661,29 +1661,14 @@
   "settings.display.theme.title": {
     "defaultMessage": "Cor do tema"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Idiomas padrão"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Resultados da pesquisa"
-  },
   "settings.language.description": {
     "defaultMessage": "Escolhe a tua língua preferida para a {platform}. Traduções são contribuídas por voluntários <crowdin-link>no Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Pesquisar uma língua..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural,=0 {Sem línguas correspondentes}one {# língua corresponde}other {# línguas correspondem}} a tua pesquisa."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Nenhuma língua corresponde à sua pesquisa."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "aplicação"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "site"
   },
   "settings.language.title": {
     "defaultMessage": "Idioma"

@@ -13,7 +13,7 @@
 
 User-visible copy in shared UI and the desktop frontend must use the localization system from `@modrinth/ui`. This includes Vue templates/scripts and TypeScript or JavaScript modules that supply labels, notifications, status text or message descriptors. Follow visible copy to its source rather than filtering by component extension.
 
-The website has its own locale integration; inspect its current message sources and rendering API before migrating copy. Launcher release announcements use the bilingual catalog described in [announcement instructions](../../apps/app-frontend/src/announcements/AGENTS.md), and must not be rewritten into general locale files. An i18n review does not authorize editing that catalog.
+Launcher release announcements use the bilingual catalog described in [announcement instructions](../../apps/app-frontend/src/announcements/AGENTS.md), and must not be rewritten into general locale files. An i18n review does not authorize editing that catalog.
 
 A review stays read-only. For an implementation request, preserve logic, layout, reactivity and bindings, and avoid unrelated locale extraction or pruning.
 
@@ -98,19 +98,16 @@ When a message contains links or markup, wrap the relevant ranges with named tag
 Render with the `<IntlFormatted>` component using named slots:
 
 ```vue
-<IntlFormatted :message-id="messages.tosLabel">
-  <template #terms-link="{ children }">
-    <NuxtLink to="/terms">
+<IntlFormatted :message-id="messages.purchaseMinecraft">
+  <template #store-link="{ children }">
+    <a href="https://www.xbox.com/games/store/minecraft-java-bedrock-edition-for-pc">
       <component :is="() => children" />
-    </NuxtLink>
-  </template>
-  <template #privacy-link="{ children }">
-    <NuxtLink to="/privacy">
-      <component :is="() => children" />
-    </NuxtLink>
+    </a>
   </template>
 </IntlFormatted>
 ```
+
+The slot element decides the navigation primitive: an `<a>` when the target is external, a `<RouterLink>` for in-app routes.
 
 For simple emphasis (`'Welcome to <strong>Axolotl</strong>!'`):
 
@@ -144,4 +141,4 @@ All i18n utilities come from `@modrinth/ui`:
 ## Reference Examples
 
 - Variables and plurals: `apps/app-frontend/src/components/home/HomeDailyChallenge.vue`
-- Rich-text with link tags: `apps/website/src/pages/index.vue`
+- Rich-text with link tags: `apps/app-frontend/src/components/ui/settings/LanguageSettings.vue`

@@ -568,7 +568,7 @@ function main() {
     const rootDir = path.resolve(__dirname, '..')
 
     // Directories to scan for Vue files
-    const scanDirs = ['apps/website/src', 'apps/app-frontend/src', 'packages/ui/src']
+    const scanDirs = ['apps/app-frontend/src', 'packages/ui/src']
 
     if (!jsonOutput) {
         console.log()

@@ -2537,29 +2537,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "Recursos experimentais"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Idiomas padrão"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Resultados da busca"
-  },
   "settings.language.description": {
     "defaultMessage": "Escolha o seu idioma para o {platform}. As traduções são realizadas por voluntários no <crowdin-link>Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Buscar um idioma..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Nenhum idioma corresponde} one {# Idioma corresponde} other {# Idiomas correspondem}} à sua busca."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Nenhum idioma corresponde à sua busca."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "app"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "site"
   },
   "settings.language.title": {
     "defaultMessage": "Idioma"

@@ -294,7 +294,7 @@ onUnmounted(() => {
 
 @media (any-hover: none) and (max-width: 640px) {
     .floating-action-bar.bottom-0 {
-        bottom: var(--size-mobile-navbar-height);
+        bottom: var(--size-mobile-navbar-height, 0px);
     }
 }
 </style>

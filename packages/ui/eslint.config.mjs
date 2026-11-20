@@ -7,10 +7,9 @@ export default baseConfig
         ignores: ['.vite/**'],
     })
     .append({
-        // This package is consumed by both the desktop app and the Nuxt website,
-        // so it must stay platform-agnostic: platform capabilities arrive through
-        // the `providers/` DI contracts. A direct Tauri import would break the
-        // website build — `ImportInstanceStage.vue` did exactly that.
+        // This package is consumed by the desktop app only, but must stay
+        // platform-agnostic: platform capabilities arrive through the
+        // `providers/` DI contracts instead of direct Tauri imports.
         rules: {
             'no-restricted-imports': [
                 'error',

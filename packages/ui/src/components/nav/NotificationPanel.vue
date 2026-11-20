@@ -406,7 +406,7 @@ const {
 
     @media screen and (max-width: 750px) {
         transition: bottom 0.25s ease-in-out;
-        bottom: calc(var(--size-mobile-navbar-height) + 10px) !important;
+        bottom: calc(var(--size-mobile-navbar-height, 0px) + 10px) !important;
     }
 }
 

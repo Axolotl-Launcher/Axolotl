@@ -2540,29 +2540,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "Funktionsflags"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Standardsprachen"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Suchergebnisse"
-  },
   "settings.language.description": {
     "defaultMessage": "Wähle deine bevorzugte Sprache für {platform}. Übersetzungen werden von Freiwilligen <crowdin-link>auf Crowdin</crowdin-link> beigetragen."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Nach Sprache suchen..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Keine Sprache passt} one {# Sprache passt} other {# Sprachen passen}} zu deiner Suche."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Keine Sprache entspricht deiner Suche."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "App"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "Seite"
   },
   "settings.language.title": {
     "defaultMessage": "Sprache"

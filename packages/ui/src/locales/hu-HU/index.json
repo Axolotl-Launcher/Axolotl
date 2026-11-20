@@ -2348,29 +2348,14 @@
   "settings.display.theme.title": {
     "defaultMessage": "Téma"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Alapértelmezett nyelvek"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Keresési eredmények"
-  },
   "settings.language.description": {
     "defaultMessage": "Válaszd ki az {platform} preferált nyelvét. A fordításokat önkéntesek készítik <crowdin-link>a Crowdinon</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Nyelv keresése..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Nincs nyelv, ami egyezik} one {# nyelv egyezik} other {# nyelv egyezik}} a kereséssel."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Nincs nyelv, ami egyezik a kereséssel."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "alkalmazás"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "oldal"
   },
   "settings.language.title": {
     "defaultMessage": "Nyelv"

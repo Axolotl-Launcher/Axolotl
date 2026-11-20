@@ -2507,29 +2507,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "Flag di funzionalità"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Lingue standard"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Risultati di ricerca"
-  },
   "settings.language.description": {
     "defaultMessage": "Scegli la tua lingua che preferisci per l'interfaccia. Le traduzioni sono contribuite da volontari <crowdin-link>su Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Cerca una lingua..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Nessuna lingua trovata} one {# lingua trovata} other {# lingue trovate}}."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Nessuna lingua trovata."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "app"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "sito"
   },
   "settings.language.title": {
     "defaultMessage": "Lingua"

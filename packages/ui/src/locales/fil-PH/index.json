@@ -1652,29 +1652,14 @@
   "settings.display.theme.title": {
     "defaultMessage": "Paksang kulay"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Mga karaniwang wika"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Mga resulta ng paghanap"
-  },
   "settings.language.description": {
     "defaultMessage": "Piliin ang iyong ninanais na wiki para sa {platform}. Ambag ng mga boluntaryo <crowdin-link>galing sa Crowdin</crowdin-link> ang mga pagsasalin."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Maghanap ng wika..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Walang tumugmang wika} one {# wikang tumugma} other {# na wikang tumugma}} sa iyong paghanap."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Walang wikang tumugma sa iyong paghanap."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "app"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "site"
   },
   "settings.language.title": {
     "defaultMessage": "Wika"

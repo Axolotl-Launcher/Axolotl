@@ -15,9 +15,9 @@ const config: Config = {
                     5: 'var(--surface-5)',
                     // The content stack, the card and the bars have no opaque root
                     // value when a host publishes none, so each falls back to the
-                    // closest surface it derives from (see `global.scss`). The
-                    // website shares this preset but not the app's tokens, so
-                    // without a fallback `bg-surface-content` would paint nothing.
+                    // closest surface it derives from. The value stays unset
+                    // until a host declares its tokens, so without a fallback
+                    // `bg-surface-content` would paint nothing.
                     content: 'var(--surface-content, var(--surface-3))',
                     'content-alt': 'var(--surface-content-alt, var(--surface-1-5))',
                     'content-muted': 'var(--surface-content-muted, var(--surface-2))',

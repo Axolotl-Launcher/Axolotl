@@ -30,7 +30,6 @@ jobs:
     outputs:
       desktop: ${{ steps.scope.outputs.desktop }}
       frontend: ${{ steps.scope.outputs.frontend }}
-      website: ${{ steps.scope.outputs.website }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -185,7 +184,6 @@ jobs:
           pnpm --filter @modrinth/server lint
           pnpm --filter @modrinth/api-client lint
           pnpm --filter @modrinth/tooling-config lint
-          pnpm --filter @axolotl/website lint
       - name: Test shared UI package
         run: pnpm --filter @modrinth/ui test
       - name: Test desktop frontend
@@ -434,33 +432,6 @@ jobs:
           node apps/installer-ui/tests/compile-fixture.cjs --tauri-nsis target/ci-bundle/release/nsis/x64 --installer-helper target/ci/axolotl-installer-ui.exe
           if ($LASTEXITCODE -ne 0) { throw "Failed to compile NSIS uninstall fixture" }
           & apps/installer-ui/tests/uninstall-smoke.ps1
-  website:
-    name: Build website (${{ matrix.nitro-preset }})
-    needs: [changes, guardrails]
-    if: needs.changes.outputs.website == 'true'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        nitro-preset: [static, cloudflare-module]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Setup pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Test website
-        run: pnpm --filter @axolotl/website test
-      - name: Build website
-        env:
-          NITRO_PRESET: ${{ matrix.nitro-preset }}
-        run: pnpm --filter @axolotl/website build
 
   # Reports Rust line coverage for the whole workspace. A single OS keeps the
   # cost near the existing matrix while still measuring every crate, which the
@@ -520,7 +491,7 @@ jobs:
     name: Desktop CI result
     # Report failed checks, but skip the gate when a newer run cancels this workflow.
     if: ${{ !cancelled() }}
-    needs: [changes, guardrails, frontend, resources, desktop, coverage, website]
+    needs: [changes, guardrails, frontend, resources, desktop, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

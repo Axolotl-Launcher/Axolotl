@@ -1394,29 +1394,14 @@
   "settings.display.theme.title": {
     "defaultMessage": "Fargetema"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Standard språk"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Søkeresultater"
-  },
   "settings.language.description": {
     "defaultMessage": "Velg ditt foretrukne språk for {platform}. Oversettelsene er bidratt av frivillige <crowdin-link>på Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Søk etter et språk..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Ingen språk matcher} one {# språk matcher} other {# språk matcher}} søket ditt."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Ingen språk samsvarer med søket ditt."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "app"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "sted"
   },
   "settings.language.title": {
     "defaultMessage": "Språk"

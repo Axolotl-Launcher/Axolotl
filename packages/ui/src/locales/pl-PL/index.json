@@ -2534,29 +2534,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "Flagi funkcji"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Języki standardowe"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Wyniki wyszukiwania"
-  },
   "settings.language.description": {
     "defaultMessage": "Wybierz język, w którym ma być {platform}. Tłumaczenia są tworzone przez chętnych <crowdin-link>na stronie Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Szukaj języka..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Żaden język nie pasuje} one {# język pasuje} few {# języki pasują} other {# języków pasuje}} do Twojego wyszukiwania."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Nie znaleziono żadnego języka pasującego do Twojego wyszukiwania."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "aplikacja"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "strona"
   },
   "settings.language.title": {
     "defaultMessage": "Język"

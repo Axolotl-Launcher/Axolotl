@@ -2510,29 +2510,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "Tính năng phụ"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Ngôn ngữ tiêu chuẩn"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Kết quả tìm kiếm"
-  },
   "settings.language.description": {
     "defaultMessage": "Chọn ngôn ngữ ưa thích của bạn cho {platform}. Các bản dịch được đóng góp bởi những tình nguyện viên trên <crowdin-link>Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Tìm kiếm một ngôn ngữ..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Không có ngôn ngữ nào} other {Có # ngôn ngữ}} khớp với tìm kiếm của bạn."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Không có ngôn ngữ phù hợp với tìm kiếm của bạn."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "ứng dụng"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "trang web"
   },
   "settings.language.title": {
     "defaultMessage": "Ngôn ngữ"

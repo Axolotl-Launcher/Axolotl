@@ -7,10 +7,8 @@ Applies to frontend work in `apps/` and `packages/`. Package scripts are the exe
 - During development, use the affected package's existing read-only `lint`, `test`, `test:visual`, or build script as appropriate. Builds may generate output. Do not invoke an undeclared `check` script or invent ad hoc compiler commands.
 - App frontend: `pnpm --filter @modrinth/app-frontend lint`, `pnpm --filter @modrinth/app-frontend test`, `pnpm --filter @modrinth/app-frontend test:visual`, and `pnpm --filter @modrinth/app-frontend build`.
 - Shared UI: `pnpm --filter @modrinth/ui lint` and `pnpm --filter @modrinth/ui test`. API client: `pnpm --filter @modrinth/api-client lint` and `pnpm --filter @modrinth/api-client build`.
-- Website: `pnpm --filter @axolotl/website lint` and `pnpm website:build`.
 - Choose checks proportional to the changed behavior. Do not run full repository workflows after every prompt. Report what was actually verified and any remaining limitations.
 - Automated app visual and interaction tests used in CI may be run locally. The user still performs acceptance verification.
-- Do not perform excessive website browser automation (interaction flows, theme toggling, responsive checks, screenshots) unless explicitly requested. The user verifies visual and interaction changes.
 
 ## Formatting Before Commits
 

@@ -161,17 +161,9 @@ allow('runtime-set', [
         'transparent-window-alpha',
         'apps/app-frontend/src/store/theme.ts setProperty `--transparent-window-alpha`',
     ],
-])
-
-// Declared in a stylesheet the desktop guard does not scan, but consumed by
-// shared packages/ui components on the surface that does declare them.
-// (`--color-text`, `--color-text-dark`, `--color-heading` and
-// `--color-brand-inverted` used to be listed here; their in-scope references
-// were rewritten to the shared aliases, so the entries are gone.)
-allow('declared-outside-scan-roots', [
     [
         'size-mobile-navbar-height',
-        'apps/website/src/assets/styles/global.scss declares `--size-mobile-navbar-height`',
+        'packages/ui/src/test/scroll-to-top.visual.spec.ts setProperty `--size-mobile-navbar-height` on body; host shells provide it for mobile navbar clearance',
     ],
 ])
 

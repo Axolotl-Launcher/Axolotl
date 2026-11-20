@@ -2273,29 +2273,14 @@
   "settings.display.theme.title": {
     "defaultMessage": "Färgtema"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Standardspråk"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Sökresultat"
-  },
   "settings.language.description": {
     "defaultMessage": "Välj språk för {platform}n. Översättningar görs av volontärer <crowdin-link>på Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Sök efter ett språk..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Inga språk matchar} other {# språk matchar}} din sökning."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Inget språk matchar din sökning."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "app"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "webbsida"
   },
   "settings.language.title": {
     "defaultMessage": "Språk"

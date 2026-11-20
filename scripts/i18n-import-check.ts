@@ -314,7 +314,6 @@ function main() {
     const rootDir = path.resolve(__dirname, '..')
 
     const dirsToScan = [
-        path.join(rootDir, 'apps/website/src'),
         path.join(rootDir, 'apps/app-frontend/src'),
         path.join(rootDir, 'packages'),
     ]

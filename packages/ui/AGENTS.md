@@ -1,6 +1,6 @@
 # Architecture
 
-The shared UI package used by both `apps/website` (Nuxt 3) and `apps/app-frontend` (Vue 3 + Tauri). Components here must be platform-agnostic — use dependency injection for platform-specific behavior.
+The shared UI package used by `apps/app-frontend` (Vue 3 + Tauri). Components here must be platform-agnostic — use dependency injection for platform-specific behavior.
 
 ## Folder Structure
 
@@ -22,13 +22,13 @@ Each subdirectory under `components/` has an `index.ts` barrel file. All public 
 Self-contained page layouts, currently all consumed by the desktop application:
 
 - **`shared/`** — Reusable layout modules with their own components, composables, providers, and types. Each module is a self-contained unit (e.g. `shared/content-tab/` contains the content/mods tab layout with its own `layout.vue`, `components/`, `composables/`, `providers/`, and `types.ts`).
-- **`wrapped/`** — Intended for page-level components mirroring route structures. It is currently empty (its hosting pages were removed); the website does not consume any shared layout, as it provides none of the DI contracts they require.
+- **`wrapped/`** — Intended for page-level components mirroring route structures. It is currently empty (its hosting pages were removed); no consumer currently requires a `wrapped/` page layout.
 
 Files inside `layouts/` use the `#ui/*` import alias (resolved via the `"imports"` field in `package.json`) to reference other `src/` modules like `#ui/components/base/buttons/Button.vue` or `#ui/composables/i18n`.
 
 ### Platform independence
 
-Components here must stay platform-agnostic: platform capabilities arrive through the `providers/` DI contracts. Importing `@tauri-apps/*` from this package is blocked by ESLint, because the Nuxt website consumes it too and has no Tauri runtime.
+Components here must stay platform-agnostic: platform capabilities arrive through the `providers/` DI contracts. Importing `@tauri-apps/*` from this package is blocked by ESLint to keep the package usable outside a Tauri runtime.
 
 # Code Guidelines
 

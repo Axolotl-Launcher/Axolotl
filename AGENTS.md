@@ -1,34 +1,33 @@
 # Axolotl Launcher Monorepo
 
-Axolotl contains a Vue 3 / Nuxt 3 website, a Vue 3 desktop frontend, and a Rust / Tauri shell. Turborepo (`turbo.jsonc`) and pnpm workspaces (`pnpm-workspace.yaml`) coordinate the packages. Frontend styling uses Tailwind CSS v3.
+Axolotl contains a Vue 3 desktop frontend and a Rust / Tauri shell. Turborepo (`turbo.jsonc`) and pnpm workspaces (`pnpm-workspace.yaml`) coordinate the packages. Frontend styling uses Tailwind CSS v3. The official website lives in the separate `Axolotl-Launcher/Axolotl-Website` repository.
 
 ## Instruction Routing
 
 Read the applicable instruction files before editing, even when your session starts at the repository root. Root rules apply everywhere; more specific files refine rules for their subtree. For a change spanning packages, read each affected package's instructions. Links are relative to the file containing them.
 
-| Changed area                                                    | Read                                                           |
-| --------------------------------------------------------------- | -------------------------------------------------------------- |
-| Desktop frontend, routes, providers, settings                   | [apps/app-frontend/AGENTS.md](apps/app-frontend/AGENTS.md)     |
-| Desktop shell, native IPC commands/callers, build and packaging | [apps/app/AGENTS.md](apps/app/AGENTS.md)                       |
-| Website                                                         | [apps/website/AGENTS.md](apps/website/AGENTS.md)               |
-| Shared UI, layouts and DI contracts                             | [packages/ui/AGENTS.md](packages/ui/AGENTS.md)                 |
-| API client                                                      | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md) |
-| Desktop runtime, persistence, migrations or downgrade tooling   | [packages/app-lib/AGENTS.md](packages/app-lib/AGENTS.md)       |
-| Adding, changing or removing a launcher setting or its document  | [.agents/skills/launcher-settings/SKILL.md](.agents/skills/launcher-settings/SKILL.md) |
-| Any frontend implementation                                     | [Frontend development](standards/frontend/DEVELOPMENT.md)      |
-| Agent instructions, Skills or their validation                  | [.agents/AGENTS.md](.agents/AGENTS.md)                         |
-| Agent delivery: commits, pushes, PRs, reviews, archiving        | [REVIEW.md](REVIEW.md)                                         |
+| Changed area                                                    | Read                                                                                   |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Desktop frontend, routes, providers, settings                   | [apps/app-frontend/AGENTS.md](apps/app-frontend/AGENTS.md)                             |
+| Desktop shell, native IPC commands/callers, build and packaging | [apps/app/AGENTS.md](apps/app/AGENTS.md)                                               |
+| Shared UI, layouts and DI contracts                             | [packages/ui/AGENTS.md](packages/ui/AGENTS.md)                                         |
+| API client                                                      | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md)                         |
+| Desktop runtime, persistence, migrations or downgrade tooling   | [packages/app-lib/AGENTS.md](packages/app-lib/AGENTS.md)                               |
+| Adding, changing or removing a launcher setting or its document | [.agents/skills/launcher-settings/SKILL.md](.agents/skills/launcher-settings/SKILL.md) |
+| Any frontend implementation                                     | [Frontend development](standards/frontend/DEVELOPMENT.md)                              |
+| Agent instructions, Skills or their validation                  | [.agents/AGENTS.md](.agents/AGENTS.md)                                                 |
+| Agent delivery: commits, pushes, PRs, reviews, archiving        | [REVIEW.md](REVIEW.md)                                                                 |
 
 ## Repository Map
 
-- `apps/app-frontend`: desktop Vue frontend; `apps/app`: Tauri shell; `apps/website`: official website.
+- `apps/app-frontend`: desktop Vue frontend; `apps/app`: Tauri shell.
 - `packages/ui`, `assets`, `utils`: shared components, theme assets and utilities.
 - `packages/api-client`: public content-service API client; `packages/app-lib`: desktop runtime library.
 - `packages/content-management`: provider-neutral resource and installation models.
 - `packages/daedalus`, `async-minecraft-ping`: Minecraft metadata and server ping.
 - `packages/path-util`, `tooling-config`: shared paths and tooling.
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup and application data isolation before launching the desktop app. Run `pnpm website:dev` or `pnpm app:dev` from the root; prepare `packages/app-lib/.env` from its template for desktop development.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup and application data isolation before launching the desktop app. Run `pnpm app:dev` from the root; prepare `packages/app-lib/.env` from its template for desktop development.
 
 ## Settings
 
@@ -38,7 +37,7 @@ A setting is composed from the build default, a deployment's documents and the m
 
 - **Read [REVIEW.md](REVIEW.md) before committing, pushing, opening a pull request or reviewing a change.** It is the single home for the delivery workflow: commit and trailer conventions, push preconditions, pull request content, review expectations and archiving. The rules in this section remain in force and refine it.
 - Every commit created by an Agent must use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/): `<type>[optional scope][!]: <description>`. This applies to ordinary commits, amended messages, merge commits, squash commits and reverts; replace Git's default message when necessary. Do not rewrite existing history just to normalize messages.
-- Use a lowercase type matching the change: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `style` or `revert`. Use a concise scope when useful (for example `app`, `website`, `ui` or `agents`), and describe the actual change. Mark breaking changes with `!` or a `BREAKING CHANGE:` footer; explain their impact in the body.
+- Use a lowercase type matching the change: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `style` or `revert`. Use a concise scope when useful (for example `app`, `ui` or `agents`), and describe the actual change. Mark breaking changes with `!` or a `BREAKING CHANGE:` footer; explain their impact in the body.
 - When `[skip ci]` is required by the path rules below, append it to the description without replacing the conventional prefix, for example `docs(agents): clarify repository instructions [skip ci]`. Inspect the final message before creating the commit. These message rules do not authorize a commit or history rewrite by themselves.
 - Use existing package scripts and relevant tests during development; see [frontend validation and formatting](standards/frontend/DEVELOPMENT.md). Rust formatting check: `cargo fmt --all --check`; writing formatter: `cargo fmt --all`.
 - Before committing frontend behavior changes, run the affected package's existing `test` script, in addition to `fix` and `lint`. For the desktop frontend, also run the relevant browser suites through `test:visual` when changing visible interactions or components; the shared UI package's `test` script already includes its browser suites. Use focused tests during iteration, then run the affected package's complete `test` script before committing. Documentation-only or formatting-only changes do not require behavioral tests.
@@ -49,7 +48,7 @@ A setting is composed from the build default, a deployment's documents and the m
 - Rust coverage runs through `node scripts/axolotl/rust-coverage.mjs` (`pnpm coverage:rust`), the single entry point for local runs and the CI `coverage` job, which publishes a `rust-coverage` artifact and feeds the `Desktop CI result` gate. It measures the library crates without the shell's `theseus/tauri` feature and the shell separately, because that feature compiles out helpers the `theseus` tests need. The metric is defined in [CONTRIBUTING.md](CONTRIBUTING.md) (line coverage, inline `#[cfg(test)]` code counted, test-only files excluded by the tool's defaults). The target is 75%; the CI floor is a 59% ratchet set from the measured 59.97% baseline, so raise it as tests land and never lower it to make a change pass. Do not add a nightly `#[coverage(off)]` attribute to hide code.
 - Before a frontend commit, run the affected package's `fix` script as described in the frontend standard. Inspect the diff, preserve user changes, and stage corrected files without unrelated formatting changes.
 - Run full pre-PR workflows only when explicitly requested. If the user indicates they are about to create a PR without requesting checks, ask whether to run them. Do not repeat them after each prompt.
-- Pre-PR commands: website `pnpm prepr:website`; app frontend `pnpm prepr:frontend:app`; frontend libraries `pnpm prepr:frontend:lib`; all packages `pnpm prepr`.
+- Pre-PR commands: app frontend `pnpm prepr:frontend:app`; frontend libraries `pnpm prepr:frontend:lib`; all packages `pnpm prepr`.
 - `prepr` can write formatting and extracted/pruned locale files. It is not a universal read-only lint/test/build gate. The task graph in `turbo.jsonc` and each package's scripts determine coverage; run relevant lint, tests and build separately.
 - Before pushing, inspect changed paths. Include `[skip ci]` only for commits that do not affect the desktop app (`apps/app/`, `apps/app-frontend/`) or its build, packaging, runtime or app-specific dependencies. Never use it for desktop-affecting commits.
 

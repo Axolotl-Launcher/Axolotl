@@ -2903,29 +2903,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "功能旗標"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "標準語言"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "搜尋結果"
-  },
   "settings.language.description": {
     "defaultMessage": "選擇你偏好的{platform}語言。翻譯由 <crowdin-link>Crowdin</crowdin-link> 上的志願者所貢獻。"
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "搜尋語言..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {未搜尋到相關語言} other {有 # 個語言符合搜尋字詞}}。"
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "沒有語言符合你的搜尋字詞。"
-  },
   "settings.language.platform.app": {
     "defaultMessage": "應用程式"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "網站"
   },
   "settings.language.title": {
     "defaultMessage": "語言"

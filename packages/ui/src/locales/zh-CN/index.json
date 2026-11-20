@@ -3593,29 +3593,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "功能开关"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "标准语言"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "搜索结果"
-  },
   "settings.language.description": {
     "defaultMessage": "选择你偏好的{platform}语言。翻译工作由志愿者在 <crowdin-link>Crowdin</crowdin-link> 上完成。"
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "搜索语言..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {没有符合搜索条件的语言} other {共有 # 个语言符合搜索条件}}。"
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "没有符合搜索条件的语言。"
-  },
   "settings.language.platform.app": {
     "defaultMessage": "应用"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "网站"
   },
   "settings.language.title": {
     "defaultMessage": "语言"

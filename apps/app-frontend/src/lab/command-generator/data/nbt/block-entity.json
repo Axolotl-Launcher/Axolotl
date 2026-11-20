@@ -210,7 +210,8 @@
         "ids": ["beehive"]
       },
       "zh": "蜜蜂",
-      "desc": "Entities currently in the hive. Represents the minecraft:bees component."
+      "desc": "Entities currently in the hive. Represents the minecraft:bees component.",
+      "elementType": "compound"
     },
     {
       "key": "blockState",
@@ -502,7 +503,8 @@
         "ids": ["trial_spawner"]
       },
       "zh": "当前生物数",
-      "desc": "A set of mob UUIDs. — The mobs that were spawned by this spawner and are still alive."
+      "desc": "A set of mob UUIDs. — The mobs that were spawned by this spawner and are still alive.",
+      "elementType": "int_array"
     },
     {
       "key": "cursors",
@@ -512,7 +514,8 @@
         "ids": ["sculk_catalyst"]
       },
       "zh": "光标",
-      "desc": "List of sculk charge clusters associated with the sculk catalyst."
+      "desc": "List of sculk charge clusters associated with the sculk catalyst.",
+      "elementType": "compound"
     },
     {
       "key": "custom_name",
@@ -777,7 +780,8 @@
         "group": "sign-text-object"
       },
       "zh": "已过滤消息",
-      "desc": "Only in Realms. The lines of text shown to players with the profanity filter turned on instead of the regular lines. This tag is automatically set to \"\" for lines containing blocked words and to the line's normal contents for the other lines when a player with the profanity filter turned off edits the sign, so players with the filter on cannot see the blocked words. If a player with the filter on tries to use blocked words in one or more lines, the line(s) in containing blocked words are set to \"\", which makes them render completely blank, and this tag is also given the same contents. If multiple lines have been edited before the sign editing GUI is closed, only the lines containing blocked words are blanked."
+      "desc": "Only in Realms. The lines of text shown to players with the profanity filter turned on instead of the regular lines. This tag is automatically set to \"\" for lines containing blocked words and to the line's normal contents for the other lines when a player with the profanity filter turned off edits the sign, so players with the filter on cannot see the blocked words. If a player with the filter on tries to use blocked words in one or more lines, the line(s) in containing blocked words are set to \"\", which makes them render completely blank, and this tag is also given the same contents. If multiple lines have been edited before the sign editing GUI is closed, only the lines containing blocked words are blanked.",
+      "elementType": "string"
     },
     {
       "key": "final_state",
@@ -1082,7 +1086,8 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of books in the bookshelf. Represents the minecraft:container component."
+      "desc": "List of books in the bookshelf. Represents the minecraft:container component.",
+      "elementType": "compound"
     },
     {
       "key": "Items",
@@ -1322,7 +1327,9 @@
               "category": "data",
               "advanced": true,
               "zh": "坐标",
-              "desc": "The coordinates of the source of this vibration."
+              "desc": "The coordinates of the source of this vibration.",
+              "elementType": "double",
+              "length": 3
             },
             {
               "key": "projectile_owner",
@@ -1409,7 +1416,9 @@
               "category": "data",
               "advanced": true,
               "zh": "坐标",
-              "desc": "The coordinates of the source of this vibration."
+              "desc": "The coordinates of the source of this vibration.",
+              "elementType": "double",
+              "length": 3
             },
             {
               "key": "projectile_owner",
@@ -1537,7 +1546,8 @@
         "group": "trial-spawner-config"
       },
       "zh": "待喷出战利品表",
-      "desc": "Defaults to a list of minecraft:spawners/trial_chamber/consumables and minecraft:spawners/trial_chamber/key, both with weight 1 — List of possible loot tables to give as reward."
+      "desc": "Defaults to a list of minecraft:spawners/trial_chamber/consumables and minecraft:spawners/trial_chamber/key, both with weight 1 — List of possible loot tables to give as reward.",
+      "elementType": "compound"
     },
     {
       "key": "LootTable",
@@ -1597,7 +1607,8 @@
         "group": "sign-text-object"
       },
       "zh": "消息",
-      "desc": "A list of four text components, one for each line."
+      "desc": "A list of four text components, one for each line.",
+      "elementType": "string"
     },
     {
       "key": "metadata",
@@ -1782,7 +1793,8 @@
         "group": "entity"
       },
       "zh": "乘客",
-      "desc": "The data of the entities that are riding this entity."
+      "desc": "The data of the entities that are riding this entity.",
+      "elementType": "compound"
     },
     {
       "key": "patterns",
@@ -1792,7 +1804,8 @@
         "ids": ["banner"]
       },
       "zh": "图案",
-      "desc": "List of all patterns applied to the banner."
+      "desc": "List of all patterns applied to the banner.",
+      "elementType": "compound"
     },
     {
       "key": "placement_priority",
@@ -1934,7 +1947,8 @@
         "group": "profile"
       },
       "zh": "属性",
-      "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component."
+      "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component.",
+      "elementType": "compound"
     },
     {
       "key": "RecipesUsed",
@@ -2011,7 +2025,8 @@
         "ids": ["trial_spawner"]
       },
       "zh": "已登记玩家",
-      "desc": "A set of player UUIDs. — All the players that have joined the battle. The length of this array determines the amount of mobs and amount of rewards."
+      "desc": "A set of player UUIDs. — All the players that have joined the battle. The length of this array determines the amount of mobs and amount of rewards.",
+      "elementType": "int_array"
     },
     {
       "key": "required_player_range",
@@ -2117,7 +2132,8 @@
           "type": "list",
           "category": "data",
           "zh": "已奖励玩家",
-          "desc": "A set of player UUIDs that have already received their rewards from this vault."
+          "desc": "A set of player UUIDs that have already received their rewards from this vault.",
+          "elementType": "int_array"
         },
         {
           "key": "state_updating_resumes_at",
@@ -2165,7 +2181,8 @@
           "type": "list",
           "category": "data",
           "zh": "连接玩家",
-          "desc": "A set of player UUIDs that are within range of the vault."
+          "desc": "A set of player UUIDs that are within range of the vault.",
+          "elementType": "int_array"
         },
         {
           "key": "connected_particles_range",
@@ -2327,7 +2344,8 @@
         "group": "trial-spawner-config"
       },
       "zh": "可能生成项",
-      "desc": "Defaults to an empty list — List of possible entities to spawn."
+      "desc": "Defaults to an empty list — List of possible entities to spawn.",
+      "elementType": "compound"
     },
     {
       "key": "spawn_range",
@@ -2368,7 +2386,8 @@
         "ids": ["mob_spawner"]
       },
       "zh": "可能生成项",
-      "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft generates it the next time the spawner tries to spawn an entity. The generated list contains a single entry derived from the SpawnData tag."
+      "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft generates it the next time the spawner tries to spawn an entity. The generated list contains a single entry derived from the SpawnData tag.",
+      "elementType": "compound"
     },
     {
       "key": "SpawnRange",

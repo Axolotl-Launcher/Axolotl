@@ -151,11 +151,13 @@ describe('NBT 目录数据', () => {
     })
 
     /** 列表没有元素类型时，面板不知道要往里面插什么标签，只能插入裸值。 */
-    it('物品目录里每个列表都有元素类型', () => {
-        walk(fieldsFor('item'), (field, path) => {
-            if (field.type !== 'list') return
-            expect(field.elementType, `item:${path} 是列表但缺元素类型`).toBeDefined()
-        })
+    it('每个列表都有元素类型', () => {
+        for (const domain of DOMAINS) {
+            walk(catalogFor(domain).fields, (field, path) => {
+                if (field.type !== 'list') return
+                expect(field.elementType, `${domain}:${path} 是列表但缺元素类型`).toBeDefined()
+            })
+        }
     })
 
     it('方块实体目录包含公共字段', () => {

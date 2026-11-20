@@ -499,7 +499,8 @@
           "type": "list",
           "category": "data",
           "zh": "可疑实体",
-          "desc": "List of suspects that have angered the warden."
+          "desc": "List of suspects that have angered the warden.",
+          "elementType": "compound"
         }
       ]
     },
@@ -584,7 +585,8 @@
         "group": "mob"
       },
       "zh": "属性",
-      "desc": "A list of attributes for this mob. These are used for many purposes in internal calculations, and can be considered a mob's \"statistics\". Valid attributes for a given mob are listed in the main article."
+      "desc": "A list of attributes for this mob. These are used for many purposes in internal calculations, and can be considered a mob's \"statistics\". Valid attributes for a given mob are listed in the main article.",
+      "elementType": "compound"
     },
     {
       "key": "background",
@@ -1195,7 +1197,9 @@
         "group": "mob"
       },
       "zh": "当前爆炸冲击位置",
-      "desc": "Exists only if the mob is airborne after being hit by a wind charge explosion."
+      "desc": "Exists only if the mob is airborne after being hit by a wind charge explosion.",
+      "elementType": "double",
+      "length": 3
     },
     {
       "key": "current_impulse_context_reset_grace_time",
@@ -1225,7 +1229,8 @@
         "group": "potion-contents"
       },
       "zh": "自定义效果",
-      "desc": "A list of the additional effects that this item should apply."
+      "desc": "A list of the additional effects that this item should apply.",
+      "elementType": "compound"
     },
     {
       "key": "custom_name",
@@ -1840,7 +1845,8 @@
       },
       "editor": "item_list",
       "zh": "末影箱物品",
-      "desc": "Each compound tag in this list is an item in the player's 27-slot ender chest inventory."
+      "desc": "Each compound tag in this list is an item in the player's 27-slot ender chest inventory.",
+      "elementType": "compound"
     },
     {
       "key": "entered_nether_pos",
@@ -2477,7 +2483,8 @@
         "ids": ["villager"]
       },
       "zh": "村民流言",
-      "desc": "Pieces of gossip that can be exchanged between villagers when they meet."
+      "desc": "Pieces of gossip that can be exchanged between villagers when they meet.",
+      "elementType": "compound"
     },
     {
       "key": "Gossips",
@@ -2487,7 +2494,8 @@
         "ids": ["zombie_villager"]
       },
       "zh": "村民流言",
-      "desc": "Pieces of gossip that can be exchanged between villagers when they meet."
+      "desc": "Pieces of gossip that can be exchanged between villagers when they meet.",
+      "elementType": "compound"
     },
     {
       "key": "GotFish",
@@ -2633,7 +2641,8 @@
         "ids": ["mannequin"]
       },
       "zh": "隐藏图层",
-      "desc": "- List of outer skin layers to hide."
+      "desc": "- List of outer skin layers to hide.",
+      "elementType": "byte"
     },
     {
       "key": "HiddenGene",
@@ -2897,7 +2906,8 @@
       },
       "editor": "item_list",
       "zh": "物品栏",
-      "desc": "Each compound tag in this list is an item in the piglin's inventory."
+      "desc": "Each compound tag in this list is an item in the piglin's inventory.",
+      "elementType": "compound"
     },
     {
       "key": "Inventory",
@@ -2908,7 +2918,8 @@
       },
       "editor": "item_list",
       "zh": "物品栏",
-      "desc": "Each compound tag in this list is an item in the pillager's inventory, up to a maximum of 5 slots."
+      "desc": "Each compound tag in this list is an item in the pillager's inventory, up to a maximum of 5 slots.",
+      "elementType": "compound"
     },
     {
       "key": "Inventory",
@@ -2919,7 +2930,8 @@
       },
       "editor": "item_list",
       "zh": "物品栏",
-      "desc": "Each compound tag in this list is an item in the player's inventory."
+      "desc": "Each compound tag in this list is an item in the player's inventory.",
+      "elementType": "compound"
     },
     {
       "key": "Inventory",
@@ -2930,7 +2942,8 @@
       },
       "editor": "item_list",
       "zh": "物品栏",
-      "desc": "Each compound tag in this list is an item in the villager's inventory, up to a maximum of 8 slots."
+      "desc": "Each compound tag in this list is an item in the villager's inventory, up to a maximum of 8 slots.",
+      "elementType": "compound"
     },
     {
       "key": "Inventory",
@@ -2941,7 +2954,8 @@
       },
       "editor": "item_list",
       "zh": "物品栏",
-      "desc": "Each compound tag in this list is an item in the wandering trader's inventory, up to a maximum of 8 slots."
+      "desc": "Each compound tag in this list is an item in the wandering trader's inventory, up to a maximum of 8 slots.",
+      "elementType": "compound"
     },
     {
       "key": "Inventory",
@@ -2952,7 +2966,8 @@
       },
       "editor": "item_list",
       "zh": "物品栏",
-      "desc": "Each compound tag in this list is an item in the villager's inventory, up to a maximum of 8 slots."
+      "desc": "Each compound tag in this list is an item in the villager's inventory, up to a maximum of 8 slots.",
+      "elementType": "compound"
     },
     {
       "key": "Invisible",
@@ -3984,7 +3999,9 @@
               "category": "data",
               "advanced": true,
               "zh": "坐标",
-              "desc": "The coordinates of the source of this vibration."
+              "desc": "The coordinates of the source of this vibration.",
+              "elementType": "double",
+              "length": 3
             },
             {
               "key": "projectile_owner",
@@ -4261,7 +4278,8 @@
           "type": "list",
           "category": "data",
           "zh": "配方列表",
-          "desc": "List of trade options."
+          "desc": "List of trade options.",
+          "elementType": "compound"
         }
       ]
     },
@@ -4280,7 +4298,8 @@
           "type": "list",
           "category": "data",
           "zh": "配方列表",
-          "desc": "List of trade options."
+          "desc": "List of trade options.",
+          "elementType": "compound"
         }
       ]
     },
@@ -4299,7 +4318,8 @@
           "type": "list",
           "category": "data",
           "zh": "配方列表",
-          "desc": "List of trade options."
+          "desc": "List of trade options.",
+          "elementType": "compound"
         }
       ]
     },
@@ -4485,7 +4505,8 @@
         "group": "entity"
       },
       "zh": "乘客",
-      "desc": "The data of the entities that are riding this entity."
+      "desc": "The data of the entities that are riding this entity.",
+      "elementType": "compound"
     },
     {
       "key": "patrol_target",
@@ -4653,42 +4674,54 @@
           "type": "list",
           "category": "data",
           "zh": "身体颜色",
-          "desc": "Body-specific rotations."
+          "desc": "Body-specific rotations.",
+          "elementType": "float",
+          "length": 3
         },
         {
           "key": "Head",
           "type": "list",
           "category": "data",
           "zh": "头部颜色",
-          "desc": "Head-specific rotations."
+          "desc": "Head-specific rotations.",
+          "elementType": "float",
+          "length": 3
         },
         {
           "key": "LeftArm",
           "type": "list",
           "category": "data",
           "zh": "左臂颜色",
-          "desc": "Left Arm-specific rotations."
+          "desc": "Left Arm-specific rotations.",
+          "elementType": "float",
+          "length": 3
         },
         {
           "key": "LeftLeg",
           "type": "list",
           "category": "data",
           "zh": "左腿颜色",
-          "desc": "Left Leg-specific rotations."
+          "desc": "Left Leg-specific rotations.",
+          "elementType": "float",
+          "length": 3
         },
         {
           "key": "RightArm",
           "type": "list",
           "category": "data",
           "zh": "右臂颜色",
-          "desc": "Right Arm-specific rotations."
+          "desc": "Right Arm-specific rotations.",
+          "elementType": "float",
+          "length": 3
         },
         {
           "key": "RightLeg",
           "type": "list",
           "category": "data",
           "zh": "右腿颜色",
-          "desc": "Right Leg-specific rotations."
+          "desc": "Right Leg-specific rotations.",
+          "elementType": "float",
+          "length": 3
         }
       ]
     },
@@ -4772,7 +4805,8 @@
         "group": "profile"
       },
       "zh": "属性",
-      "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component."
+      "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component.",
+      "elementType": "compound"
     },
     {
       "key": "PuffState",
@@ -4892,7 +4926,8 @@
         "group": "recipe-book"
       },
       "zh": "配方",
-      "desc": "A list of all recipes the player has seen."
+      "desc": "A list of all recipes the player has seen.",
+      "elementType": "string"
     },
     {
       "key": "RequiredPlayerRange",
@@ -5478,7 +5513,8 @@
         "ids": ["spawner_minecart"]
       },
       "zh": "可能生成项",
-      "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft generates it the next time the spawner tries to spawn an entity. The generated list contains a single entry derived from the SpawnData tag."
+      "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft generates it the next time the spawner tries to spawn an entity. The generated list contains a single entry derived from the SpawnData tag.",
+      "elementType": "compound"
     },
     {
       "key": "SpawnRange",
@@ -5549,7 +5585,8 @@
         "ids": ["mooshroom"]
       },
       "zh": "炖菜效果",
-      "desc": "The effects applied to the suspicious stew from milking the mooshroom."
+      "desc": "The effects applied to the suspicious stew from milking the mooshroom.",
+      "elementType": "compound"
     },
     {
       "key": "still_timeout",
@@ -5965,7 +6002,8 @@
         "group": "recipe-book"
       },
       "zh": "待显示",
-      "desc": "A list of all recipes the player has unlocked, but not viewed in the crafting helper yet."
+      "desc": "A list of all recipes the player has unlocked, but not viewed in the crafting helper yet.",
+      "elementType": "int"
     },
     {
       "key": "TrackOutput",
@@ -6007,7 +6045,9 @@
               "type": "list",
               "category": "data",
               "zh": "轴",
-              "desc": "(Required) Axis vector with 3 elements."
+              "desc": "(Required) Axis vector with 3 elements.",
+              "elementType": "float",
+              "length": 3
             }
           ]
         },
@@ -6016,7 +6056,9 @@
           "type": "list",
           "category": "data",
           "zh": "缩放",
-          "desc": "(Required) Scale the model centered on the origin."
+          "desc": "(Required) Scale the model centered on the origin.",
+          "elementType": "float",
+          "length": 3
         },
         {
           "key": "left_rotation",
@@ -6037,7 +6079,9 @@
               "type": "list",
               "category": "data",
               "zh": "轴",
-              "desc": "(Required) Axis vector with 3 elements."
+              "desc": "(Required) Axis vector with 3 elements.",
+              "elementType": "float",
+              "length": 3
             }
           ]
         },
@@ -6046,7 +6090,9 @@
           "type": "list",
           "category": "data",
           "zh": "平移",
-          "desc": "(Required) Translation transformation. This tag corresponds to the last column in the matrix form. This tag is a list of float numbers with 3 elements:"
+          "desc": "(Required) Translation transformation. This tag corresponds to the last column in the matrix form. This tag is a list of float numbers with 3 elements:",
+          "elementType": "float",
+          "length": 3
         }
       ]
     },
@@ -6058,7 +6104,8 @@
         "ids": ["fox"]
       },
       "zh": "信任玩家",
-      "desc": "A list of players that the fox trusts. For a list with more than 2 elements, only the first and the last are considered."
+      "desc": "A list of players that the fox trusts. For a list with more than 2 elements, only the first and the last are considered.",
+      "elementType": "string"
     },
     {
       "key": "Trusting",

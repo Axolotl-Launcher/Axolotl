@@ -31,7 +31,7 @@ const TYPES = new Set([
 const ARRAY_TYPES = new Set(['list', 'byte_array', 'int_array', 'long_array'])
 
 /**
- * wiki 自己在这几条上写的是 `[more information needed]`，没有可引用的说明。
+ * wiki 自己在这些条目上写的是 `[more information needed]`，没有可引用的说明。
  * wiki 补上之后从集合里删掉对应键，测试就会重新要求 desc。
  */
 const UNDOCUMENTED = new Set([
@@ -39,6 +39,32 @@ const UNDOCUMENTED = new Set([
     'item_based_steering',
     'spawn_extra_particles_on_fall',
 ])
+
+/**
+ * wiki 明确列出子字段、因而必须在目录里也展开的组件。没有子字段时，面板里选中
+ * `minecraft:food` 只能得到一个空 `{}`，用户仍要去 wiki 抄 `nutrition` 怎么拼。
+ */
+const EXPECTED_STRUCTURED = [
+    'banner_patterns',
+    'bees',
+    'can_break',
+    'can_place_on',
+    'consumable',
+    'container',
+    'custom_model_data',
+    'damage_resistant',
+    'enchantable',
+    'equippable',
+    'food',
+    'pot_decorations',
+    'profile',
+    'suspicious_stew_effects',
+    'tool',
+    'tooltip_display',
+    'trim',
+    'use_cooldown',
+    'written_book_content',
+]
 
 function walk(
     fields: NbtFieldSpec[],
@@ -116,6 +142,20 @@ describe('NBT 目录数据', () => {
             ).toBe(true)
         }
         expect(findFieldByPath('item', 'custom_name')).toBeDefined()
+    })
+
+    it.each(EXPECTED_STRUCTURED)('物品组件 %s 展开子字段', (key) => {
+        const field = fieldsFor('item').find((entry) => entry.key === key)
+        expect(field, `缺少组件 ${key}`).toBeDefined()
+        expect((field!.children ?? []).length, `${key} 没有子字段`).toBeGreaterThan(0)
+    })
+
+    /** 列表没有元素类型时，面板不知道要往里面插什么标签，只能插入裸值。 */
+    it('物品目录里每个列表都有元素类型', () => {
+        walk(fieldsFor('item'), (field, path) => {
+            if (field.type !== 'list') return
+            expect(field.elementType, `item:${path} 是列表但缺元素类型`).toBeDefined()
+        })
     })
 
     it('方块实体目录包含公共字段', () => {

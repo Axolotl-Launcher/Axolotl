@@ -40,6 +40,14 @@ export const ITEM_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.banner_patterns.pattern',
         defaultMessage: 'One banner pattern (an ID, or a new banner pattern definition).',
     },
+    'banner_patterns.pattern.asset_id': {
+        id: 'app.lab.command-generator.nbt.desc.item.banner_patterns.pattern.asset_id',
+        defaultMessage: 'The resource location for the texture asset.',
+    },
+    'banner_patterns.pattern.translation_key': {
+        id: 'app.lab.command-generator.nbt.desc.item.banner_patterns.pattern.translation_key',
+        defaultMessage: 'The translation key for displaying the banner tooltip.',
+    },
     base_color: {
         id: 'app.lab.command-generator.nbt.desc.item.base_color',
         defaultMessage:
@@ -53,7 +61,113 @@ export const ITEM_DESCRIPTIONS = defineMessages({
     'bees.entity_data': {
         id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data',
         defaultMessage:
-            'Must include id tag. If the id is not minecraft:bee then the entity will never leave the hive. The Passengers, Pos, Rotation, and UUID tags are ignored when the bee spawns (the bee will always spawn in front of the hive with a random UUID, facing south, and without any passengers).',
+            'Must include id tag. If the id is not minecraft:bee then the entity will never leave the hive. The Passengers, Pos, Rotation, and UUID tags are ignored when the bee spawns (the bee will always spawn in front of the hive with a random UUID, facing south, and without any passengers). May also be written as a plain string holding the entity ID.',
+    },
+    'bees.entity_data.Air': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.Air',
+        defaultMessage:
+            'How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).',
+    },
+    'bees.entity_data.CustomName': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.CustomName',
+        defaultMessage:
+            "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+    },
+    'bees.entity_data.CustomNameVisible': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.CustomNameVisible',
+        defaultMessage:
+            '1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.',
+    },
+    'bees.entity_data.data': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.data',
+        defaultMessage:
+            'Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.',
+    },
+    'bees.entity_data.fall_distance': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.fall_distance',
+        defaultMessage:
+            'Distance the entity has fallen. Larger values cause more damage when the entity lands.',
+    },
+    'bees.entity_data.Fire': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.Fire',
+        defaultMessage:
+            'Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.',
+    },
+    'bees.entity_data.Glowing': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.Glowing',
+        defaultMessage: '1 or 0 (true/false) - if true, the entity has a glowing outline.',
+    },
+    'bees.entity_data.HasVisualFire': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.HasVisualFire',
+        defaultMessage:
+            '1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.',
+    },
+    'bees.entity_data.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.id',
+        defaultMessage:
+            "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+    },
+    'bees.entity_data.Invulnerable': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.Invulnerable',
+        defaultMessage:
+            '1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.',
+    },
+    'bees.entity_data.invulnerable_time': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.invulnerable_time',
+        defaultMessage:
+            'Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).',
+    },
+    'bees.entity_data.Motion': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.Motion',
+        defaultMessage:
+            'List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.',
+    },
+    'bees.entity_data.NoGravity': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.NoGravity',
+        defaultMessage:
+            '1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.',
+    },
+    'bees.entity_data.OnGround': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.OnGround',
+        defaultMessage: '1 or 0 (true/false) - if true, the entity is touching the ground.',
+    },
+    'bees.entity_data.Passengers': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.Passengers',
+        defaultMessage: 'The data of the entities that are riding this entity.',
+    },
+    'bees.entity_data.PortalCooldown': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.PortalCooldown',
+        defaultMessage:
+            'The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.',
+    },
+    'bees.entity_data.Pos': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.Pos',
+        defaultMessage:
+            'List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.',
+    },
+    'bees.entity_data.Rotation': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.Rotation',
+        defaultMessage:
+            "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+    },
+    'bees.entity_data.Silent': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.Silent',
+        defaultMessage: '1 or 0 (true/false) - if true, this entity is silenced. May not exist.',
+    },
+    'bees.entity_data.Tags': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.Tags',
+        defaultMessage:
+            'List of scoreboard tags of this entity. It is not preserved if it is removed.',
+    },
+    'bees.entity_data.TicksFrozen': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.TicksFrozen',
+        defaultMessage:
+            'Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.',
+    },
+    'bees.entity_data.UUID': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.UUID',
+        defaultMessage:
+            "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
     },
     'bees.min_ticks_in_hive': {
         id: 'app.lab.command-generator.nbt.desc.item.bees.min_ticks_in_hive',
@@ -101,6 +215,19 @@ export const ITEM_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.bundle_contents',
         defaultMessage:
             'The items stored inside this bundle. Adding this component to any item changes that item to occupy 1/16 of the space of a bundle plus any items specified in the component, regardless of how of that item normally fit in a bundle. Shulker boxes with this component are still not able to be placed inside a bundle. If this component is removed from a bundle, it cannot be used by the player and the usual instruction and fullness bar does not appear in the tooltip.',
+    },
+    'bundle_contents.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.bundle_contents.id',
+        defaultMessage: 'The identifier of the item. Must not be minecraft:air.',
+    },
+    'bundle_contents.count': {
+        id: 'app.lab.command-generator.nbt.desc.item.bundle_contents.count',
+        defaultMessage:
+            'Number of items stacked in this inventory slot. Defaults to 1 if not specified.',
+    },
+    'bundle_contents.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.bundle_contents.components',
+        defaultMessage: 'Optional map of additional (non-default) data components.',
     },
     can_break: {
         id: 'app.lab.command-generator.nbt.desc.item.can_break',
@@ -167,6 +294,19 @@ export const ITEM_DESCRIPTIONS = defineMessages({
         defaultMessage:
             'The items loaded as projectiles into this crossbow. If there are item stacks in this component, the item name for item stack is listed in the tooltip of the item as "Projectile: [\'<name>\']", and any duplicate item stack entries are grouped together as "Projectile: N x [\'<name>\']". If not present, this crossbow is not charged.',
     },
+    'charged_projectiles.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.charged_projectiles.id',
+        defaultMessage: 'The identifier of the item. Must not be minecraft:air.',
+    },
+    'charged_projectiles.count': {
+        id: 'app.lab.command-generator.nbt.desc.item.charged_projectiles.count',
+        defaultMessage:
+            'Number of items stacked in this inventory slot. Defaults to 1 if not specified.',
+    },
+    'charged_projectiles.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.charged_projectiles.components',
+        defaultMessage: 'Optional map of additional (non-default) data components.',
+    },
     compostable: {
         id: 'app.lab.command-generator.nbt.desc.item.compostable',
         defaultMessage:
@@ -209,6 +349,19 @@ export const ITEM_DESCRIPTIONS = defineMessages({
     'container.item': {
         id: 'app.lab.command-generator.nbt.desc.item.container.item',
         defaultMessage: 'The item stack in this slot.',
+    },
+    'container.item.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.container.item.id',
+        defaultMessage: 'The identifier of the item. Must not be minecraft:air.',
+    },
+    'container.item.count': {
+        id: 'app.lab.command-generator.nbt.desc.item.container.item.count',
+        defaultMessage:
+            'Number of items stacked in this inventory slot. Defaults to 1 if not specified.',
+    },
+    'container.item.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.container.item.components',
+        defaultMessage: 'Optional map of additional (non-default) data components.',
     },
     'container.slot': {
         id: 'app.lab.command-generator.nbt.desc.item.container.slot',
@@ -322,7 +475,113 @@ export const ITEM_DESCRIPTIONS = defineMessages({
     entity_data: {
         id: 'app.lab.command-generator.nbt.desc.item.entity_data',
         defaultMessage:
-            'NBT applied to an entity when created from an item. If this component is present on an item, the game\'s difficulty is set to peaceful and the [String] id in this component is that of a hostile mob, red text is added to the tooltip that says "Disabled in Peaceful". If the item is a spawn egg and this [String] id is falling_block, command_block_minecart, or spawner_minecart, this component adds a red message to the item\'s tooltip (visible for operator players only) warning the player that using it may result in command execution.',
+            'NBT applied to an entity when created from an item. If this component is present on an item, the game\'s difficulty is set to peaceful and the [String] id in this component is that of a hostile mob, red text is added to the tooltip that says "Disabled in Peaceful". If the item is a spawn egg and this [String] id is falling_block, command_block_minecart, or spawner_minecart, this component adds a red message to the item\'s tooltip (visible for operator players only) warning the player that using it may result in command execution. May also be written as a plain string holding the entity ID.',
+    },
+    'entity_data.Air': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.Air',
+        defaultMessage:
+            'How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).',
+    },
+    'entity_data.CustomName': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.CustomName',
+        defaultMessage:
+            "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+    },
+    'entity_data.CustomNameVisible': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.CustomNameVisible',
+        defaultMessage:
+            '1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.',
+    },
+    'entity_data.data': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.data',
+        defaultMessage:
+            'Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.',
+    },
+    'entity_data.fall_distance': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.fall_distance',
+        defaultMessage:
+            'Distance the entity has fallen. Larger values cause more damage when the entity lands.',
+    },
+    'entity_data.Fire': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.Fire',
+        defaultMessage:
+            'Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.',
+    },
+    'entity_data.Glowing': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.Glowing',
+        defaultMessage: '1 or 0 (true/false) - if true, the entity has a glowing outline.',
+    },
+    'entity_data.HasVisualFire': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.HasVisualFire',
+        defaultMessage:
+            '1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.',
+    },
+    'entity_data.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.id',
+        defaultMessage:
+            "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+    },
+    'entity_data.Invulnerable': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.Invulnerable',
+        defaultMessage:
+            '1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.',
+    },
+    'entity_data.invulnerable_time': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.invulnerable_time',
+        defaultMessage:
+            'Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).',
+    },
+    'entity_data.Motion': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.Motion',
+        defaultMessage:
+            'List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.',
+    },
+    'entity_data.NoGravity': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.NoGravity',
+        defaultMessage:
+            '1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.',
+    },
+    'entity_data.OnGround': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.OnGround',
+        defaultMessage: '1 or 0 (true/false) - if true, the entity is touching the ground.',
+    },
+    'entity_data.Passengers': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.Passengers',
+        defaultMessage: 'The data of the entities that are riding this entity.',
+    },
+    'entity_data.PortalCooldown': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.PortalCooldown',
+        defaultMessage:
+            'The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.',
+    },
+    'entity_data.Pos': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.Pos',
+        defaultMessage:
+            'List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.',
+    },
+    'entity_data.Rotation': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.Rotation',
+        defaultMessage:
+            "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+    },
+    'entity_data.Silent': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.Silent',
+        defaultMessage: '1 or 0 (true/false) - if true, this entity is silenced. May not exist.',
+    },
+    'entity_data.Tags': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.Tags',
+        defaultMessage:
+            'List of scoreboard tags of this entity. It is not preserved if it is removed.',
+    },
+    'entity_data.TicksFrozen': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.TicksFrozen',
+        defaultMessage:
+            'Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.',
+    },
+    'entity_data.UUID': {
+        id: 'app.lab.command-generator.nbt.desc.item.entity_data.UUID',
+        defaultMessage:
+            "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
     },
     equippable: {
         id: 'app.lab.command-generator.nbt.desc.item.equippable',
@@ -527,17 +786,69 @@ export const ITEM_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.left',
         defaultMessage: 'The item stack in the left side.',
     },
+    'pot_decorations.left.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.left.id',
+        defaultMessage: 'The identifier of the item. Must not be minecraft:air.',
+    },
+    'pot_decorations.left.count': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.left.count',
+        defaultMessage:
+            'Number of items stacked in this inventory slot. Defaults to 1 if not specified.',
+    },
+    'pot_decorations.left.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.left.components',
+        defaultMessage: 'Optional map of additional (non-default) data components.',
+    },
     'pot_decorations.back': {
         id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.back',
         defaultMessage: 'The item stack in the back side.',
+    },
+    'pot_decorations.back.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.back.id',
+        defaultMessage: 'The identifier of the item. Must not be minecraft:air.',
+    },
+    'pot_decorations.back.count': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.back.count',
+        defaultMessage:
+            'Number of items stacked in this inventory slot. Defaults to 1 if not specified.',
+    },
+    'pot_decorations.back.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.back.components',
+        defaultMessage: 'Optional map of additional (non-default) data components.',
     },
     'pot_decorations.right': {
         id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.right',
         defaultMessage: 'The item stack in the right side.',
     },
+    'pot_decorations.right.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.right.id',
+        defaultMessage: 'The identifier of the item. Must not be minecraft:air.',
+    },
+    'pot_decorations.right.count': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.right.count',
+        defaultMessage:
+            'Number of items stacked in this inventory slot. Defaults to 1 if not specified.',
+    },
+    'pot_decorations.right.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.right.components',
+        defaultMessage: 'Optional map of additional (non-default) data components.',
+    },
     'pot_decorations.front': {
         id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.front',
         defaultMessage: 'The item stack in the front side.',
+    },
+    'pot_decorations.front.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.front.id',
+        defaultMessage: 'The identifier of the item. Must not be minecraft:air.',
+    },
+    'pot_decorations.front.count': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.front.count',
+        defaultMessage:
+            'Number of items stacked in this inventory slot. Defaults to 1 if not specified.',
+    },
+    'pot_decorations.front.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.front.components',
+        defaultMessage: 'Optional map of additional (non-default) data components.',
     },
     potion_contents: {
         id: 'app.lab.command-generator.nbt.desc.item.potion_contents',
@@ -552,7 +863,7 @@ export const ITEM_DESCRIPTIONS = defineMessages({
     profile: {
         id: 'app.lab.command-generator.nbt.desc.item.profile',
         defaultMessage:
-            'Provides the textures needed for rendering player models (player head blocks, player head item models, and mannequins) and player face sprites. Each texture can be provided either as the namespaced path to a texture in a resource pack, or from a player profile. A player profile can be specified either as player information whose profile properties must be requested on the fly, or a list of already-resolved profile properties.',
+            'Provides the textures needed for rendering player models (player head blocks, player head item models, and mannequins) and player face sprites. Each texture can be provided either as the namespaced path to a texture in a resource pack, or from a player profile. A player profile can be specified either as player information whose profile properties must be requested on the fly, or a list of already-resolved profile properties. May also be written as a plain string holding a player name or UUID.',
     },
     'profile.name': {
         id: 'app.lab.command-generator.nbt.desc.item.profile.name',
@@ -651,6 +962,19 @@ export const ITEM_DESCRIPTIONS = defineMessages({
     sulfur_cube_content: {
         id: 'app.lab.command-generator.nbt.desc.item.sulfur_cube_content',
         defaultMessage: 'The item stored inside the sulfur cube.',
+    },
+    'sulfur_cube_content.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.sulfur_cube_content.id',
+        defaultMessage: 'The identifier of the item. Must not be minecraft:air.',
+    },
+    'sulfur_cube_content.count': {
+        id: 'app.lab.command-generator.nbt.desc.item.sulfur_cube_content.count',
+        defaultMessage:
+            'Number of items stacked in this inventory slot. Defaults to 1 if not specified.',
+    },
+    'sulfur_cube_content.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.sulfur_cube_content.components',
+        defaultMessage: 'Optional map of additional (non-default) data components.',
     },
     suspicious_stew_effects: {
         id: 'app.lab.command-generator.nbt.desc.item.suspicious_stew_effects',
@@ -1041,6 +1365,19 @@ export const ITEM_DESCRIPTIONS = defineMessages({
         defaultMessage:
             'If present, replaces the item with a remainder item if its stack count has decreased after use.',
     },
+    'use_remainder.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.use_remainder.id',
+        defaultMessage: 'The identifier of the item. Must not be minecraft:air.',
+    },
+    'use_remainder.count': {
+        id: 'app.lab.command-generator.nbt.desc.item.use_remainder.count',
+        defaultMessage:
+            'Number of items stacked in this inventory slot. Defaults to 1 if not specified.',
+    },
+    'use_remainder.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.use_remainder.components',
+        defaultMessage: 'Optional map of additional (non-default) data components.',
+    },
     villager_food: {
         id: 'app.lab.command-generator.nbt.desc.item.villager_food',
         defaultMessage: 'If present, villagers will be able to pick up and eat the item.',
@@ -1073,6 +1410,15 @@ export const ITEM_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.written_book_content.title',
         defaultMessage:
             'The title of this written book. Overrides the base item name. If set to an empty string, it is ignored and does not override the base item name.',
+    },
+    'written_book_content.title.raw': {
+        id: 'app.lab.command-generator.nbt.desc.item.written_book_content.title.raw',
+        defaultMessage: 'The plain text title. Has a maximum length of 32 characters.',
+    },
+    'written_book_content.title.filtered': {
+        id: 'app.lab.command-generator.nbt.desc.item.written_book_content.title.filtered',
+        defaultMessage:
+            'The filtered title. Optional. Shown only to players with chat filter enabled, instead of .',
     },
     'written_book_content.author': {
         id: 'app.lab.command-generator.nbt.desc.item.written_book_content.author',

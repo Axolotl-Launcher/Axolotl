@@ -7997,6 +7997,12 @@
   "app.lab.command-generator.nbt.desc.item.banner_patterns.pattern": {
     "message": "一个旗帜图案（ID，或新的旗帜图案定义）。"
   },
+  "app.lab.command-generator.nbt.desc.item.banner_patterns.pattern.asset_id": {
+    "message": "图案贴图的资源位置。"
+  },
+  "app.lab.command-generator.nbt.desc.item.banner_patterns.pattern.translation_key": {
+    "message": "提示框里显示图案名所用的翻译键。"
+  },
   "app.lab.command-generator.nbt.desc.item.base_color": {
     "message": "盾牌上旗帜的底色染料。既没有它也没有 minecraft:banner_patterns 时，盾牌显示普通木质外观；只有图案没有它时底色为白色。用在盾牌上时物品名会被改写为「'<颜色>'盾牌」。"
   },
@@ -8004,7 +8010,73 @@
     "message": "蜂巢或蜂箱中当前的实体列表。用在物品上时提示框会显示条目数（如「蜜蜂：2 / 3」），且每个条目在 minecraft:bundle_contents 里都按整组计算。提示框写着最多 3 条，但这个组件本身没有数量上限。"
   },
   "app.lab.command-generator.nbt.desc.item.bees.entity_data": {
-    "message": "必须包含 id。若 id 不是 minecraft:bee，该实体永远不会离开蜂巢。蜜蜂生成时会忽略 Passengers、Pos、Rotation 与 UUID 标签（总是在蜂巢前方、面向南方、无乘客、随机 UUID）。"
+    "message": "必须包含 id。若 id 不是 minecraft:bee，该实体永远不会离开蜂巢。蜜蜂生成时会忽略 Passengers、Pos、Rotation 与 UUID 标签（总是在蜂巢前方、面向南方、无乘客、随机 UUID）。也可以直接写成字符串，填实体 ID。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Air": {
+    "message": "实体剩余氧气，单位为游戏刻。无法呼吸时会减少（在方块里窒息除外），能呼吸时恢复。某一刻小于等于 -20 且仍无法呼吸时，立刻因溺水失去 1 点生命并重置为 0。多数生物上限 300 刻（15 秒），海豚可达 4800 刻（240 秒），美西螈 6000 刻（300 秒）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.CustomName": {
+    "message": "该实体的自定义名称文本组件。会出现在玩家死亡信息、村民交易界面，以及光标指向实体时其上方的名称里。可以为空或不存在，对应 minecraft:custom_name 组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.CustomNameVisible": {
+    "message": "1 或 0（true/false）。为 true 且实体有自定义名称时，名称始终显示在实体上方，与光标是否指向无关；没有自定义名称时显示默认名。可能不存在。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.data": {
+    "message": "可选的自定义 NBT 数据，为空时会被移除，对应 minecraft:custom_data 组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.fall_distance": {
+    "message": "实体已下落的距离，数值越大落地时受到的伤害越高。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Fire": {
+    "message": "还有多少游戏刻火会熄灭。负值表示实体还能在火里待多久才开始燃烧；不在着火状态时默认为 -20。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Glowing": {
+    "message": "1 或 0（true/false）。为 true 时实体带发光描边。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.HasVisualFire": {
+    "message": "1 或 0（true/false）。为 true 时实体在视觉上着火，即使实际并没有着火。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.id": {
+    "message": "实体类型的命名空间 ID。只存在于被保存的实体里（例如写在数据组件中），世界中的实体没有这个标签。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Invulnerable": {
+    "message": "1 或 0（true/false）。为 true 时实体不受伤：生物不受任何来源（含状态效果）的伤害，也不会被钓竿、攻击、爆炸或投射物推动；载具、物品展示框这类对象只有移除支撑方块才会被破坏。无敌的玩家实体也不会被敌对生物盯上。注意创造模式玩家仍可伤害它们。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.invulnerable_time": {
+    "message": "可选，小于等于 0 时移除。大于 0 时实体在这么多刻内无敌，效果等同于把 Invulnerable 设为 true，两者独立开关、任一满足即无敌。每刻减 1。垫子被闪电击中掉落的物品此项为 20 刻（1 秒），骷髅陷阱新生成的三只骷髅与骷髅马为 60 刻（3 秒）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Motion": {
+    "message": "3 个 double，表示实体当前在 X、Y、Z 方向的速度（米/游戏刻）。只接受 -10.0 到 10.0（含），超出的会重置为 0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.NoGravity": {
+    "message": "1 或 0（true/false）。为 true 时实体不会自然下落，为 false 时不存这个标签。炽足兽在熔岩里会被设为 true。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.OnGround": {
+    "message": "1 或 0（true/false）。为 true 时实体正接触地面。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Passengers": {
+    "message": "正骑在该实体上的实体的数据。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.PortalCooldown": {
+    "message": "还有多少游戏刻才能再次通过下界传送门传送。传送后初始为 300 刻（15 秒），并逐刻递减到 0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Pos": {
+    "message": "3 个 double，表示实体当前的 X、Y、Z 坐标。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Rotation": {
+    "message": "2 个 float，表示实体在服务端的朝向。不一定与客户端看到的生物视线方向一致；多数投射物的偏航角与俯仰角是反着存的。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Silent": {
+    "message": "1 或 0（true/false）。为 true 时该实体不发声。可能不存在。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Tags": {
+    "message": "该实体的计分板标签列表。标签被移除后不会保留。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.TicksFrozen": {
+    "message": "可选。实体被细雪或冰冻效果冻结的游戏刻数，在细雪里或带冰冻效果时增加（哪怕只是部分陷入），最多 140 刻（7 秒）；不在细雪里时以双倍速度下降。虽然所有实体都定义了这个标签，但吸收了方块的硫磺立方、装备了 #freeze_immune_wearables 标签物品的实体、骷髅、属于 #freeze_immune_entity_types 或 #immune_to_freezing 的实体以及非生物实体不受冰冻影响。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.UUID": {
+    "message": "该实体的通用唯一标识符。128 位 UUID 按 4 个 32 位整数存储，从最高位到最低位排列。"
   },
   "app.lab.command-generator.nbt.desc.item.bees.min_ticks_in_hive": {
     "message": "该实体在蜂巢中最短停留的刻数。"
@@ -8035,6 +8107,15 @@
   },
   "app.lab.command-generator.nbt.desc.item.bundle_contents": {
     "message": "收纳袋里装的物品。加到任何物品上都会让它占用 1/16 个收纳袋的空间，再加上这里指定的物品，无论该物品原本怎么堆叠。带此组件的潜影盒仍然不能放进收纳袋。若从收纳袋上移除该组件，玩家就无法使用它，提示框里的用法说明与容量条也会消失。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bundle_contents.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bundle_contents.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bundle_contents.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
   },
   "app.lab.command-generator.nbt.desc.item.can_break": {
     "message": "存在时，持有该物品的玩家在冒险模式下可以破坏指定的方块。"
@@ -8075,6 +8156,15 @@
   "app.lab.command-generator.nbt.desc.item.charged_projectiles": {
     "message": "已装填进这把弩的投射物。有物品栈时，提示框会按「投射物：['<名称>']」列出；重复的条目合并为「投射物：N x ['<名称>']」。不存在时这把弩未装填。"
   },
+  "app.lab.command-generator.nbt.desc.item.charged_projectiles.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.charged_projectiles.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.charged_projectiles.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
   "app.lab.command-generator.nbt.desc.item.compostable": {
     "message": "存在时，无论 layers 的取值如何，该物品都能用在堆肥桶上。"
   },
@@ -8104,6 +8194,15 @@
   },
   "app.lab.command-generator.nbt.desc.item.container.item": {
     "message": "该槽位中的物品栈。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container.item.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container.item.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container.item.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
   },
   "app.lab.command-generator.nbt.desc.item.container.slot": {
     "message": "容器中的槽位，取值 0 到 255。"
@@ -8172,7 +8271,73 @@
     "message": "记录该物品每个附魔及其等级。物品必须同时有它和 minecraft:enchantable 才能在附魔台上附魔。存在时物品名的颜色按稀有度变为青色（普通 / 罕见）或淡紫色（稀有 / 史诗），附魔也会列在提示框里，顺序由 #minecraft:tooltip_order 附魔标签决定。"
   },
   "app.lab.command-generator.nbt.desc.item.entity_data": {
-    "message": "由物品生成实体时应用的 NBT。若游戏难度为和平、且这里的 id 是敌对生物，提示框会加一行红色「和平模式下已禁用」。若物品是刷怪蛋且 id 为 falling_block、command_block_minecart 或 spawner_minecart，提示框会加一行红色警告（仅管理员可见），提示使用后可能执行命令。"
+    "message": "由物品生成实体时应用的 NBT。若游戏难度为和平、且这里的 id 是敌对生物，提示框会加一行红色「和平模式下已禁用」。若物品是刷怪蛋且 id 为 falling_block、command_block_minecart 或 spawner_minecart，提示框会加一行红色警告（仅管理员可见），提示使用后可能执行命令。也可以直接写成字符串，填实体 ID。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Air": {
+    "message": "实体剩余氧气，单位为游戏刻。无法呼吸时会减少（在方块里窒息除外），能呼吸时恢复。某一刻小于等于 -20 且仍无法呼吸时，立刻因溺水失去 1 点生命并重置为 0。多数生物上限 300 刻（15 秒），海豚可达 4800 刻（240 秒），美西螈 6000 刻（300 秒）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.CustomName": {
+    "message": "该实体的自定义名称文本组件。会出现在玩家死亡信息、村民交易界面，以及光标指向实体时其上方的名称里。可以为空或不存在，对应 minecraft:custom_name 组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.CustomNameVisible": {
+    "message": "1 或 0（true/false）。为 true 且实体有自定义名称时，名称始终显示在实体上方，与光标是否指向无关；没有自定义名称时显示默认名。可能不存在。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.data": {
+    "message": "可选的自定义 NBT 数据，为空时会被移除，对应 minecraft:custom_data 组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.fall_distance": {
+    "message": "实体已下落的距离，数值越大落地时受到的伤害越高。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Fire": {
+    "message": "还有多少游戏刻火会熄灭。负值表示实体还能在火里待多久才开始燃烧；不在着火状态时默认为 -20。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Glowing": {
+    "message": "1 或 0（true/false）。为 true 时实体带发光描边。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.HasVisualFire": {
+    "message": "1 或 0（true/false）。为 true 时实体在视觉上着火，即使实际并没有着火。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.id": {
+    "message": "实体类型的命名空间 ID。只存在于被保存的实体里（例如写在数据组件中），世界中的实体没有这个标签。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Invulnerable": {
+    "message": "1 或 0（true/false）。为 true 时实体不受伤：生物不受任何来源（含状态效果）的伤害，也不会被钓竿、攻击、爆炸或投射物推动；载具、物品展示框这类对象只有移除支撑方块才会被破坏。无敌的玩家实体也不会被敌对生物盯上。注意创造模式玩家仍可伤害它们。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.invulnerable_time": {
+    "message": "可选，小于等于 0 时移除。大于 0 时实体在这么多刻内无敌，效果等同于把 Invulnerable 设为 true，两者独立开关、任一满足即无敌。每刻减 1。垫子被闪电击中掉落的物品此项为 20 刻（1 秒），骷髅陷阱新生成的三只骷髅与骷髅马为 60 刻（3 秒）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Motion": {
+    "message": "3 个 double，表示实体当前在 X、Y、Z 方向的速度（米/游戏刻）。只接受 -10.0 到 10.0（含），超出的会重置为 0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.NoGravity": {
+    "message": "1 或 0（true/false）。为 true 时实体不会自然下落，为 false 时不存这个标签。炽足兽在熔岩里会被设为 true。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.OnGround": {
+    "message": "1 或 0（true/false）。为 true 时实体正接触地面。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Passengers": {
+    "message": "正骑在该实体上的实体的数据。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.PortalCooldown": {
+    "message": "还有多少游戏刻才能再次通过下界传送门传送。传送后初始为 300 刻（15 秒），并逐刻递减到 0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Pos": {
+    "message": "3 个 double，表示实体当前的 X、Y、Z 坐标。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Rotation": {
+    "message": "2 个 float，表示实体在服务端的朝向。不一定与客户端看到的生物视线方向一致；多数投射物的偏航角与俯仰角是反着存的。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Silent": {
+    "message": "1 或 0（true/false）。为 true 时该实体不发声。可能不存在。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Tags": {
+    "message": "该实体的计分板标签列表。标签被移除后不会保留。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.TicksFrozen": {
+    "message": "可选。实体被细雪或冰冻效果冻结的游戏刻数，在细雪里或带冰冻效果时增加（哪怕只是部分陷入），最多 140 刻（7 秒）；不在细雪里时以双倍速度下降。虽然所有实体都定义了这个标签，但吸收了方块的硫磺立方、装备了 #freeze_immune_wearables 标签物品的实体、骷髅、属于 #freeze_immune_entity_types 或 #immune_to_freezing 的实体以及非生物实体不受冰冻影响。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.UUID": {
+    "message": "该实体的通用唯一标识符。128 位 UUID 按 4 个 32 位整数存储，从最高位到最低位排列。"
   },
   "app.lab.command-generator.nbt.desc.item.equippable": {
     "message": "存在时，该物品可以装备到指定的槽位。"
@@ -8300,14 +8465,50 @@
   "app.lab.command-generator.nbt.desc.item.pot_decorations.back": {
     "message": "背面的物品栈。"
   },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.back.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.back.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.back.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
   "app.lab.command-generator.nbt.desc.item.pot_decorations.front": {
     "message": "正面的物品栈。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.front.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.front.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.front.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
   },
   "app.lab.command-generator.nbt.desc.item.pot_decorations.left": {
     "message": "左侧面的物品栈。"
   },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.left.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.left.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.left.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
   "app.lab.command-generator.nbt.desc.item.pot_decorations.right": {
     "message": "右侧面的物品栈。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.right.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.right.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.right.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
   },
   "app.lab.command-generator.nbt.desc.item.potion_contents": {
     "message": "该药水、喷溅药水、滞留药水、药箭或区域效果云包含的基础药水、自定义状态效果列表与自定义颜色。用在物品上时，状态效果会列在提示框里。若同时有 minecraft:consumable，食用后会把这里的效果全部施加给食用者。写成字符串时对应 potion 字段。"
@@ -8316,7 +8517,7 @@
     "message": "用在带有 minecraft:potion_contents 的物品或区域效果云上时，施加的效果时长按此系数缩放。"
   },
   "app.lab.command-generator.nbt.desc.item.profile": {
-    "message": "提供渲染玩家模型（玩家头颅方块、玩家头颅物品模型、假人）与玩家头像所需的纹理。每个纹理既可以写成资源包中纹理的命名空间路径，也可以来自玩家档案；玩家档案既可以只给需要实时请求的名字或 UUID，也可以给出已解析的属性列表。"
+    "message": "提供渲染玩家模型（玩家头颅方块、玩家头颅物品模型、假人）与玩家头像所需的纹理。每个纹理既可以写成资源包中纹理的命名空间路径，也可以来自玩家档案；玩家档案既可以只给需要实时请求的名字或 UUID，也可以给出已解析的属性列表。也可以直接写成字符串，填玩家名或 UUID。"
   },
   "app.lab.command-generator.nbt.desc.item.profile.cape": {
     "message": "可选。披风纹理的命名空间路径，相对于资源包的 textures 目录。指定后会覆盖档案提供的披风，但不影响鞘翅纹理。"
@@ -8380,6 +8581,15 @@
   },
   "app.lab.command-generator.nbt.desc.item.sulfur_cube_content": {
     "message": "硫磺方块里存放的物品。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sulfur_cube_content.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sulfur_cube_content.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sulfur_cube_content.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
   },
   "app.lab.command-generator.nbt.desc.item.suspicious_stew_effects": {
     "message": "食用该物品（通常是迷之炖菜）后施加给玩家或生物的一组无倍率状态效果，且忽略 minecraft:potion_duration_scale。存在时，只有在物品选择界面里才会显示相关提示文字。"
@@ -8639,6 +8849,15 @@
   "app.lab.command-generator.nbt.desc.item.use_remainder": {
     "message": "存在时，使用后若数量减少，则把物品替换为剩余的物品。"
   },
+  "app.lab.command-generator.nbt.desc.item.use_remainder.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_remainder.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_remainder.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
   "app.lab.command-generator.nbt.desc.item.villager_food": {
     "message": "存在时，村民可以拾取并食用该物品。"
   },
@@ -8667,7 +8886,13 @@
     "message": "为 true 时文本组件已由服务器解析。为 false 时，会在管理员打开书、管理员把书放进讲台，或命令把物品栈写入讲台的 Book 标签时解析。默认 false。"
   },
   "app.lab.command-generator.nbt.desc.item.written_book_content.title": {
-    "message": "该成书的标题，会覆盖基础物品名。设为空字符串时被忽略，不覆盖基础物品名。"
+    "message": "该成书的标题，会覆盖基础物品名。设为空字符串时被忽略，不覆盖基础物品名。也可以写成带 raw 与 filtered 的复合标签。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content.title.filtered": {
+    "message": "过滤后的标题，可选。开启聊天过滤的玩家看到的是这一份，而不是 raw。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content.title.raw": {
+    "message": "未过滤的纯文本标题，最长 32 个字符。"
   },
   "app.lab.command-generator.nbt.edit-as-group": {
     "message": "按列表编辑"

@@ -194,6 +194,14 @@ watch(
 
 watch(nbtTarget, (target) => emit('update:nbt-target', target), { immediate: true })
 
+// 候选变了就把高亮拉回第一项，否则会停在一个已经不存在的下标上
+watch(
+    () => suggestions.value.length,
+    () => {
+        activeSuggestion.value = 0
+    },
+)
+
 function specLabel(spec: SelectorArgumentSpec): string {
     return locale.value.toLowerCase().startsWith('zh') ? spec.zh : spec.key
 }

@@ -96,6 +96,13 @@ describe('选择器解析', () => {
         expect(parseSelector('stone')).toBeUndefined()
     })
 
+    it('前导空格不破坏参数位置', () => {
+        const text = '  @e[type=zombie]'
+        const parsed = parseSelector(text)!
+        const argument = parsed.arguments[0]
+        expect(text.slice(argument.start, argument.end)).toBe('zombie')
+    })
+
     it('基岩版变量会被标出来', () => {
         expect(parseSelector('@c')!.unknownVariable).toBe('c')
     })

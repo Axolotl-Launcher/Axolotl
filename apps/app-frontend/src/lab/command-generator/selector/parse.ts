@@ -100,6 +100,8 @@ function isSelectorVariable(value: string): value is SelectorVariable {
 export function parseSelector(text: string): ParsedSelector | undefined {
     const trimmed = text.trim()
     if (!trimmed.startsWith('@')) return undefined
+    // 参数位置是相对原文的：前面有空格时要把偏移补回来，否则就地改值会错位
+    const shift = text.length - text.trimStart().length
     const nameMatch = /^@([A-Za-z_]+)/.exec(trimmed)
     if (!nameMatch) return undefined
 
@@ -132,8 +134,14 @@ export function parseSelector(text: string): ParsedSelector | undefined {
             key,
             value: rawValue,
             negated,
-            start: offset + part.start + eq + 1 + (part.text.length - part.text.trimStart().length),
-            end: offset + part.end,
+            start:
+                shift +
+                offset +
+                part.start +
+                eq +
+                1 +
+                (part.text.length - part.text.trimStart().length),
+            end: shift + offset + part.end,
         })
     }
     return result

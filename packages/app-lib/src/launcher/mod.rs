@@ -79,6 +79,7 @@ pub mod optifine;
 mod pcl_ce_arguments;
 mod pcl_ce_command;
 pub(crate) mod pcl_ce_json;
+mod pcl_ce_libraries;
 pub mod quick_play_version;
 
 const UTF8_GAME_ARGUMENT_PREFIX: &str = "__THESEUS_UTF8__:";
@@ -2156,6 +2157,7 @@ pub async fn launch_minecraft(
     let cache_behaviour =
         local_runtime_only.then_some(CacheBehaviour::CacheOnly);
     let mut linked_libraries = None;
+    let mut pcl_ce_client = None;
     let mut mmc_profile = None;
 
     // PCL/PCL-CE expose per-instance launch preferences (Java, memory, custom
@@ -2190,6 +2192,11 @@ pub async fn launch_minecraft(
             .take()
             .expect("direct launch resolution accompanies direct metadata")
             .merged;
+        pcl_ce_client = direct.pcl_ce_client_jar(
+            &mut merged,
+            content_set.loader,
+            &content_set.game_version,
+        )?;
         // Same loader normalization the managed install path applies. The
         // merged list drives the ensure pass, native extraction, the launch
         // classpath, and the VersionInfo projection below, so dropping the
@@ -2596,7 +2603,10 @@ pub async fn launch_minecraft(
 
     let client_path = if let Some(direct) = &direct_launch {
         // The game jar lives inside the linked installation.
-        direct.client_jar(&version_jar)
+        pcl_ce_client.as_ref().map_or_else(
+            || direct.client_jar(&version_jar),
+            |client| client.path.clone(),
+        )
     } else {
         let mut vanilla_client_path = state
             .directories
@@ -2671,15 +2681,28 @@ pub async fn launch_minecraft(
         && let (Some(direct), Some(libraries)) =
             (&direct_launch, linked_libraries.as_deref())
     {
-        direct_ensure::ensure_direct_launch_dependencies(
-            &state,
-            direct,
-            libraries,
-            &version_info,
-            &java_version.architecture,
-            minecraft_updated,
-        )
-        .await?;
+        if let Some(client) = &pcl_ce_client {
+            direct_ensure::ensure_pcl_ce_launch_dependencies(
+                &state,
+                direct,
+                libraries,
+                &version_info,
+                &java_version.architecture,
+                minecraft_updated,
+                client,
+            )
+            .await?;
+        } else {
+            direct_ensure::ensure_direct_launch_dependencies(
+                &state,
+                direct,
+                libraries,
+                &version_info,
+                &java_version.architecture,
+                minecraft_updated,
+            )
+            .await?;
+        }
     }
 
     let natives_dir = if let Some(direct) = &direct_launch {
@@ -2819,13 +2842,25 @@ pub async fn launch_minecraft(
     let class_paths = if let (Some(direct), Some(libraries)) =
         (&direct_launch, linked_libraries.as_deref())
     {
-        args::get_linked_class_paths(
-            direct,
-            libraries,
-            &[&main_class_path, &client_path],
-            &java_version.architecture,
-            minecraft_updated,
-        )?
+        if let Some((_, settings)) = pcl_ce {
+            args::get_pcl_ce_class_paths(
+                direct,
+                libraries,
+                &main_class_path,
+                &client_path,
+                &instance_path,
+                settings.pcl_ce_classpath_head(),
+                &java_version.architecture,
+            )?
+        } else {
+            args::get_linked_class_paths(
+                direct,
+                libraries,
+                &[&main_class_path, &client_path],
+                &java_version.architecture,
+                minecraft_updated,
+            )?
+        }
     } else {
         args::get_class_paths(
             &launch_libraries_dir,

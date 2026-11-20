@@ -30,7 +30,9 @@ use daedalus::minecraft::{
 };
 use futures::prelude::*;
 
-use super::direct_link::{DirectLinkedLaunch, is_native_only_library};
+use super::direct_link::{
+    DirectLinkedLaunch, PclCeClientJar, is_native_only_library,
+};
 use super::download::{
     LIBRARIES_MAVEN, MinecraftDownloadProgress, legacy_library_download_urls,
     legacy_library_sha1, minecraft_library_mirrors,
@@ -215,6 +217,19 @@ fn linked_client_plan(
         destination: direct.client_jar(&direct.version_id),
         sha1: non_empty(&client.sha1),
         size: (client.size > 0).then_some(client.size as u64),
+        validation: ContentValidation::Jar,
+    })
+}
+
+fn pcl_ce_client_plan(client: &PclCeClientJar) -> Option<LinkedFilePlan> {
+    let download = client.download.as_ref()?;
+    let url = non_empty(&download.url)?;
+    Some(LinkedFilePlan {
+        label: format!("PCL-CE client {}", client.path.display()),
+        urls: vec![url],
+        destination: client.path.clone(),
+        sha1: non_empty(&download.sha1),
+        size: (download.size > 0).then_some(download.size as u64),
         validation: ContentValidation::Jar,
     })
 }
@@ -714,10 +729,76 @@ pub(crate) async fn ensure_direct_launch_dependencies_with_progress(
     minecraft_updated: bool,
     progress: Option<&MinecraftDownloadProgress>,
 ) -> crate::Result<()> {
-    let mut plans = Vec::new();
-    if let Some(plan) = linked_client_plan(direct, version_info) {
-        plans.push(plan);
+    ensure_linked_dependencies(
+        st,
+        direct,
+        libraries,
+        version_info,
+        java_arch,
+        minecraft_updated,
+        linked_client_plan(direct, version_info),
+        progress,
+    )
+    .await
+}
+
+pub(super) async fn ensure_pcl_ce_launch_dependencies(
+    st: &State,
+    direct: &DirectLinkedLaunch,
+    libraries: &[LinkedLibrary],
+    version_info: &VersionInfo,
+    java_arch: &str,
+    minecraft_updated: bool,
+    client: &PclCeClientJar,
+) -> crate::Result<()> {
+    let plan = pcl_ce_client_plan(client);
+    if plan.is_some() {
+        let root = crate::util::io::canonicalize(&direct.dot_minecraft)?;
+        let parent = client.path.parent().ok_or_else(|| {
+            crate::ErrorKind::InputError(
+                "PCL-CE client JAR has no parent directory".into(),
+            )
+        })?;
+        let parent = crate::util::io::canonicalize(parent)?;
+        if !parent.starts_with(&root)
+            || (client.path.is_file()
+                && !crate::util::io::canonicalize(&client.path)?
+                    .starts_with(&root))
+        {
+            return Err(crate::ErrorKind::InputError("PCL-CE client JAR repair would leave the linked Minecraft directory".into()).into());
+        }
     }
+    if plan.is_none() && !client.path.is_file() {
+        return Err(crate::ErrorKind::LauncherError(format!(
+            "Required PCL-CE client JAR is missing: {}. Repair the instance in PCL-CE first.",
+            client.path.display()
+        )).into());
+    }
+    ensure_linked_dependencies(
+        st,
+        direct,
+        libraries,
+        version_info,
+        java_arch,
+        minecraft_updated,
+        plan,
+        None,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn ensure_linked_dependencies(
+    st: &State,
+    direct: &DirectLinkedLaunch,
+    libraries: &[LinkedLibrary],
+    version_info: &VersionInfo,
+    java_arch: &str,
+    minecraft_updated: bool,
+    client: Option<LinkedFilePlan>,
+    progress: Option<&MinecraftDownloadProgress>,
+) -> crate::Result<()> {
+    let mut plans: Vec<_> = client.into_iter().collect();
     for library in libraries {
         if let Some(rules) = library.library.rules.as_deref()
             && !super::parse_rules(
@@ -793,6 +874,7 @@ mod tests {
         LinkedLauncherDialect, extract_linked_natives,
     };
     use super::*;
+    use crate::data::ModLoader;
     use crate::state::{DirectoryInfo, test_state};
     use serde_json::json;
     use sqlx::sqlite::SqlitePoolOptions;
@@ -835,6 +917,71 @@ mod tests {
             "type": "release"
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn pcl_ce_client_selection_and_repair_share_one_jar_source() {
+        let root = tempdir().unwrap();
+        let versions = root.path().join("versions");
+        let base = versions.join("base");
+        let leaf = versions.join("demo");
+        std::fs::create_dir_all(&base).unwrap();
+        std::fs::create_dir_all(&leaf).unwrap();
+        let base_manifest = json!({
+            "id":"base",
+            "downloads":{"client":{"url":"https://example.invalid/base.jar", "sha1":"a", "size":40}},
+        });
+        std::fs::write(base.join("base.json"), base_manifest.to_string())
+            .unwrap();
+        std::fs::write(base.join("base.jar"), "base").unwrap();
+        std::fs::write(leaf.join("demo.jar"), "generated leaf").unwrap();
+
+        let direct = DirectLinkedLaunch {
+            dialect: LinkedLauncherDialect::PclCe,
+            ..direct_for(root.path())
+        };
+        let write_leaf = |jar: Option<&str>| {
+            let mut document = json!({
+                "id":"demo", "inheritsFrom":"base", "mainClass":"loader.Main",
+                "downloads":{"client":{"url":"https://example.invalid/leaf.jar", "sha1":"b", "size":50}},
+            });
+            if let Some(jar) = jar {
+                document["jar"] = json!(jar);
+            }
+            std::fs::write(leaf.join("demo.json"), document.to_string())
+                .unwrap();
+        };
+        let select = |loader, game| {
+            let mut merged = direct.resolve().unwrap().merged;
+            direct.pcl_ce_client_jar(&mut merged, loader, game)
+        };
+
+        write_leaf(None);
+        for loader in [ModLoader::Forge, ModLoader::NeoForge] {
+            let modern = select(loader, "1.21.1").unwrap().unwrap();
+            assert_eq!(modern.path, leaf.join("demo.jar"));
+            assert!(pcl_ce_client_plan(&modern).is_none());
+        }
+        let legacy = select(ModLoader::Forge, "1.16.5").unwrap().unwrap();
+        let plan = pcl_ce_client_plan(&legacy).unwrap();
+        assert_eq!(legacy.path, base.join("base.jar"));
+        assert_eq!(plan.destination, legacy.path);
+        assert_eq!(plan.urls, ["https://example.invalid/base.jar"]);
+
+        write_leaf(Some("base"));
+        let explicit = select(ModLoader::NeoForge, "1.21.1").unwrap().unwrap();
+        let plan = pcl_ce_client_plan(&explicit).unwrap();
+        assert_eq!(explicit.path, base.join("base.jar"));
+        assert_eq!(plan.destination, explicit.path);
+        assert_eq!(plan.sha1.as_deref(), Some("a"));
+
+        write_leaf(Some("missing"));
+        let fallback = select(ModLoader::NeoForge, "1.21.1").unwrap().unwrap();
+        assert_eq!(fallback.path, leaf.join("demo.jar"));
+        assert!(pcl_ce_client_plan(&fallback).is_none());
+
+        write_leaf(Some("../outside"));
+        assert!(select(ModLoader::NeoForge, "1.21.1").is_err());
     }
 
     async fn ensure_test_state() -> (TempDir, Arc<State>) {

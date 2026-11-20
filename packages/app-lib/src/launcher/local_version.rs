@@ -281,6 +281,22 @@ pub struct MergedVersion {
     pub minimum_launcher_version: Option<u32>,
     pub compliance_level: Option<u32>,
     pub hmcl_settings: HmclVersionSettings,
+    #[serde(skip)]
+    pub(super) pcl_ce_jar: Option<PclCeJarSources>,
+}
+
+#[derive(Debug)]
+pub(super) struct PclCeJarSources {
+    pub(super) explicit: Option<String>,
+    pub(super) profiles: Vec<PclCeJarProfile>,
+    pub(super) hmcl_format: bool,
+}
+
+#[derive(Debug)]
+pub(super) struct PclCeJarProfile {
+    pub(super) version_id: String,
+    pub(super) named_manifest: bool,
+    pub(super) download: Option<Download>,
 }
 
 /// Checks whether a JSON file is a Minecraft version document rather than
@@ -559,18 +575,19 @@ fn load_pcl_version_chain(
     dialect: LinkedLauncherDialect,
 ) -> crate::Result<MergedVersion> {
     let mut visited = HashSet::new();
-    let mut argument_layers = Vec::new();
+    let mut pcl_ce = PclCeInheritance::default();
     let (path, mut value) = resolve_pcl_json(
         root,
         version_id,
         version_json,
         dialect,
         &mut visited,
-        &mut argument_layers,
+        &mut pcl_ce,
     )?;
     if dialect == LinkedLauncherDialect::PclCe {
-        collect_pcl_ce_arguments(&mut value, argument_layers, &path)?;
+        collect_pcl_ce_arguments(&mut value, pcl_ce.argument_layers, &path)?;
         pcl_ce_arguments::normalize(&mut value, &path)?;
+        super::pcl_ce_libraries::normalize(&mut value, &path)?;
         value["id"] = Value::String(version_id.to_string());
         if let Some(object) = value.as_object_mut() {
             object.remove("patches");
@@ -579,11 +596,27 @@ fn load_pcl_version_chain(
     let mut document: RawVersionDocument =
         parse_merged_version_json(&path, &value)?;
     document.id = version_id.to_string();
-    merged_from_document(&document)
+    let mut merged = merged_from_document(&document)?;
+    if dialect == LinkedLauncherDialect::PclCe {
+        merged.pcl_ce_jar = Some(PclCeJarSources {
+            explicit: pcl_ce.explicit_jar.flatten(),
+            profiles: pcl_ce.jar_profiles,
+            hmcl_format: pcl_ce.hmcl_format,
+        });
+    }
+    Ok(merged)
 }
 
 const MAX_PCL_CE_INHERITANCE_DEPTH: usize = 64;
 const PCL_CE_ARGUMENT_INHERITANCE_BUDGET: usize = 4 * 1024 * 1024;
+
+#[derive(Default)]
+struct PclCeInheritance {
+    argument_layers: Vec<Option<Value>>,
+    explicit_jar: Option<Option<String>>,
+    jar_profiles: Vec<PclCeJarProfile>,
+    hmcl_format: bool,
+}
 
 fn resolve_pcl_json(
     root: &Path,
@@ -591,7 +624,7 @@ fn resolve_pcl_json(
     version_json: Option<&Path>,
     dialect: LinkedLauncherDialect,
     visited: &mut HashSet<String>,
-    argument_layers: &mut Vec<Option<Value>>,
+    pcl_ce: &mut PclCeInheritance,
 ) -> crate::Result<(PathBuf, Value)> {
     if !visited.insert(version_id.to_string()) {
         return Err(crate::ErrorKind::InputError(format!(
@@ -599,13 +632,19 @@ fn resolve_pcl_json(
         ))
         .into());
     }
-    if dialect == LinkedLauncherDialect::PclCe
-        && visited.len() > MAX_PCL_CE_INHERITANCE_DEPTH
-    {
-        return Err(crate::ErrorKind::InputError(
-            "PCL-CE version inheritance chain is too deep".into(),
-        )
-        .into());
+    if dialect == LinkedLauncherDialect::PclCe {
+        if !is_pcl_ce_version_id(version_id) {
+            return Err(crate::ErrorKind::InputError(
+                "Invalid PCL-CE version ID".into(),
+            )
+            .into());
+        }
+        if visited.len() > MAX_PCL_CE_INHERITANCE_DEPTH {
+            return Err(crate::ErrorKind::InputError(
+                "PCL-CE version inheritance chain is too deep".into(),
+            )
+            .into());
+        }
     }
 
     let path = match version_json {
@@ -651,39 +690,65 @@ fn resolve_pcl_json(
     }
 
     if dialect == LinkedLauncherDialect::PclCe {
-        argument_layers.push(child.get("arguments").map(|arguments| {
-            if let Some(groups) = arguments.as_object() {
-                Value::Object(
-                    ["game", "jvm"]
-                        .into_iter()
-                        .filter_map(|group| {
-                            groups
-                                .get(group)
-                                .map(|value| (group.to_string(), value.clone()))
-                        })
-                        .collect(),
-                )
-            } else if arguments.is_null() {
-                Value::Null
-            } else {
-                Value::Bool(false)
-            }
-        }));
+        if pcl_ce.jar_profiles.is_empty() {
+            pcl_ce.hmcl_format = hmcl_format;
+        }
+        if pcl_ce.explicit_jar.is_none() {
+            pcl_ce.explicit_jar =
+                child.get("jar").map(|jar| jar.as_str().map(str::to_owned));
+        }
+        let folder_name = path
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str())
+            .unwrap_or(version_id);
+        pcl_ce.jar_profiles.push(PclCeJarProfile {
+            version_id: folder_name.to_owned(),
+            named_manifest: path.file_stem().is_some_and(|stem| {
+                if cfg!(windows) {
+                    stem.eq_ignore_ascii_case(folder_name)
+                } else {
+                    stem == folder_name
+                }
+            }),
+            download: child
+                .get("downloads")
+                .and_then(|downloads| downloads.get("client"))
+                .and_then(|download| Download::deserialize(download).ok()),
+        });
+        pcl_ce
+            .argument_layers
+            .push(child.get("arguments").map(|arguments| {
+                if let Some(groups) = arguments.as_object() {
+                    Value::Object(
+                        ["game", "jvm"]
+                            .into_iter()
+                            .filter_map(|group| {
+                                groups.get(group).map(|value| {
+                                    (group.to_string(), value.clone())
+                                })
+                            })
+                            .collect(),
+                    )
+                } else if arguments.is_null() {
+                    Value::Null
+                } else {
+                    Value::Bool(false)
+                }
+            }));
     }
     let parent_id = child
         .get("inheritsFrom")
         .and_then(Value::as_str)
-        .filter(|parent| *parent != version_id)
+        .filter(|parent| {
+            *parent != version_id
+                && (dialect != LinkedLauncherDialect::PclCe
+                    || !parent.is_empty())
+        })
         .map(str::to_string);
     let result = if let Some(parent_id) = parent_id {
-        let (_, mut parent) = resolve_pcl_json(
-            root,
-            &parent_id,
-            None,
-            dialect,
-            visited,
-            argument_layers,
-        )?;
+        let (_, mut parent) =
+            resolve_pcl_json(root, &parent_id, None, dialect, visited, pcl_ce)?;
         let inherited_jar = parent
             .get("jar")
             .and_then(Value::as_str)
@@ -725,6 +790,13 @@ fn resolve_pcl_json(
     };
     visited.remove(version_id);
     Ok((path, result))
+}
+
+pub(super) fn is_pcl_ce_version_id(version_id: &str) -> bool {
+    !version_id.is_empty()
+        && !matches!(version_id, "." | "..")
+        && !version_id.contains(['/', '\\', ':', '\0'])
+        && (!cfg!(windows) || !version_id.ends_with(['.', ' ']))
 }
 
 /// PCL-CE merges each ancestor's already resolved argument groups into the
@@ -902,6 +974,7 @@ fn merged_from_document(
         minimum_launcher_version: document.minimum_launcher_version,
         compliance_level: document.compliance_level,
         hmcl_settings: settings,
+        pcl_ce_jar: None,
     })
 }
 
@@ -924,6 +997,7 @@ fn empty_merged(id: String) -> MergedVersion {
         minimum_launcher_version: None,
         compliance_level: None,
         hmcl_settings: HmclVersionSettings::default(),
+        pcl_ce_jar: None,
     }
 }
 

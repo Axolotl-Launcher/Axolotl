@@ -60,6 +60,28 @@ pub(super) fn normalize(
     normalize_for_platform(document, path, &PLATFORM)
 }
 
+pub(super) fn allows_library(
+    rules: Option<&Value>,
+    path: &Path,
+    index: usize,
+) -> crate::Result<bool> {
+    allows_argument(rules, &PLATFORM).map_err(|error| {
+        crate::ErrorKind::JSONError(serde::de::Error::custom(format!(
+            "Failed to parse merged version JSON {}: invalid libraries[{index}]{}; expected {}",
+            path.display(),
+            error.field,
+            error.expected,
+        )))
+        .into()
+    })
+}
+
+pub(super) fn windows_architecture_width() -> Option<&'static str> {
+    PLATFORM
+        .windows
+        .then(|| if PLATFORM.is_32_bit { "32" } else { "64" })
+}
+
 fn normalize_for_platform(
     document: &mut Value,
     path: &Path,

@@ -171,6 +171,62 @@ pub fn get_linked_class_paths(
         })
 }
 
+pub(super) fn get_pcl_ce_class_paths<'a>(
+    direct: &DirectLinkedLaunch,
+    libraries: &[LinkedLibrary],
+    bridge: &Path,
+    client: &Path,
+    game_directory: &Path,
+    classpath_head: impl Iterator<Item = &'a str>,
+    java_arch: &str,
+) -> crate::Result<String> {
+    let mut ordered = classpath_head
+        .map(|entry| {
+            let path = game_directory.join(entry);
+            canonicalize(&path).unwrap_or(path)
+        })
+        .collect::<Vec<_>>();
+    ordered.reverse();
+    let mut optifine = None;
+    for library in libraries {
+        if !library.library.include_in_classpath
+            || is_native_only_library(&library.library)
+        {
+            continue;
+        }
+        let path = direct.library_path(library)?;
+        let path = canonicalize(&path).map_err(|error| {
+            crate::ErrorKind::LauncherError(format!(
+                "Could not resolve linked library {} at {}: {error}",
+                library.library.name,
+                path.display(),
+            ))
+        })?;
+        if library.library.name.starts_with("optifine:OptiFine:") {
+            optifine = Some(path);
+        } else {
+            ordered.push(path);
+        }
+    }
+    let launcher_path = |path: &Path| {
+        canonicalize(path).map_err(|error| {
+            crate::ErrorKind::LauncherError(format!(
+                "Specified class path {} does not exist: {error}",
+                path.display(),
+            ))
+        })
+    };
+    ordered.push(launcher_path(client)?);
+    if let Some(optifine) = optifine {
+        ordered.insert(ordered.len().saturating_sub(2), optifine);
+    }
+    let bridge = launcher_path(bridge)?;
+    Ok(std::iter::once(&bridge)
+        .chain(ordered.iter())
+        .map(|path| path.to_string_lossy())
+        .join(classpath_separator(java_arch)))
+}
+
 pub fn get_class_paths_jar<T: AsRef<str>>(
     libraries_path: &Path,
     libraries: &[T],
@@ -1104,6 +1160,67 @@ mod tests {
             &canonicalize(local).unwrap().to_string_lossy().as_ref()
         ));
         assert_eq!(paths.len(), 4);
+    }
+
+    #[test]
+    fn pcl_ce_classpath_keeps_the_bridge_then_pcl_ce_library_and_jar_order() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path();
+        let names = [
+            "bridge.jar",
+            "client.jar",
+            "libraries/first.jar",
+            "libraries/last.jar",
+            "libraries/optifine.jar",
+        ];
+        std::fs::create_dir(path.join("libraries")).unwrap();
+        for name in names {
+            std::fs::write(path.join(name), b"test").unwrap();
+        }
+        let libraries: Vec<LinkedLibrary> = serde_json::from_value(json!([
+            {"name":"test:first:1", "downloads":{"artifact":{"path":"first.jar", "sha1":"", "size":0, "url":""}}},
+            {"name":"optifine:OptiFine:1", "downloads":{"artifact":{"path":"optifine.jar", "sha1":"", "size":0, "url":""}}},
+            {"name":"test:last:1", "downloads":{"artifact":{"path":"last.jar", "sha1":"", "size":0, "url":""}}},
+            {"name":"test:native:1", "natives":{"windows":"natives-windows"}}
+        ])).unwrap();
+        let direct = DirectLinkedLaunch {
+            dot_minecraft: path.to_path_buf(),
+            launcher_root: None,
+            version_id: "demo".into(),
+            version_json: None,
+            dialect: LinkedLauncherDialect::PclCe,
+            game_dir_mode: None,
+        };
+        let classpath = get_pcl_ce_class_paths(
+            &direct,
+            &libraries,
+            &path.join("bridge.jar"),
+            &path.join("client.jar"),
+            path,
+            ["first config.jar", "second config.jar"].into_iter(),
+            std::env::consts::ARCH,
+        )
+        .unwrap();
+        let expected = [
+            "bridge.jar",
+            "second config.jar",
+            "first config.jar",
+            "libraries/first.jar",
+            "libraries/optifine.jar",
+            "libraries/last.jar",
+            "client.jar",
+        ];
+        let expected = expected
+            .into_iter()
+            .map(|name| {
+                let path = path.join(name);
+                canonicalize(&path)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .join(classpath_separator(std::env::consts::ARCH));
+        assert_eq!(classpath, expected);
     }
 
     #[tokio::test]

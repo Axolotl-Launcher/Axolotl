@@ -7,13 +7,14 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use daedalus::minecraft::{
-    AssetIndex, Library, LibraryDownload, Os, VersionInfo, VersionType,
+    AssetIndex, Download, Library, LibraryDownload, Os, VersionInfo,
+    VersionType,
 };
 use daedalus::modded::normalize_loader_libraries;
 
 use super::local_version::{
     HmclVersionSettings, LinkedLibrary, MergedVersion, discover_version_json,
-    load_version_for_dialect,
+    is_pcl_ce_version_id, load_version_for_dialect,
 };
 use crate::state::{Instance, MemorySettings, ModLoader, WindowSize};
 
@@ -118,6 +119,11 @@ pub(crate) struct DirectLinkedLaunch {
 pub(crate) struct ResolvedLinkedLaunch {
     pub merged: MergedVersion,
     pub game_dir: PathBuf,
+}
+
+pub(super) struct PclCeClientJar {
+    pub(super) path: PathBuf,
+    pub(super) download: Option<Download>,
 }
 
 impl DirectLinkedLaunch {
@@ -371,6 +377,79 @@ impl DirectLinkedLaunch {
         }
     }
 
+    pub(super) fn pcl_ce_client_jar(
+        &self,
+        merged: &mut MergedVersion,
+        loader: ModLoader,
+        game_version: &str,
+    ) -> crate::Result<Option<PclCeClientJar>> {
+        let Some(mut jar) = merged.pcl_ce_jar.take() else {
+            return Ok(None);
+        };
+        let Some(leaf) = jar.profiles.first() else {
+            return Ok(None);
+        };
+        let version_dir = self.version_dir();
+        let leaf_path = version_dir.join(format!("{}.jar", leaf.version_id));
+        let result = if let Some(explicit) =
+            jar.explicit.as_deref().filter(|_| !jar.hmcl_format)
+        {
+            if !is_pcl_ce_version_id(explicit) {
+                return Err(crate::ErrorKind::InputError(
+                    "Invalid explicit PCL-CE JAR version ID".into(),
+                )
+                .into());
+            }
+            let directory = self.dot_minecraft.join("versions").join(explicit);
+            if directory.join(format!("{explicit}.json")).is_file() {
+                PclCeClientJar {
+                    path: directory.join(format!("{explicit}.jar")),
+                    download: jar
+                        .profiles
+                        .iter_mut()
+                        .find(|profile| {
+                            profile.version_id == explicit
+                                || (cfg!(windows)
+                                    && profile
+                                        .version_id
+                                        .eq_ignore_ascii_case(explicit))
+                        })
+                        .and_then(|profile| profile.download.take()),
+                }
+            } else {
+                PclCeClientJar {
+                    path: leaf_path,
+                    download: None,
+                }
+            }
+        } else if matches!(loader, ModLoader::Forge | ModLoader::NeoForge)
+            && is_modern_fml(game_version)
+        {
+            PclCeClientJar {
+                path: leaf_path,
+                download: None,
+            }
+        } else if jar.profiles.len() > 1
+            && let Some(base) =
+                jar.profiles.last_mut().filter(|base| base.named_manifest)
+        {
+            PclCeClientJar {
+                path: self
+                    .dot_minecraft
+                    .join("versions")
+                    .join(&base.version_id)
+                    .join(format!("{}.jar", base.version_id)),
+                download: base.download.take(),
+            }
+        } else {
+            PclCeClientJar {
+                path: leaf_path,
+                download: jar.profiles[0].download.take(),
+            }
+        };
+        Ok(Some(result))
+    }
+
     pub(crate) fn natives_cache_key(&self) -> String {
         let identity = format!(
             "{}\0{}\0{}",
@@ -402,6 +481,21 @@ impl DirectLinkedLaunch {
                 .libraries_dir()
                 .join(library.classpath_relative_path()?))
         }
+    }
+}
+
+fn is_modern_fml(game_version: &str) -> bool {
+    let mut components = game_version.split(['.', '-']);
+    match components
+        .next()
+        .and_then(|major| major.parse::<u32>().ok())
+    {
+        Some(1) => components
+            .next()
+            .and_then(|minor| minor.parse::<u32>().ok())
+            .is_none_or(|minor| minor >= 17),
+        Some(major) => major >= 17,
+        None => true,
     }
 }
 
@@ -1133,6 +1227,14 @@ impl PclLaunchSettings {
                     .map(String::as_str)
             })
             .unwrap_or("PCLCE")
+    }
+
+    pub(super) fn pcl_ce_classpath_head(&self) -> impl Iterator<Item = &str> {
+        self.instance_values
+            .get("versionadvanceclasspathhead")
+            .into_iter()
+            .flat_map(|value| value.split(';'))
+            .filter(|entry| !entry.trim().is_empty())
     }
 }
 

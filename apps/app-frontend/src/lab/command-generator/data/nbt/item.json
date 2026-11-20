@@ -434,9 +434,10 @@
     {
       "key": "lore",
       "type": "list",
+      "elementType": "compound",
       "category": "appearance",
       "since": "1.20.5",
-      "editor": "text_lines",
+      "editor": "lore",
       "zh": "描述文本",
       "desc": "Example 1: /give @p stick]"
     },
@@ -669,7 +670,6 @@
       "type": "compound",
       "category": "data",
       "until": "1.20.4",
-      "editor": "legacy_item_tag",
       "zh": "旧版附加数据",
       "desc": "Item data before 1.20.5, replaced by data components.",
       "children": [

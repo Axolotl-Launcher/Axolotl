@@ -377,7 +377,9 @@
     {
       "key": "active_effects",
       "type": "list",
+      "elementType": "compound",
       "category": "effect",
+      "editor": "active_effects",
       "legacyKeys": [
         {
           "key": "ActiveEffects",

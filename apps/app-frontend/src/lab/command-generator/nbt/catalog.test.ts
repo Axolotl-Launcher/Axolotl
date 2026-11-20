@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { availableFieldsFor, catalogFor, fieldsFor, findFieldByPath } from './catalog.ts'
+import { groupSpec } from './groups.ts'
 import {
     CATEGORY_ORDER,
     humanizeKey,
@@ -140,6 +141,24 @@ describe('NBT 目录数据', () => {
                 expect(field.elementType, `${domain}:${path} 是列表但缺元素类型`).toBeDefined()
             })
         }
+    })
+
+    /**
+     * 数据里的 `editor` 必须真的存在，否则字段会静默退回裸标签树——用户看不出
+     * "这里本来有表格"，只会觉得引导不够。`KNOWN_PENDING` 是已经声明、还没实现的
+     * 编辑器：实现一个就从这里删一条，测试因此不会长期容忍缺口。
+     */
+    it('每个 editor 都有对应实现', () => {
+        const KNOWN_PENDING = new Set(['block_predicates', 'written_book'])
+        const missing = new Set<string>()
+        for (const domain of DOMAINS) {
+            walk(catalogFor(domain).fields, (field, path) => {
+                if (!field.editor) return
+                if (KNOWN_PENDING.has(field.editor)) return
+                if (!groupSpec(field.editor)) missing.add(`${domain}:${path} → ${field.editor}`)
+            })
+        }
+        expect([...missing]).toEqual([])
     })
 })
 

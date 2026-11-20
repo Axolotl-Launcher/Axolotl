@@ -77,6 +77,7 @@ pub mod local_version;
 pub(crate) mod multimc;
 pub mod optifine;
 mod pcl_ce_arguments;
+mod pcl_ce_command;
 pub(crate) mod pcl_ce_json;
 pub mod quick_play_version;
 
@@ -2168,6 +2169,10 @@ pub async fn launch_minecraft(
             )
         })
         .map(DirectLinkedLaunch::pcl_launch_settings);
+    let pcl_ce = direct_launch
+        .as_ref()
+        .zip(pcl_launch.as_ref())
+        .filter(|(direct, _)| direct.dialect == LinkedLauncherDialect::PclCe);
 
     let (
         version_info,
@@ -2474,7 +2479,12 @@ pub async fn launch_minecraft(
     // Custom JVM arguments from the linked launcher enter the same GC
     // compatibility pipeline below: unsupported tuning flags are pruned
     // against the actual JVM instead of reaching it unvalidated.
-    if let Some(pcl) = &pcl_launch {
+    if let Some((_, pcl_ce_settings)) = pcl_ce {
+        if let Some(custom) = pcl_ce_settings.extra_jvm_arguments_text() {
+            resolved_java_args
+                .extend(pcl_ce_command::split_windows_arguments(custom));
+        }
+    } else if let Some(pcl) = &pcl_launch {
         resolved_java_args.extend(pcl.extra_jvm_args());
     }
     if let Some(gc_intent) = gc_intent {
@@ -2543,7 +2553,9 @@ pub async fn launch_minecraft(
             );
             effective_memory.maximum = maximum;
         }
-        extra_game_args.extend(pcl.extra_game_args());
+        if pcl_ce.is_none() {
+            extra_game_args.extend(pcl.extra_game_args());
+        }
     }
     jvm_args::remove_unresolved_auto_gc_marker(&mut resolved_java_args);
 
@@ -2824,6 +2836,38 @@ pub async fn launch_minecraft(
         )?
     };
 
+    let launch_assets_dir = runtime.assets_dir(&state.directories);
+    let game_assets_dir = runtime
+        .game_assets_dir(&state.directories, version_info.assets == "legacy");
+    let pcl_ce_values = if let Some((direct, pcl_ce_settings)) = pcl_ce {
+        let version_dir = direct.version_dir();
+        let context = args::PclCeArgumentContext {
+            version_name: version_dir
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or(&direct.version_id),
+            version_type: pcl_ce_settings.pcl_ce_version_type(),
+            natives: &natives_dir,
+            libraries: &launch_libraries_dir,
+            classpath: &class_paths,
+            game_directory: &instance_path,
+            assets: &launch_assets_dir,
+            game_assets: &game_assets_dir,
+            asset_index: &version_info.asset_index.id,
+            resolution: effective_resolution,
+            java_arch: &java_version.architecture,
+        };
+        Some(context.replacements(credentials).await)
+    } else {
+        None
+    };
+    let pcl_ce_replacements = pcl_ce_values.as_ref().map(|values| {
+        values
+            .iter()
+            .map(|(key, value)| (*key, value.as_str()))
+            .collect::<Vec<_>>()
+    });
+
     command.args(
         args::get_jvm_arguments(
             args.get(&d::minecraft::ArgumentType::Jvm)
@@ -2844,6 +2888,7 @@ pub async fn launch_minecraft(
                 .as_ref()
                 .and_then(|x| x.get(&LoggingSide::Client)),
             rpc_server.address(),
+            pcl_ce_replacements.as_deref(),
         )?
         .into_iter(),
     );
@@ -2891,18 +2936,30 @@ pub async fn launch_minecraft(
             ));
     }
 
-    let launch_assets_dir = runtime.assets_dir(&state.directories);
-    let game_assets_dir = runtime
-        .game_assets_dir(&state.directories, version_info.assets == "legacy");
-
-    command
-        .arg("com.modrinth.theseus.MinecraftLaunch")
-        .arg(version_info.main_class.clone())
-        .args(
+    let manifest_game_arguments = args
+        .get(&d::minecraft::ArgumentType::Game)
+        .map(Vec::as_slice);
+    let legacy_game_arguments = version_info.minecraft_arguments.as_deref();
+    let game_arguments =
+        if let (Some((_, pcl_ce_settings)), Some(replacements)) =
+            (pcl_ce, pcl_ce_replacements.as_deref())
+        {
+            let mut arguments = pcl_ce_command::game_arguments(
+                legacy_game_arguments,
+                manifest_game_arguments,
+                pcl_ce_settings.extra_game_arguments_text(),
+                replacements,
+            );
+            args::append_pcl_ce_quick_play(
+                &mut arguments,
+                &quick_play_type,
+                quick_play_version,
+            )?;
+            arguments
+        } else {
             args::get_minecraft_arguments(
-                args.get(&d::minecraft::ArgumentType::Game)
-                    .map(|x| x.as_slice()),
-                version_info.minecraft_arguments.as_deref(),
+                manifest_game_arguments,
+                legacy_game_arguments,
                 credentials,
                 &launch_version_id,
                 &version_info.asset_index.id,
@@ -2916,9 +2973,11 @@ pub async fn launch_minecraft(
                 quick_play_version,
             )
             .await?
-            .into_iter()
-            .map(encode_game_argument),
-        )
+        };
+    command
+        .arg("com.modrinth.theseus.MinecraftLaunch")
+        .arg(version_info.main_class.clone())
+        .args(game_arguments.into_iter().map(encode_game_argument))
         // Linked-launcher game arguments (PCL VersionAdvanceGame, HMCL
         // auto-connect server) ride at the tail of the vanilla arguments.
         .args(extra_game_args)

@@ -4,7 +4,10 @@ use crate::launcher::direct_link::{
     DirectLinkedLaunch, is_native_only_library,
 };
 use crate::launcher::local_version::LinkedLibrary;
-use crate::launcher::quick_play_version::QuickPlayServerVersion;
+use crate::launcher::pcl_ce_command;
+use crate::launcher::quick_play_version::{
+    QuickPlayServerVersion, QuickPlaySingleplayerVersion,
+};
 use crate::launcher::{QuickPlayVersion, parse_rules};
 use crate::state::Credentials;
 use crate::{
@@ -221,26 +224,36 @@ pub fn get_jvm_arguments(
     quick_play_version: QuickPlayVersion,
     log_config: Option<&LoggingConfiguration>,
     ipc_addr: SocketAddr,
+    pcl_ce_replacements: Option<&[(&str, &str)]>,
 ) -> crate::Result<Vec<String>> {
     let mut parsed_arguments = Vec::new();
 
+    if let Some(replacements) = pcl_ce_replacements {
+        parsed_arguments = pcl_ce_command::jvm_arguments(
+            arguments.unwrap_or_default(),
+            &custom_args,
+            replacements,
+        );
+    }
     if let Some(args) = arguments {
-        parse_arguments(
-            args,
-            &mut parsed_arguments,
-            |arg| {
-                parse_jvm_argument(
-                    arg.to_string(),
-                    natives_path,
-                    libraries_path,
-                    class_paths,
-                    version_name,
-                    java_arch,
-                )
-            },
-            java_arch,
-            quick_play_type,
-        )?;
+        if pcl_ce_replacements.is_none() {
+            parse_arguments(
+                args,
+                &mut parsed_arguments,
+                |arg| {
+                    parse_jvm_argument(
+                        arg.to_string(),
+                        natives_path,
+                        libraries_path,
+                        class_paths,
+                        version_name,
+                        java_arch,
+                    )
+                },
+                java_arch,
+                quick_play_type,
+            )?;
+        }
     } else {
         parsed_arguments.push(format!(
             "-Djava.library.path={}",
@@ -299,14 +312,123 @@ pub fn get_jvm_arguments(
         ]);
     }
 
-    for arg in custom_args {
-        if !arg.is_empty() {
-            parsed_arguments.push(arg);
-        }
+    if pcl_ce_replacements.is_none() {
+        parsed_arguments
+            .extend(custom_args.into_iter().filter(|arg| !arg.is_empty()));
     }
 
     add_fallen_discovery_java_arg(&mut parsed_arguments);
     Ok(parsed_arguments)
+}
+
+pub(super) struct PclCeArgumentContext<'a> {
+    pub(super) version_name: &'a str,
+    pub(super) version_type: &'a str,
+    pub(super) natives: &'a Path,
+    pub(super) libraries: &'a Path,
+    pub(super) classpath: &'a str,
+    pub(super) game_directory: &'a Path,
+    pub(super) assets: &'a Path,
+    pub(super) game_assets: &'a Path,
+    pub(super) asset_index: &'a str,
+    pub(super) resolution: WindowSize,
+    pub(super) java_arch: &'a str,
+}
+
+impl PclCeArgumentContext<'_> {
+    pub(super) async fn replacements(
+        &self,
+        credentials: &Credentials,
+    ) -> Vec<(&'static str, String)> {
+        let profile = credentials.maybe_online_profile().await;
+        let directory = |path: &Path| {
+            canonicalize(path)
+                .unwrap_or_else(|_| path.to_path_buf())
+                .to_string_lossy()
+                .into_owned()
+        };
+        let libraries = directory(self.libraries);
+        vec![
+            (
+                "${classpath_separator}",
+                classpath_separator(self.java_arch).into(),
+            ),
+            ("${natives_directory}", directory(self.natives)),
+            ("${library_directory}", libraries.clone()),
+            ("${libraries_directory}", libraries),
+            ("${classpath}", self.classpath.into()),
+            ("${launcher_name}", "PCLCE".into()),
+            ("${launcher_version}", env!("CARGO_PKG_VERSION").into()),
+            ("${version_name}", self.version_name.into()),
+            ("${version_type}", self.version_type.trim().into()),
+            ("${game_directory}", directory(self.game_directory)),
+            ("${assets_root}", directory(self.assets)),
+            ("${game_assets}", directory(self.game_assets)),
+            ("${assets_index_name}", self.asset_index.into()),
+            ("${resolution_width}", self.resolution.0.to_string()),
+            ("${resolution_height}", self.resolution.1.to_string()),
+            ("${auth_player_name}", profile.name.clone()),
+            ("${auth_uuid}", profile.id.simple().to_string()),
+            ("${auth_access_token}", credentials.access_token.clone()),
+            ("${access_token}", credentials.access_token.clone()),
+            ("${auth_session}", credentials.access_token.clone()),
+            ("${user_type}", "msa".into()),
+            ("${user_properties}", "{}".into()),
+            ("${accessToken}", credentials.access_token.clone()),
+            ("${uuid}", profile.id.simple().to_string()),
+            ("${auth_xuid}", "0".into()),
+            ("${clientid}", "c4502edb-87c6-40cb-b595-64a280cf8906".into()),
+        ]
+    }
+}
+
+pub(super) fn append_pcl_ce_quick_play(
+    arguments: &mut Vec<String>,
+    target: &QuickPlayType,
+    version: QuickPlayVersion,
+) -> crate::Result<()> {
+    match target {
+        QuickPlayType::Singleplayer(world)
+            if version.singleplayer
+                == QuickPlaySingleplayerVersion::Builtin =>
+        {
+            arguments.extend(["--quickPlaySingleplayer".into(), world.clone()]);
+        }
+        QuickPlayType::Server(server)
+            if version.server == QuickPlayServerVersion::Builtin =>
+        {
+            let address = match server {
+                crate::server_address::ServerAddress::Unresolved(address) => {
+                    address.clone()
+                }
+                crate::server_address::ServerAddress::Resolved {
+                    original_host,
+                    original_port,
+                    ..
+                } => {
+                    if original_host.contains(':') {
+                        format!("[{original_host}]:{original_port}")
+                    } else {
+                        format!("{original_host}:{original_port}")
+                    }
+                }
+            };
+            arguments.extend(["--quickPlayMultiplayer".into(), address]);
+        }
+        QuickPlayType::Server(server)
+            if version.server == QuickPlayServerVersion::BuiltinLegacy =>
+        {
+            let (host, port) = server.require_resolved()?;
+            arguments.extend([
+                "--server".into(),
+                host.to_string(),
+                "--port".into(),
+                port.to_string(),
+            ]);
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 fn parse_jvm_argument(
@@ -700,6 +822,81 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn pcl_ce_jvm_arguments_expand_before_axolotl_runtime_options() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path();
+        let manifest = [
+            Argument::Normal("-Dprofile=${version_name}".into()),
+            Argument::Normal("-Dprofile=${version_name}".into()),
+        ];
+        let parsed = get_jvm_arguments(
+            Some(&manifest),
+            path,
+            path,
+            path,
+            "",
+            path,
+            "linked",
+            MemorySettings {
+                maximum: 2048,
+                automatic: false,
+                optimize_before_launch: false,
+            },
+            vec!["-Dcustom=${libraries_directory}".into()],
+            "x86_64",
+            &QuickPlayType::None,
+            QuickPlayVersion::find_version(0, &[]),
+            None,
+            "127.0.0.1:12345".parse().unwrap(),
+            Some(&[
+                ("${version_name}", "Test Profile"),
+                ("${libraries_directory}", r"C:\PCL Files\libraries"),
+            ]),
+        )
+        .unwrap();
+        assert_eq!(
+            &parsed[..3],
+            &[
+                r"-Dcustom=C:\PCL Files\libraries",
+                "-Dprofile=Test Profile",
+                "-Xmx2048M"
+            ]
+        );
+        assert!(
+            parsed
+                .iter()
+                .any(|argument| argument.starts_with("-javaagent:"))
+        );
+    }
+
+    #[test]
+    fn pcl_ce_quick_play_is_appended_without_manifest_features() {
+        let server = QuickPlayType::Server(
+            crate::server_address::ServerAddress::Resolved {
+                original_host: "play.example.test".into(),
+                original_port: 25565,
+                resolved_host: "127.0.0.1".into(),
+                resolved_port: 25570,
+            },
+        );
+        let version = QuickPlayVersion::find_version(0, &[]);
+        let mut arguments = Vec::new();
+        append_pcl_ce_quick_play(&mut arguments, &server, version).unwrap();
+        assert_eq!(
+            arguments,
+            ["--quickPlayMultiplayer", "play.example.test:25565"]
+        );
+        arguments.clear();
+        append_pcl_ce_quick_play(
+            &mut arguments,
+            &QuickPlayType::Singleplayer("My World".into()),
+            version,
+        )
+        .unwrap();
+        assert_eq!(arguments, ["--quickPlaySingleplayer", "My World"]);
+    }
+
+    #[test]
     fn legacy_fallen_args_get_discovery_without_replacing_custom_hosts() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path();
@@ -735,6 +932,7 @@ mod tests {
                 QuickPlayVersion::find_version(0, &[]),
                 None,
                 "127.0.0.1:12345".parse().unwrap(),
+                None,
             )
             .unwrap()
             .into_iter()

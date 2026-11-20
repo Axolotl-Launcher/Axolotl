@@ -559,14 +559,17 @@ fn load_pcl_version_chain(
     dialect: LinkedLauncherDialect,
 ) -> crate::Result<MergedVersion> {
     let mut visited = HashSet::new();
+    let mut argument_layers = Vec::new();
     let (path, mut value) = resolve_pcl_json(
         root,
         version_id,
         version_json,
         dialect,
         &mut visited,
+        &mut argument_layers,
     )?;
     if dialect == LinkedLauncherDialect::PclCe {
+        collect_pcl_ce_arguments(&mut value, argument_layers, &path)?;
         pcl_ce_arguments::normalize(&mut value, &path)?;
         value["id"] = Value::String(version_id.to_string());
         if let Some(object) = value.as_object_mut() {
@@ -579,17 +582,29 @@ fn load_pcl_version_chain(
     merged_from_document(&document)
 }
 
+const MAX_PCL_CE_INHERITANCE_DEPTH: usize = 64;
+const PCL_CE_ARGUMENT_INHERITANCE_BUDGET: usize = 4 * 1024 * 1024;
+
 fn resolve_pcl_json(
     root: &Path,
     version_id: &str,
     version_json: Option<&Path>,
     dialect: LinkedLauncherDialect,
     visited: &mut HashSet<String>,
+    argument_layers: &mut Vec<Option<Value>>,
 ) -> crate::Result<(PathBuf, Value)> {
     if !visited.insert(version_id.to_string()) {
         return Err(crate::ErrorKind::InputError(format!(
             "Circular inheritsFrom chain detected at \"{version_id}\""
         ))
+        .into());
+    }
+    if dialect == LinkedLauncherDialect::PclCe
+        && visited.len() > MAX_PCL_CE_INHERITANCE_DEPTH
+    {
+        return Err(crate::ErrorKind::InputError(
+            "PCL-CE version inheritance chain is too deep".into(),
+        )
         .into());
     }
 
@@ -635,14 +650,40 @@ fn resolve_pcl_json(
         }
     }
 
+    if dialect == LinkedLauncherDialect::PclCe {
+        argument_layers.push(child.get("arguments").map(|arguments| {
+            if let Some(groups) = arguments.as_object() {
+                Value::Object(
+                    ["game", "jvm"]
+                        .into_iter()
+                        .filter_map(|group| {
+                            groups
+                                .get(group)
+                                .map(|value| (group.to_string(), value.clone()))
+                        })
+                        .collect(),
+                )
+            } else if arguments.is_null() {
+                Value::Null
+            } else {
+                Value::Bool(false)
+            }
+        }));
+    }
     let parent_id = child
         .get("inheritsFrom")
         .and_then(Value::as_str)
         .filter(|parent| *parent != version_id)
         .map(str::to_string);
     let result = if let Some(parent_id) = parent_id {
-        let (_, mut parent) =
-            resolve_pcl_json(root, &parent_id, None, dialect, visited)?;
+        let (_, mut parent) = resolve_pcl_json(
+            root,
+            &parent_id,
+            None,
+            dialect,
+            visited,
+            argument_layers,
+        )?;
         let inherited_jar = parent
             .get("jar")
             .and_then(Value::as_str)
@@ -684,6 +725,121 @@ fn resolve_pcl_json(
     };
     visited.remove(version_id);
     Ok((path, result))
+}
+
+/// PCL-CE merges each ancestor's already resolved argument groups into the
+/// requested document, then collects that document followed by each resolved
+/// ancestor. For A <- B <- C, this yields AABC, AB, A before grouped dedup.
+fn collect_pcl_ce_arguments(
+    document: &mut Value,
+    layers: Vec<Option<Value>>,
+    path: &Path,
+) -> crate::Result<()> {
+    if layers.len() < 2 {
+        return Ok(());
+    }
+
+    let mut budget = PCL_CE_ARGUMENT_INHERITANCE_BUDGET;
+    let mut resolved: Vec<Option<Value>> = Vec::with_capacity(layers.len());
+    for mut arguments in layers.into_iter().rev() {
+        for parent in resolved.iter().rev().flatten() {
+            match &arguments {
+                None => {
+                    take_argument_budget(
+                        &mut budget,
+                        argument_weight(parent),
+                        path,
+                    )?;
+                    arguments = Some(parent.clone());
+                }
+                Some(child) if child.is_object() && parent.is_object() => {
+                    take_argument_budget(
+                        &mut budget,
+                        argument_weight(parent)
+                            .saturating_add(argument_weight(child)),
+                        path,
+                    )?;
+                    let mut merged = parent.clone();
+                    pcl_merge(&mut merged, child);
+                    arguments = Some(merged);
+                }
+                _ => {}
+            }
+        }
+        resolved.push(arguments);
+    }
+
+    let Some(Some(arguments)) = resolved.pop() else {
+        return Ok(());
+    };
+    let Value::Object(mut groups) = arguments else {
+        document["arguments"] = arguments;
+        return Ok(());
+    };
+    for group in ["game", "jvm"] {
+        let Some(Value::Array(entries)) = groups.get_mut(group) else {
+            continue;
+        };
+        for arguments in resolved.iter().rev().flatten() {
+            if arguments.is_null() {
+                continue;
+            }
+            let Some(groups) = arguments.as_object() else {
+                return Err(crate::ErrorKind::InputError(format!(
+                    "Invalid inherited arguments while resolving {}: expected an argument group object",
+                    path.display()
+                )).into());
+            };
+            let Some(values) =
+                groups.get(group).filter(|value| !value.is_null())
+            else {
+                continue;
+            };
+            let Some(values) = values.as_array() else {
+                return Err(crate::ErrorKind::InputError(format!(
+                    "Invalid inherited arguments.{group} while resolving {}: expected an argument array",
+                    path.display()
+                )).into());
+            };
+            for value in values {
+                take_argument_budget(
+                    &mut budget,
+                    argument_weight(value),
+                    path,
+                )?;
+                entries.push(value.clone());
+            }
+        }
+    }
+    document["arguments"] = Value::Object(groups);
+    Ok(())
+}
+
+fn argument_weight(value: &Value) -> usize {
+    size_of::<Value>()
+        + match value {
+            Value::Array(items) => items.iter().map(argument_weight).sum(),
+            Value::Object(object) => object
+                .iter()
+                .map(|(key, value)| key.len() + argument_weight(value))
+                .sum(),
+            Value::String(value) => value.len(),
+            _ => 0,
+        }
+}
+
+fn take_argument_budget(
+    budget: &mut usize,
+    weight: usize,
+    path: &Path,
+) -> crate::Result<()> {
+    *budget = budget.checked_sub(weight).ok_or_else(|| {
+        crate::ErrorKind::InputError(format!(
+            "PCL-CE inherited arguments expand too far in {}",
+            path.display()
+        ))
+    })?;
+    Ok(())
 }
 
 /// Newtonsoft JObject.Merge / PCL-CE JsonCompat.Merge semantics used by PCL:
@@ -1133,7 +1289,7 @@ mod tests {
         let arguments = version.arguments.unwrap();
         assert!(!arguments.contains_key(&ArgumentType::Jvm));
         let game = &arguments[&ArgumentType::Game];
-        assert_eq!(game.len(), 2);
+        assert_eq!(game.len(), 3);
         assert!(
             matches!(&game[0], Argument::Normal(value) if value == "--base")
         );
@@ -1141,6 +1297,9 @@ mod tests {
             rules,
             value: daedalus::minecraft::ArgumentValue::Many(values),
         } if rules.is_empty() && values == &["--numbers", "23", "true"]));
+        assert!(
+            matches!(&game[2], Argument::Normal(value) if value == "--base")
+        );
         assert!(
             load_version_for_dialect(
                 dir.path(),
@@ -1150,6 +1309,187 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn pcl_ce_collects_already_merged_arguments_from_three_levels() {
+        let dir = tempdir().unwrap();
+        write_json(
+            dir.path(),
+            "base",
+            "base.json",
+            json!({
+                "id": "base", "arguments": {"game": ["--base", "a"], "jvm": ["-Dbase=1"]},
+                "minecraftArguments": "--legacy base",
+            }),
+        );
+        write_json(
+            dir.path(),
+            "middle",
+            "middle.json",
+            json!({
+                "id": "middle", "inheritsFrom": "base",
+                "arguments": {"game": ["--middle", "b"], "jvm": ["-Dmiddle=1"]},
+            }),
+        );
+        write_json(
+            dir.path(),
+            "leaf",
+            "leaf.json",
+            json!({
+                "id": "leaf", "inheritsFrom": "middle",
+                "arguments": {"game": ["--leaf", "c"], "jvm": ["-Dleaf=1"]},
+            }),
+        );
+
+        let version = load_version_for_dialect(
+            dir.path(),
+            "leaf",
+            None,
+            LinkedLauncherDialect::PclCe,
+        )
+        .unwrap();
+        assert_eq!(
+            version.minecraft_arguments.as_deref(),
+            Some("--legacy base")
+        );
+        let arguments = version.arguments.as_ref().unwrap();
+        assert_eq!(
+            crate::launcher::pcl_ce_command::game_arguments(
+                version.minecraft_arguments.as_deref(),
+                Some(&arguments[&ArgumentType::Game]),
+                Some("--custom ${version_name}"),
+                &[("${version_name}", "Leaf Profile")],
+            ),
+            [
+                "--legacy",
+                "base",
+                "--base",
+                "a",
+                "--middle",
+                "b",
+                "--leaf",
+                "c",
+                "--custom",
+                "Leaf Profile"
+            ],
+        );
+        assert_eq!(
+            serde_json::to_value(version.arguments.unwrap()).unwrap(),
+            json!({
+                "game": ["--base", "a", "--base", "a", "--middle", "b", "--leaf", "c", "--base", "a", "--middle", "b", "--base", "a"],
+                "jvm": ["-Dbase=1", "-Dbase=1", "-Dmiddle=1", "-Dleaf=1", "-Dbase=1", "-Dmiddle=1", "-Dbase=1"],
+            })
+        );
+
+        let other = load_version_for_dialect(
+            dir.path(),
+            "leaf",
+            None,
+            LinkedLauncherDialect::Pcl,
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(other.arguments.unwrap()).unwrap(),
+            json!({
+                "game": ["--base", "a", "--middle", "b", "--leaf", "c"],
+                "jvm": ["-Dbase=1", "-Dmiddle=1", "-Dleaf=1"],
+            })
+        );
+    }
+
+    #[test]
+    fn pcl_ce_gates_collection_on_resolved_null_and_empty_groups() {
+        let dir = tempdir().unwrap();
+        write_json(
+            dir.path(),
+            "base",
+            "base.json",
+            json!({
+                "id": "base", "arguments": {"game": ["--base"], "jvm": ["-Dbase=1"]},
+                "minecraftArguments": "--legacy",
+            }),
+        );
+        write_json(
+            dir.path(),
+            "middle",
+            "middle.json",
+            json!({
+                "id": "middle", "inheritsFrom": "base",
+                "arguments": {"game": 12, "jvm": ["-Dmiddle=1"]},
+            }),
+        );
+        write_json(
+            dir.path(),
+            "leaf",
+            "leaf.json",
+            json!({
+                "id": "leaf", "inheritsFrom": "middle", "arguments": {"game": null, "jvm": []},
+            }),
+        );
+
+        let version = load_version_for_dialect(
+            dir.path(),
+            "leaf",
+            None,
+            LinkedLauncherDialect::PclCe,
+        )
+        .unwrap();
+        assert_eq!(version.minecraft_arguments.as_deref(), Some("--legacy"));
+        assert_eq!(
+            serde_json::to_value(version.arguments.unwrap()).unwrap(),
+            json!({
+                "jvm": ["-Dbase=1", "-Dbase=1", "-Dmiddle=1", "-Dbase=1", "-Dmiddle=1", "-Dbase=1"],
+            })
+        );
+
+        write_json(
+            dir.path(),
+            "middle",
+            "middle.json",
+            json!({
+                "id": "middle", "inheritsFrom": "base", "arguments": null,
+            }),
+        );
+        write_json(
+            dir.path(),
+            "leaf",
+            "leaf.json",
+            json!({
+                "id": "leaf", "inheritsFrom": "middle", "arguments": {"game": []},
+            }),
+        );
+        let version = load_version_for_dialect(
+            dir.path(),
+            "leaf",
+            None,
+            LinkedLauncherDialect::PclCe,
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(version.arguments.unwrap()).unwrap(),
+            json!({
+                "game": ["--base", "--base"], "jvm": ["-Dbase=1", "-Dbase=1"],
+            })
+        );
+    }
+
+    #[test]
+    fn pcl_ce_limits_expansion_of_pathological_argument_chains() {
+        let layers = vec![Some(json!({"game": ["private-test-token"]})); 24];
+        let error = collect_pcl_ce_arguments(
+            &mut json!({}),
+            layers,
+            Path::new("leaf.json"),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("inherited arguments expand too far"),
+            "{error}"
+        );
+        assert!(error.contains("leaf.json"));
+        assert!(!error.contains("private-test-token"));
     }
 
     #[test]

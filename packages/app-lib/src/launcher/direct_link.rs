@@ -1083,30 +1083,56 @@ impl PclLaunchSettings {
     /// LaunchAdvanceJvm when the instance leaves it empty — ModLaunch.vb
     /// line ~1255 / PCL-CE equivalent).
     pub(crate) fn extra_jvm_args(&self) -> Vec<String> {
-        let custom = config_string(&self.instance_values, "VersionAdvanceJvm")
-            .filter(|value| !value.trim().is_empty())
-            .or_else(|| {
-                config_string(&self.global_values, "LaunchAdvanceJvm")
-                    .filter(|value| !value.trim().is_empty())
-            });
-        custom
-            .map(|value| pcl_split_arguments(&value))
+        self.extra_jvm_arguments_text()
+            .map(pcl_split_arguments)
             .unwrap_or_default()
+    }
+
+    pub(super) fn extra_jvm_arguments_text(&self) -> Option<&str> {
+        self.argument_text("versionadvancejvm", "launchadvancejvm")
     }
 
     /// Custom game arguments (VersionAdvanceGame with the same global
     /// fallback; appended after the vanilla game arguments like PCL's
     /// `Arg &= " " & CustomArg`).
     pub(crate) fn extra_game_args(&self) -> Vec<String> {
-        let custom = config_string(&self.instance_values, "VersionAdvanceGame")
+        self.extra_game_arguments_text()
+            .map(pcl_split_arguments)
+            .unwrap_or_default()
+    }
+
+    pub(super) fn extra_game_arguments_text(&self) -> Option<&str> {
+        self.argument_text("versionadvancegame", "launchadvancegame")
+    }
+
+    fn argument_text(
+        &self,
+        instance_key: &str,
+        global_key: &str,
+    ) -> Option<&str> {
+        self.instance_values
+            .get(instance_key)
+            .map(String::as_str)
             .filter(|value| !value.trim().is_empty())
             .or_else(|| {
-                config_string(&self.global_values, "LaunchAdvanceGame")
+                self.global_values
+                    .get(global_key)
+                    .map(String::as_str)
                     .filter(|value| !value.trim().is_empty())
-            });
-        custom
-            .map(|value| pcl_split_arguments(&value))
-            .unwrap_or_default()
+            })
+    }
+
+    pub(super) fn pcl_ce_version_type(&self) -> &str {
+        self.instance_values
+            .get("versionargumentinfo")
+            .map(String::as_str)
+            .filter(|value| !value.is_empty())
+            .or_else(|| {
+                self.global_values
+                    .get("launchargumentinfo")
+                    .map(String::as_str)
+            })
+            .unwrap_or("PCLCE")
     }
 }
 

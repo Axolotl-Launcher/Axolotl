@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { CodeIcon, PlusIcon } from '@modrinth/assets'
-import { Button, defineMessages, useVIntl } from '@modrinth/ui'
+import { defineMessages, useVIntl } from '@modrinth/ui'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 
 import { errorText } from '@/helpers/error-text'
@@ -8,7 +8,6 @@ import { nodeFromField } from '@/lab/command-generator/nbt/from-spec.ts'
 import { findNbtNode, moveNbtNode, removeNbtNode } from '@/lab/command-generator/nbt/model.ts'
 import type { NbtDomain, NbtFieldSpec } from '@/lab/command-generator/nbt/schema.ts'
 import {
-    createItemNbtTree,
     createNbtTag,
     type NbtTagNode,
     parseNbt,
@@ -48,14 +47,6 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.nbt.advanced.snbt-preview',
         defaultMessage: 'SNBT preview',
     },
-    presetEnchanted: {
-        id: 'app.lab.command-generator.nbt.advanced.preset-enchanted',
-        defaultMessage: 'Enchanted item',
-    },
-    presetCustomName: {
-        id: 'app.lab.command-generator.nbt.advanced.preset-custom-name',
-        defaultMessage: 'Custom name',
-    },
 })
 
 const nodes = ref<NbtTagNode[]>([])
@@ -74,20 +65,6 @@ const itemFormat = computed(() => {
         return 'components'
     return 'legacy'
 })
-const presets = [
-    { label: messages.presetEnchanted, factory: () => createItemNbtTree(itemFormat.value) },
-    {
-        label: messages.presetCustomName,
-        factory: () =>
-            itemFormat.value !== 'legacy'
-                ? createItemNbtTree(itemFormat.value).slice(0, 1)
-                : [
-                      createNbtTag('display', 'compound', '', [
-                          createNbtTag('Name', 'string', '{"text":"我的物品"}'),
-                      ]),
-                  ],
-    },
-]
 
 const snbtPreview = computed(() => serializeNbtDocument(nodes.value, components.value))
 
@@ -112,13 +89,6 @@ function publish() {
     if (parseError.value) return
     lastOutput = snbtPreview.value
     emit('update:modelValue', lastOutput)
-}
-
-function applyPreset(preset: (typeof presets)[number]) {
-    components.value = itemFormat.value !== 'legacy'
-    parseError.value = ''
-    nodes.value = preset.factory()
-    publish()
 }
 
 function onUpdate(id: string, field: string, value: string) {
@@ -197,24 +167,11 @@ function removeNodeById(list: NbtTagNode[], id: string): boolean {
 
 <template>
     <div class="flex min-w-0 flex-col gap-4">
-        <header class="flex flex-wrap items-center justify-between gap-2">
-            <span
-                class="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]"
-            >
-                <CodeIcon class="h-4 w-4" />
-                {{ formatMessage(messages.title) }}
-            </span>
-            <div class="flex flex-wrap gap-2">
-                <Button
-                    v-for="preset in presets"
-                    :key="preset.label.id"
-                    type="outlined"
-                    size="2xs"
-                    @click="applyPreset(preset)"
-                >
-                    {{ formatMessage(preset.label) }}
-                </Button>
-            </div>
+        <header
+            class="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]"
+        >
+            <CodeIcon class="h-4 w-4" />
+            {{ formatMessage(messages.title) }}
         </header>
 
         <p v-if="parseError" class="text-sm text-red">{{ parseError }}</p>
@@ -234,7 +191,7 @@ function removeNodeById(list: NbtTagNode[], id: string): boolean {
                 @change="publish"
             />
             <button
-                class="mt-1 flex items-center gap-2 self-start rounded-lg bg-surface-3 px-3 py-2 text-sm font-medium hover:bg-surface-4 focus-visible:outline-brand"
+                class="nbt-add-root mt-1 flex items-center gap-2 self-start rounded-lg bg-surface-3 px-3 py-2 text-sm font-medium hover:bg-surface-4 focus-visible:outline-brand"
                 type="button"
                 @click="openPalette(null)"
             >

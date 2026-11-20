@@ -7937,12 +7937,6 @@
   "app.lab.command-generator.nbt.advanced.add-root": {
     "message": "Add tag"
   },
-  "app.lab.command-generator.nbt.advanced.preset-custom-name": {
-    "message": "Custom name"
-  },
-  "app.lab.command-generator.nbt.advanced.preset-enchanted": {
-    "message": "Enchanted item"
-  },
   "app.lab.command-generator.nbt.advanced.snbt-preview": {
     "message": "SNBT preview"
   },

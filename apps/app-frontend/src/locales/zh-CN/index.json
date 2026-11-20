@@ -7937,12 +7937,6 @@
   "app.lab.command-generator.nbt.advanced.add-root": {
     "message": "添加标签"
   },
-  "app.lab.command-generator.nbt.advanced.preset-custom-name": {
-    "message": "自定义名称"
-  },
-  "app.lab.command-generator.nbt.advanced.preset-enchanted": {
-    "message": "附魔物品"
-  },
   "app.lab.command-generator.nbt.advanced.snbt-preview": {
     "message": "SNBT 预览"
   },

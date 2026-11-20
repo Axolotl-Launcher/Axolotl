@@ -181,9 +181,9 @@ const failureSummaryMessages = defineMessages({
         id: 'app.action-bar.install.summary.invalid-file-path',
         defaultMessage: 'File path is invalid',
     },
-    instanceNotFound: {
-        id: 'app.action-bar.install.summary.instance-not-found',
-        defaultMessage: "Instance couldn't be found",
+    instanceSetupFailed: {
+        id: 'app.action-bar.install.summary.instance-setup-failed',
+        defaultMessage: "Couldn't prepare instance",
     },
     cleanupIncomplete: {
         id: 'app.action-bar.install.summary.cleanup-incomplete',
@@ -350,8 +350,6 @@ export async function useInstallJobNotifications(opts: {
                 return formatMessage(failureSummaryMessages.couldNotSaveFiles)
             case 'path_error':
                 return formatMessage(failureSummaryMessages.invalidFilePath)
-            case 'instance_error':
-                return formatMessage(failureSummaryMessages.instanceNotFound)
             case 'java_error':
                 return formatMessage(failureSummaryMessages.javaSetupFailed)
             case 'loader_error':
@@ -387,7 +385,7 @@ export async function useInstallJobNotifications(opts: {
             case 'preparing_java':
                 return formatMessage(failureSummaryMessages.javaSetupFailed)
             case 'preparing_instance':
-                return formatMessage(failureSummaryMessages.instanceNotFound)
+                return formatMessage(failureSummaryMessages.instanceSetupFailed)
             case 'rolling_back':
                 return formatMessage(failureSummaryMessages.cleanupIncomplete)
             default:

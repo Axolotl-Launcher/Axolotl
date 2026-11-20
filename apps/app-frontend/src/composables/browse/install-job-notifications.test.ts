@@ -136,6 +136,26 @@ async function trackJobs(initial: InstallJobSnapshot[]) {
     return { jobs, onFinishedJobExpired, notifications, shownIds }
 }
 
+it('describes a rolled-back import failure by the phase that failed', async () => {
+    const { notifications } = await trackJobs([
+        {
+            ...installJob('old-instance', 'failed'),
+            kind: 'import_instance',
+            error: {
+                code: 'instance_error',
+                phase: 'preparing_instance',
+                message:
+                    'Invalid input: Wait for the active instance task before unlinking the pack',
+            },
+        },
+    ])
+    try {
+        expect(notifications.progressItems.value[0].text).toBe('无法准备实例')
+    } finally {
+        notifications.dispose()
+    }
+})
+
 it('removes finished jobs from the popup shortly after they end, but keeps failures', async () => {
     vi.useFakeTimers()
     const { jobs, onFinishedJobExpired, notifications, shownIds } = await trackJobs([

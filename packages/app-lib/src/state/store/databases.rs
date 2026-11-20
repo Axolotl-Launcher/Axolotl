@@ -1052,7 +1052,12 @@ async fn open_with_retired(
         .create_if_missing(!initialized)
         .journal_mode(SqliteJournalMode::Delete)
         .synchronous(sqlx::sqlite::SqliteSynchronous::Full)
-        .busy_timeout(Duration::from_secs(30))
+        // The startup backup holds one exclusive write image of system.db and
+        // its attached domains while it copies them. Ordinary readers and
+        // writers must outwait that copy instead of failing: with a 30s window
+        // an instrumented or I/O-starved runner turns the copy into SQLITE_BUSY
+        // for every startup branch racing it.
+        .busy_timeout(Duration::from_secs(90))
         .foreign_keys(true);
     let mut keeper = SqliteConnection::connect_with(&options).await?;
     let has_marker: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM main.sqlite_schema WHERE name = 'database_imports')").fetch_one(&mut keeper).await?;

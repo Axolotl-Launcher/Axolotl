@@ -207,6 +207,17 @@ fn state_access_ready(state_published: bool, startup_complete: bool) -> bool {
         && (startup_complete || STARTUP_CONTEXT.try_with(|_| ()).is_ok())
 }
 
+/// Serializes the startup work that writes the core database against the work
+/// that reads it. SQLite admits one writer at a time, and under a rollback
+/// journal a reader's COMMIT also needs the exclusive lock: with the core pool
+/// cold and the disk busy, concurrent startup readers and writers spend their
+/// whole busy window outbidding each other and the writers surface
+/// `SQLITE_BUSY` even though nothing is deadlocked. Queueing those startup
+/// jobs in arrival order keeps SQLite's retry loop out of arbitration.
+static STARTUP_DATABASE_WRITE: std::sync::LazyLock<
+    Arc<tokio::sync::Mutex<()>>,
+> = std::sync::LazyLock::new(|| Arc::new(tokio::sync::Mutex::const_new(())));
+
 /// Bounds how long deferred startup work waits for the frontend. A window
 /// that never reports readiness (for example, a hidden lightweight-mode
 /// window) must not stall maintenance forever.
@@ -432,6 +443,7 @@ impl State {
             .file_name()
             .is_some_and(|name| name == "system.db")
         {
+            let _write_window = self.lock_startup_database_write().await;
             store::databases::maintain_backups(
                 &self.pool,
                 &self.directories.settings_dir,
@@ -498,6 +510,15 @@ impl State {
         &self,
     ) -> tokio::sync::OwnedMutexGuard<()> {
         self.synced_options_lock.clone().lock_owned().await
+    }
+
+    /// Admits the startup database work that writes the core domain one at a
+    /// time. These jobs run beside the recovery readers on a cold pool; queueing
+    /// them keeps SQLite's unfair busy retry loop from deciding the order.
+    pub(crate) async fn lock_startup_database_write(
+        &self,
+    ) -> tokio::sync::OwnedMutexGuard<()> {
+        STARTUP_DATABASE_WRITE.clone().lock_owned().await
     }
 }
 
@@ -910,7 +931,10 @@ impl State {
         crate::telemetry::start(Arc::clone(&state));
         state.spawn_background({
             let state = Arc::clone(&state);
-            async move { instances::config_sync::run(state).await }
+            async move {
+                let _write_window = state.lock_startup_database_write().await;
+                instances::config_sync::run(state).await
+            }
         });
 
         state.spawn_background({

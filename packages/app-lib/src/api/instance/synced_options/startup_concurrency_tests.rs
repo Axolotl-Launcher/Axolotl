@@ -117,7 +117,12 @@ async fn cold_core_pool_serves_reads_during_disabled_sync_config_and_backup() {
         }
         Ok::<_, crate::Error>(())
     };
+    // These two branches are the body of the startup work the launcher runs
+    // under the startup write window; the backup branch takes the same window
+    // inside `maintain_database_backups`. Reads deliberately stay outside it:
+    // the point of the test is that they keep serving while it is held.
     let sync = async {
+        let _write_window = state.lock_startup_database_write().await;
         let _guard = state.lock_synced_options().await;
         create_synced_directories(&state).await?;
         apply_pending_changes(&state).await?;
@@ -137,6 +142,7 @@ async fn cold_core_pool_serves_reads_during_disabled_sync_config_and_backup() {
         Ok::<_, crate::Error>(())
     };
     let configs = async {
+        let _write_window = state.lock_startup_database_write().await;
         for id in &ids {
             crate::state::instances::config_sync::sync_instance(&state, id)
                 .await?;

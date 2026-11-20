@@ -151,7 +151,11 @@ async fn cold_core_pool_serves_reads_during_disabled_sync_config_and_backup() {
         state.maintain_database_backups().await?;
         Ok::<_, crate::Error>(())
     };
-    tokio::time::timeout(Duration::from_secs(20), async {
+    // The budget bounds only how long a merely slow run may take: a genuine
+    // deadlock never completes at any size. CI measures this test inside the
+    // instrumented coverage build, where the five concurrent branches racing a
+    // cold SQLite pool run far slower than they do uninstrumented.
+    tokio::time::timeout(Duration::from_secs(120), async {
         tokio::try_join!(reads, sync, configs, settings, backup)
     })
     .await

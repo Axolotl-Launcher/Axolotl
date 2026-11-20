@@ -253,7 +253,16 @@ defineExpose({ show, hide })
         scrollable
         max-content-height="min(36rem, 78vh)"
     >
-        <div class="flex min-h-0 min-w-0 flex-col gap-3">
+        <!--
+            高度必须定死：列表要成为唯一滚动容器。给成 flex-1 而没有高度约束时，
+            列表撑到内容高度、自己不滚，滚轮落在这块「假滚动容器」上会被
+            overscroll-contain 截断，只剩弹窗内边距那一圈能滚。
+            定高同时避免输入时弹窗跟着结果数量跳；复合标签里只有几个子字段时矮一些。
+        -->
+        <div
+            class="flex min-h-0 min-w-0 flex-col gap-3"
+            :class="fields ? 'h-[min(26rem,60vh)]' : 'h-[min(30rem,64vh)]'"
+        >
             <StyledInput
                 ref="searchInput"
                 v-model="search"

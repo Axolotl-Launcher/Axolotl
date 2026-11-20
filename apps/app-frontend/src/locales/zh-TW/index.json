@@ -2291,9 +2291,6 @@
   "app.home.news.error-title": {
     "message": "新聞載入失敗"
   },
-  "app.home.news.offline-title": {
-    "message": "連網後會顯示新聞"
-  },
   "app.home.news.open-article": {
     "message": "在 minecraft.net 上閱讀"
   },

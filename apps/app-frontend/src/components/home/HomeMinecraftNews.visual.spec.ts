@@ -73,8 +73,7 @@ it.each(['event', 'refresh'] as const)(
         const view = mountNews()
         await flushPromises()
         expect(backend.news).not.toHaveBeenCalled()
-        // Offline, the card stays and says why it is empty instead of disappearing.
-        expect(view.text()).toContain('News shows up when you are online')
+        expect(view.find('section').exists()).toBe(false)
 
         if (source === 'event') window.dispatchEvent(new Event('online'))
         else network.markBrowserOnline()
@@ -113,8 +112,7 @@ it('reuses fresh cached news across reconnects and page remounts', async () => {
     expect(backend.news).toHaveBeenCalledOnce()
     network.setBrowserOffline(true)
     await flushPromises()
-    // Headlines already loaded stay readable while offline.
-    expect(view.text()).toContain('Minecraft & updates')
+    expect(view.find('section').exists()).toBe(false)
     network.markBrowserOnline()
     await flushPromises()
     expect(view.text()).toContain('Minecraft & updates')

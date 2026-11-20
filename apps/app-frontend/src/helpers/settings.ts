@@ -306,6 +306,7 @@ export function appSettingsQueryOptions() {
     return queryOptions({
         queryKey: appSettingsKeys.all,
         queryFn: get,
+        networkMode: 'always',
         staleTime: 0,
     })
 }

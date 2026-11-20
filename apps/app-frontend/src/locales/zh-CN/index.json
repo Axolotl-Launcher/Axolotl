@@ -3131,9 +3131,6 @@
   "app.home.news.error-title": {
     "message": "新闻加载失败"
   },
-  "app.home.news.offline-title": {
-    "message": "联网后会显示新闻"
-  },
   "app.home.news.open-article": {
     "message": "在 minecraft.net 上阅读"
   },

@@ -3131,9 +3131,6 @@
   "app.home.news.error-title": {
     "message": "Couldn't load the news"
   },
-  "app.home.news.offline-title": {
-    "message": "News shows up when you are online"
-  },
   "app.home.news.open-article": {
     "message": "Read on minecraft.net"
   },

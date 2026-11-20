@@ -39,6 +39,8 @@ export interface NbtFieldSpec {
     type: NbtTagType
     /** 列表元素类型；未知时由第一个子节点决定。 */
     elementType?: NbtTagType
+    /** 定长数组的长度（`Pos` 是 3、`Rotation` 是 2）；长度不定时省略。 */
+    length?: number
     /** 游戏用 byte 表示布尔，界面应给开关而不是数字框。 */
     valueKind?: 'boolean'
     /** SNBT 文本形式的默认值，例如 `1b`、`80`、`""`。 */

@@ -4181,7 +4181,9 @@
     },
     {
       "key": "Motion",
-      "type": "double",
+      "type": "list",
+      "elementType": "double",
+      "length": 3,
       "category": "movement",
       "advanced": true,
       "appliesTo": {
@@ -4613,7 +4615,9 @@
     },
     {
       "key": "Pos",
-      "type": "double",
+      "type": "list",
+      "elementType": "double",
+      "length": 3,
       "category": "movement",
       "advanced": true,
       "appliesTo": {
@@ -5016,7 +5020,9 @@
     },
     {
       "key": "Rotation",
-      "type": "float",
+      "type": "list",
+      "elementType": "float",
+      "length": 2,
       "category": "movement",
       "advanced": true,
       "appliesTo": {
@@ -6124,7 +6130,8 @@
     },
     {
       "key": "UUID",
-      "type": "int",
+      "type": "int_array",
+      "length": 4,
       "category": "data",
       "advanced": true,
       "appliesTo": {

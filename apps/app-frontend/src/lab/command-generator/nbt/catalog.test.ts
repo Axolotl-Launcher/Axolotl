@@ -27,6 +27,7 @@ const TYPES = new Set([
     'int_array',
     'long_array',
 ])
+const ARRAY_TYPES = new Set(['list', 'byte_array', 'int_array', 'long_array'])
 
 function walk(
     fields: NbtFieldSpec[],
@@ -110,6 +111,35 @@ describe('NBT 目录数据', () => {
         const keys = fieldsFor('block_entity').map((field) => field.key)
         expect(keys.length).toBeGreaterThan(20)
         expect(keys).toContain('id')
+    })
+
+    /**
+     * 这几个字段在 wiki 里是定长数组（`Entity format`：Pos / Motion 是 3 个 double，
+     * Rotation 是 2 个 float，UUID 是 4 个 int）。曾经都标成标量，从面板插入会得到
+     * 一个数字框，写不出 `[0d,64d,0d]` 这种结构。
+     */
+    it.each([
+        { key: 'Pos', type: 'list', elementType: 'double', length: 3 },
+        { key: 'Motion', type: 'list', elementType: 'double', length: 3 },
+        { key: 'Rotation', type: 'list', elementType: 'float', length: 2 },
+        { key: 'UUID', type: 'int_array', elementType: undefined, length: 4 },
+    ])('$key 是定长数组', ({ key, type, elementType, length }) => {
+        const field = fieldsFor('entity').find((entry) => entry.key === key)
+        expect(field, `缺少字段 ${key}`).toBeDefined()
+        expect(field!.type, `${key} 的标签类型`).toBe(type)
+        expect(field!.elementType, `${key} 的元素类型`).toBe(elementType)
+        expect(field!.length, `${key} 的长度`).toBe(length)
+    })
+
+    it('带长度的字段必须是数组', () => {
+        for (const domain of DOMAINS) {
+            walk(catalogFor(domain).fields, (field, path) => {
+                if (field.length === undefined) return
+                expect(ARRAY_TYPES.has(field.type), `${domain}:${path} 有长度但不是数组`).toBe(true)
+                if (field.type !== 'list') return
+                expect(field.elementType, `${domain}:${path} 是列表但缺元素类型`).toBeDefined()
+            })
+        }
     })
 })
 

@@ -7937,6 +7937,9 @@
   "app.lab.command-generator.nbt.advanced.title": {
     "message": "Advanced NBT tree"
   },
+  "app.lab.command-generator.nbt.array-hint": {
+    "message": "Comma separated, no suffixes"
+  },
   "app.lab.command-generator.nbt.category.advanced": {
     "message": "Advanced"
   },
@@ -7966,6 +7969,15 @@
   },
   "app.lab.command-generator.nbt.child-count": {
     "message": "{count} children"
+  },
+  "app.lab.command-generator.nbt.element-type": {
+    "message": "Holds {type}"
+  },
+  "app.lab.command-generator.nbt.move-down": {
+    "message": "Move down"
+  },
+  "app.lab.command-generator.nbt.move-up": {
+    "message": "Move up"
   },
   "app.lab.command-generator.nbt.palette.added": {
     "message": "added"
@@ -8015,6 +8027,9 @@
   "app.lab.command-generator.nbt.type.byte": {
     "message": "Byte"
   },
+  "app.lab.command-generator.nbt.type.byte-array": {
+    "message": "Byte array"
+  },
   "app.lab.command-generator.nbt.type.compound": {
     "message": "Compound"
   },
@@ -8027,14 +8042,17 @@
   "app.lab.command-generator.nbt.type.int": {
     "message": "Int"
   },
+  "app.lab.command-generator.nbt.type.int-array": {
+    "message": "Int array"
+  },
   "app.lab.command-generator.nbt.type.list": {
     "message": "List"
   },
   "app.lab.command-generator.nbt.type.long": {
     "message": "Long"
   },
-  "app.lab.command-generator.nbt.type.raw": {
-    "message": "SNBT array"
+  "app.lab.command-generator.nbt.type.long-array": {
+    "message": "Long array"
   },
   "app.lab.command-generator.nbt.type.short": {
     "message": "Short"

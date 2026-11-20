@@ -13,6 +13,7 @@ export function nodeFromField(spec: NbtFieldSpec, name = spec.key): NbtTagNode {
     const node = createNbtTag(name, spec.type, defaultNbtValue(spec.type))
     if (spec.default !== undefined) node.value = spec.default
     if (spec.type === 'list' && spec.elementType) node.elementType = spec.elementType
+    if (spec.valueKind) node.valueKind = spec.valueKind
     if (spec.editor) node.group = spec.editor
     return node
 }

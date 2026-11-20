@@ -7937,6 +7937,9 @@
   "app.lab.command-generator.nbt.advanced.title": {
     "message": "高级 NBT 树"
   },
+  "app.lab.command-generator.nbt.array-hint": {
+    "message": "逗号分隔，不带类型后缀"
+  },
   "app.lab.command-generator.nbt.category.advanced": {
     "message": "高级"
   },
@@ -7966,6 +7969,15 @@
   },
   "app.lab.command-generator.nbt.child-count": {
     "message": "{count} 个子项"
+  },
+  "app.lab.command-generator.nbt.element-type": {
+    "message": "元素为 {type}"
+  },
+  "app.lab.command-generator.nbt.move-down": {
+    "message": "下移"
+  },
+  "app.lab.command-generator.nbt.move-up": {
+    "message": "上移"
   },
   "app.lab.command-generator.nbt.palette.added": {
     "message": "已添加"
@@ -8015,6 +8027,9 @@
   "app.lab.command-generator.nbt.type.byte": {
     "message": "字节"
   },
+  "app.lab.command-generator.nbt.type.byte-array": {
+    "message": "字节数组"
+  },
   "app.lab.command-generator.nbt.type.compound": {
     "message": "复合"
   },
@@ -8027,14 +8042,17 @@
   "app.lab.command-generator.nbt.type.int": {
     "message": "整数"
   },
+  "app.lab.command-generator.nbt.type.int-array": {
+    "message": "整型数组"
+  },
   "app.lab.command-generator.nbt.type.list": {
     "message": "列表"
   },
   "app.lab.command-generator.nbt.type.long": {
     "message": "长整型"
   },
-  "app.lab.command-generator.nbt.type.raw": {
-    "message": "SNBT 数组"
+  "app.lab.command-generator.nbt.type.long-array": {
+    "message": "长整型数组"
   },
   "app.lab.command-generator.nbt.type.short": {
     "message": "短整"

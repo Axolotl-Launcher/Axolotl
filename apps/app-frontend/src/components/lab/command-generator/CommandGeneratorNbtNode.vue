@@ -1,19 +1,36 @@
 <script setup lang="ts">
 import { ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '@modrinth/assets'
-import { Button, Combobox, type ComboboxOption, defineMessages, useVIntl } from '@modrinth/ui'
+import {
+    Button,
+    Checkbox,
+    Combobox,
+    type ComboboxOption,
+    defineMessages,
+    useVIntl,
+} from '@modrinth/ui'
 import { computed, ref } from 'vue'
 
-import type { NbtTagNode, NbtTagType } from '@/lab/command-generator/nbt-tree.ts'
+import { NBT_TYPE_SHORT } from '@/lab/command-generator/nbt/labels.ts'
+import {
+    isNbtArray,
+    isNbtContainer,
+    type NbtTagNode,
+    type NbtTagType,
+} from '@/lab/command-generator/nbt/model.ts'
 
 const props = defineProps<{
     node: NbtTagNode
     depth: number
+    /** 同级节点数量，用来决定上移 / 下移按钮是否可用。 */
+    siblingCount?: number
+    siblingIndex?: number
 }>()
 
 const emit = defineEmits<{
     update: [id: string, field: string, value: string]
     remove: [id: string]
     'add-child': [id: string]
+    move: [id: string, offset: number]
 }>()
 
 const { formatMessage } = useVIntl()
@@ -28,7 +45,6 @@ const messages = defineMessages({
         defaultMessage: 'Int',
     },
     typeLong: { id: 'app.lab.command-generator.nbt.type.long', defaultMessage: 'Long' },
-    typeRaw: { id: 'app.lab.command-generator.nbt.type.raw', defaultMessage: 'SNBT array' },
     typeShort: {
         id: 'app.lab.command-generator.nbt.type.short',
         defaultMessage: 'Short',
@@ -53,9 +69,29 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.nbt.type.list',
         defaultMessage: 'List',
     },
+    typeByteArray: {
+        id: 'app.lab.command-generator.nbt.type.byte-array',
+        defaultMessage: 'Byte array',
+    },
+    typeIntArray: {
+        id: 'app.lab.command-generator.nbt.type.int-array',
+        defaultMessage: 'Int array',
+    },
+    typeLongArray: {
+        id: 'app.lab.command-generator.nbt.type.long-array',
+        defaultMessage: 'Long array',
+    },
     childCount: {
         id: 'app.lab.command-generator.nbt.child-count',
         defaultMessage: '{count} children',
+    },
+    elementType: {
+        id: 'app.lab.command-generator.nbt.element-type',
+        defaultMessage: 'Holds {type}',
+    },
+    arrayHint: {
+        id: 'app.lab.command-generator.nbt.array-hint',
+        defaultMessage: 'Comma separated, no suffixes',
     },
     toggleTag: {
         id: 'app.lab.command-generator.nbt.toggle-tag',
@@ -68,39 +104,73 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.nbt.remove-tag',
         defaultMessage: 'Remove tag',
     },
+    moveUp: {
+        id: 'app.lab.command-generator.nbt.move-up',
+        defaultMessage: 'Move up',
+    },
+    moveDown: {
+        id: 'app.lab.command-generator.nbt.move-down',
+        defaultMessage: 'Move down',
+    },
 })
 
 const expanded = ref(true)
 
-const isContainer = computed(() => props.node.type === 'compound' || props.node.type === 'list')
+const container = computed(() => isNbtContainer(props.node))
+const array = computed(() => isNbtArray(props.node))
+const booleanValue = computed(() => props.node.valueKind === 'boolean')
 
 const typeOptions = computed<ComboboxOption<string>[]>(() => [
     { value: 'string', label: formatMessage(messages.typeString) },
+    { value: 'byte', label: formatMessage(messages.typeByte) },
+    { value: 'short', label: formatMessage(messages.typeShort) },
     { value: 'int', label: formatMessage(messages.typeInt) },
     { value: 'long', label: formatMessage(messages.typeLong) },
-    { value: 'raw', label: formatMessage(messages.typeRaw) },
-    { value: 'short', label: formatMessage(messages.typeShort) },
-    { value: 'byte', label: formatMessage(messages.typeByte) },
     { value: 'float', label: formatMessage(messages.typeFloat) },
     { value: 'double', label: formatMessage(messages.typeDouble) },
     { value: 'compound', label: formatMessage(messages.typeCompound) },
     { value: 'list', label: formatMessage(messages.typeList) },
+    { value: 'byte_array', label: formatMessage(messages.typeByteArray) },
+    { value: 'int_array', label: formatMessage(messages.typeIntArray) },
+    { value: 'long_array', label: formatMessage(messages.typeLongArray) },
 ])
 
 const childCountLabel = computed(() =>
     formatMessage(messages.childCount, { count: props.node.children?.length ?? 0 }),
 )
 
+const elementTypeLabel = computed(() =>
+    props.node.elementType
+        ? formatMessage(messages.elementType, {
+              type: NBT_TYPE_SHORT[props.node.elementType],
+          })
+        : '',
+)
+
+const canMoveUp = computed(() => (props.siblingIndex ?? 0) > 0)
+const canMoveDown = computed(() => {
+    const index = props.siblingIndex ?? 0
+    const count = props.siblingCount ?? 1
+    return index < count - 1
+})
+
 function onTypeChange(value: unknown) {
     emit('update', props.node.id, 'type', String(value) as NbtTagType)
 }
+
+/** byte 布尔在 SNBT 里就是 `1b` / `0b`，开关直接写这两个值。 */
+function onBooleanChange(checked: boolean | undefined) {
+    emit('update', props.node.id, 'value', checked ? '1b' : '0b')
+}
+
+const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
 </script>
 
 <template>
     <div class="flex min-w-0 flex-col gap-2">
         <div class="nbt-row flex min-w-0 flex-wrap items-center gap-2">
             <Button
-                v-if="isContainer"
+                v-if="container"
                 v-tooltip="formatMessage(messages.toggleTag)"
                 type="quiet"
                 size="sm"
@@ -115,7 +185,7 @@ function onTypeChange(value: unknown) {
             <span v-else class="w-7 shrink-0" />
 
             <input
-                class="nbt-name min-w-0 flex-1 rounded-lg border-0 bg-surface-4 px-2 py-2 text-sm outline-none focus:ring-4 focus:ring-brand-shadow"
+                class="nbt-name min-w-0 flex-1 rounded-lg border-0 bg-surface-4 px-2 py-2 font-mono text-sm outline-none focus:ring-4 focus:ring-brand-shadow"
                 :aria-label="formatMessage(messages.tagName)"
                 :value="node.name"
                 @input="emit('update', node.id, 'name', ($event.target as HTMLInputElement).value)"
@@ -129,19 +199,27 @@ function onTypeChange(value: unknown) {
                 />
             </div>
 
+            <Checkbox
+                v-if="!container && booleanValue"
+                :model-value="checked"
+                :description="formatMessage(messages.tagValue)"
+                @update:model-value="onBooleanChange"
+            />
             <input
-                v-if="!isContainer"
-                class="nbt-value min-w-0 flex-1 rounded-lg border-0 bg-surface-4 px-2 py-2 text-sm outline-none focus:ring-4 focus:ring-brand-shadow"
+                v-else-if="!container"
+                class="nbt-value min-w-0 flex-1 rounded-lg border-0 bg-surface-4 px-2 py-2 font-mono text-sm outline-none focus:ring-4 focus:ring-brand-shadow"
                 :aria-label="formatMessage(messages.tagValue)"
+                :placeholder="array ? formatMessage(messages.arrayHint) : undefined"
                 :value="String(node.value)"
                 @input="emit('update', node.id, 'value', ($event.target as HTMLInputElement).value)"
             />
-            <span v-else class="text-xs text-[var(--color-text-tertiary)]">{{
-                childCountLabel
-            }}</span>
+            <span v-else class="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+                <span>{{ childCountLabel }}</span>
+                <span v-if="elementTypeLabel" class="font-mono">{{ elementTypeLabel }}</span>
+            </span>
 
             <Button
-                v-if="isContainer"
+                v-if="container"
                 v-tooltip="formatMessage(messages.addTag)"
                 type="quiet"
                 size="sm"
@@ -150,6 +228,28 @@ function onTypeChange(value: unknown) {
                 @click="emit('add-child', node.id)"
             >
                 <PlusIcon />
+            </Button>
+            <Button
+                v-tooltip="formatMessage(messages.moveUp)"
+                type="quiet"
+                size="sm"
+                icon-only
+                :label="formatMessage(messages.moveUp)"
+                :disabled="!canMoveUp"
+                @click="emit('move', node.id, -1)"
+            >
+                <ChevronUpIcon />
+            </Button>
+            <Button
+                v-tooltip="formatMessage(messages.moveDown)"
+                type="quiet"
+                size="sm"
+                icon-only
+                :label="formatMessage(messages.moveDown)"
+                :disabled="!canMoveDown"
+                @click="emit('move', node.id, 1)"
+            >
+                <ChevronDownIcon />
             </Button>
             <Button
                 v-tooltip="formatMessage(messages.removeTag)"
@@ -164,17 +264,20 @@ function onTypeChange(value: unknown) {
         </div>
 
         <div
-            v-if="isContainer && expanded"
+            v-if="container && expanded"
             class="ml-3 flex min-w-0 flex-col gap-2 border-0 border-l border-solid border-surface-4 pl-3"
         >
             <CommandGeneratorNbtNode
-                v-for="child in node.children"
+                v-for="(child, index) in node.children"
                 :key="child.id"
                 :node="child"
                 :depth="depth + 1"
+                :sibling-count="node.children?.length ?? 1"
+                :sibling-index="index"
                 @update="(id, f, v) => emit('update', id, f, v)"
                 @remove="(id) => emit('remove', id)"
                 @add-child="(id) => emit('add-child', id)"
+                @move="(id, offset) => emit('move', id, offset)"
             />
         </div>
     </div>

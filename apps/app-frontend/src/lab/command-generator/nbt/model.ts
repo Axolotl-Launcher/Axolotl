@@ -49,6 +49,8 @@ export interface NbtTagNode {
     children?: NbtTagNode[]
     /** list 的元素类型。NBT 列表同构，空列表由这里记住它要装什么。 */
     elementType?: NbtTagType
+    /** 游戏用 byte 表示布尔时，界面给开关而不是数字框。 */
+    valueKind?: 'boolean'
     /** 结构化编辑器标识，例如 `enchantments`；只由目录入口写入。 */
     group?: string
     /** 强制按原始标签编辑，忽略 `group` 对应的结构化编辑器。 */

@@ -5,7 +5,7 @@ import { computed, ref, useTemplateRef, watch } from 'vue'
 
 import { errorText } from '@/helpers/error-text'
 import { nodeFromField } from '@/lab/command-generator/nbt/from-spec.ts'
-import { findNbtNode, removeNbtNode } from '@/lab/command-generator/nbt/model.ts'
+import { findNbtNode, moveNbtNode, removeNbtNode } from '@/lab/command-generator/nbt/model.ts'
 import type { NbtDomain, NbtFieldSpec } from '@/lab/command-generator/nbt/schema.ts'
 import {
     createItemNbtTree,
@@ -136,6 +136,11 @@ function onRemove(id: string) {
     publish()
 }
 
+/** NBT 本身无序，但输出文本的顺序影响可读性，所以允许手动上移 / 下移。 */
+function onMove(id: string, offset: number) {
+    if (moveNbtNode(nodes.value, id, offset)) publish()
+}
+
 const palette = useTemplateRef<InstanceType<typeof CommandGeneratorNbtPalette>>('palette')
 /** 搜索面板添加到的容器；`null` 表示根层。 */
 const paletteParentId = ref<string | null>(null)
@@ -214,13 +219,16 @@ function removeNodeById(list: NbtTagNode[], id: string): boolean {
         <p v-if="parseError" class="text-sm text-red">{{ parseError }}</p>
         <div v-else class="flex min-w-0 flex-col gap-2">
             <CommandGeneratorNbtNode
-                v-for="node in nodes"
+                v-for="(node, index) in nodes"
                 :key="node.id"
                 :node="node"
                 :depth="0"
+                :sibling-count="nodes.length"
+                :sibling-index="index"
                 @update="onUpdate"
                 @remove="onRemove"
                 @add-child="onAddChild"
+                @move="onMove"
             />
             <button
                 class="mt-1 flex items-center gap-2 self-start rounded-lg bg-surface-3 px-3 py-2 text-sm font-medium hover:bg-surface-4 focus-visible:outline-brand"

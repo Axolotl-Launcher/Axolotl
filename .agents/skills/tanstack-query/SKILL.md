@@ -3,7 +3,7 @@ name: tanstack-query
 description: Implement or migrate Vue server-state queries and mutations with TanStack Query, including cache invalidation and reactive query keys. Use when changing remote data loading in a page or component.
 ---
 
-Read the target package's instructions and [frontend development standard](../../../standards/frontend/DEVELOPMENT.md). Confirm a QueryClient is installed/provided and preserve the existing source of data; do not replace native/Tauri data with API-client requests just to fit this workflow. The website currently has no QueryClient integration. Do not add it merely because a file uses `useAsyncData`.
+Read the target package's instructions and [frontend development standard](../../../standards/frontend/DEVELOPMENT.md). Confirm a QueryClient is installed/provided and preserve the existing source of data; do not replace native/Tauri data with API-client requests just to fit this workflow.
 
 ## Steps
 

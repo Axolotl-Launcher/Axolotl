@@ -2351,29 +2351,14 @@
   "settings.display.theme.title": {
     "defaultMessage": "カラーテーマ"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "一般的な言語"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "検索結果"
-  },
   "settings.language.description": {
     "defaultMessage": "{platform}で使用する言語を選択してください。翻訳は<crowdin-link>Crowdin</crowdin-link>のボランティアによって提供されています。"
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "言語を検索..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "検索条件に一致する{matches, plural, =0 {言語が見つかりませんでした} other {、#つの言語が見つかりました}}。"
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "検索条件に一致する言語はありませんでした"
-  },
   "settings.language.platform.app": {
     "defaultMessage": "アプリ"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "サイト"
   },
   "settings.language.title": {
     "defaultMessage": "言語"

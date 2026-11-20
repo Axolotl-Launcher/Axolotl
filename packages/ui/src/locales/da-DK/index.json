@@ -920,29 +920,14 @@
   "settings.display.theme.title": {
     "defaultMessage": "Farvetema"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Standardsprog"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Søgeresultater"
-  },
   "settings.language.description": {
     "defaultMessage": "Vælg dit foretrukne sprog for {platform}. Oversættelser leveres af frivillige <crowdin-link>på Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Søg efter et sprog..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Ingen sprog passer} one {# sprog passer} other {# sprog passer}} din søgning."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Ingen sprog passer din søgning."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "app"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "hjemmeside"
   },
   "settings.language.title": {
     "defaultMessage": "Sprog"

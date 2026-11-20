@@ -11,7 +11,7 @@ export function validateCiResults(jobs) {
     requireResult('changes', 'success')
     requireResult('guardrails', 'success')
     const outputs = jobs.changes?.outputs || {}
-    for (const name of ['desktop', 'frontend', 'website']) {
+    for (const name of ['desktop', 'frontend']) {
         if (!['true', 'false'].includes(outputs[name]))
             failures.push(`Invalid ${name} scope output: ${outputs[name]}`)
     }
@@ -20,7 +20,6 @@ export function validateCiResults(jobs) {
         ['resources', 'desktop'],
         ['desktop', 'desktop'],
         ['coverage', 'desktop'],
-        ['website', 'website'],
     ]) {
         requireResult(name, outputs[scope] === 'true' ? 'success' : 'skipped')
     }

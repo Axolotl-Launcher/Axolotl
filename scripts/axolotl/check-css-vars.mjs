@@ -163,18 +163,6 @@ allow('runtime-set', [
     ],
 ])
 
-// Declared in a stylesheet the desktop guard does not scan, but consumed by
-// shared packages/ui components on the surface that does declare them.
-// (`--color-text`, `--color-text-dark`, `--color-heading` and
-// `--color-brand-inverted` used to be listed here; their in-scope references
-// were rewritten to the shared aliases, so the entries are gone.)
-allow('declared-outside-scan-roots', [
-    [
-        'size-mobile-navbar-height',
-        'apps/website/src/assets/styles/global.scss declares `--size-mobile-navbar-height`',
-    ],
-])
-
 // References with no declaration. These are harmless: an inline fallback, or a
 // binding whose live value is provided elsewhere.
 allow('known-dangling-reference', [

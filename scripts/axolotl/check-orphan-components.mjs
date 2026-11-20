@@ -16,7 +16,7 @@ import path from 'node:path'
  */
 
 const COMPONENT_ROOT = 'packages/ui/src/components'
-const SEARCH_ROOTS = ['packages/ui/src', 'apps/app-frontend/src', 'apps/website/src']
+const SEARCH_ROOTS = ['packages/ui/src', 'apps/app-frontend/src']
 
 async function* walk(directory, extensions) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {

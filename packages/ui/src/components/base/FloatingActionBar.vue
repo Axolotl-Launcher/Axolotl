@@ -291,12 +291,6 @@ onUnmounted(() => {
     transform: scale(0.96) translateY(-0.25rem);
     opacity: 0;
 }
-
-@media (any-hover: none) and (max-width: 640px) {
-    .floating-action-bar.bottom-0 {
-        bottom: var(--size-mobile-navbar-height);
-    }
-}
 </style>
 
 <style>

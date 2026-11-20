@@ -25,7 +25,7 @@
 // baseline tokens without resolving them, so a consumer only overrides
 // `--opacity-baseline` (and optionally `--opacity-baseline-page`) on `body` and
 // every rung follows. Both default to 100%, so a host that never publishes them
-// (the website shares only the Tailwind preset) keeps painting what it painted.
+// (a host that does not import this stylesheet) keeps painting what it painted.
 
 // The scale is emitted *where the baseline is declared*, never once on the root:
 // `var()` substitution happens on the element that declares the property, so a

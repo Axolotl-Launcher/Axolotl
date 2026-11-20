@@ -403,11 +403,6 @@ const {
             margin: 0;
         }
     }
-
-    @media screen and (max-width: 750px) {
-        transition: bottom 0.25s ease-in-out;
-        bottom: calc(var(--size-mobile-navbar-height) + 10px) !important;
-    }
 }
 
 .notifs-enter-active,

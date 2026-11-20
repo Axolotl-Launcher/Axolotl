@@ -2438,29 +2438,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "Спеціальні функції"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Стандартні мови"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Результати пошуку"
-  },
   "settings.language.description": {
     "defaultMessage": "Виберіть бажану мову {platform}. Переклади виконуються добровольцями <crowdin-link>на Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Пошук мови…"
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "За вашим запитом {matches, plural,=0 {не знайдено жодної мови} one {знайдено # мову} few{знайдено # мови} other {знайдено # мов}}."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "За вашим запитом не знайдено жодної мови."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "застосунку"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "сайту"
   },
   "settings.language.title": {
     "defaultMessage": "Мова"

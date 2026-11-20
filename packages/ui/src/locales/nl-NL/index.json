@@ -2129,29 +2129,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "Functievlaggen"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Standaardtalen"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Zoekresultaten"
-  },
   "settings.language.description": {
     "defaultMessage": "Kies uw voorkeurstaal voor {platform}. Vertalingen worden bijgedragen door vrijwilligers <crowdin-link>op Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Een taal zoeken..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Geen overeenkomende talen} one {# taal komt overeen} other {# talen komen overeen}} met je zoekopdracht."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Geen talen komen overeen met je zoekopdracht."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "app"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "site"
   },
   "settings.language.title": {
     "defaultMessage": "Taal"

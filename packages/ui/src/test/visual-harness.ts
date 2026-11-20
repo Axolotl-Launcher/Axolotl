@@ -1,8 +1,8 @@
 /**
- * The app and website load the design tokens through their own entry
- * stylesheets (`omorphia.scss` / `global.scss`), which a component-only mount
- * bypasses. Without these imports a visual assertion would measure unstyled
- * markup and pass regardless of the token values.
+ * The app loads the design tokens through its own entry stylesheet
+ * (`omorphia.scss`), which a component-only mount bypasses. Without these
+ * imports a visual assertion would measure unstyled markup and pass
+ * regardless of the token values.
  */
 // Import the SCSS entry directly from this module: Vite compiles it on import,
 // whereas going through an intermediate stylesheet does not run the Sass

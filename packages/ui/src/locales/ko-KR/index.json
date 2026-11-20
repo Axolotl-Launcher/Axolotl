@@ -2465,29 +2465,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "기능 플래그"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "기본 언어"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "검색 결과"
-  },
   "settings.language.description": {
     "defaultMessage": "{platform}에서 사용할 언어를 선택해주세요. 번역은 자원 봉사자들이 <crowdin-link>Crowdin</crowdin-link>에서 기여합니다."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "언어 검색..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "검색어와 일치하는 언어가 {matches, plural, =0 {없습니다} other {#개 있습니다}}."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "검색어와 일치하는 언어가 없습니다."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "앱"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "사이트"
   },
   "settings.language.title": {
     "defaultMessage": "언어"

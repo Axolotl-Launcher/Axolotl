@@ -1919,29 +1919,14 @@
   "settings.display.theme.title": {
     "defaultMessage": "Tema warna"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Bahasa standar"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Hasil pencarian"
-  },
   "settings.language.description": {
     "defaultMessage": "Pilih bahasa pilihan Anda untuk {platform} ini. Terjemahan disumbangkan oleh para sukarelawan <crowdin-link>di Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Cari bahasa..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Tidak ada bahasa yang cocok} other {# bahasa cocok}} dengan pencarian Anda."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Tidak ada bahasa yang cocok dengan pencarian Anda."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "aplikasi"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "situs"
   },
   "settings.language.title": {
     "defaultMessage": "Bahasa"

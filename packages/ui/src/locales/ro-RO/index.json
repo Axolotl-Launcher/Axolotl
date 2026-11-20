@@ -1934,29 +1934,14 @@
   "settings.display.theme.title": {
     "defaultMessage": "Culoarea temei"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Limbi standard"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Rezultate gasite"
-  },
   "settings.language.description": {
     "defaultMessage": "Alege limba preferata pentru {platform}. Traducerile sunt contribuite de voluntari <crowdin-link>de pe Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Cauta o limba..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural,=0 {Nicio limbă nu se potrivește} one {# potrivire de limbă} other {# limbi se potrivesc cu}} cautarea ta."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Nicio limbă nu corespunde căutării dvs."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "aplicatie"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "site"
   },
   "settings.language.title": {
     "defaultMessage": "Limbă"

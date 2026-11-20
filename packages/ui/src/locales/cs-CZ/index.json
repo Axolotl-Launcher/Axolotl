@@ -2345,29 +2345,14 @@
   "settings.display.theme.title": {
     "defaultMessage": "Barevný motiv"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Výchozí jazyky"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Výsledky vyhledávání"
-  },
   "settings.language.description": {
     "defaultMessage": "Vyberte svůj preferovaný jazyk pro {platform}. Překlady jsou vytvářeny dobrovolníky na <crowdin-link>Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Hledat jazyk..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Žádné jazyky neodpovídají} one {# jazyk odpovídá} few {# jazyky odpovídají} other {# jazyků odpovídá}} tvému vyhledávání."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Žádné jazyky neodpovídají vašemu vyhladávání."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "aplikace"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "stránka"
   },
   "settings.language.title": {
     "defaultMessage": "Jazyk"

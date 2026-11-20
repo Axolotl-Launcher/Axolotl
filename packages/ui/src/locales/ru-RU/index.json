@@ -2468,29 +2468,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "Флаги функций"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Стандартные языки"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Результаты поиска"
-  },
   "settings.language.description": {
     "defaultMessage": "Выберите язык {platform}. Переводы выполнены сообществом <crowdin-link>на Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Поиск языка..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Не найдены языки, соответствующие} one {Найден # язык, соответствующий} few {Найдено # языка, соответствующих} other {Найдено # языков, соответствующих}} запросу."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Не найдены языки, соответствующие запросу."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "приложения"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "сайта"
   },
   "settings.language.title": {
     "defaultMessage": "Язык"

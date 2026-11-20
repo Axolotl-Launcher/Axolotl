@@ -1186,10 +1186,6 @@ export const languageSelectorMessages = defineMessages({
         id: 'settings.language.platform.app',
         defaultMessage: 'app',
     },
-    platformSite: {
-        id: 'settings.language.platform.site',
-        defaultMessage: 'site',
-    },
     languagesDescription: {
         id: 'settings.language.description',
         defaultMessage:
@@ -1200,26 +1196,9 @@ export const languageSelectorMessages = defineMessages({
         defaultMessage:
             'Changing the {platform} language may cause some content to appear in English if a translation is not available. The {platform} is not yet fully translated, so some content may remain in English for certain languages.',
     },
-    noResults: {
-        id: 'settings.language.languages.search.no-results',
-        defaultMessage: 'No languages match your search.',
-    },
     searchFieldPlaceholder: {
         id: 'settings.language.languages.search-field.placeholder',
         defaultMessage: 'Search for a language...',
-    },
-    searchResultsAnnouncement: {
-        id: 'settings.language.languages.search-results-announcement',
-        defaultMessage:
-            '{matches, plural, =0 {No languages match} one {# language matches} other {# languages match}} your search.',
-    },
-    standardLanguages: {
-        id: 'settings.language.categories.default',
-        defaultMessage: 'Standard languages',
-    },
-    searchResults: {
-        id: 'settings.language.categories.search-result',
-        defaultMessage: 'Search results',
     },
 })
 

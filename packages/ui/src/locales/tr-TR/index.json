@@ -2483,29 +2483,14 @@
   "settings.feature-flags.title": {
     "defaultMessage": "Özellik Bayrakları"
   },
-  "settings.language.categories.default": {
-    "defaultMessage": "Mevcut diller"
-  },
-  "settings.language.categories.search-result": {
-    "defaultMessage": "Arama sonuçları"
-  },
   "settings.language.description": {
     "defaultMessage": "{platform} için tercih ettiğiniz dili seçin. Çeviriler, gönüllüler tarafından <crowdin-link>Crowdin</crowdin-link> üzerinde katkı sağlanarak yapılmaktadır."
   },
   "settings.language.languages.search-field.placeholder": {
     "defaultMessage": "Dil arayın..."
   },
-  "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "Aramanızla {matches, plural, =0 {herhangi bir dil eşleşmedi} one {# dil eşleşti} other {# dil eşleşti}}."
-  },
-  "settings.language.languages.search.no-results": {
-    "defaultMessage": "Aramanızla eşleşen dil yok."
-  },
   "settings.language.platform.app": {
     "defaultMessage": "uygulama"
-  },
-  "settings.language.platform.site": {
-    "defaultMessage": "site"
   },
   "settings.language.title": {
     "defaultMessage": "Dil"

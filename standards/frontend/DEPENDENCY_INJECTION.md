@@ -8,7 +8,6 @@
     - [2. For complex platform-specific logic, use an abstract class](#2-for-complex-platform-specific-logic-use-an-abstract-class)
   - [Wiring Up Providers](#wiring-up-providers)
     - [App Frontend (Tauri)](#app-frontend-tauri)
-    - [Website Frontend (Nuxt)](#website-frontend-nuxt)
   - [Consuming Providers](#consuming-providers)
   - [When NOT to Use DI](#when-not-to-use-di)
   - [Existing Providers](#existing-providers)
@@ -47,13 +46,13 @@ Use DI when:
 
 `packages/ui` components need capabilities that each frontend fulfils differently:
 
-| Provider      | App Frontend                     | Website Frontend               |
-| ------------- | -------------------------------- | ------------------------------ |
-| API client    | Tauri IPC client                 | REST fetch client              |
-| Notifications | `ref()` state + app window mgmt  | `useState()` for SSR hydration |
-| File picker   | Native Tauri dialogs             | Browser file inputs            |
-| Tags          | Tauri commands                   | Nuxt server state              |
-| Page context  | `sidebar: true`, ad window hooks | `sidebar: false`, no ads       |
+| Provider      | App Frontend                     |
+| ------------- | -------------------------------- |
+| API client    | Tauri IPC client                 |
+| Notifications | `ref()` state + app window mgmt  |
+| File picker   | Native Tauri dialogs             |
+| Tags          | Tauri commands                   |
+| Page context  | `sidebar: true`, ad window hooks |
 
 ### Page-Level Context
 
@@ -128,25 +127,9 @@ export function setupMyFeatureProvider() {
 
 Register it in `apps/app-frontend/src/providers/setup.ts`, which is called from `App.vue`'s `setup()`.
 
-### Website Frontend (Nuxt)
-
-Provide directly in `apps/website/src/app.vue` when the website needs a shared context:
-
-```ts
-provideMyFeature({
-  items: useState<Item[]>('my-feature-items', () => []),
-  addItem: async (item) => {
-    await $fetch('/api/items', { method: 'POST', body: item })
-  },
-  removeItem: async (id) => {
-    await $fetch(`/api/items/${id}`, { method: 'DELETE' })
-  },
-})
-```
-
 ## Consuming Providers
 
-In any component across `packages/ui`, `apps/website`, or `apps/app-frontend`:
+In any component across `packages/ui` or `apps/app-frontend`:
 
 ```vue
 <script setup lang="ts">
@@ -183,6 +166,5 @@ Default to props and emits. DI adds indirection — only use it with a concrete 
 
 - `packages/ui/src/providers/index.ts` — `createContext` factory + barrel exports
 - `packages/ui/src/providers/*.ts` — Provider definitions
-- `apps/website/src/app.vue` — Nuxt root provider setup
 - `apps/app-frontend/src/App.vue` — Tauri root provider setup
 - `apps/app-frontend/src/providers/setup/` — App provider setup functions

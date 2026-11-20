@@ -1,0 +1,6584 @@
+{
+  "schemaVersion": 1,
+  "domain": "entity",
+  "retrievedAt": "2026-11-20",
+  "sources": [
+    {
+      "page": "Entity format",
+      "revision": 3865190
+    }
+  ],
+  "groups": {
+    "entity": {
+      "except": ["glow_item_frame", "item_frame", "painting"]
+    },
+    "mob": {
+      "ids": [
+        "allay",
+        "armadillo",
+        "armor_stand",
+        "axolotl",
+        "bat",
+        "bee",
+        "blaze",
+        "bogged",
+        "breeze",
+        "camel",
+        "camel_husk",
+        "cat",
+        "chicken",
+        "cod",
+        "copper_golem",
+        "cow",
+        "creaking",
+        "creaking_transient",
+        "creeper",
+        "dolphin",
+        "donkey",
+        "drowned",
+        "elder_guardian",
+        "ender_dragon",
+        "enderman",
+        "endermite",
+        "evoker",
+        "fox",
+        "frog",
+        "frostbite",
+        "ghast",
+        "giant",
+        "glow_squid",
+        "goat",
+        "guardian",
+        "happy_ghast",
+        "hoglin",
+        "horse",
+        "husk",
+        "illusioner",
+        "iron_golem",
+        "killer_bunny",
+        "llama",
+        "magma_cube",
+        "mannequin",
+        "mooshroom",
+        "mule",
+        "nautilus",
+        "ocelot",
+        "panda",
+        "parched",
+        "parrot",
+        "phantom",
+        "pig",
+        "piglin",
+        "piglin_brute",
+        "pillager",
+        "player",
+        "polar_bear",
+        "pufferfish",
+        "rabbit",
+        "ravager",
+        "salmon",
+        "sheep",
+        "shulker",
+        "silverfish",
+        "skeleton",
+        "skeleton_horse",
+        "slime",
+        "sniffer",
+        "snow_golem",
+        "spider",
+        "squid",
+        "stray",
+        "strider",
+        "sulfur_cube",
+        "tadpole",
+        "trader_llama",
+        "tropical_fish",
+        "turtle",
+        "vex",
+        "villager",
+        "vindicator",
+        "wandering_trader",
+        "warden",
+        "witch",
+        "wither",
+        "wither_skeleton",
+        "wolf",
+        "zoglin",
+        "zombie",
+        "zombie_horse",
+        "zombie_nautilus",
+        "zombie_villager",
+        "zombified_piglin"
+      ]
+    },
+    "itemnoslot": {
+      "ids": [
+        "allay",
+        "egg",
+        "ender_pearl",
+        "experience_bottle",
+        "eye_of_ender",
+        "fireball",
+        "firework_rocket",
+        "glow_item_frame",
+        "item",
+        "item_display",
+        "item_frame",
+        "lingering_potion",
+        "ominous_item_spawner",
+        "piglin",
+        "pillager",
+        "small_fireball",
+        "snowball",
+        "splash_potion",
+        "villager",
+        "wandering_trader",
+        "zombie_villager"
+      ]
+    },
+    "breedable": {
+      "ids": [
+        "armadillo",
+        "axolotl",
+        "bee",
+        "camel",
+        "camel_husk",
+        "cat",
+        "chicken",
+        "cow",
+        "dolphin",
+        "donkey",
+        "fox",
+        "frog",
+        "glow_squid",
+        "goat",
+        "happy_ghast",
+        "hoglin",
+        "horse",
+        "killer_bunny",
+        "llama",
+        "mooshroom",
+        "mule",
+        "nautilus",
+        "ocelot",
+        "panda",
+        "pig",
+        "polar_bear",
+        "rabbit",
+        "sheep",
+        "skeleton_horse",
+        "sniffer",
+        "squid",
+        "strider",
+        "trader_llama",
+        "turtle",
+        "villager",
+        "wandering_trader",
+        "wolf",
+        "zombie_horse"
+      ]
+    },
+    "angerable": {
+      "ids": ["bee", "enderman", "iron_golem", "polar_bear", "wolf", "zombified_piglin"]
+    },
+    "tameable": {
+      "ids": ["cat", "parrot", "wolf", "zombie_nautilus"]
+    },
+    "item": {
+      "ids": ["donkey", "llama", "mule", "trader_llama"]
+    },
+    "block-state": {
+      "ids": ["block_display", "enderman", "falling_block"]
+    },
+    "raidable": {
+      "ids": ["evoker", "illusioner", "pillager", "ravager", "vindicator", "witch"]
+    },
+    "cube-mob": {
+      "ids": ["magma_cube", "slime", "sulfur_cube"]
+    },
+    "profile": {
+      "ids": ["mannequin"]
+    },
+    "boostable": {
+      "ids": ["pig", "strider"]
+    },
+    "recipe-book": {
+      "ids": ["player"]
+    },
+    "arrow": {
+      "ids": ["arrow", "spectral_arrow", "trident"]
+    },
+    "projectile": {
+      "ids": [
+        "arrow",
+        "breeze_wind_charge",
+        "dragon_fireball",
+        "egg",
+        "ender_pearl",
+        "experience_bottle",
+        "fireball",
+        "firework_rocket",
+        "fishing_bobber",
+        "lingering_potion",
+        "llama_spit",
+        "shulker_bullet",
+        "small_fireball",
+        "snowball",
+        "spectral_arrow",
+        "splash_potion",
+        "trident",
+        "wind_charge",
+        "wither_skull"
+      ]
+    },
+    "hurting-projectile": {
+      "ids": ["breeze_wind_charge", "fireball", "wind_charge"]
+    },
+    "fireball": {
+      "ids": ["dragon_fireball", "small_fireball", "wither_skull"]
+    },
+    "container-entity": {
+      "ids": [
+        "acacia_chest_boat",
+        "bamboo_chest_raft",
+        "birch_chest_boat",
+        "cherry_chest_boat",
+        "chest_boat",
+        "chest_minecart",
+        "dark_oak_chest_boat",
+        "hopper_minecart",
+        "jungle_chest_boat",
+        "mangrove_chest_boat",
+        "oak_chest_boat",
+        "pale_oak_chest_boat",
+        "poplar_chest_boat",
+        "spruce_chest_boat"
+      ]
+    },
+    "vehicle": {
+      "ids": [
+        "chest_minecart",
+        "command_block_minecart",
+        "furnace_minecart",
+        "hopper_minecart",
+        "minecart",
+        "spawner_minecart",
+        "tnt_minecart"
+      ]
+    },
+    "spawn-data": {
+      "ids": ["spawner_minecart"]
+    },
+    "blockentity": {
+      "ids": ["falling_block"]
+    },
+    "display-entity": {
+      "ids": ["block_display", "item_display", "text_display"]
+    },
+    "potion-contents": {
+      "ids": ["area_effect_cloud"]
+    },
+    "hangable": {
+      "ids": ["glow_item_frame", "item_frame", "painting"]
+    }
+  },
+  "fields": [
+    {
+      "key": "abilities",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "能力",
+      "desc": "The abilities this player has.",
+      "children": [
+        {
+          "key": "flying",
+          "type": "byte",
+          "category": "data",
+          "zh": "飞行中",
+          "desc": "1 or 0 (true/false) - true if the player is currently flying."
+        },
+        {
+          "key": "flySpeed",
+          "type": "float",
+          "category": "data",
+          "zh": "飞行速度",
+          "desc": "The flying speed, set to 0.05."
+        },
+        {
+          "key": "instabuild",
+          "type": "byte",
+          "category": "data",
+          "zh": "无限方块",
+          "desc": "1 or 0 (true/false) - If true, the player can place blocks without depleting them."
+        },
+        {
+          "key": "invulnerable",
+          "type": "byte",
+          "category": "data",
+          "zh": "无敌",
+          "desc": "1 or 0 (true/false) - Behavior is not the same as the invulnerable tag on other entities."
+        },
+        {
+          "key": "mayBuild",
+          "type": "byte",
+          "category": "data",
+          "zh": "可建造",
+          "desc": "1 or 0 (true/false) - If true, the player can place blocks."
+        },
+        {
+          "key": "mayfly",
+          "type": "byte",
+          "category": "data",
+          "zh": "可飞行",
+          "desc": "1 or 0 (true/false) - If true, the player can fly and doesn't take fall damage."
+        },
+        {
+          "key": "walkSpeed",
+          "type": "float",
+          "category": "data",
+          "zh": "行走速度",
+          "desc": "The walking speed, set to 0.1."
+        }
+      ]
+    },
+    {
+      "key": "AbsorptionAmount",
+      "type": "float",
+      "category": "combat",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "伤害吸收量",
+      "desc": "The amount of extra health added by the Absorption effect."
+    },
+    {
+      "key": "acceleration_power",
+      "type": "double",
+      "category": "basic",
+      "appliesTo": {
+        "group": "fireball"
+      },
+      "zh": "加速威力",
+      "desc": "The magnitude of the acceleration in the direction of motion."
+    },
+    {
+      "key": "acceleration_power",
+      "type": "double",
+      "category": "basic",
+      "appliesTo": {
+        "group": "hurting-projectile"
+      },
+      "zh": "加速威力",
+      "desc": "The magnitude of the acceleration in the direction of motion."
+    },
+    {
+      "key": "active_effects",
+      "type": "list",
+      "category": "effect",
+      "legacyKeys": [
+        {
+          "key": "ActiveEffects",
+          "until": "1.20.1"
+        }
+      ],
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "状态效果",
+      "desc": "The list of status effects on this mob. May not exist."
+    },
+    {
+      "key": "Age",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["tadpole"]
+      },
+      "zh": "成长时间",
+      "desc": "Represents the age of the tadpole in ticks."
+    },
+    {
+      "key": "Age",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["experience_orb"]
+      },
+      "zh": "成长时间",
+      "desc": "The number of ticks the XP orb has been \"untouched\"."
+    },
+    {
+      "key": "Age",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["item"]
+      },
+      "zh": "成长时间",
+      "desc": "The number of ticks the item has been \"untouched\"."
+    },
+    {
+      "key": "Age",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "成长时间",
+      "desc": "Age of the field. Increases by 1 every tick. When this is bigger than Duration + WaitTime the area effect c…"
+    },
+    {
+      "key": "Age",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "breedable"
+      },
+      "zh": "成长时间",
+      "desc": "Represents the age of the mob in ticks; when negative, the mob is a baby."
+    },
+    {
+      "key": "AgeLocked",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "breedable"
+      },
+      "zh": "锁定成长",
+      "desc": "1 or 0 (true/false) - if true, the mob will not age naturally and, if a baby, cannot be fed."
+    },
+    {
+      "key": "Air",
+      "type": "short",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "氧气值",
+      "desc": "How much air the entity has, in game ticks."
+    },
+    {
+      "key": "alignment",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["text_display"]
+      },
+      "zh": "对齐方式",
+      "desc": "Text alignment direction. Can be center, left, and right. Defaults to center."
+    },
+    {
+      "key": "anchor_pos",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["phantom"]
+      },
+      "zh": "重生锚位置",
+      "desc": "The phantom, when not actively attacking, attempts to circle around X,Y,Z."
+    },
+    {
+      "key": "anger",
+      "type": "compound",
+      "category": "combat",
+      "appliesTo": {
+        "ids": ["warden"]
+      },
+      "zh": "怒气",
+      "desc": "Anger management of the warden.",
+      "children": [
+        {
+          "key": "suspects",
+          "type": "list",
+          "category": "data",
+          "zh": "可疑实体",
+          "desc": "List of suspects that have angered the warden."
+        }
+      ]
+    },
+    {
+      "key": "anger_end_time",
+      "type": "long",
+      "category": "combat",
+      "since": "26.1",
+      "appliesTo": {
+        "group": "angerable"
+      },
+      "zh": "怒气结束时间",
+      "desc": "Ticks until the mob becomes neutral. Depletes by 1 every tick if the value is greater than 0 and the target…"
+    },
+    {
+      "key": "angry_at",
+      "type": "int_array",
+      "category": "combat",
+      "legacyKeys": [
+        {
+          "key": "AngryAt",
+          "until": "1.21.10"
+        }
+      ],
+      "appliesTo": {
+        "group": "angerable"
+      },
+      "zh": "激怒目标",
+      "desc": "The UUID of the entity that caused this mob to be angry, stored as four ints."
+    },
+    {
+      "key": "AttachFace",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["shulker"]
+      },
+      "zh": "附着方向",
+      "desc": "Which face of its block the shulker is attached to."
+    },
+    {
+      "key": "attack",
+      "type": "compound",
+      "category": "combat",
+      "appliesTo": {
+        "ids": ["interaction"]
+      },
+      "zh": "攻击",
+      "desc": "The last attack (left click) to hit the entity.",
+      "children": [
+        {
+          "key": "player",
+          "type": "int_array",
+          "category": "data",
+          "zh": "玩家",
+          "desc": "The UUID of the player that attacked the entity."
+        },
+        {
+          "key": "timestamp",
+          "type": "long",
+          "category": "data",
+          "zh": "时间戳",
+          "desc": "When the attack took place."
+        }
+      ]
+    },
+    {
+      "key": "AttackTick",
+      "type": "int",
+      "category": "combat",
+      "appliesTo": {
+        "ids": ["ravager"]
+      },
+      "zh": "攻击冷却",
+      "desc": "Attack cooldown for this ravager."
+    },
+    {
+      "key": "attributes",
+      "type": "list",
+      "category": "combat",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "属性",
+      "desc": "A list of attributes for this mob. These are used for many purposes in internal calculations, and can be co…"
+    },
+    {
+      "key": "background",
+      "type": "int",
+      "default": "1073741824",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["text_display"]
+      },
+      "zh": "背景",
+      "desc": "The background color, arranged by ARGB. Since pixels with an alpha channel less than 0.1 are discarded when…"
+    },
+    {
+      "key": "BatFlags",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["bat"]
+      },
+      "zh": "蝙蝠状态",
+      "desc": "1 or 0 (true/false) - true if the bat is hanging upside-down from a block, false if the bat is flying."
+    },
+    {
+      "key": "beam_target",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["end_crystal"]
+      },
+      "zh": "光束目标",
+      "desc": "The block location, as 3 integers, that its beam points to."
+    },
+    {
+      "key": "billboard",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "朝向模式",
+      "desc": "Controls if this entity should pivot to face player when rendered."
+    },
+    {
+      "key": "block_pos",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["cushion"]
+      },
+      "zh": "方块位置",
+      "desc": "The block space the cushion occupies. Stored as 3 ints."
+    },
+    {
+      "key": "block_pos",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "hangable"
+      },
+      "zh": "方块位置",
+      "desc": "The coordinate of the block the painting/item frame is in."
+    },
+    {
+      "key": "block_state",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.3",
+      "appliesTo": {
+        "ids": ["tnt"]
+      },
+      "zh": "方块状态",
+      "desc": "The block model to use. defaults to TNT if not specified.",
+      "children": [
+        {
+          "key": "Name",
+          "type": "string",
+          "category": "data",
+          "zh": "名称",
+          "desc": "The resource location of the block."
+        },
+        {
+          "key": "Properties",
+          "type": "compound",
+          "category": "data",
+          "zh": "属性",
+          "desc": "Optional. The block states of the block.",
+          "children": [
+            {
+              "key": "Name",
+              "type": "string",
+              "category": "data",
+              "zh": "名称",
+              "desc": "The block state name and its value."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "block_state",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["block_display"]
+      },
+      "zh": "方块状态",
+      "desc": "The block state to display."
+    },
+    {
+      "key": "BlockState",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["falling_block"]
+      },
+      "zh": "方块状态",
+      "desc": "The falling block represented by this entity."
+    },
+    {
+      "key": "bound_pos",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["vex"]
+      },
+      "zh": "绑定位置",
+      "desc": "When a vex is idle, it wanders, selecting air blocks from within a 15×11×15 cuboid range centered at X,Y,Z."
+    },
+    {
+      "key": "Brain",
+      "type": "compound",
+      "category": "ai",
+      "advanced": true,
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "AI 大脑",
+      "desc": "Everything this mob has to keep in mind.",
+      "children": [
+        {
+          "key": "memories",
+          "type": "compound",
+          "category": "data",
+          "advanced": true,
+          "zh": "记忆",
+          "desc": "Used for complex behaviors. The only mobs that have this tag are described below."
+        }
+      ]
+    },
+    {
+      "key": "Bred",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel"]
+      },
+      "zh": "繁殖冷却",
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+    },
+    {
+      "key": "Bred",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel_husk"]
+      },
+      "zh": "繁殖冷却",
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+    },
+    {
+      "key": "Bred",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["donkey"]
+      },
+      "zh": "繁殖冷却",
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+    },
+    {
+      "key": "Bred",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["horse"]
+      },
+      "zh": "繁殖冷却",
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+    },
+    {
+      "key": "Bred",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["llama"]
+      },
+      "zh": "繁殖冷却",
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+    },
+    {
+      "key": "Bred",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mule"]
+      },
+      "zh": "繁殖冷却",
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+    },
+    {
+      "key": "Bred",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["skeleton_horse"]
+      },
+      "zh": "繁殖冷却",
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+    },
+    {
+      "key": "Bred",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trader_llama"]
+      },
+      "zh": "繁殖冷却",
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+    },
+    {
+      "key": "Bred",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_horse"]
+      },
+      "zh": "繁殖冷却",
+      "desc": "1 or 0 (true/false) – Unknown. Remains 0 after breeding. If true, causes it to stay near other horses with…"
+    },
+    {
+      "key": "brightness",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "亮度",
+      "desc": "If present, overrides light values used for rendering.",
+      "children": [
+        {
+          "key": "block",
+          "type": "int",
+          "category": "data",
+          "zh": "方块",
+          "desc": "(Required) The block-light level, with values from 0-15."
+        },
+        {
+          "key": "sky",
+          "type": "int",
+          "category": "data",
+          "zh": "天空光",
+          "desc": "(Required) The skylight level, with values from 0-15."
+        }
+      ]
+    },
+    {
+      "key": "CanBreakDoors",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["drowned"]
+      },
+      "zh": "可破门",
+      "desc": "1 or 0 (true/false) - true if this drowned can break doors."
+    },
+    {
+      "key": "CanBreakDoors",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["frostbite"]
+      },
+      "zh": "可破门",
+      "desc": "1 or 0 (true/false) - true if this frostbite can break doors."
+    },
+    {
+      "key": "CanBreakDoors",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["husk"]
+      },
+      "zh": "可破门",
+      "desc": "1 or 0 (true/false) - true if this husk can break doors."
+    },
+    {
+      "key": "CanBreakDoors",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie"]
+      },
+      "zh": "可破门",
+      "desc": "1 or 0 (true/false) - true if the zombie can break doors."
+    },
+    {
+      "key": "CanBreakDoors",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "可破门",
+      "desc": "1 or 0 (true/false) - true if this zombie villager can break doors."
+    },
+    {
+      "key": "CanBreakDoors",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombified_piglin"]
+      },
+      "zh": "可破门",
+      "desc": "1 or 0 (true/false) - true if this zombified piglin can break doors."
+    },
+    {
+      "key": "CancelDrop",
+      "type": "byte",
+      "default": "1b",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["falling_block"]
+      },
+      "zh": "取消掉落",
+      "desc": "1 or 0 (true/false) - true if the block should be destroyed instead of placed after landing on a solid block."
+    },
+    {
+      "key": "CanJoinRaid",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "raidable"
+      },
+      "zh": "可加入袭击",
+      "desc": "1 or 0 (true/false) - If false, the entity will not participate in raids and will not be counted in the pro…"
+    },
+    {
+      "key": "CannotBeHunted",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["hoglin"]
+      },
+      "zh": "无法被猎杀",
+      "desc": "1 or 0 (true/false) - if true, piglins do not attack the hoglin."
+    },
+    {
+      "key": "CannotEnterHiveTicks",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["bee"]
+      },
+      "zh": "无法入巢刻数",
+      "desc": "Time left in ticks until the bee can enter a beehive."
+    },
+    {
+      "key": "CannotHunt",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piglin"]
+      },
+      "zh": "无法狩猎",
+      "desc": "1 or 0 (true/false) – if true, the piglin does not attack hoglins."
+    },
+    {
+      "key": "CanPickUpLoot",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "combat",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "可拾取物品",
+      "desc": "1 or 0 (true/false) - if true, the mob can pick up loot (wear armor it picks up, use weapons it picks up)."
+    },
+    {
+      "key": "cape",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "披风",
+      "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specifi…"
+    },
+    {
+      "key": "carriedBlockState",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["enderman"]
+      },
+      "zh": "携带的方块",
+      "desc": "Optional. The block carried by the enderman."
+    },
+    {
+      "key": "ChestedHorse",
+      "type": "byte",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["donkey"]
+      },
+      "zh": "已装箱",
+      "desc": "1 or 0 (true/false) - true if the horse has chests."
+    },
+    {
+      "key": "ChestedHorse",
+      "type": "byte",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["llama"]
+      },
+      "zh": "已装箱",
+      "desc": "1 or 0 (true/false) - true if the llama has chests."
+    },
+    {
+      "key": "ChestedHorse",
+      "type": "byte",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["mule"]
+      },
+      "zh": "已装箱",
+      "desc": "1 or 0 (true/false) - true if the horse has chests."
+    },
+    {
+      "key": "ChestedHorse",
+      "type": "byte",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["trader_llama"]
+      },
+      "zh": "已装箱",
+      "desc": "1 or 0 (true/false) - true if the llama has chests."
+    },
+    {
+      "key": "CollarColor",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["cat"]
+      },
+      "zh": "项圈颜色",
+      "desc": "The color of the cat's collar. Present even for stray cats (but does not render). Assuming no custom data p…"
+    },
+    {
+      "key": "CollarColor",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["wolf"]
+      },
+      "zh": "项圈颜色",
+      "desc": "The color of the wolf's collar. Present even for wild wolves (but does not render). Assuming no custom data…"
+    },
+    {
+      "key": "color",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["cushion"]
+      },
+      "zh": "颜色",
+      "desc": "The cushion's color. Defaults to \"white\". Represents the minecraft:cushion/color component."
+    },
+    {
+      "key": "Color",
+      "type": "byte",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["sheep"]
+      },
+      "zh": "颜色",
+      "desc": "The color of the sheep. Default is 0. Represents the minecraft:sheep/color component."
+    },
+    {
+      "key": "Color",
+      "type": "byte",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["shulker"]
+      },
+      "zh": "颜色",
+      "desc": "The color of the shulker. Default is 0 (white). Shulkers that spawn naturally in end cities or that are spa…"
+    },
+    {
+      "key": "Color",
+      "type": "int",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "颜色",
+      "desc": "The color of the displayed particle. Uses the same format as the color tag from Display Properties."
+    },
+    {
+      "key": "Command",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block_minecart"]
+      },
+      "zh": "命令",
+      "desc": "The command entered into the minecart."
+    },
+    {
+      "key": "ConversionPlayer",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "转化来源玩家",
+      "desc": "The UUID of the player who started curing the zombie, stored as four ints."
+    },
+    {
+      "key": "ConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "转化时间",
+      "desc": "-1 when not being converted back to a villager, positive for the number of ticks until conversion back into…"
+    },
+    {
+      "key": "count",
+      "type": "int",
+      "default": "1",
+      "category": "basic",
+      "appliesTo": {
+        "group": "item"
+      },
+      "zh": "数量",
+      "desc": "Number of items stacked in this inventory slot."
+    },
+    {
+      "key": "count",
+      "type": "int",
+      "default": "1",
+      "category": "basic",
+      "appliesTo": {
+        "group": "itemnoslot"
+      },
+      "zh": "数量",
+      "desc": "Number of items stacked in this inventory slot."
+    },
+    {
+      "key": "Count",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["experience_orb"]
+      },
+      "zh": "数量",
+      "desc": "The remaining number of times that the orb can be picked up."
+    },
+    {
+      "key": "crit",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "暴击",
+      "desc": "1 or 0 (true/false) - If true, the projectile deals critical damage."
+    },
+    {
+      "key": "CropsGrownSincePollination",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["bee"]
+      },
+      "zh": "授粉后作物生长",
+      "desc": "How many crops the bee has grown since its last pollination."
+    },
+    {
+      "key": "Crouching",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["fox"]
+      },
+      "zh": "潜行中",
+      "desc": "1 or 0 (true/false) – Whether the fox is crouching."
+    },
+    {
+      "key": "current_explosion_impact_pos",
+      "type": "list",
+      "category": "basic",
+      "advanced": true,
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "当前爆炸冲击位置",
+      "desc": "Exists only if the mob is airborne after being hit by a wind charge explosion."
+    },
+    {
+      "key": "current_impulse_context_reset_grace_time",
+      "type": "int",
+      "category": "basic",
+      "advanced": true,
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "冲量重置宽限时间"
+    },
+    {
+      "key": "custom_color",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "potion-contents"
+      },
+      "zh": "自定义颜色",
+      "desc": "The overriding color of this potion texture, and/or the particles of the area effect cloud created."
+    },
+    {
+      "key": "custom_effects",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "group": "potion-contents"
+      },
+      "zh": "自定义效果",
+      "desc": "A list of the additional effects that this item should apply."
+    },
+    {
+      "key": "custom_name",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "potion-contents"
+      },
+      "zh": "自定义名称",
+      "desc": "An optional string used to generate containing stack name."
+    },
+    {
+      "key": "custom_particle",
+      "type": "compound",
+      "category": "basic",
+      "legacyKeys": [
+        {
+          "key": "Particle",
+          "until": "1.21.5"
+        }
+      ],
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "自定义粒子",
+      "desc": "The particle displayed by the field.",
+      "children": [
+        {
+          "key": "type",
+          "type": "string",
+          "category": "data",
+          "zh": "类型",
+          "desc": "The id of the particle type, see particles for valid options."
+        }
+      ]
+    },
+    {
+      "key": "custom_spawn_rules",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "spawn-data"
+      },
+      "zh": "自定义生成规则",
+      "desc": "Optional custom fields to override spawning requirements.",
+      "children": [
+        {
+          "key": "block_light_limit",
+          "type": "int",
+          "category": "data",
+          "zh": "方块光照上限",
+          "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive."
+        },
+        {
+          "key": "sky_light_limit",
+          "type": "int",
+          "category": "data",
+          "zh": "天空光照上限",
+          "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive."
+        }
+      ]
+    },
+    {
+      "key": "CustomName",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "自定义名称",
+      "desc": "The custom name text component of this entity."
+    },
+    {
+      "key": "CustomNameVisible",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "名称始终显示",
+      "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity,…"
+    },
+    {
+      "key": "damage",
+      "type": "double",
+      "default": "2d",
+      "category": "basic",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "伤害",
+      "desc": "Damage multiplier of the projectile. Defaults to 2. If shot from a bow, this is increased by a flat 0.5 if…"
+    },
+    {
+      "key": "dangerous",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["wither_skull"]
+      },
+      "zh": "危险",
+      "desc": ": 1 or 0 (true/false) - If true, the wither skull renders as blue, moves more slowly, and ignores the hardn…"
+    },
+    {
+      "key": "DarkTicksRemaining",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["glow_squid"]
+      },
+      "zh": "发光剩余刻数",
+      "desc": "Countdown of ticks remaining until the glow squid starts glowing."
+    },
+    {
+      "key": "data",
+      "type": "compound",
+      "category": "data",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "自定义数据",
+      "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component."
+    },
+    {
+      "key": "DataVersion",
+      "type": "int",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "数据版本",
+      "desc": "Version of the player NBT structure. Is increased with every new snapshot and release. See Data version."
+    },
+    {
+      "key": "DealtDamage",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trident"]
+      },
+      "zh": "已造成伤害",
+      "desc": "1 or 0 (true/false) - If true, the trident has already damaged an entity or been stuck in the ground for mo…"
+    },
+    {
+      "key": "DeathTime",
+      "type": "short",
+      "category": "combat",
+      "advanced": true,
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "死亡时间",
+      "desc": "Number of ticks the mob has been dead for."
+    },
+    {
+      "key": "default_background",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["text_display"]
+      },
+      "zh": "默认背景",
+      "desc": "If true, rendering uses default text background color (same as in chat), which overrides ."
+    },
+    {
+      "key": "Delay",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["spawner_minecart"]
+      },
+      "zh": "延迟",
+      "desc": "Ticks until next spawn. If 0, it spawns immediately when a player enters its range. If set to -1 (this stat…"
+    },
+    {
+      "key": "description",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mannequin"]
+      },
+      "zh": "描述",
+      "desc": "- Optional text component shown where a Player's below_name score would show."
+    },
+    {
+      "key": "DespawnDelay",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["llama"]
+      },
+      "zh": "消失延迟",
+      "desc": "A timer for trader llamas to despawn, present only in trader_llama."
+    },
+    {
+      "key": "DespawnDelay",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trader_llama"]
+      },
+      "zh": "消失延迟",
+      "desc": "A timer for trader llamas to despawn, present only in trader_llama."
+    },
+    {
+      "key": "DespawnDelay",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["wandering_trader"]
+      },
+      "zh": "消失延迟",
+      "desc": "The number of ticks counted down until this wandering trader is forced to despawn."
+    },
+    {
+      "key": "Dimension",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "维度",
+      "desc": "The ID of the dimension the player is in. Used to store the player's last known location along with Pos."
+    },
+    {
+      "key": "DisabledSlots",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["armor_stand"]
+      },
+      "zh": "禁用槽位",
+      "desc": "Bit field allowing disable place/replace/remove of armor elements."
+    },
+    {
+      "key": "DisplayOffset",
+      "type": "int",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "vehicle"
+      },
+      "zh": "显示偏移",
+      "desc": "Optional. The offset of the block displayed in the Minecart in pixels. Positive values move the block upwar…"
+    },
+    {
+      "key": "DisplayState",
+      "type": "compound",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "vehicle"
+      },
+      "zh": "显示状态",
+      "desc": "Optional. The custom block in the minecart.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "category": "data",
+          "advanced": true,
+          "zh": "ID",
+          "desc": "The resource location of the custom block."
+        },
+        {
+          "key": "properties",
+          "type": "compound",
+          "category": "data",
+          "zh": "属性",
+          "desc": "Optional. The block states of the custom block.",
+          "children": [
+            {
+              "key": "name",
+              "type": "string",
+              "category": "data",
+              "zh": "名称",
+              "desc": "The block state name and it's value."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "DragonDeathTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["ender_dragon"]
+      },
+      "zh": "末影龙死亡时间",
+      "desc": "Number of ticks the dragon has been dead for."
+    },
+    {
+      "key": "DragonPhase",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["ender_dragon"]
+      },
+      "zh": "末影龙阶段",
+      "desc": "A number indicating the dragon's current state."
+    },
+    {
+      "key": "drop_chances",
+      "type": "compound",
+      "category": "inventory",
+      "since": "1.21.5",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "掉落概率",
+      "desc": "A map between equipment slot type and chance value.",
+      "children": [
+        {
+          "key": "head",
+          "type": "float",
+          "category": "data",
+          "zh": "头部",
+          "desc": "Chance value for the head item to drop."
+        },
+        {
+          "key": "chest",
+          "type": "float",
+          "category": "data",
+          "zh": "箱子",
+          "desc": "Chance value for the chest item to drop."
+        },
+        {
+          "key": "legs",
+          "type": "float",
+          "category": "data",
+          "zh": "腿部",
+          "desc": "Chance value for the legs item to drop."
+        },
+        {
+          "key": "feet",
+          "type": "float",
+          "category": "data",
+          "zh": "脚部",
+          "desc": "Chance value for the feet item to drop."
+        },
+        {
+          "key": "mainhand",
+          "type": "float",
+          "category": "data",
+          "zh": "主手",
+          "desc": "Chance value for the mainhand item to drop."
+        },
+        {
+          "key": "offhand",
+          "type": "float",
+          "category": "data",
+          "zh": "副手",
+          "desc": "Chance value for the offhand item to drop."
+        },
+        {
+          "key": "body",
+          "type": "float",
+          "category": "data",
+          "zh": "躯干",
+          "desc": "Chance value for the body item to drop."
+        },
+        {
+          "key": "saddle",
+          "type": "float",
+          "category": "data",
+          "zh": "鞍",
+          "desc": "Chance value for the saddle item to drop."
+        }
+      ]
+    },
+    {
+      "key": "DropItem",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["falling_block"]
+      },
+      "zh": "掉落物品",
+      "desc": "1 or 0 (true/false) – true if the block should drop as an item when it breaks."
+    },
+    {
+      "key": "DrownedConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["drowned"]
+      },
+      "zh": "溺尸转化时间",
+      "desc": "The number of ticks until this drowned converts to a drowned."
+    },
+    {
+      "key": "DrownedConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["frostbite"]
+      },
+      "zh": "溺尸转化时间",
+      "desc": "The number of ticks until this frostbite converts to a zombie."
+    },
+    {
+      "key": "DrownedConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["husk"]
+      },
+      "zh": "溺尸转化时间",
+      "desc": "The number of ticks until this husk converts to a zombie from drowning in water."
+    },
+    {
+      "key": "DrownedConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie"]
+      },
+      "zh": "溺尸转化时间",
+      "desc": "The number of ticks until this zombie converts to a drowned."
+    },
+    {
+      "key": "DrownedConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "溺尸转化时间",
+      "desc": "The number of ticks until this zombie villager converts to a drowned."
+    },
+    {
+      "key": "DrownedConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombified_piglin"]
+      },
+      "zh": "溺尸转化时间",
+      "desc": "The number of ticks until this zombified piglin converts to a drowned."
+    },
+    {
+      "key": "DuplicationCooldown",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["allay"]
+      },
+      "zh": "复制冷却",
+      "desc": "The allay's duplication cooldown in ticks."
+    },
+    {
+      "key": "Duration",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["spectral_arrow"]
+      },
+      "zh": "持续时间",
+      "desc": "The time in ticks that the Glowing effect persists."
+    },
+    {
+      "key": "Duration",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "持续时间",
+      "desc": "The maximum age of the field after WaitTime."
+    },
+    {
+      "key": "DurationOnUse",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "使用时持续时间",
+      "desc": "The amount the duration of the field changes upon applying the effect."
+    },
+    {
+      "key": "EatingHaystack",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel"]
+      },
+      "zh": "正在吃草",
+      "desc": "1 or 0 (true/false) – true if the mob is eating grass."
+    },
+    {
+      "key": "EatingHaystack",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel_husk"]
+      },
+      "zh": "正在吃草",
+      "desc": "1 or 0 (true/false) – true if the mob is eating grass."
+    },
+    {
+      "key": "EatingHaystack",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["donkey"]
+      },
+      "zh": "正在吃草",
+      "desc": "1 or 0 (true/false) – true if the mob is eating grass."
+    },
+    {
+      "key": "EatingHaystack",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["horse"]
+      },
+      "zh": "正在吃草",
+      "desc": "1 or 0 (true/false) – true if the mob is eating grass."
+    },
+    {
+      "key": "EatingHaystack",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["llama"]
+      },
+      "zh": "正在吃草",
+      "desc": "1 or 0 (true/false) – true if the mob is eating grass."
+    },
+    {
+      "key": "EatingHaystack",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mule"]
+      },
+      "zh": "正在吃草",
+      "desc": "1 or 0 (true/false) – true if the mob is eating grass."
+    },
+    {
+      "key": "EatingHaystack",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["skeleton_horse"]
+      },
+      "zh": "正在吃草",
+      "desc": "1 or 0 (true/false) – true if the mob is eating grass."
+    },
+    {
+      "key": "EatingHaystack",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trader_llama"]
+      },
+      "zh": "正在吃草",
+      "desc": "1 or 0 (true/false) – true if the mob is eating grass."
+    },
+    {
+      "key": "EatingHaystack",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_horse"]
+      },
+      "zh": "正在吃草",
+      "desc": "1 or 0 (true/false) – true if the mob is eating grass."
+    },
+    {
+      "key": "EggLayTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["chicken"]
+      },
+      "zh": "产蛋倒计时",
+      "desc": "Number of ticks until the chicken lays its egg."
+    },
+    {
+      "key": "elytra",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "鞘翅",
+      "desc": "Optional. path to an elytra texture, relative to the textures folder in a resource pack. If specified, this…"
+    },
+    {
+      "key": "Enabled",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["hopper_minecart"]
+      },
+      "zh": "已启用",
+      "desc": "1 or 0 (true/false) - If true, the minecart hopper picks up items into its inventory."
+    },
+    {
+      "key": "EnderItems",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "末影箱物品",
+      "desc": "Each compound tag in this list is an item in the player's 27-slot ender chest inventory."
+    },
+    {
+      "key": "entered_nether_pos",
+      "type": "list",
+      "elementType": "double",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "进入下界位置",
+      "desc": "May not exist. A list of 3 doubles, describing the Overworld position from which the player entered the Net…",
+      "children": [
+        {
+          "key": "x",
+          "type": "double",
+          "category": "data",
+          "zh": "X",
+          "desc": "The X coordinate in the Overworld."
+        },
+        {
+          "key": "y",
+          "type": "double",
+          "category": "data",
+          "zh": "Y",
+          "desc": "The Y coordinate in the Overworld."
+        },
+        {
+          "key": "z",
+          "type": "double",
+          "category": "data",
+          "zh": "Z",
+          "desc": "The Z coordinate in the Overworld."
+        }
+      ]
+    },
+    {
+      "key": "entity",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "spawn-data"
+      },
+      "zh": "实体",
+      "desc": "An entity, including the entity id."
+    },
+    {
+      "key": "equipment",
+      "type": "compound",
+      "category": "inventory",
+      "since": "1.21.5",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "装备",
+      "desc": "Map between equipment slot type and item stack.",
+      "children": [
+        {
+          "key": "head",
+          "type": "compound",
+          "category": "data",
+          "zh": "头部",
+          "desc": "The item being held in mob's head slot."
+        },
+        {
+          "key": "chest",
+          "type": "compound",
+          "category": "data",
+          "zh": "箱子",
+          "desc": "The item being held in the mob's chest slot."
+        },
+        {
+          "key": "legs",
+          "type": "compound",
+          "category": "data",
+          "zh": "腿部",
+          "desc": "The item being held in the mob's legs slot."
+        },
+        {
+          "key": "feet",
+          "type": "compound",
+          "category": "data",
+          "zh": "脚部",
+          "desc": "The item being held in the mob's feet slot."
+        },
+        {
+          "key": "mainhand",
+          "type": "compound",
+          "category": "data",
+          "zh": "主手",
+          "desc": "The item being held in the mob's main hand."
+        },
+        {
+          "key": "offhand",
+          "type": "compound",
+          "category": "data",
+          "zh": "副手",
+          "desc": "The item being held in the mob's off hand."
+        },
+        {
+          "key": "body",
+          "type": "compound",
+          "category": "data",
+          "zh": "躯干",
+          "desc": "The item being held in the mob's body slot."
+        },
+        {
+          "key": "saddle",
+          "type": "compound",
+          "category": "data",
+          "zh": "鞍",
+          "desc": "The item being held in the mob's saddle slot."
+        }
+      ]
+    },
+    {
+      "key": "equipment",
+      "type": "compound",
+      "category": "inventory",
+      "since": "1.21.5",
+      "appliesTo": {
+        "group": "spawn-data"
+      },
+      "zh": "装备",
+      "desc": "Optional. Determines the equipment the entity will wear.",
+      "children": [
+        {
+          "key": "loot_table",
+          "type": "string",
+          "category": "data",
+          "zh": "战利品表",
+          "desc": "Resource location of a loot table to use to generate the equipment"
+        },
+        {
+          "key": "slot_drop_chances",
+          "type": "float",
+          "category": "data",
+          "zh": "槽位掉落概率",
+          "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+          "children": [
+            {
+              "key": "feet",
+              "type": "float",
+              "category": "data",
+              "zh": "脚部",
+              "desc": "Optional. Drop chance of the boots."
+            },
+            {
+              "key": "legs",
+              "type": "float",
+              "category": "data",
+              "zh": "腿部",
+              "desc": "Optional. Drop chance of the leggings."
+            },
+            {
+              "key": "chest",
+              "type": "float",
+              "category": "data",
+              "zh": "箱子",
+              "desc": "Optional. Drop chance of the chestplate."
+            },
+            {
+              "key": "head",
+              "type": "float",
+              "category": "data",
+              "zh": "头部",
+              "desc": "Optional. Drop chance of the helmet."
+            },
+            {
+              "key": "body",
+              "type": "float",
+              "category": "data",
+              "zh": "躯干",
+              "desc": "Optional. Drop chance of the body armor."
+            },
+            {
+              "key": "mainhand",
+              "type": "float",
+              "category": "data",
+              "zh": "主手",
+              "desc": "Optional. Drop chance of the weapon in the main hand."
+            },
+            {
+              "key": "offhand",
+              "type": "float",
+              "category": "data",
+              "zh": "副手",
+              "desc": "Optional. Drop chance of the weapon in the off hand."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "explosion_power",
+      "type": "float",
+      "default": "4.0f",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["tnt_minecart"]
+      },
+      "zh": "爆炸威力",
+      "desc": "A value from 0 to 128. Additional explosion power, which is added to the speed-based explosion power. Defau…"
+    },
+    {
+      "key": "explosion_power",
+      "type": "float",
+      "default": "4.0f",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["tnt"]
+      },
+      "zh": "爆炸威力",
+      "desc": "A value from 0 to 128. The power of the explosion. Defaults to 4.0. If set to the default value, this field…"
+    },
+    {
+      "key": "explosion_speed_factor",
+      "type": "float",
+      "default": "1.0f",
+      "category": "basic",
+      "since": "1.21.4",
+      "appliesTo": {
+        "ids": ["tnt_minecart"]
+      },
+      "zh": "爆炸速度系数",
+      "desc": "Controls the amount of added damage depending on the speed of the Minecart."
+    },
+    {
+      "key": "ExplosionPower",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["ghast"]
+      },
+      "zh": "爆炸威力",
+      "desc": "The radius of the explosion created by the fireballs the ghast fires."
+    },
+    {
+      "key": "ExplosionPower",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["fireball"]
+      },
+      "zh": "爆炸威力",
+      "desc": "The power and size of the explosion created by the fireball upon impact."
+    },
+    {
+      "key": "ExplosionRadius",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["creeper"]
+      },
+      "zh": "爆炸半径",
+      "desc": "The power of the explosion (default value is 3)."
+    },
+    {
+      "key": "facing",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["painting"]
+      },
+      "zh": "朝向",
+      "desc": "The direction the painting faces: 0 is south, 1 is west, 2 is north, 3 is east"
+    },
+    {
+      "key": "Facing",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["glow_item_frame"]
+      },
+      "zh": "朝向",
+      "desc": "The direction the item frame faces: 3 is south, 4 is west, 2 is north, 5 is east, 1 is top, and 0 is bottom."
+    },
+    {
+      "key": "Facing",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["item_frame"]
+      },
+      "zh": "朝向",
+      "desc": "The direction the item frame faces: 3 is south, 4 is west, 2 is north, 5 is east, 1 is top, and 0 is bottom."
+    },
+    {
+      "key": "fall_distance",
+      "type": "double",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "摔落距离",
+      "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands."
+    },
+    {
+      "key": "FallFlying",
+      "type": "byte",
+      "category": "movement",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "鞘翅滑翔中",
+      "desc": "Whether or not the mob is gliding through the air."
+    },
+    {
+      "key": "FallHurtAmount",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["falling_block"]
+      },
+      "zh": "摔落伤害量",
+      "desc": "Multiplied by the FallDistance to calculate the amount of damage to inflict."
+    },
+    {
+      "key": "FallHurtMax",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["falling_block"]
+      },
+      "zh": "摔落伤害上限",
+      "desc": "The maximum hit points of damage to inflict on entities that intersect this falling block."
+    },
+    {
+      "key": "Fire",
+      "type": "short",
+      "default": "-20s",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "着火刻数",
+      "desc": "Number of game ticks until the fire is put out."
+    },
+    {
+      "key": "FireworksItem",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["firework_rocket"]
+      },
+      "zh": "烟花物品",
+      "desc": "The crafted firework rocket."
+    },
+    {
+      "key": "Fixed",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["glow_item_frame"]
+      },
+      "zh": "固定位置",
+      "desc": "1, or 0 (true/false) - If true: the item frame does not drop when it has no support block, it can not be mo…"
+    },
+    {
+      "key": "Fixed",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["item_frame"]
+      },
+      "zh": "固定位置",
+      "desc": "1, or 0 (true/false) - If true: the item frame does not drop when it has no support block, it can not be mo…"
+    },
+    {
+      "key": "flower_pos",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["bee"]
+      },
+      "zh": "花朵位置",
+      "desc": "Block location, as 3 integers, of the flower that the bee is circling."
+    },
+    {
+      "key": "foodExhaustionLevel",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "疲劳度",
+      "desc": "See Hunger § Mechanics."
+    },
+    {
+      "key": "foodLevel",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "饥饿值",
+      "desc": "The value of the hunger bar. Referred to as hunger. See Hunger."
+    },
+    {
+      "key": "FoodLevel",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["villager"]
+      },
+      "zh": "饥饿值",
+      "desc": "How many unspent nutrition points the villager has."
+    },
+    {
+      "key": "foodSaturationLevel",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "饱和度",
+      "desc": "Referred to as saturation. See Hunger § Mechanics."
+    },
+    {
+      "key": "foodTickTimer",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "饥饿计时",
+      "desc": "See Hunger."
+    },
+    {
+      "key": "ForcedAge",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "breedable"
+      },
+      "zh": "强制成长",
+      "desc": "A value of age assigned to this mob when it grows up."
+    },
+    {
+      "key": "from_bucket",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sulfur_cube"]
+      },
+      "zh": "来自桶",
+      "desc": "1 or 0 (true/false) - 1 if the sulfur cube was spawned by using a Bucket of Sulfur Cube, 0 if not."
+    },
+    {
+      "key": "FromBucket",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["axolotl"]
+      },
+      "zh": "来自桶",
+      "desc": "1 or 0 (true/false) – if true, indicates the axolotl has been released from a bucket."
+    },
+    {
+      "key": "FromBucket",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["cod"]
+      },
+      "zh": "来自桶",
+      "desc": "1 or 0 (true/false) - Whether the fish had ever been released from a bucket."
+    },
+    {
+      "key": "FromBucket",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["pufferfish"]
+      },
+      "zh": "来自桶",
+      "desc": "1 or 0 (true/false) - if true, the fish has been released from a bucket."
+    },
+    {
+      "key": "FromBucket",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["salmon"]
+      },
+      "zh": "来自桶",
+      "desc": "1 or 0 (true/false) - Whether the fish had ever been released from a bucket."
+    },
+    {
+      "key": "FromBucket",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["tadpole"]
+      },
+      "zh": "来自桶",
+      "desc": "1 or 0 (true/false) - Whether the tadpole had ever been released from a bucket."
+    },
+    {
+      "key": "FromBucket",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["tropical_fish"]
+      },
+      "zh": "来自桶",
+      "desc": "1 or 0 (true/false) - Whether the fish had ever been released from a bucket."
+    },
+    {
+      "key": "FrostbiteConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["drowned"]
+      },
+      "zh": "霜冻转化时间",
+      "desc": "The number of ticks until this drowned converts to a frostbite."
+    },
+    {
+      "key": "FrostbiteConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["husk"]
+      },
+      "zh": "霜冻转化时间",
+      "desc": "The number of ticks until this husk converts to a zombie from freezing in powder snow."
+    },
+    {
+      "key": "FrostbiteConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie"]
+      },
+      "zh": "霜冻转化时间",
+      "desc": "The number of ticks until this zombie converts to a frostbite."
+    },
+    {
+      "key": "Fuel",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["furnace_minecart"]
+      },
+      "zh": "燃料",
+      "desc": "The number of ticks until the minecart runs out of fuel."
+    },
+    {
+      "key": "fuse",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sulfur_cube"]
+      },
+      "zh": "引信时间",
+      "desc": "The number of ticks before the sulfur cube explodes."
+    },
+    {
+      "key": "fuse",
+      "type": "int",
+      "category": "basic",
+      "legacyKeys": [
+        {
+          "key": "TNTFuse",
+          "until": "1.21.4"
+        }
+      ],
+      "appliesTo": {
+        "ids": ["tnt_minecart"]
+      },
+      "zh": "引信时间",
+      "desc": "Time until explosion or -1 if not activated."
+    },
+    {
+      "key": "fuse",
+      "type": "short",
+      "default": "80s",
+      "category": "basic",
+      "legacyKeys": [
+        {
+          "key": "Fuse",
+          "until": "1.20.2"
+        }
+      ],
+      "appliesTo": {
+        "ids": ["tnt"]
+      },
+      "zh": "引信时间",
+      "desc": "Ticks until explosion. Defaults to 80."
+    },
+    {
+      "key": "Fuse",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["creeper"]
+      },
+      "zh": "引信时间",
+      "desc": "States the initial value of the creeper's internal fuse timer (does not affect creepers that fall and explo…"
+    },
+    {
+      "key": "glow_color_override",
+      "type": "int",
+      "default": "-1",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "发光颜色覆盖",
+      "desc": "Overrides the glow border color. If -1, uses the color of the team that the display entity is in. Defaults…"
+    },
+    {
+      "key": "Glowing",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "发光",
+      "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline."
+    },
+    {
+      "key": "Gossips",
+      "type": "list",
+      "category": "ai",
+      "appliesTo": {
+        "ids": ["villager"]
+      },
+      "zh": "村民流言",
+      "desc": "Pieces of gossip that can be exchanged between villagers when they meet."
+    },
+    {
+      "key": "Gossips",
+      "type": "list",
+      "category": "ai",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "村民流言",
+      "desc": "Pieces of gossip that can be exchanged between villagers when they meet."
+    },
+    {
+      "key": "GotFish",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["dolphin"]
+      },
+      "zh": "已捕到鱼",
+      "desc": "1 or 0 (true/false) - if true, this dolphin got fish from a player."
+    },
+    {
+      "key": "has_egg",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["turtle"]
+      },
+      "zh": "有蛋",
+      "desc": "1, or 0 (true/false) - true means the turtle is currently pregnant."
+    },
+    {
+      "key": "HasBeenShot",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "projectile"
+      },
+      "zh": "已被射击",
+      "desc": "1 or 0 (true/false) - If true, this projectile has existed for at least one tick."
+    },
+    {
+      "key": "HasLeftHorn",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["goat"]
+      },
+      "zh": "有左角",
+      "desc": "1 or 0 (true/false) – if true, indicates this goat has the left horn."
+    },
+    {
+      "key": "HasNectar",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["bee"]
+      },
+      "zh": "携带花蜜",
+      "desc": "1 or 0 (true/false) - true if the bee is carrying nectar."
+    },
+    {
+      "key": "HasRightHorn",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["goat"]
+      },
+      "zh": "有右角",
+      "desc": "1 or 0 (true/false) – if true, indicates this goat has the right horn."
+    },
+    {
+      "key": "HasStung",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["bee"]
+      },
+      "zh": "已蜇人",
+      "desc": "1 or 0 (true/false) - true if the bee has stung a mob or player."
+    },
+    {
+      "key": "HasVisualFire",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "视觉着火",
+      "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire."
+    },
+    {
+      "key": "Health",
+      "type": "short",
+      "category": "combat",
+      "appliesTo": {
+        "ids": ["experience_orb"]
+      },
+      "zh": "生命值",
+      "desc": "The health of XP orbs. XP orbs take damage from fire, lava, falling anvils, and explosions. The orb is dest…"
+    },
+    {
+      "key": "Health",
+      "type": "short",
+      "category": "combat",
+      "appliesTo": {
+        "ids": ["item"]
+      },
+      "zh": "生命值",
+      "desc": "The health of the item, which starts at 5."
+    },
+    {
+      "key": "Health",
+      "type": "float",
+      "category": "combat",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "生命值",
+      "desc": "The mob's health."
+    },
+    {
+      "key": "height",
+      "type": "float",
+      "default": "1f",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["interaction"]
+      },
+      "zh": "高度",
+      "desc": "The height of the entity's bounding box. Defaults to 1."
+    },
+    {
+      "key": "height",
+      "type": "float",
+      "default": "0f",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "高度",
+      "desc": "The maximum height of the entity. Rendering culling bounding box spans vertically y to y+height, and the pa…"
+    },
+    {
+      "key": "hidden_layers",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mannequin"]
+      },
+      "zh": "隐藏图层",
+      "desc": "- List of outer skin layers to hide."
+    },
+    {
+      "key": "HiddenGene",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["panda"]
+      },
+      "zh": "隐性基因",
+      "desc": "The secondary gene this panda has, that can transfer to the child."
+    },
+    {
+      "key": "hide_description",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mannequin"]
+      },
+      "zh": "隐藏描述",
+      "desc": "- Optional boolean specifying that no description should be shown at all."
+    },
+    {
+      "key": "hive_pos",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["bee"]
+      },
+      "zh": "蜂巢位置",
+      "desc": "Block location, as 3 integers, of the bee's hive."
+    },
+    {
+      "key": "home_pos",
+      "type": "int_array",
+      "category": "ai",
+      "since": "1.21.6",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "家位置",
+      "desc": "The mob's \"home\" position. Mobs will limit their pathfinding to stay within the indicated area. Some mobs,…"
+    },
+    {
+      "key": "home_radius",
+      "type": "int",
+      "category": "ai",
+      "since": "1.21.6",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "家半径",
+      "desc": "Max radius of the data home_pos."
+    },
+    {
+      "key": "HurtEntities",
+      "type": "byte",
+      "default": "1b",
+      "category": "combat",
+      "appliesTo": {
+        "ids": ["falling_block"]
+      },
+      "zh": "伤害实体",
+      "desc": "1 or 0 (true/false) – true if the block should hurt entities it falls on."
+    },
+    {
+      "key": "HurtTime",
+      "type": "short",
+      "category": "combat",
+      "advanced": true,
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "受伤闪烁",
+      "desc": "Number of ticks the mob turns red for after being hit."
+    },
+    {
+      "key": "id",
+      "type": "string",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "block-state"
+      },
+      "zh": "ID",
+      "desc": "The identifier of the block to use."
+    },
+    {
+      "key": "id",
+      "type": "string",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "blockentity"
+      },
+      "zh": "ID",
+      "desc": "Block entity ID"
+    },
+    {
+      "key": "id",
+      "type": "string",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "ID",
+      "desc": "Namespaced ID of the entity's entity type."
+    },
+    {
+      "key": "id",
+      "type": "string",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "item"
+      },
+      "zh": "ID",
+      "desc": "The identifier of the item. Must not be minecraft:air."
+    },
+    {
+      "key": "id",
+      "type": "string",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "itemnoslot"
+      },
+      "zh": "ID",
+      "desc": "The identifier of the item. Must not be minecraft:air."
+    },
+    {
+      "key": "id",
+      "type": "int_array",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "ID",
+      "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile…"
+    },
+    {
+      "key": "ignited",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["creeper"]
+      },
+      "zh": "已点燃",
+      "desc": "1 or 0 (true/false) - Whether the creeper has been ignited by flint and steel."
+    },
+    {
+      "key": "ignore_fall_damage_from_current_explosion",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "advanced": true,
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "忽略当前爆炸摔落伤害",
+      "desc": "1 or 0 (true/false) - true if the current explosion should apply a fall damage reduction."
+    },
+    {
+      "key": "immovable",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mannequin"]
+      },
+      "zh": "不可移动",
+      "desc": "- Optional boolean specifying that the mannequin cannot be moved (defaults to false)."
+    },
+    {
+      "key": "inBlockState",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "所在方块状态",
+      "desc": "Optional. The block state of the last block that the projectile hit."
+    },
+    {
+      "key": "inGround",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "插在地上",
+      "desc": "1 or 0 (true/false) - If true, the projectile is stuck in the ground."
+    },
+    {
+      "key": "InLove",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "breedable"
+      },
+      "zh": "求偶中",
+      "desc": "Number of ticks until the mob loses its breeding hearts and stops searching for a mate."
+    },
+    {
+      "key": "interaction",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["interaction"]
+      },
+      "zh": "交互实体",
+      "desc": "The last interaction (right click) to hit the entity.",
+      "children": [
+        {
+          "key": "player",
+          "type": "int_array",
+          "category": "data",
+          "zh": "玩家",
+          "desc": "The UUID of the player that interacted with the entity."
+        },
+        {
+          "key": "timestamp",
+          "type": "long",
+          "category": "data",
+          "zh": "时间戳",
+          "desc": "When the interaction took place."
+        }
+      ]
+    },
+    {
+      "key": "interpolation_duration",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "插值时长",
+      "desc": "Interpolation duration in ticks."
+    },
+    {
+      "key": "Inventory",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["allay"]
+      },
+      "zh": "物品栏",
+      "desc": "List of items the allay has picked up. This list can contain at most one compound tag. The item given by th…"
+    },
+    {
+      "key": "Inventory",
+      "type": "list",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["piglin"]
+      },
+      "zh": "物品栏",
+      "desc": "Each compound tag in this list is an item in the piglin's inventory."
+    },
+    {
+      "key": "Inventory",
+      "type": "list",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["pillager"]
+      },
+      "zh": "物品栏",
+      "desc": "Each compound tag in this list is an item in the pillager's inventory, up to a maximum of 5 slots."
+    },
+    {
+      "key": "Inventory",
+      "type": "list",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "物品栏",
+      "desc": "Each compound tag in this list is an item in the player's inventory."
+    },
+    {
+      "key": "Inventory",
+      "type": "list",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["villager"]
+      },
+      "zh": "物品栏",
+      "desc": "Each compound tag in this list is an item in the villager's inventory, up to a maximum of 8 slots."
+    },
+    {
+      "key": "Inventory",
+      "type": "list",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["wandering_trader"]
+      },
+      "zh": "物品栏",
+      "desc": "Each compound tag in this list is an item in the wandering trader's inventory, up to a maximum of 8 slots."
+    },
+    {
+      "key": "Inventory",
+      "type": "list",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "物品栏",
+      "desc": "Each compound tag in this list is an item in the villager's inventory, up to a maximum of 8 slots."
+    },
+    {
+      "key": "Invisible",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["armor_stand"]
+      },
+      "zh": "隐形",
+      "desc": "1 or 0 (true/false) - if true, ArmorStand is invisible, although items on it still display."
+    },
+    {
+      "key": "Invisible",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["glow_item_frame"]
+      },
+      "zh": "隐形",
+      "desc": "1, or 0 (true/false) - Whether the item frame (background) is invisible."
+    },
+    {
+      "key": "Invisible",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["item_frame"]
+      },
+      "zh": "隐形",
+      "desc": "1, or 0 (true/false) - Whether the item frame (background) is invisible."
+    },
+    {
+      "key": "Invul",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["wither"]
+      },
+      "zh": "无敌刻数",
+      "desc": "The number of ticks of invulnerability left after being initially created."
+    },
+    {
+      "key": "Invulnerable",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "combat",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "无敌",
+      "desc": "1 or 0 (true/false) - if true, the entity should not take damage."
+    },
+    {
+      "key": "invulnerable_time",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "movement",
+      "advanced": true,
+      "since": "26.3",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "无敌时间",
+      "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks.…"
+    },
+    {
+      "key": "InWaterTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["drowned"]
+      },
+      "zh": "在水中刻数",
+      "desc": "The number of ticks this drowned has been under water, used to start the drowning conversion."
+    },
+    {
+      "key": "InWaterTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["frostbite"]
+      },
+      "zh": "在水中刻数",
+      "desc": "The number of ticks this frostbite has been under water, used to start the drowning conversion."
+    },
+    {
+      "key": "InWaterTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["husk"]
+      },
+      "zh": "在水中刻数",
+      "desc": "The number of ticks this husk has been under water, used to start the drowning conversion."
+    },
+    {
+      "key": "InWaterTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie"]
+      },
+      "zh": "在水中刻数",
+      "desc": "The number of ticks this zombie has been under water, used to start the drowning conversion."
+    },
+    {
+      "key": "InWaterTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "在水中刻数",
+      "desc": "The number of ticks this zombie villager has been under water, used to start the drowning conversion."
+    },
+    {
+      "key": "InWaterTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombified_piglin"]
+      },
+      "zh": "在水中刻数",
+      "desc": "The number of ticks this zombified piglin has been under water, used to start the drowning conversion."
+    },
+    {
+      "key": "IsBaby",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["drowned"]
+      },
+      "zh": "幼年",
+      "desc": "1 or 0 (true/false) - whether this drowned is a baby."
+    },
+    {
+      "key": "IsBaby",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["frostbite"]
+      },
+      "zh": "幼年",
+      "desc": "1 or 0 (true/false) - whether this frostbite is a baby."
+    },
+    {
+      "key": "IsBaby",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["husk"]
+      },
+      "zh": "幼年",
+      "desc": "1 or 0 (true/false) - whether this husk is a baby."
+    },
+    {
+      "key": "IsBaby",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piglin"]
+      },
+      "zh": "幼年",
+      "desc": "1 or 0 (true/false) – true if the piglin is a baby."
+    },
+    {
+      "key": "IsBaby",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zoglin"]
+      },
+      "zh": "幼年",
+      "desc": "1 or 0 (true/false) - true if the zoglin is a baby."
+    },
+    {
+      "key": "IsBaby",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie"]
+      },
+      "zh": "幼年",
+      "desc": "1 or 0 (true/false) - whether this zombie is a baby."
+    },
+    {
+      "key": "IsBaby",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "幼年",
+      "desc": "1 or 0 (true/false) - whether this zombie villager is a baby."
+    },
+    {
+      "key": "IsBaby",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombified_piglin"]
+      },
+      "zh": "幼年",
+      "desc": "1 or 0 (true/false) - whether this zombified piglin is a baby."
+    },
+    {
+      "key": "isBlastingFurnaceFilteringCraftable",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "recipe-book"
+      },
+      "zh": "高炉隐藏不可合成",
+      "desc": "1 or 0 (true/false). True if the player has enabled the \"Show Blastable\" feature in the blasting recipe book."
+    },
+    {
+      "key": "isBlastingFurnaceGuiOpen",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "recipe-book"
+      },
+      "zh": "高炉界面已打开",
+      "desc": "1 or 0 (true/false). True if the player has the blasting recipe book GUI open."
+    },
+    {
+      "key": "IsChickenJockey",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["chicken"]
+      },
+      "zh": "鸡骑士",
+      "desc": "1 or 0 (true/false) - Whether or not the chicken is a jockey for a baby zombie."
+    },
+    {
+      "key": "isFilteringCraftable",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "recipe-book"
+      },
+      "zh": "隐藏不可合成",
+      "desc": "1 or 0 (true/false). True if the player has enabled the \"Show Craftable\" feature in the crafting recipe book."
+    },
+    {
+      "key": "isFurnaceFilteringCraftable",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "recipe-book"
+      },
+      "zh": "熔炉隐藏不可合成",
+      "desc": "1 or 0 (true/false). True if the player has enabled the \"Show Smeltable\" feature in the smelting recipe book."
+    },
+    {
+      "key": "isFurnaceGuiOpen",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "recipe-book"
+      },
+      "zh": "熔炉界面已打开",
+      "desc": "1 or 0 (true/false). True if the player has the smelting recipe book GUI open."
+    },
+    {
+      "key": "isGuiOpen",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "recipe-book"
+      },
+      "zh": "界面已打开",
+      "desc": "1 or 0 (true/false). True if the player has the crafting recipe book GUI open."
+    },
+    {
+      "key": "IsImmuneToZombification",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["hoglin"]
+      },
+      "zh": "免疫僵尸化",
+      "desc": "1 or 0 (true/false) – if true, the hoglin does not transform to a zoglin when in the Overworld and TimeInOv…"
+    },
+    {
+      "key": "IsImmuneToZombification",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piglin"]
+      },
+      "zh": "免疫僵尸化",
+      "desc": "1 or 0 (true/false) – if true, the piglin does not transform to a zombified piglin when in the Overworld."
+    },
+    {
+      "key": "IsImmuneToZombification",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piglin_brute"]
+      },
+      "zh": "免疫僵尸化",
+      "desc": "1 or 0 (true/false) – if true, the piglin brute does not transform to a zombified piglin when in the Overwo…"
+    },
+    {
+      "key": "IsScreamingGoat",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["goat"]
+      },
+      "zh": "尖叫山羊",
+      "desc": "1 or 0 (true/false) – if true, indicates this is a screaming goat."
+    },
+    {
+      "key": "isSmokerFilteringCraftable",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "recipe-book"
+      },
+      "zh": "烟熏炉隐藏不可合成",
+      "desc": "1 or 0 (true/false). True if the player has enabled the \"Show Smokable\" feature in the smoking recipe book."
+    },
+    {
+      "key": "isSmokerGuiOpen",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "recipe-book"
+      },
+      "zh": "烟熏炉界面已打开",
+      "desc": "1 or 0 (true/false). True if the player has the smoking recipe book GUI open."
+    },
+    {
+      "key": "item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["item_display"]
+      },
+      "zh": "物品",
+      "desc": "The item to display."
+    },
+    {
+      "key": "item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["ominous_item_spawner"]
+      },
+      "zh": "物品",
+      "desc": "The item to display and dispense."
+    },
+    {
+      "key": "item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "物品",
+      "desc": "The item that was consumed to shoot/throw the arrow/trident."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["egg"]
+      },
+      "zh": "物品",
+      "desc": "The item to render as, may be absent."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["ender_pearl"]
+      },
+      "zh": "物品",
+      "desc": "The item to render as, may be absent."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["experience_bottle"]
+      },
+      "zh": "物品",
+      "desc": "The item to render as, may be absent."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["fireball"]
+      },
+      "zh": "物品",
+      "desc": "The item to render as, may be absent."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["lingering_potion"]
+      },
+      "zh": "物品",
+      "desc": "The item to render as."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["small_fireball"]
+      },
+      "zh": "物品",
+      "desc": "The item to render as, may be absent."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["snowball"]
+      },
+      "zh": "物品",
+      "desc": "The item to render as, may be absent."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["splash_potion"]
+      },
+      "zh": "物品",
+      "desc": "The item to render as."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["item"]
+      },
+      "zh": "物品",
+      "desc": "The inventory item, without the Slot tag."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["eye_of_ender"]
+      },
+      "zh": "物品",
+      "desc": "The item to render as, may be absent."
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["glow_item_frame"]
+      },
+      "zh": "物品",
+      "desc": "The item placed into the item frame. If the item frame is empty, this tag does not exist. Represents the en…"
+    },
+    {
+      "key": "Item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["item_frame"]
+      },
+      "zh": "物品",
+      "desc": "The item placed into the item frame. If the item frame is empty, this tag does not exist. Represents the en…"
+    },
+    {
+      "key": "item_based_steering",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "boostable"
+      },
+      "zh": "物品操控",
+      "children": [
+        {
+          "key": "boosting",
+          "type": "byte",
+          "valueKind": "boolean",
+          "category": "data",
+          "zh": "加速中",
+          "desc": "1 or 0 (true/false) -"
+        },
+        {
+          "key": "boost_time",
+          "type": "int",
+          "category": "data",
+          "zh": "加速剩余时间",
+          "desc": "The time in ticks the mob has been boosting for."
+        },
+        {
+          "key": "boost_time_total",
+          "type": "int",
+          "category": "data",
+          "zh": "加速总时长",
+          "desc": "The total duration of the current boost."
+        }
+      ]
+    },
+    {
+      "key": "item_display",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["item_display"]
+      },
+      "zh": "物品展示",
+      "desc": "The model to display. Describes item model transform applied to item (as defined in display field in model…"
+    },
+    {
+      "key": "ItemDropChance",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["glow_item_frame"]
+      },
+      "zh": "物品掉落概率",
+      "desc": "The chance for the item to drop when the item frame breaks."
+    },
+    {
+      "key": "ItemDropChance",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["item_frame"]
+      },
+      "zh": "物品掉落概率",
+      "desc": "The chance for the item to drop when the item frame breaks."
+    },
+    {
+      "key": "ItemRotation",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["glow_item_frame"]
+      },
+      "zh": "物品旋转",
+      "desc": "The current angle or rotation of the item, as a multiple of 45 degrees, going clockwise."
+    },
+    {
+      "key": "ItemRotation",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["item_frame"]
+      },
+      "zh": "物品旋转",
+      "desc": "The current angle or rotation of the item, as a multiple of 45 degrees, going clockwise."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["donkey"]
+      },
+      "zh": "物品列表",
+      "desc": "List of items. Exists only if ChestedHorse is true."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["llama"]
+      },
+      "zh": "物品列表",
+      "desc": "List of items. Exists only if ChestedHorse is true."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["mule"]
+      },
+      "zh": "物品列表",
+      "desc": "List of items. Exists only if ChestedHorse is true."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["trader_llama"]
+      },
+      "zh": "物品列表",
+      "desc": "List of items. Exists only if ChestedHorse is true."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "group": "container-entity"
+      },
+      "zh": "物品列表",
+      "desc": "List of items."
+    },
+    {
+      "key": "Johnny",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["vindicator"]
+      },
+      "zh": "约翰尼模式",
+      "desc": "1 or 0 (true/false) - if true, causes the vindicator to exhibit Johnny behavior."
+    },
+    {
+      "key": "keepPacked",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "blockentity"
+      },
+      "zh": "保留未加载",
+      "desc": "1 or 0 (true/false) - If true, this is an invalid block entity, and this block is not immediately placed wh…"
+    },
+    {
+      "key": "last_hurt_by_mob",
+      "type": "int_array",
+      "category": "basic",
+      "advanced": true,
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "上次被生物伤害",
+      "desc": "The UUID of the last mob that attacked this mob."
+    },
+    {
+      "key": "last_hurt_by_player",
+      "type": "int_array",
+      "category": "basic",
+      "advanced": true,
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "上次被玩家伤害",
+      "desc": "The UUID of the last player that attacked this mob."
+    },
+    {
+      "key": "last_hurt_by_player_memory_time",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "上次被玩家伤害记忆时间",
+      "desc": "(when exists and is valid) Gets set to 100 game ticks (5 seconds) when attacked by a player, and decreases…"
+    },
+    {
+      "key": "LastDeathLocation",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "上次死亡位置",
+      "desc": "May not exist. Location of the player's last death.",
+      "children": [
+        {
+          "key": "dimension",
+          "type": "string",
+          "category": "data",
+          "zh": "维度",
+          "desc": "Dimension of last death."
+        },
+        {
+          "key": "pos",
+          "type": "int_array",
+          "category": "data",
+          "advanced": true,
+          "zh": "坐标",
+          "desc": "Coordinates of last death."
+        }
+      ]
+    },
+    {
+      "key": "LastGossipDecay",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["villager"]
+      },
+      "zh": "流言衰减计时",
+      "desc": "The last tick all gossip of the villager has decreased strength naturally."
+    },
+    {
+      "key": "LastGossipDecay",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "流言衰减计时",
+      "desc": "The last tick all gossip of the villager has decreased strength naturally."
+    },
+    {
+      "key": "LastOutput",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block_minecart"]
+      },
+      "zh": "上次输出",
+      "desc": "The last line of output generated by the minecart."
+    },
+    {
+      "key": "LastPoseTick",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel"]
+      },
+      "zh": "上次姿态刻",
+      "desc": "The tick when the camel started changing its pose."
+    },
+    {
+      "key": "LastPoseTick",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel_husk"]
+      },
+      "zh": "上次姿态刻",
+      "desc": "The tick when the camel husk started changing its pose."
+    },
+    {
+      "key": "LastRestock",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["villager"]
+      },
+      "zh": "上次补货",
+      "desc": "The last tick the villager went to their job site block to resupply their trades."
+    },
+    {
+      "key": "LastRestock",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "上次补货",
+      "desc": "The last tick the villager went to their job site block to resupply their trades."
+    },
+    {
+      "key": "leash",
+      "type": "int_array",
+      "category": "combat",
+      "advanced": true,
+      "legacyKeys": [
+        {
+          "key": "Leash",
+          "until": "1.21.3"
+        }
+      ],
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "拴绳",
+      "desc": "Information about where this leash connects to.",
+      "children": [
+        {
+          "key": "UUID",
+          "type": "int_array",
+          "category": "data",
+          "advanced": true,
+          "zh": "UUID",
+          "desc": "This Universally Unique IDentifier of the entity that the leash is attached to."
+        }
+      ]
+    },
+    {
+      "key": "LeftHanded",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "左手持物",
+      "desc": "1 or 0 (true/false) - if true, the mob renders the main hand as being left."
+    },
+    {
+      "key": "LeftOwner",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "projectile"
+      },
+      "zh": "发射者",
+      "desc": "1 or 0 (true/false) - If true, this projectile has escaped its owner's hitbox for the first time and can no…"
+    },
+    {
+      "key": "life",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "存活时间",
+      "desc": "Increments each tick when the projectile is not moving; keeps its value if the projectile moves."
+    },
+    {
+      "key": "Life",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["firework_rocket"]
+      },
+      "zh": "存活时间",
+      "desc": "The number of ticks this fireworks rocket has been flying for."
+    },
+    {
+      "key": "life_ticks",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["vex"]
+      },
+      "zh": "存活刻数",
+      "desc": "Ticks of life remaining, decreasing by 1 per tick."
+    },
+    {
+      "key": "Lifetime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["endermite"]
+      },
+      "zh": "存在时长",
+      "desc": "How long the endermite has existed in ticks."
+    },
+    {
+      "key": "LifeTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["firework_rocket"]
+      },
+      "zh": "存在时长",
+      "desc": "The number of ticks before this fireworks rocket explodes."
+    },
+    {
+      "key": "line_width",
+      "type": "int",
+      "default": "200",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["text_display"]
+      },
+      "zh": "行宽",
+      "desc": "Maximum line width used to split lines (note: new line can be also added with \\n characters)."
+    },
+    {
+      "key": "listener",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["allay"]
+      },
+      "zh": "振动监听",
+      "desc": "The vibration event listener of this allay.",
+      "children": [
+        {
+          "key": "distance",
+          "type": "int",
+          "category": "data",
+          "zh": "距离",
+          "desc": "Nonnegative integer."
+        },
+        {
+          "key": "event",
+          "type": "compound",
+          "category": "data",
+          "zh": "事件",
+          "desc": "Optional.",
+          "children": [
+            {
+              "key": "distance",
+              "type": "int",
+              "category": "data",
+              "zh": "距离",
+              "desc": "Nonnegative integer."
+            },
+            {
+              "key": "game_event",
+              "type": "string",
+              "category": "data",
+              "zh": "游戏事件",
+              "desc": "A resource location of the game event."
+            },
+            {
+              "key": "pos",
+              "type": "list",
+              "elementType": "double",
+              "category": "data",
+              "advanced": true,
+              "zh": "坐标",
+              "desc": "Three doubles representing the X, Y, and Z coordinates."
+            },
+            {
+              "key": "projectile_owner",
+              "type": "int_array",
+              "category": "data",
+              "zh": "弹射物主人",
+              "desc": "Optional. The projectile owner's UUID. The 128-bit UUID is stored as four 32-bit integers, ordered from mos…"
+            },
+            {
+              "key": "source",
+              "type": "int_array",
+              "category": "data",
+              "zh": "来源",
+              "desc": "Optional. The source entity's UUID. The 128-bit UUID is stored as four 32-bit integers, ordered from most t…"
+            }
+          ]
+        },
+        {
+          "key": "event_delay",
+          "type": "int",
+          "category": "data",
+          "zh": "事件延迟",
+          "desc": "Nonnegative integer."
+        },
+        {
+          "key": "event_distance",
+          "type": "int",
+          "category": "data",
+          "zh": "事件距离",
+          "desc": "Nonnegative integer."
+        },
+        {
+          "key": "range",
+          "type": "int",
+          "category": "data",
+          "zh": "范围",
+          "desc": "Nonnegative integer."
+        },
+        {
+          "key": "source",
+          "type": "compound",
+          "category": "data",
+          "zh": "来源",
+          "desc": "Position source.",
+          "children": [
+            {
+              "key": "type",
+              "type": "string",
+              "category": "data",
+              "zh": "类型",
+              "desc": "A resource location of the position source type."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "listener",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["warden"]
+      },
+      "zh": "振动监听",
+      "desc": "The vibration event listener for this warden.",
+      "children": [
+        {
+          "key": "event",
+          "type": "compound",
+          "category": "data",
+          "zh": "事件",
+          "desc": "Exists only if there is an incoming vibration.",
+          "children": [
+            {
+              "key": "distance",
+              "type": "float",
+              "category": "data",
+              "zh": "距离",
+              "desc": "The distance between this vibration's source and the block."
+            },
+            {
+              "key": "game_event",
+              "type": "string",
+              "category": "data",
+              "zh": "游戏事件",
+              "desc": "The resource location of the vibration event that caused the current incoming vibration."
+            },
+            {
+              "key": "pos",
+              "type": "list",
+              "category": "data",
+              "advanced": true,
+              "zh": "坐标",
+              "desc": "The coordinates of the source of this vibration."
+            },
+            {
+              "key": "projectile_owner",
+              "type": "int_array",
+              "category": "data",
+              "zh": "弹射物主人",
+              "desc": "If the vibration was caused by a projectile, this is the UUID of the entity that launched the projectile."
+            },
+            {
+              "key": "source",
+              "type": "int_array",
+              "category": "data",
+              "zh": "来源",
+              "desc": "The UUID of the entity that caused the vibration."
+            }
+          ]
+        },
+        {
+          "key": "event_delay",
+          "type": "int",
+          "category": "data",
+          "zh": "事件延迟",
+          "desc": "How many ticks remain until triggered by the vibration."
+        },
+        {
+          "key": "selector",
+          "type": "compound",
+          "category": "data",
+          "zh": "选择器",
+          "desc": "The data of the vibration selector.",
+          "children": [
+            {
+              "key": "tick",
+              "type": "long",
+              "category": "data",
+              "zh": "刻",
+              "desc": "The game time when the vibration occurs, or -1 if there is no vibration to choose from."
+            },
+            {
+              "key": "event",
+              "type": "compound",
+              "category": "data",
+              "zh": "事件",
+              "desc": "Candidate game event, with the same structure as the tag above."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "locator_bar_icon",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "定位栏图标",
+      "desc": "The waypoint's icon visual data in the locator bar.",
+      "children": [
+        {
+          "key": "color",
+          "type": "int",
+          "category": "data",
+          "zh": "颜色",
+          "desc": "The waypoint's color stored as 32-bit signed integer using two's complement, assuming the color is fully op…"
+        },
+        {
+          "key": "style",
+          "type": "string",
+          "category": "data",
+          "zh": "样式",
+          "desc": "The waypoint's style name from waypoint_style directory in a resource pack."
+        }
+      ]
+    },
+    {
+      "key": "LootTable",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "container-entity"
+      },
+      "zh": "战利品表",
+      "desc": "Optional. Loot table to be used to fill the entity's container when it is next opened, or the items are oth…"
+    },
+    {
+      "key": "LootTableSeed",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "group": "container-entity"
+      },
+      "zh": "战利品表种子",
+      "desc": "Optional. Seed for generating the loot table. 0 or omitted uses a random seed."
+    },
+    {
+      "key": "LoveCause",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "group": "breedable"
+      },
+      "zh": "求偶发起者",
+      "desc": "The UUID of the entity that caused this mob to breed, stored as four integers."
+    },
+    {
+      "key": "main_hand",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mannequin"]
+      },
+      "zh": "主手",
+      "desc": "- Which hand is the main hand of the mannequin."
+    },
+    {
+      "key": "MainGene",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["panda"]
+      },
+      "zh": "主要基因",
+      "desc": "The primary gene this panda has, that determines the behavior and appearance of the panda and that can tran…"
+    },
+    {
+      "key": "Marker",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["armor_stand"]
+      },
+      "zh": "标记",
+      "desc": "1 or 0 (true/false) - if true, ArmorStand's size is set to 0, has a tiny hitbox, and disables interactions…"
+    },
+    {
+      "key": "MaxNearbyEntities",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["spawner_minecart"]
+      },
+      "zh": "附近实体上限",
+      "desc": "Overrides the maximum number of nearby (within a box of SpawnRange*2+1 × SpawnRange*2+1 × 8 centered around…"
+    },
+    {
+      "key": "MaxSpawnDelay",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["spawner_minecart"]
+      },
+      "zh": "最大生成延迟",
+      "desc": "The maximum random delay for the next spawn delay."
+    },
+    {
+      "key": "MinSpawnDelay",
+      "type": "short",
+      "default": "0s",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["spawner_minecart"]
+      },
+      "zh": "最小生成延迟",
+      "desc": "The minimum random delay for the next spawn delay."
+    },
+    {
+      "key": "model",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "模型",
+      "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model…"
+    },
+    {
+      "key": "Moistness",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["dolphin"]
+      },
+      "zh": "湿润度",
+      "desc": "How moist this dolphin is. Set to 2400 when in water or rain. Decreases by 1 every tick otherwise. The dolp…"
+    },
+    {
+      "key": "MoreCarrotTicks",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["rabbit", "killer_bunny"]
+      },
+      "zh": "胡萝卜吸引计时",
+      "desc": "Set to 40 when a carrot crop is eaten, decreases by 0–2 every tick until it reaches 0."
+    },
+    {
+      "key": "Motion",
+      "type": "double",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "速度",
+      "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick."
+    },
+    {
+      "key": "name",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "名称",
+      "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive…"
+    },
+    {
+      "key": "next_weather_age",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["copper_golem"]
+      },
+      "zh": "下次天气变化",
+      "desc": "The number of ticks gametime must reach for the copper golem's oxidation level to change."
+    },
+    {
+      "key": "NoAI",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "禁用 AI",
+      "desc": "1 or 0 (true/false) - Setting to true disables the mob's AI."
+    },
+    {
+      "key": "NoBasePlate",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["armor_stand"]
+      },
+      "zh": "无底座",
+      "desc": "1 or 0 (true/false) - if true, ArmorStand does not display the base beneath it."
+    },
+    {
+      "key": "NoGravity",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "movement",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "无重力",
+      "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally."
+    },
+    {
+      "key": "Offers",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["villager"]
+      },
+      "zh": "交易列表",
+      "desc": "Is generated when the trading menu is opened for the first time.",
+      "children": [
+        {
+          "key": "Recipes",
+          "type": "list",
+          "category": "data",
+          "zh": "配方列表",
+          "desc": "List of trade options."
+        }
+      ]
+    },
+    {
+      "key": "Offers",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["wandering_trader"]
+      },
+      "zh": "交易列表",
+      "desc": "Is generated when the trading menu is opened for the first time.",
+      "children": [
+        {
+          "key": "Recipes",
+          "type": "list",
+          "category": "data",
+          "zh": "配方列表",
+          "desc": "List of trade options."
+        }
+      ]
+    },
+    {
+      "key": "Offers",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "交易列表",
+      "desc": "Is generated when the trading menu is opened for the first time.",
+      "children": [
+        {
+          "key": "Recipes",
+          "type": "list",
+          "category": "data",
+          "zh": "配方列表",
+          "desc": "List of trade options."
+        }
+      ]
+    },
+    {
+      "key": "OnGround",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "movement",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "在地面",
+      "desc": "1 or 0 (true/false) - if true, the entity is touching the ground."
+    },
+    {
+      "key": "owner",
+      "type": "int_array",
+      "category": "basic",
+      "since": "1.21.9",
+      "appliesTo": {
+        "ids": ["vex"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the evoker this vex was spawned by, stored as four ints."
+    },
+    {
+      "key": "owner",
+      "type": "int_array",
+      "category": "basic",
+      "since": "1.21.9",
+      "appliesTo": {
+        "ids": ["tnt"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity this TNT was lit by, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity that tamed the mob, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel_husk"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity that tamed the mob, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["donkey"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity that tamed the mob, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["horse"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity that tamed the mob, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["llama"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity that tamed the mob, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mule"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity that tamed the mob, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["skeleton_horse"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity that tamed the mob, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trader_llama"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity that tamed the mob, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_horse"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity that tamed the mob, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["item"]
+      },
+      "zh": "主人",
+      "desc": "If present, only the player with this UUID can pick up the item."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity who created the cloud, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["evoker_fangs"]
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity that that fired the fangs, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "group": "projectile"
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity this projectile was thrown by, stored as four ints."
+    },
+    {
+      "key": "Owner",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "group": "tameable"
+      },
+      "zh": "主人",
+      "desc": "The UUID of the entity who owns this mob, stored as four ints."
+    },
+    {
+      "key": "Passengers",
+      "type": "list",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "乘客",
+      "desc": "The data of the entities that are riding this entity."
+    },
+    {
+      "key": "patrol_target",
+      "type": "int_array",
+      "category": "ai",
+      "legacyKeys": [
+        {
+          "key": "PatrolTarget",
+          "until": "1.21.3"
+        }
+      ],
+      "appliesTo": {
+        "group": "raidable"
+      },
+      "zh": "巡逻目标",
+      "desc": "The block location that the patrol moves toward."
+    },
+    {
+      "key": "PatrolLeader",
+      "type": "byte",
+      "category": "ai",
+      "appliesTo": {
+        "group": "raidable"
+      },
+      "zh": "巡逻队长",
+      "desc": "1 or 0 (true/false) - True if the current mob is the patrol leader."
+    },
+    {
+      "key": "Patrolling",
+      "type": "byte",
+      "category": "ai",
+      "appliesTo": {
+        "group": "raidable"
+      },
+      "zh": "巡逻中",
+      "desc": "1 or 0 (true/false) - Makes the mob assume patrol behavior."
+    },
+    {
+      "key": "Peek",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["shulker"]
+      },
+      "zh": "探头高度",
+      "desc": "Percentage of the shulker's way through the process of opening to fully (timewise)."
+    },
+    {
+      "key": "PersistenceRequired",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "combat",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "不会消失",
+      "desc": "1 or 0 (true/false) - if true, the mob must not despawn naturally."
+    },
+    {
+      "key": "pickup",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "可拾取",
+      "desc": "0 = cannot be picked up by players. 1 = can be picked up by players in survival or creative. 2 = can be pic…"
+    },
+    {
+      "key": "pickup_timer",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sulfur_cube"]
+      },
+      "zh": "拾取计时",
+      "desc": "The ticks left before the sulfur cube picks up items from the ground."
+    },
+    {
+      "key": "PickupDelay",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["item"]
+      },
+      "zh": "拾取延迟",
+      "desc": "The number of ticks the item cannot be picked up."
+    },
+    {
+      "key": "PierceLevel",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "穿透等级",
+      "desc": "The amount of remaining times this projectile can pierce through an entity."
+    },
+    {
+      "key": "PlayerCreated",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["iron_golem"]
+      },
+      "zh": "玩家建造",
+      "desc": "1 or 0 (true/false) – if true, this golem is player-created and never attacks players."
+    },
+    {
+      "key": "playerGameType",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "游戏模式",
+      "desc": "The current game mode of the player. 0 means Survival, 1 means Creative, 2 means Adventure, and 3 means Spe…"
+    },
+    {
+      "key": "PortalCooldown",
+      "type": "int",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "传送门冷却",
+      "desc": "The number of game ticks before which the entity may be teleported back through a nether portal."
+    },
+    {
+      "key": "Pos",
+      "type": "double",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "坐标",
+      "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity."
+    },
+    {
+      "key": "pose",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["mannequin"]
+      },
+      "zh": "姿态",
+      "desc": "- The pose of the mannequin."
+    },
+    {
+      "key": "Pose",
+      "type": "compound",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["armor_stand"]
+      },
+      "zh": "姿态",
+      "desc": "Rotation values for the ArmorStand's pose.",
+      "children": [
+        {
+          "key": "Body",
+          "type": "list",
+          "category": "data",
+          "zh": "身体颜色",
+          "desc": "Body-specific rotations."
+        },
+        {
+          "key": "Head",
+          "type": "list",
+          "category": "data",
+          "zh": "头部颜色",
+          "desc": "Head-specific rotations."
+        },
+        {
+          "key": "LeftArm",
+          "type": "list",
+          "category": "data",
+          "zh": "左臂颜色",
+          "desc": "Left Arm-specific rotations."
+        },
+        {
+          "key": "LeftLeg",
+          "type": "list",
+          "category": "data",
+          "zh": "左腿颜色",
+          "desc": "Left Leg-specific rotations."
+        },
+        {
+          "key": "RightArm",
+          "type": "list",
+          "category": "data",
+          "zh": "右臂颜色",
+          "desc": "Right Arm-specific rotations."
+        },
+        {
+          "key": "RightLeg",
+          "type": "list",
+          "category": "data",
+          "zh": "右腿颜色",
+          "desc": "Right Leg-specific rotations."
+        }
+      ]
+    },
+    {
+      "key": "potion",
+      "type": "string",
+      "category": "effect",
+      "appliesTo": {
+        "group": "potion-contents"
+      },
+      "zh": "药水",
+      "desc": "The ID of a potion type. Optional. See Potion#Item data."
+    },
+    {
+      "key": "potion_contents",
+      "type": "string",
+      "category": "effect",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "药水内容",
+      "desc": "The potion and custom effects contained in this area effect cloud."
+    },
+    {
+      "key": "potion_duration_scale",
+      "type": "float",
+      "default": "1.0f",
+      "category": "effect",
+      "since": "1.21.5",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "药水时长倍率",
+      "desc": "The duration of the potion effect applied is scaled by this factor."
+    },
+    {
+      "key": "powered",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["creeper"]
+      },
+      "zh": "已激活",
+      "desc": "1 or 0 (true/false) - May not exist. True if the creeper is charged from being struck by lightning."
+    },
+    {
+      "key": "previousPlayerGameType",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "上一游戏模式",
+      "desc": "The previous game mode of the player."
+    },
+    {
+      "key": "profile",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["mannequin"]
+      },
+      "zh": "玩家档案",
+      "desc": "The textures and/or player profile used to render the mannequin's player model."
+    },
+    {
+      "key": "properties",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "block-state"
+      },
+      "zh": "属性",
+      "desc": "(Optional, can be empty) Block properties."
+    },
+    {
+      "key": "properties",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "属性",
+      "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are…"
+    },
+    {
+      "key": "PuffState",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["pufferfish"]
+      },
+      "zh": "膨胀状态",
+      "desc": "A value from 0–2."
+    },
+    {
+      "key": "Pumpkin",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["snow_golem"]
+      },
+      "zh": "戴着南瓜",
+      "desc": "1 or 0 (true/false) - whether or not the Snow Golem has a pumpkin on its head."
+    },
+    {
+      "key": "PushX",
+      "type": "double",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["furnace_minecart"]
+      },
+      "zh": "推动速度 X",
+      "desc": "Force along X axis, used for smooth acceleration/deceleration."
+    },
+    {
+      "key": "PushZ",
+      "type": "double",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["furnace_minecart"]
+      },
+      "zh": "推动速度 Z",
+      "desc": "Force along Z axis, used for smooth acceleration/deceleration."
+    },
+    {
+      "key": "RabbitType",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["rabbit", "killer_bunny"]
+      },
+      "zh": "兔子变种",
+      "desc": "Determines the skin of the rabbit. Also determines if rabbit should be hostile. Represents the minecraft:ra…"
+    },
+    {
+      "key": "Radius",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "半径",
+      "desc": "The field's radius."
+    },
+    {
+      "key": "RadiusOnUse",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "使用时半径",
+      "desc": "The amount the radius changes upon applying the effect."
+    },
+    {
+      "key": "RadiusPerTick",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "每刻半径变化",
+      "desc": "The amount the radius changes per tick. Normally negative."
+    },
+    {
+      "key": "RaidId",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "raidable"
+      },
+      "zh": "袭击编号",
+      "desc": "Numeric ID of the raid that the mob currently belongs to."
+    },
+    {
+      "key": "ReapplicationDelay",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "重新施加延迟",
+      "desc": "The number of ticks before reapplying the effect."
+    },
+    {
+      "key": "recipeBook",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "配方书",
+      "desc": "Contains a JSON object detailing recipes the player has unlocked."
+    },
+    {
+      "key": "recipes",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "group": "recipe-book"
+      },
+      "zh": "配方",
+      "desc": "A list of all recipes the player has seen."
+    },
+    {
+      "key": "RequiredPlayerRange",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["spawner_minecart"]
+      },
+      "zh": "所需玩家距离",
+      "desc": "Overrides the block radius of the sphere of activation by players for this spawner."
+    },
+    {
+      "key": "respawn",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "重生点",
+      "desc": "May not exist. The respawn information of the player. Removed when the player attempts to respawn with no v…",
+      "children": [
+        {
+          "key": "pos",
+          "type": "int_array",
+          "category": "data",
+          "advanced": true,
+          "zh": "坐标",
+          "desc": "block position to spawn at"
+        },
+        {
+          "key": "yaw",
+          "type": "float",
+          "category": "data",
+          "zh": "偏航角",
+          "desc": "angle to spawn with (default: 0.0)"
+        },
+        {
+          "key": "dimension",
+          "type": "string",
+          "category": "data",
+          "zh": "维度",
+          "desc": "dimension id to spawn in (default minecraft:overworld) (required)"
+        },
+        {
+          "key": "pitch",
+          "type": "float",
+          "category": "data",
+          "zh": "俯仰角",
+          "desc": "pitch to spawn with. (required)"
+        },
+        {
+          "key": "forced",
+          "type": "byte",
+          "valueKind": "boolean",
+          "category": "data",
+          "zh": "强制生成",
+          "desc": "true if this spawn was set through commands (default: false)"
+        }
+      ]
+    },
+    {
+      "key": "response",
+      "type": "byte",
+      "default": "0b",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["interaction"]
+      },
+      "zh": "响应",
+      "desc": "1 or 0 (true/false). Specifies whether an interaction should trigger a response (hand animation). Defaults…"
+    },
+    {
+      "key": "RestocksToday",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["villager"]
+      },
+      "zh": "今日补货次数",
+      "desc": "The number of restocks a villager has done in 10 minutes from the last restock, or 0 if the villager has no…"
+    },
+    {
+      "key": "RestocksToday",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "今日补货次数",
+      "desc": "The number of restocks a villager has done in 10 minutes from the last restock, or 0 if the villager has no…"
+    },
+    {
+      "key": "RoarTick",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["ravager"]
+      },
+      "zh": "咆哮冷却",
+      "desc": "Roar attack cooldown for this ravager."
+    },
+    {
+      "key": "RootVehicle",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "骑乘的载具",
+      "desc": "May not exist. The root entity that the player is riding.",
+      "children": [
+        {
+          "key": "Attach",
+          "type": "int_array",
+          "category": "data",
+          "zh": "附着面",
+          "desc": "The UUID of the entity the player is riding, stored as four ints."
+        },
+        {
+          "key": "Entity",
+          "type": "compound",
+          "category": "data",
+          "zh": "实体",
+          "desc": "The NBT data of the root vehicle."
+        }
+      ]
+    },
+    {
+      "key": "Rotation",
+      "type": "float",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "朝向角",
+      "desc": "List of 2 floats representing the entity's server-side rotation (facing direction).",
+      "children": [
+        {
+          "key": "0",
+          "type": "float",
+          "category": "data",
+          "zh": "第一项",
+          "desc": "The entity's yaw. Yaw is rotation about the Y axis. It is measured in degrees and ranges from -180 to +180.…"
+        },
+        {
+          "key": "1",
+          "type": "float",
+          "category": "data",
+          "zh": "第二项",
+          "desc": "The entity's pitch. Pitch is rotation about the local X axis after yaw is applied. It is measured in degree…"
+        }
+      ]
+    },
+    {
+      "key": "Score",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "分数",
+      "desc": "The score displayed upon death."
+    },
+    {
+      "key": "scute_time",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["armadillo"]
+      },
+      "zh": "鳞甲生长时间",
+      "desc": "The number of ticks until the armadillo drops a scute."
+    },
+    {
+      "key": "see_through",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["text_display"]
+      },
+      "zh": "透视",
+      "desc": "Whether the text is visible through blocks."
+    },
+    {
+      "key": "seenCredits",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "已看制作名单",
+      "desc": "1 or 0 (true/false) - true if the player has entered the exit portal in the End at least once."
+    },
+    {
+      "key": "SelectedItem",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "选中物品",
+      "desc": "Data of the item currently being held by the player, excluding the Slot tag."
+    },
+    {
+      "key": "SelectedItemSlot",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "选中槽位",
+      "desc": "The selected hotbar slot of the player. Values are 0-indexed, so the leftmost slot is 0 and the rightmost s…"
+    },
+    {
+      "key": "shadow",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["text_display"]
+      },
+      "zh": "阴影",
+      "desc": "Whether the text is displayed with shadow."
+    },
+    {
+      "key": "shadow_radius",
+      "type": "float",
+      "default": "0f",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "阴影半径",
+      "desc": "Shadow radius. Value is treated as 64 when higher than 64. If less than or equal to 0, the entity has no sh…"
+    },
+    {
+      "key": "shadow_strength",
+      "type": "float",
+      "default": "1f",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "阴影强度",
+      "desc": "Controls the opacity of the shadow as a function of distance to block below."
+    },
+    {
+      "key": "shake",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "抖动",
+      "desc": "Ticks until the projectile can be picked up by players."
+    },
+    {
+      "key": "sheared",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["bogged"]
+      },
+      "zh": "已剪毛",
+      "desc": "1 or 0 (true/false) - whether the bogged has been shorn of its shrooms."
+    },
+    {
+      "key": "Sheared",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sheep"]
+      },
+      "zh": "已剪毛",
+      "desc": "1 or 0 (true/false) - true if the sheep has been shorn."
+    },
+    {
+      "key": "ShotAtAngle",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["firework_rocket"]
+      },
+      "zh": "斜射",
+      "desc": "1 or 0 (true/false) - If true, this firework was shot from a crossbow or dispenser."
+    },
+    {
+      "key": "ShotFromCrossbow",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "弩射出的",
+      "desc": "1 or 0 (true/false) - If true, the arrow was shot from a crossbow."
+    },
+    {
+      "key": "ShoulderEntityLeft",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "左肩实体",
+      "desc": "The entity that is on the player's left shoulder."
+    },
+    {
+      "key": "ShoulderEntityRight",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "右肩实体",
+      "desc": "The entity that is on the player's right shoulder."
+    },
+    {
+      "key": "ShowArms",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["armor_stand"]
+      },
+      "zh": "显示手臂",
+      "desc": "1 or 0 (true/false) - if true, ArmorStand displays full wooden arms."
+    },
+    {
+      "key": "ShowBottom",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["end_crystal"]
+      },
+      "zh": "显示底部",
+      "desc": "1 or 0 (true/false) – if true, the end crystal shows the bedrock slate underneath."
+    },
+    {
+      "key": "Silent",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "静音",
+      "desc": "1 or 0 (true/false) - if true, this entity is silenced."
+    },
+    {
+      "key": "Sitting",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["fox"]
+      },
+      "zh": "坐下",
+      "desc": "1 or 0 (true/false) – Whether the fox is sitting."
+    },
+    {
+      "key": "Sitting",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "tameable"
+      },
+      "zh": "坐下",
+      "desc": "1 or 0 (true/false) - true if the mob is sitting."
+    },
+    {
+      "key": "sitting_damage_received",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["ender_dragon"]
+      },
+      "zh": "坐下时受到伤害",
+      "desc": "The amount of damage the dragon has received while perched."
+    },
+    {
+      "key": "size",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["phantom"]
+      },
+      "zh": "大小",
+      "desc": "The size of the phantom. Ranges from 0 to 64, similar to slimes. Unlike slimes, phantoms always have a cons…"
+    },
+    {
+      "key": "Size",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "cube-mob"
+      },
+      "zh": "大小",
+      "desc": "The size of the cube mob with 0 as the smallest, 1 as the second smallest, and so on."
+    },
+    {
+      "key": "SkeletonTrap",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["skeleton_horse"]
+      },
+      "zh": "骷髅陷阱",
+      "desc": "1 or 0 (true/false) - true if the horse is a trapped skeleton horse."
+    },
+    {
+      "key": "SkeletonTrapTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["skeleton_horse"]
+      },
+      "zh": "骷髅陷阱计时",
+      "desc": "Incremented each tick when SkeletonTrap is set to 1."
+    },
+    {
+      "key": "Sleeping",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["fox"]
+      },
+      "zh": "睡眠中",
+      "desc": "1 or 0 (true/false) – Whether the fox is sleeping."
+    },
+    {
+      "key": "sleeping_pos",
+      "type": "int_array",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.21.5",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "睡眠位置",
+      "desc": "The coordinate of where the entity is sleeping, absent if not sleeping."
+    },
+    {
+      "key": "SleepTimer",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "睡眠计时",
+      "desc": "The number of game ticks the player had been in bed."
+    },
+    {
+      "key": "Slot",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "item"
+      },
+      "zh": "槽位",
+      "desc": "The slot this item is in."
+    },
+    {
+      "key": "Small",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["armor_stand"]
+      },
+      "zh": "小型",
+      "desc": "1 or 0 (true/false) - if true, ArmorStand is much smaller, similar to the size of a baby zombie."
+    },
+    {
+      "key": "sound_variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["cat"]
+      },
+      "zh": "音效变种",
+      "desc": "The sound variant of the cat. Assuming no custom data packs, this is always minecraft: followed by either c…"
+    },
+    {
+      "key": "sound_variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["chicken"]
+      },
+      "zh": "音效变种",
+      "desc": "The sound variant of the chicken. Assuming no custom data packs, this is always minecraft: followed by eith…"
+    },
+    {
+      "key": "sound_variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["cow"]
+      },
+      "zh": "音效变种",
+      "desc": "The sound variant of the cow. Assuming no custom data packs, this is always minecraft: followed by either c…"
+    },
+    {
+      "key": "sound_variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["pig"]
+      },
+      "zh": "音效变种",
+      "desc": "The sound variant of the pig. Assuming no custom data packs, this is always minecraft: followed by one of b…"
+    },
+    {
+      "key": "sound_variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["wolf"]
+      },
+      "zh": "音效变种",
+      "desc": "The sound variant of the wolf. Assuming no custom data packs, this is always minecraft: followed by one of…"
+    },
+    {
+      "key": "SoundEvent",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "声音事件",
+      "desc": "The server-side sound event to play when hitting a block/mob."
+    },
+    {
+      "key": "spawn_extra_particles_on_fall",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "落地额外粒子"
+    },
+    {
+      "key": "spawn_item_after_ticks",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["ominous_item_spawner"]
+      },
+      "zh": "生成物品延迟",
+      "desc": "Total time in ticks to display the item, before dispensing it."
+    },
+    {
+      "key": "SpawnCount",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["spawner_minecart"]
+      },
+      "zh": "生成数量",
+      "desc": "How many mobs to attempt to spawn each time."
+    },
+    {
+      "key": "SpawnData",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["spawner_minecart"]
+      },
+      "zh": "生成数据",
+      "desc": "Contains tags to copy to the next spawned entity(s) after spawning."
+    },
+    {
+      "key": "SpawnPotentials",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["spawner_minecart"]
+      },
+      "zh": "可能生成项",
+      "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft g…"
+    },
+    {
+      "key": "SpawnRange",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["spawner_minecart"]
+      },
+      "zh": "生成范围",
+      "desc": "The radius around which the spawner attempts to place mobs randomly."
+    },
+    {
+      "key": "SpellTicks",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["evoker"]
+      },
+      "zh": "施法冷却",
+      "desc": "Number of ticks until a spell can be cast."
+    },
+    {
+      "key": "SpellTicks",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["illusioner"]
+      },
+      "zh": "施法冷却",
+      "desc": "Number of ticks until a spell can be cast."
+    },
+    {
+      "key": "start_interpolation",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "开始插值",
+      "desc": "Delay before starting interpolation. If 0, interpolation starts immediately. (Not saved to entity, but can…"
+    },
+    {
+      "key": "state",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["armadillo"]
+      },
+      "zh": "状态",
+      "desc": "The name for the armadillo's current posture."
+    },
+    {
+      "key": "Steps",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["shulker_bullet"]
+      },
+      "zh": "剩余步数",
+      "desc": "How many \"steps\" it takes to attack to the target."
+    },
+    {
+      "key": "stew_effects",
+      "type": "list",
+      "category": "effect",
+      "since": "1.20.2",
+      "appliesTo": {
+        "ids": ["mooshroom"]
+      },
+      "zh": "炖菜效果",
+      "desc": "The effects applied to the suspicious stew from milking the mooshroom."
+    },
+    {
+      "key": "still_timeout",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["happy_ghast"]
+      },
+      "zh": "静止超时",
+      "desc": "Prevents the Happy Ghast from moving when greater than 0."
+    },
+    {
+      "key": "StrayConversionTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["skeleton", "parched"]
+      },
+      "zh": "流浪者转化时间",
+      "desc": "The number of ticks until this skeleton converts to a stray (default value is -1, when no conversion is und…"
+    },
+    {
+      "key": "Strength",
+      "type": "int",
+      "default": "3",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["llama"]
+      },
+      "zh": "强度",
+      "desc": "Ranges from 1 to 5, defaults to 3. Determines the number of items the llama can carry (items = 3 × strength…"
+    },
+    {
+      "key": "Strength",
+      "type": "int",
+      "default": "3",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trader_llama"]
+      },
+      "zh": "强度",
+      "desc": "Ranges from 1 to 5, defaults to 3. Determines the number of items the llama can carry (items = 3 × strength…"
+    },
+    {
+      "key": "StunTick",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["ravager"]
+      },
+      "zh": "眩晕冷却",
+      "desc": "Stun attack cooldown for this ravager."
+    },
+    {
+      "key": "SuccessCount",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block_minecart"]
+      },
+      "zh": "成功次数",
+      "desc": "Represents the strength of the analog signal output by redstone comparators attached to this minecart."
+    },
+    {
+      "key": "Tags",
+      "type": "list",
+      "elementType": "string",
+      "category": "data",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "计分板标签",
+      "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed."
+    },
+    {
+      "key": "Tame",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel"]
+      },
+      "zh": "已驯服",
+      "desc": "1 or 0 (true/false) – true if the mob is tamed."
+    },
+    {
+      "key": "Tame",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel_husk"]
+      },
+      "zh": "已驯服",
+      "desc": "1 or 0 (true/false) – true if the mob is tamed."
+    },
+    {
+      "key": "Tame",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["donkey"]
+      },
+      "zh": "已驯服",
+      "desc": "1 or 0 (true/false) – true if the mob is tamed."
+    },
+    {
+      "key": "Tame",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["horse"]
+      },
+      "zh": "已驯服",
+      "desc": "1 or 0 (true/false) – true if the mob is tamed."
+    },
+    {
+      "key": "Tame",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["llama"]
+      },
+      "zh": "已驯服",
+      "desc": "1 or 0 (true/false) – true if the mob is tamed."
+    },
+    {
+      "key": "Tame",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mule"]
+      },
+      "zh": "已驯服",
+      "desc": "1 or 0 (true/false) – true if the mob is tamed."
+    },
+    {
+      "key": "Tame",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["skeleton_horse"]
+      },
+      "zh": "已驯服",
+      "desc": "1 or 0 (true/false) – true if the mob is tamed."
+    },
+    {
+      "key": "Tame",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trader_llama"]
+      },
+      "zh": "已驯服",
+      "desc": "1 or 0 (true/false) – true if the mob is tamed."
+    },
+    {
+      "key": "Tame",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_horse"]
+      },
+      "zh": "已驯服",
+      "desc": "1 or 0 (true/false) – true if the mob is tamed."
+    },
+    {
+      "key": "Target",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["shulker_bullet"]
+      },
+      "zh": "目标",
+      "desc": "The UUID of the target of this shulker bullet, stored as four ints."
+    },
+    {
+      "key": "Team",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "队伍",
+      "desc": "This tag is actually not part of the NBT data of a mob, but instead used when spawning it, so it cannot be…"
+    },
+    {
+      "key": "teleport_duration",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "传送时长",
+      "desc": "Interpolation duration in ticks for teleportation."
+    },
+    {
+      "key": "Temper",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel"]
+      },
+      "zh": "怒气值",
+      "desc": "Ranges from 0 to 100; increases with feeding."
+    },
+    {
+      "key": "Temper",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["camel_husk"]
+      },
+      "zh": "怒气值",
+      "desc": "Ranges from 0 to 100; increases with feeding."
+    },
+    {
+      "key": "Temper",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["donkey"]
+      },
+      "zh": "怒气值",
+      "desc": "Ranges from 0 to 100; increases with feeding."
+    },
+    {
+      "key": "Temper",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["horse"]
+      },
+      "zh": "怒气值",
+      "desc": "Ranges from 0 to 100; increases with feeding."
+    },
+    {
+      "key": "Temper",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["llama"]
+      },
+      "zh": "怒气值",
+      "desc": "Ranges from 0 to 100; increases with feeding."
+    },
+    {
+      "key": "Temper",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mule"]
+      },
+      "zh": "怒气值",
+      "desc": "Ranges from 0 to 100; increases with feeding."
+    },
+    {
+      "key": "Temper",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["skeleton_horse"]
+      },
+      "zh": "怒气值",
+      "desc": "Ranges from 0 to 100; increases with feeding."
+    },
+    {
+      "key": "Temper",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trader_llama"]
+      },
+      "zh": "怒气值",
+      "desc": "Ranges from 0 to 100; increases with feeding."
+    },
+    {
+      "key": "Temper",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_horse"]
+      },
+      "zh": "怒气值",
+      "desc": "Ranges from 0 to 100; increases with feeding."
+    },
+    {
+      "key": "text",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["text_display"]
+      },
+      "zh": "文本",
+      "desc": "The text to be displayed, in the text component format, which is resolved with the context of the display e…"
+    },
+    {
+      "key": "text_opacity",
+      "type": "byte",
+      "default": "-1b",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["text_display"]
+      },
+      "zh": "文字不透明度",
+      "desc": "Alpha value of rendered text. Value ranges from 0 to 255. Values up to 3 are treated as fully opaque (255).…"
+    },
+    {
+      "key": "texture",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "纹理",
+      "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If…"
+    },
+    {
+      "key": "Thrower",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["item"]
+      },
+      "zh": "投掷者",
+      "desc": "The UUID of the entity who dropped the item."
+    },
+    {
+      "key": "ticks_since_last_hurt_by_mob",
+      "type": "int",
+      "category": "basic",
+      "advanced": true,
+      "appliesTo": {
+        "group": "mob"
+      },
+      "zh": "距上次被生物伤害刻数",
+      "desc": "(when exists and is valid) The number of game ticks since the last time the mob was attacked by the mob des…"
+    },
+    {
+      "key": "TicksFrozen",
+      "type": "int",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "冰冻刻数",
+      "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in p…"
+    },
+    {
+      "key": "TicksSincePollination",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["bee"]
+      },
+      "zh": "距上次授粉刻数",
+      "desc": "Number of ticks passed since the bee's last pollination."
+    },
+    {
+      "key": "TileEntityData",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["falling_block"]
+      },
+      "zh": "方块实体数据",
+      "desc": "Optional. The tags of the block entity for this block."
+    },
+    {
+      "key": "Time",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["falling_block"]
+      },
+      "zh": "时间",
+      "desc": "The number of ticks the entity has existed."
+    },
+    {
+      "key": "TimeInOverworld",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["hoglin"]
+      },
+      "zh": "主世界停留时间",
+      "desc": "The number of ticks that the hoglin has existed in the Overworld; the hoglin converts to a zoglin when this…"
+    },
+    {
+      "key": "TimeInOverworld",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piglin"]
+      },
+      "zh": "主世界停留时间",
+      "desc": "The number of ticks that the piglin has existed in the Overworld; the piglin converts to a zombified piglin…"
+    },
+    {
+      "key": "TimeInOverworld",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piglin_brute"]
+      },
+      "zh": "主世界停留时间",
+      "desc": "The number of ticks that the piglin brute has existed in the Overworld; the piglin brute converts to a zomb…"
+    },
+    {
+      "key": "toBeDisplayed",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "group": "recipe-book"
+      },
+      "zh": "待显示",
+      "desc": "A list of all recipes the player has unlocked, but not viewed in the crafting helper yet."
+    },
+    {
+      "key": "TrackOutput",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block_minecart"]
+      },
+      "zh": "记录输出",
+      "desc": "1 or 0 (true/false) - Determines whether the LastOutput is stored."
+    },
+    {
+      "key": "transformation",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "变换",
+      "desc": "The rendering transformation applied to model after normal entity orientation, taking the position of the e…",
+      "children": [
+        {
+          "key": "right_rotation",
+          "type": "compound",
+          "category": "data",
+          "zh": "右旋转",
+          "desc": "(Required) Initial rotation. This tag corresponds to the right-singular vector matrix after the matrix sing…",
+          "children": [
+            {
+              "key": "angle",
+              "type": "float",
+              "category": "data",
+              "zh": "角度",
+              "desc": "(Required) The angle of rotation, in radians."
+            },
+            {
+              "key": "axis",
+              "type": "list",
+              "category": "data",
+              "zh": "轴",
+              "desc": "(Required) Axis vector with 3 elements."
+            }
+          ]
+        },
+        {
+          "key": "scale",
+          "type": "list",
+          "category": "data",
+          "zh": "缩放",
+          "desc": "(Required) Scale the model centered on the origin."
+        },
+        {
+          "key": "left_rotation",
+          "type": "compound",
+          "category": "data",
+          "zh": "左旋转",
+          "desc": "(Required) Rotates the model again. This tag corresponds to the left-singular vector matrix after the matri…",
+          "children": [
+            {
+              "key": "angle",
+              "type": "float",
+              "category": "data",
+              "zh": "角度",
+              "desc": "(Required) The angle of rotation, in radians."
+            },
+            {
+              "key": "axis",
+              "type": "list",
+              "category": "data",
+              "zh": "轴",
+              "desc": "(Required) Axis vector with 3 elements."
+            }
+          ]
+        },
+        {
+          "key": "translation",
+          "type": "list",
+          "category": "data",
+          "zh": "平移",
+          "desc": "(Required) Translation transformation. This tag corresponds to the last column in the matrix form. This tag…"
+        }
+      ]
+    },
+    {
+      "key": "Trusted",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["fox"]
+      },
+      "zh": "信任玩家",
+      "desc": "A list of players that the fox trusts. For a list with more than 2 elements, only the first and the last ar…"
+    },
+    {
+      "key": "Trusting",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["ocelot"]
+      },
+      "zh": "信任中",
+      "desc": "1 or 0 (true/false) - true if the ocelot trusts players."
+    },
+    {
+      "key": "TXD",
+      "type": "double",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["shulker_bullet"]
+      },
+      "zh": "传送目标 X",
+      "desc": "The offset in the X direction to travel in accordance with its target."
+    },
+    {
+      "key": "TYD",
+      "type": "double",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["shulker_bullet"]
+      },
+      "zh": "传送目标 Y",
+      "desc": "The offset in the Y direction to travel in accordance with its target."
+    },
+    {
+      "key": "type",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["salmon"]
+      },
+      "zh": "类型",
+      "desc": "Can be small, medium, or large. The size of the salmon. Represents the minecraft:salmon/size component."
+    },
+    {
+      "key": "Type",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["fox"]
+      },
+      "zh": "类型",
+      "desc": "The fox's variant. Represents the minecraft:fox/variant component."
+    },
+    {
+      "key": "Type",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mooshroom"]
+      },
+      "zh": "类型",
+      "desc": "ID of the mooshroom's type. Represents the minecraft:mooshroom/variant component."
+    },
+    {
+      "key": "TZD",
+      "type": "double",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["shulker_bullet"]
+      },
+      "zh": "传送目标 Z",
+      "desc": "The offset in the Z direction to travel in accordance with its target."
+    },
+    {
+      "key": "UUID",
+      "type": "int",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "UUID",
+      "desc": "This entity's Universally Unique IDentifier."
+    },
+    {
+      "key": "Value",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["experience_orb"]
+      },
+      "zh": "值",
+      "desc": "The amount of experience the orb gives when picked up."
+    },
+    {
+      "key": "variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["cat"]
+      },
+      "zh": "变种",
+      "desc": "The variant of the cat. Assuming no custom data packs, this is always a value from the table below."
+    },
+    {
+      "key": "variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["chicken"]
+      },
+      "zh": "变种",
+      "desc": "The variant of the chicken. Assuming no custom data packs, this is always minecraft: followed by one of col…"
+    },
+    {
+      "key": "variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["cow"]
+      },
+      "zh": "变种",
+      "desc": "The variant of the cow. Assuming no custom data packs, this is always minecraft: followed by one of cold, t…"
+    },
+    {
+      "key": "variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["frog"]
+      },
+      "zh": "变种",
+      "desc": "ID of the frog's variant. Represents the minecraft:frog/variant component."
+    },
+    {
+      "key": "variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["pig"]
+      },
+      "zh": "变种",
+      "desc": "The variant of the pig. Assuming no custom data packs, this is always minecraft: followed by one of cold, t…"
+    },
+    {
+      "key": "variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["wolf"]
+      },
+      "zh": "变种",
+      "desc": "The variant of the wolf. Assuming no custom data packs, this is always minecraft: followed by one of ashen,…"
+    },
+    {
+      "key": "variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_nautilus"]
+      },
+      "zh": "变种",
+      "desc": "the variant of the nautilus. Represents the minecraft:zombie_nautilus/variant component."
+    },
+    {
+      "key": "variant",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["painting"]
+      },
+      "zh": "变种",
+      "desc": "One painting variant (an ID). Represents the minecraft:painting/variant component."
+    },
+    {
+      "key": "Variant",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["axolotl"]
+      },
+      "zh": "变种",
+      "desc": "ID of the axolotl's variant. Represents the minecraft:axolotl/variant component."
+    },
+    {
+      "key": "Variant",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["horse"]
+      },
+      "zh": "变种",
+      "desc": "The variant and markings of the horse. Encoded as variant | (markings << 8). Unused values lead to white ho…"
+    },
+    {
+      "key": "Variant",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["llama"]
+      },
+      "zh": "变种",
+      "desc": "The variant of the llama. Represents the minecraft:llama/variant component."
+    },
+    {
+      "key": "Variant",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["parrot"]
+      },
+      "zh": "变种",
+      "desc": "Specifies the color variant of the parrot, default is 0."
+    },
+    {
+      "key": "Variant",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trader_llama"]
+      },
+      "zh": "变种",
+      "desc": "The variant of the llama. Represents the minecraft:llama/variant component."
+    },
+    {
+      "key": "Variant",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["tropical_fish"]
+      },
+      "zh": "变种",
+      "desc": "A 4-byte integer. Encodes the minecraft:tropical_fish/base_color, minecraft:tropical_fish/pattern, and mine…"
+    },
+    {
+      "key": "view_range",
+      "type": "float",
+      "default": "1.0f",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "视距",
+      "desc": "Maximum view range of the entity. When the distance is more than <view_range>×<options.txt|entityDistanceSc…"
+    },
+    {
+      "key": "VillagerData",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["villager"]
+      },
+      "zh": "村民数据",
+      "desc": "Information about the villager’s type, profession, and level.",
+      "children": [
+        {
+          "key": "level",
+          "type": "int",
+          "category": "data",
+          "zh": "等级",
+          "desc": "The current level of this villager's profession."
+        },
+        {
+          "key": "profession",
+          "type": "string",
+          "category": "data",
+          "zh": "职业",
+          "desc": "A resource location indicating the villager's profession; see Villager § Professions."
+        },
+        {
+          "key": "type",
+          "type": "string",
+          "category": "data",
+          "zh": "类型",
+          "desc": "A resource location indicating the villager's type; see Villager § Appearance."
+        }
+      ]
+    },
+    {
+      "key": "VillagerData",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "村民数据",
+      "desc": "Information about the villager’s type, profession, and level.",
+      "children": [
+        {
+          "key": "level",
+          "type": "int",
+          "category": "data",
+          "zh": "等级",
+          "desc": "The current level of this villager's profession."
+        },
+        {
+          "key": "profession",
+          "type": "string",
+          "category": "data",
+          "zh": "职业",
+          "desc": "A resource location indicating the villager's profession; see Villager § Professions."
+        },
+        {
+          "key": "type",
+          "type": "string",
+          "category": "data",
+          "zh": "类型",
+          "desc": "A resource location indicating the villager's type; see Villager § Appearance."
+        }
+      ]
+    },
+    {
+      "key": "VillagerDataFinalized",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["villager"]
+      },
+      "zh": "村民数据已定型",
+      "desc": "This field is seemingly only used by the game's data fixer, and is always 1b for villagers and zombie villa…"
+    },
+    {
+      "key": "VillagerDataFinalized",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "村民数据已定型",
+      "desc": "This field is seemingly only used by the game's data fixer, and is always 1b for villagers and zombie villa…"
+    },
+    {
+      "key": "WaitTime",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["area_effect_cloud"]
+      },
+      "zh": "等待时间",
+      "desc": "The time before deploying the field. The Radius is ignored, meaning that any specified effects is not appli…"
+    },
+    {
+      "key": "wander_target",
+      "type": "int_array",
+      "category": "ai",
+      "appliesTo": {
+        "ids": ["wandering_trader"]
+      },
+      "zh": "漫游目标",
+      "desc": "The block location that the trader wanders toward."
+    },
+    {
+      "key": "warden_spawn_tracker",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "监守者生成追踪",
+      "desc": "Contains data about the warden spawning process for this player.",
+      "children": [
+        {
+          "key": "warning_level",
+          "type": "int",
+          "category": "data",
+          "zh": "警告等级",
+          "desc": "A warning level between 0, and 4 (inclusive)."
+        },
+        {
+          "key": "cooldown_ticks",
+          "type": "int",
+          "category": "data",
+          "zh": "冷却刻数",
+          "desc": "The number of game ticks before the warning_level can be increased again."
+        },
+        {
+          "key": "ticks_since_last_warning",
+          "type": "int",
+          "category": "data",
+          "zh": "距上次警告刻数",
+          "desc": "The number of game ticks since the player was warned for warden spawning."
+        }
+      ]
+    },
+    {
+      "key": "Warmup",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["evoker_fangs"]
+      },
+      "zh": "预热时间",
+      "desc": "Time in ticks until the fangs appear. The fangs appear and begin to close as soon as this value becomes zer…"
+    },
+    {
+      "key": "wasOnGround",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "cube-mob"
+      },
+      "zh": "曾在地面",
+      "desc": "1 or 0 (true/false) - true if the mob is touching the ground."
+    },
+    {
+      "key": "Wave",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "raidable"
+      },
+      "zh": "波次",
+      "desc": "Raid wave that the mob spawned as part of."
+    },
+    {
+      "key": "weapon",
+      "type": "compound",
+      "category": "combat",
+      "appliesTo": {
+        "group": "arrow"
+      },
+      "zh": "武器",
+      "desc": "The bow or crossbow item that the arrow was shot using."
+    },
+    {
+      "key": "weather_state",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["copper_golem"]
+      },
+      "zh": "天气状态",
+      "desc": "unaffected, exposed, weathered, or oxidized - the oxidation level of the copper golem"
+    },
+    {
+      "key": "width",
+      "type": "float",
+      "default": "1f",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["interaction"]
+      },
+      "zh": "宽度",
+      "desc": "The width of the entity's bounding box. Defaults to 1."
+    },
+    {
+      "key": "width",
+      "type": "float",
+      "default": "0f",
+      "category": "basic",
+      "appliesTo": {
+        "group": "display-entity"
+      },
+      "zh": "宽度",
+      "desc": "The maximum width of the entity. Rendering culling bounding box spans horizontally width/2 from entity posi…"
+    },
+    {
+      "key": "x",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "blockentity"
+      },
+      "zh": "X",
+      "desc": "X coordinate of the block entity."
+    },
+    {
+      "key": "Xp",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["villager"]
+      },
+      "zh": "经验值",
+      "desc": "How much experience the villager currently has, increases with trading in various amounts."
+    },
+    {
+      "key": "Xp",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["zombie_villager"]
+      },
+      "zh": "经验值",
+      "desc": "How much experience the villager currently has, increases with trading in various amounts."
+    },
+    {
+      "key": "XpLevel",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "经验等级",
+      "desc": "The level shown on the experience bar."
+    },
+    {
+      "key": "XpP",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "经验进度",
+      "desc": "The progress across the experience bar to the next level, stored as a percentage."
+    },
+    {
+      "key": "XpSeed",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "附魔种子",
+      "desc": "The seed used for the next enchantment in enchanting tables."
+    },
+    {
+      "key": "XpTotal",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["player"]
+      },
+      "zh": "经验总值",
+      "desc": "The total amount of experience the player has collected over time; used for the score upon death."
+    },
+    {
+      "key": "y",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "blockentity"
+      },
+      "zh": "Y",
+      "desc": "Y coordinate of the block entity."
+    },
+    {
+      "key": "z",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "blockentity"
+      },
+      "zh": "Z",
+      "desc": "Z coordinate of the block entity."
+    }
+  ]
+}

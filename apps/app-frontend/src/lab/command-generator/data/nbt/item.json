@@ -1,0 +1,1168 @@
+{
+  "schemaVersion": 1,
+  "domain": "item",
+  "retrievedAt": "2026-11-20",
+  "sources": [
+    {
+      "page": "Data component format",
+      "revision": 3903955
+    }
+  ],
+  "fields": [
+    {
+      "key": "additional_trade_cost",
+      "type": "int",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "额外交易花费",
+      "desc": "The following components were added and used in April Fools' Day joke snapshots."
+    },
+    {
+      "key": "attack_animation",
+      "type": "compound",
+      "category": "combat",
+      "since": "1.20.5",
+      "zh": "攻击动画",
+      "desc": "Example: /give @s diamond"
+    },
+    {
+      "key": "attack_range",
+      "type": "compound",
+      "category": "combat",
+      "since": "1.20.5",
+      "zh": "攻击距离",
+      "desc": "Example: /give @s diamond"
+    },
+    {
+      "key": "attribute_modifiers",
+      "type": "compound",
+      "category": "combat",
+      "since": "1.20.5",
+      "editor": "attribute_modifiers",
+      "zh": "属性修饰符",
+      "desc": "Example: /give @s stick]"
+    },
+    {
+      "key": "banner_patterns",
+      "type": "list",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "旗帜图案",
+      "desc": "Example: /give @s black_banner]"
+    },
+    {
+      "key": "base_color",
+      "type": "string",
+      "category": "appearance",
+      "since": "1.20.5",
+      "zh": "基础颜色",
+      "desc": "Example: /give @s shield"
+    },
+    {
+      "key": "bees",
+      "type": "list",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "蜜蜂",
+      "desc": "Example: /give @s bee_nest]"
+    },
+    {
+      "key": "block_entity_data",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "方块实体数据",
+      "desc": "Example: /give @s spawner* Gives a spider spawner."
+    },
+    {
+      "key": "block_state",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "方块状态",
+      "desc": "Example: /give @s bamboo_slab"
+    },
+    {
+      "key": "block_transformer",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "方块转换器",
+      "desc": "Example: /give @s blaze_rod"
+    },
+    {
+      "key": "blocks_attacks",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "格挡攻击",
+      "desc": "Example: /give @s diamond_sword,base:0,factor:0.5}],block_sound:block.anvil.place}]"
+    },
+    {
+      "key": "break_sound",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "破坏音效",
+      "desc": "Example: /give @s diamond_sword"
+    },
+    {
+      "key": "brewing_fuel",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "酿造燃料",
+      "desc": "Example: /give @s stick"
+    },
+    {
+      "key": "bucket_entity_data",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "桶内实体数据",
+      "desc": "Other tags such as the entity's name or variant are stored as separate item components such as minecraft:cu…"
+    },
+    {
+      "key": "bundle_contents",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "收纳袋内容",
+      "desc": "Example: /give @s bundle]"
+    },
+    {
+      "key": "can_break",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "editor": "block_predicates",
+      "zh": "可破坏方块",
+      "desc": "When present, the player holding the item can break the specified blocks in Adventure mode."
+    },
+    {
+      "key": "can_place_on",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "editor": "block_predicates",
+      "zh": "可放置于",
+      "desc": "Example: /give @s target"
+    },
+    {
+      "key": "charged_projectiles",
+      "type": "list",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "已装填弹射物",
+      "desc": "Example: /give @s crossbow]"
+    },
+    {
+      "key": "compostable",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "可堆肥",
+      "desc": "If present, the item can be used on composters, regardless of the value returned by layers:"
+    },
+    {
+      "key": "consumable",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "可消耗",
+      "desc": "If present, the item can be consumed. Its options can also be modified."
+    },
+    {
+      "key": "container",
+      "type": "list",
+      "category": "inventory",
+      "since": "1.20.5",
+      "zh": "容器",
+      "desc": "Example: /give @s barrel]"
+    },
+    {
+      "key": "container_loot",
+      "type": "compound",
+      "category": "inventory",
+      "since": "1.20.5",
+      "zh": "容器战利品表",
+      "desc": "Example: /give @s chest"
+    },
+    {
+      "key": "cooking_fuel",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "烹饪燃料",
+      "desc": "Controls whether an item can be used as smelting fuel and how effective a fuel it is."
+    },
+    {
+      "key": "creative_slot_lock",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "创造槽位锁定",
+      "desc": "The following components were added and used in April Fools' Day joke snapshots."
+    },
+    {
+      "key": "custom_data",
+      "type": "string",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "自定义数据",
+      "desc": "Example: /give @s iron_sword"
+    },
+    {
+      "key": "custom_model_data",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "自定义模型数据",
+      "desc": "Example:"
+    },
+    {
+      "key": "custom_name",
+      "type": "compound",
+      "category": "appearance",
+      "since": "1.20.5",
+      "zh": "自定义名称",
+      "desc": "Used to specify an item, block, or entity's custom name."
+    },
+    {
+      "key": "damage",
+      "type": "int",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "伤害",
+      "desc": "Example: /give @s diamond_axe"
+    },
+    {
+      "key": "damage_resistant",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "抗伤害类型",
+      "desc": "Example: /give @s cake"
+    },
+    {
+      "key": "damage_type",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "伤害类型",
+      "desc": "Example: /give @s diamond_sword"
+    },
+    {
+      "key": "death_protection",
+      "type": "compound",
+      "category": "combat",
+      "since": "1.20.5",
+      "zh": "死亡保护",
+      "desc": "Example: /give @s nether_star}]"
+    },
+    {
+      "key": "debug_stick_state",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "调试棒状态",
+      "desc": "Example: /give @s debug_stick"
+    },
+    {
+      "key": "dye",
+      "type": "string",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "染料",
+      "desc": "Example: /give @s blue_dye"
+    },
+    {
+      "key": "dyed_color",
+      "type": "int",
+      "category": "appearance",
+      "since": "1.20.5",
+      "zh": "染色颜色",
+      "desc": "Example: /give @s leather_helmet"
+    },
+    {
+      "key": "enchantable",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "可附魔",
+      "desc": "Example: /give @s elytra"
+    },
+    {
+      "key": "enchantment_glint_override",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "附魔光效覆盖",
+      "desc": "Example: /give @s experience_bottle"
+    },
+    {
+      "key": "enchantments",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "editor": "enchantments",
+      "zh": "附魔",
+      "desc": "Example: /give @s wooden_sword"
+    },
+    {
+      "key": "entity_data",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "实体数据",
+      "desc": "Example: /give @s armor_stand"
+    },
+    {
+      "key": "equippable",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "可装备",
+      "desc": "Example 1: /give @s glass"
+    },
+    {
+      "key": "firework_explosion",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "烟花爆炸",
+      "desc": "If present and the consumable component are also present on this item, foxes consider the item as consumabl…"
+    },
+    {
+      "key": "fireworks",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "editor": "fireworks",
+      "zh": "烟花",
+      "desc": "If present and the consumable component are also present on this item, foxes consider the item as consumabl…"
+    },
+    {
+      "key": "food",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "食物",
+      "desc": "If present and the consumable component are also present on this item, foxes consider the item as consumabl…"
+    },
+    {
+      "key": "glider",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "滑翔",
+      "desc": "Example: /give @s nether_star"
+    },
+    {
+      "key": "instrument",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "乐器",
+      "desc": "Example 1: /give @s goat_horn"
+    },
+    {
+      "key": "intangible_projectile",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "无形弹射物",
+      "desc": "Example: /give @s arrow"
+    },
+    {
+      "key": "interact_animation",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "交互动画",
+      "desc": "Example: /give @s netherite_sword"
+    },
+    {
+      "key": "item_model",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "物品模型",
+      "desc": "Example: /give @s netherite_sword"
+    },
+    {
+      "key": "item_name",
+      "type": "compound",
+      "category": "appearance",
+      "since": "1.20.5",
+      "zh": "物品名称",
+      "desc": "Example: /give @s diamond"
+    },
+    {
+      "key": "jukebox_playable",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "唱片机可播放",
+      "desc": "Example: /give @s diamond"
+    },
+    {
+      "key": "kinetic_weapon",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "动能武器",
+      "desc": "Example: /give @s amethyst_shard"
+    },
+    {
+      "key": "lock",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "锁",
+      "desc": "Example 1: /give @p chest"
+    },
+    {
+      "key": "lodestone_tracker",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "磁石指针",
+      "desc": "Example: /give @s compass,dimension:\"overworld\"}}]"
+    },
+    {
+      "key": "lore",
+      "type": "list",
+      "category": "appearance",
+      "since": "1.20.5",
+      "editor": "text_lines",
+      "zh": "描述文本",
+      "desc": "Example 1: /give @p stick]"
+    },
+    {
+      "key": "map_color",
+      "type": "int",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "地图颜色",
+      "desc": "This component was removed in 26.3. Now each exploration map has its own model, instead of using a single m…"
+    },
+    {
+      "key": "map_decorations",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "地图标记",
+      "desc": "Example: /give @s diamond_pickaxe"
+    },
+    {
+      "key": "map_id",
+      "type": "int",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "地图编号",
+      "desc": "Example: /give @s diamond_pickaxe"
+    },
+    {
+      "key": "map_post_processing",
+      "type": "int",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "地图后处理",
+      "desc": "The following components were added and used in April Fools' Day joke snapshots."
+    },
+    {
+      "key": "max_damage",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "最大耐久",
+      "desc": "Example: /give @s diamond_pickaxe"
+    },
+    {
+      "key": "max_stack_size",
+      "type": "int",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "最大堆叠",
+      "desc": "Example: /give @s acacia_boat 5"
+    },
+    {
+      "key": "minimum_attack_charge",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "最低攻击蓄力",
+      "desc": "Example: /give @s diamond_sword 1"
+    },
+    {
+      "key": "mob_visibility",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "生物可见性",
+      "desc": "Example: /give @s minecraft:chainmail_helmet"
+    },
+    {
+      "key": "note_block_sound",
+      "type": "string",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "音符盒音效",
+      "desc": "Example: /give @p minecraft:player_head"
+    },
+    {
+      "key": "ominous_bottle_amplifier",
+      "type": "int",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "不祥之瓶等级",
+      "desc": "Example: /give @s minecraft:blaze_rod"
+    },
+    {
+      "key": "piercing_weapon",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "穿刺武器",
+      "desc": "Example: /give @s minecraft:blaze_rod"
+    },
+    {
+      "key": "pot_decorations",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "陶罐碎片",
+      "desc": "Example: /give @p potion"
+    },
+    {
+      "key": "potion_contents",
+      "type": "compound",
+      "category": "effect",
+      "since": "1.20.5",
+      "editor": "potion_contents",
+      "zh": "药水内容",
+      "desc": "Example: /give @p potion"
+    },
+    {
+      "key": "potion_duration_scale",
+      "type": "compound",
+      "category": "effect",
+      "since": "1.20.5",
+      "zh": "药水时长倍率",
+      "desc": "Example: /give @p potion"
+    },
+    {
+      "key": "profile",
+      "type": "compound",
+      "category": "appearance",
+      "since": "1.20.5",
+      "zh": "玩家档案",
+      "desc": "Example: /give @p player_head"
+    },
+    {
+      "key": "provides_banner_patterns",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "提供旗帜图案",
+      "desc": "Example: /give @p diamond"
+    },
+    {
+      "key": "provides_pottery_pattern",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "提供陶片图案",
+      "desc": "Example: /give @p iron_sword"
+    },
+    {
+      "key": "provides_trim_material",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "提供盔甲纹饰材料",
+      "desc": "Example: /give @p iron_sword"
+    },
+    {
+      "key": "rarity",
+      "type": "string",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "稀有度",
+      "desc": "Example: /give @p iron_sword"
+    },
+    {
+      "key": "recipes",
+      "type": "list",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "配方",
+      "desc": "Example: /give @p knowledge_book]"
+    },
+    {
+      "key": "repair_cost",
+      "type": "int",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "修理花费",
+      "desc": "Example: /give @p diamond_sword"
+    },
+    {
+      "key": "repairable",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "可修理",
+      "desc": "Example: /give @p diamond_sword"
+    },
+    {
+      "key": "sign_text_back",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "告示牌背面文字"
+    },
+    {
+      "key": "sign_text_front",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "告示牌正面文字"
+    },
+    {
+      "key": "stored_enchantments",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "editor": "enchantments",
+      "zh": "存储的附魔",
+      "desc": "Example: /give @p oak_fence}]"
+    },
+    {
+      "key": "sulfur_cube_content",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "硫磺立方内容",
+      "desc": "Example: /give @p oak_fence}]"
+    },
+    {
+      "key": "suspicious_stew_effects",
+      "type": "list",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "可疑炖菜效果",
+      "desc": "Example: /give @p oak_fence}]"
+    },
+    {
+      "key": "swing_animation",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "挥动动画",
+      "desc": "This component was split into attack_animation and interact_animation in 26.3."
+    },
+    {
+      "key": "tag",
+      "type": "compound",
+      "category": "data",
+      "until": "1.20.4",
+      "editor": "legacy_item_tag",
+      "zh": "旧版附加数据",
+      "desc": "Item data before 1.20.5, replaced by data components.",
+      "children": [
+        {
+          "key": "display",
+          "type": "compound",
+          "category": "data",
+          "desc": "Display properties.",
+          "children": [
+            {
+              "key": "Name",
+              "type": "string",
+              "category": "data",
+              "zh": "名称",
+              "desc": "The JSON text component to use to display the item."
+            },
+            {
+              "key": "Lore",
+              "type": "list",
+              "elementType": "string",
+              "category": "data",
+              "desc": "List of strings to display as lore for the item."
+            },
+            {
+              "key": "color",
+              "type": "int",
+              "category": "data",
+              "zh": "颜色",
+              "desc": "The color of the leather armor. The tooltip displays \"Dyed\" if advanced tooltips are disabled, otherwise it…"
+            },
+            {
+              "key": "MapColor",
+              "type": "int",
+              "category": "data",
+              "desc": "The color of the markings on the item's texture."
+            }
+          ]
+        },
+        {
+          "key": "HideFlags",
+          "type": "int",
+          "category": "data",
+          "desc": "Bit field determining which parts of the tooltip to hide on an item."
+        },
+        {
+          "key": "CustomModelData",
+          "type": "int",
+          "category": "data",
+          "desc": "A value used in the \"custom_model_data\" item tag in the overrides of item models."
+        },
+        {
+          "key": "AttributeModifiers",
+          "type": "list",
+          "category": "data",
+          "desc": "Contains Attribute Modifiers on this item which modify Attributes of the wearer or holder (if the item is n…"
+        },
+        {
+          "key": "Enchantments",
+          "type": "list",
+          "category": "data",
+          "desc": "Contains enchantments on this item that affect the way the item works."
+        },
+        {
+          "key": "StoredEnchantments",
+          "type": "list",
+          "category": "data",
+          "desc": "Contains enchantments for enchanted books."
+        },
+        {
+          "key": "RepairCost",
+          "type": "int",
+          "category": "data",
+          "desc": "Number of experience levels to add to the base level cost when repairing, combining, or renaming this item…"
+        },
+        {
+          "key": "CanDestroy",
+          "type": "list",
+          "category": "data",
+          "desc": "The only blocks this item may break when used by a player in adventure mode."
+        },
+        {
+          "key": "CanPlaceOn",
+          "type": "list",
+          "category": "data",
+          "desc": "Determines which blocks that blocks with this tag can be placed against in adventure mode."
+        },
+        {
+          "key": "BlockEntityTag",
+          "type": "compound",
+          "category": "data",
+          "desc": "Block entity NBT tags which are applied when this block is placed."
+        },
+        {
+          "key": "BlockStateTag",
+          "type": "compound",
+          "category": "data",
+          "desc": "A compound where each key is a block state key, and the value is the block state value to force place for t…",
+          "children": [
+            {
+              "key": "Block state key",
+              "type": "string",
+              "category": "data",
+              "desc": "The block state value of the block to edit, for example, facing: \"east\"."
+            }
+          ]
+        },
+        {
+          "key": "Damage",
+          "type": "int",
+          "category": "data",
+          "desc": "The number of uses consumed (not remaining) of the item's durability."
+        },
+        {
+          "key": "Unbreakable",
+          "type": "byte",
+          "category": "data",
+          "desc": "1 or 0 (true/false) - if true, the item doesn't lose durability when used."
+        },
+        {
+          "key": "custom_potion_effects",
+          "type": "list",
+          "category": "data",
+          "desc": "The custom potion effects (status effects) this potion or tipped arrow has."
+        },
+        {
+          "key": "Potion",
+          "type": "string",
+          "category": "data",
+          "desc": "The name of the default potion effect. This name differs from the status effect name. For example, the valu…"
+        },
+        {
+          "key": "CustomPotionColor",
+          "type": "int",
+          "category": "data",
+          "desc": "The item uses this custom color, and area-of-effect clouds, arrows, and splash and lingering potions use it…"
+        },
+        {
+          "key": "Trim",
+          "type": "compound",
+          "category": "data",
+          "desc": "Properties of Armor Trim.",
+          "children": [
+            {
+              "key": "material",
+              "type": "string",
+              "category": "data",
+              "desc": "The material which decides the color of armor trim."
+            },
+            {
+              "key": "pattern",
+              "type": "string",
+              "category": "data",
+              "desc": "The pattern of armor trim."
+            }
+          ]
+        },
+        {
+          "key": "EntityTag",
+          "type": "compound",
+          "category": "data",
+          "desc": "Stores entity data that is applied to the entity when created."
+        },
+        {
+          "key": "filtered_pages",
+          "type": "compound",
+          "category": "data",
+          "desc": "Only in Realms. The pages shown to players with the profanity filter turned on instead of some of the regul…"
+        },
+        {
+          "key": "pages",
+          "type": "list",
+          "category": "data",
+          "desc": "The list of pages in the book."
+        },
+        {
+          "key": "filtered_title",
+          "type": "string",
+          "category": "data",
+          "desc": "Only in Realms. The title shown to players with the profanity filter turned on instead of the regular title…"
+        },
+        {
+          "key": "resolved",
+          "type": "byte",
+          "category": "data",
+          "desc": "Optional. Created and set to 1 when the book (or a book from the stack) is opened for the first time after…"
+        },
+        {
+          "key": "generation",
+          "type": "int",
+          "category": "data",
+          "desc": "Optional. The copy tier of the book. 0 = original, 1 = copy of original, 2 = copy of copy, 3 = tattered. If…"
+        },
+        {
+          "key": "author",
+          "type": "string",
+          "category": "data",
+          "zh": "作者",
+          "desc": "The author of the written book."
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "category": "data",
+          "desc": "The title of the written book. Lower priority than the item name set by tag.display.Name. Cannot be used to…"
+        },
+        {
+          "key": "Recipes",
+          "type": "list",
+          "category": "data",
+          "zh": "配方列表",
+          "desc": "The list of recipes this book contains."
+        },
+        {
+          "key": "BucketVariantTag",
+          "type": "int",
+          "category": "data",
+          "desc": "The variant data of the tropical fish in the bucket."
+        },
+        {
+          "key": "Items",
+          "type": "list",
+          "elementType": "compound",
+          "category": "data",
+          "zh": "物品列表",
+          "desc": "List of items in the bundle."
+        },
+        {
+          "key": "LodestoneTracked",
+          "type": "byte",
+          "category": "data",
+          "desc": "Optional. 1 or 0 (true/false) - true if the compass is connected to a lodestone. When false, LodestoneDimen…"
+        },
+        {
+          "key": "LodestoneDimension",
+          "type": "string",
+          "category": "data",
+          "desc": "Optional. The dimension of the lodestone to which the compass is pointing."
+        },
+        {
+          "key": "LodestonePos",
+          "type": "compound",
+          "category": "data",
+          "desc": "Optional. The coordinates of the lodestone to which the compass is pointing.",
+          "children": [
+            {
+              "key": "X",
+              "type": "int",
+              "category": "data",
+              "desc": "x coordinate"
+            },
+            {
+              "key": "Y",
+              "type": "int",
+              "category": "data",
+              "desc": "y coordinate"
+            },
+            {
+              "key": "Z",
+              "type": "int",
+              "category": "data",
+              "desc": "z coordinate"
+            }
+          ]
+        },
+        {
+          "key": "ChargedProjectiles",
+          "type": "list",
+          "category": "data",
+          "desc": "The items this crossbow has charged, normally one entry (three if enchanted with multishot)"
+        },
+        {
+          "key": "Charged",
+          "type": "byte",
+          "category": "data",
+          "desc": "If the crossbow is charged."
+        },
+        {
+          "key": "DebugProperty",
+          "type": "compound",
+          "category": "data",
+          "desc": "A compound where each key is a block ID, and the value is the block state key to edit for that block ID.",
+          "children": [
+            {
+              "key": "Block ID",
+              "type": "string",
+              "category": "data",
+              "desc": "The block state key of the block to edit, for example \"minecraft:oak_fence\": \"east\"."
+            }
+          ]
+        },
+        {
+          "key": "Fireworks",
+          "type": "compound",
+          "category": "data",
+          "desc": "One of these may appear on a firework rocket.",
+          "children": [
+            {
+              "key": "Explosions",
+              "type": "list",
+              "category": "data",
+              "desc": "List of compounds representing each explosion this firework causes."
+            },
+            {
+              "key": "Flight",
+              "type": "byte",
+              "category": "data",
+              "desc": "Indicates the flight duration of the firework (equals the amount of gunpowder used in crafting the rocket)."
+            }
+          ]
+        },
+        {
+          "key": "Explosion",
+          "type": "compound",
+          "category": "data",
+          "desc": "The explosion effect contributed by this firework star."
+        },
+        {
+          "key": "instrument",
+          "type": "string",
+          "category": "data",
+          "zh": "乐器",
+          "desc": "The identifier of the goat horn variant."
+        },
+        {
+          "key": "map",
+          "type": "int",
+          "category": "data",
+          "desc": "The map number."
+        },
+        {
+          "key": "map_scale_direction",
+          "type": "int",
+          "category": "data",
+          "desc": "Only internally used when scaling a map, after that directly removed: The amount to increase the current ma…"
+        },
+        {
+          "key": "map_to_lock",
+          "type": "byte",
+          "category": "data",
+          "desc": "1 or 0 (true/false) - true if the map should be locked after being taken out of the cartography table."
+        },
+        {
+          "key": "Decorations",
+          "type": "list",
+          "category": "data",
+          "desc": "A list of optional icons to display on the map."
+        },
+        {
+          "key": "SkullOwner",
+          "type": "compound",
+          "category": "data",
+          "desc": "The username of the player this is a skull of.",
+          "children": [
+            {
+              "key": "Id",
+              "type": "int_array",
+              "category": "data",
+              "advanced": true,
+              "desc": "UUID of owner, stored as four ints. Optional. Used to update the other tags when the chunk loads or the hol…"
+            },
+            {
+              "key": "Name",
+              "type": "string",
+              "category": "data",
+              "zh": "名称",
+              "desc": "Username of owner. If missing or empty, the head appears as a Steve head. Otherwise, used to store or retri…"
+            },
+            {
+              "key": "Properties",
+              "type": "compound",
+              "category": "data",
+              "zh": "属性",
+              "children": [
+                {
+                  "key": "textures",
+                  "type": "list",
+                  "category": "data"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "effects",
+          "type": "list",
+          "category": "data",
+          "desc": "The status effects this suspicious stew has."
+        }
+      ]
+    },
+    {
+      "key": "tool",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "工具",
+      "desc": "Example: /give @p oak_fence}]"
+    },
+    {
+      "key": "tooltip_display",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "提示框显示",
+      "desc": "Example 1: /give @p diamond_sword},enchantments={sharpness:1}]"
+    },
+    {
+      "key": "tooltip_style",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "提示框样式",
+      "desc": "Example: /give @p minecraft:leather_leggings 1"
+    },
+    {
+      "key": "trim",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "盔甲纹饰",
+      "desc": "Example: /give @p minecraft:leather_leggings 1"
+    },
+    {
+      "key": "unbreakable",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "无法破坏",
+      "desc": "Example: /give @p ender_pearl"
+    },
+    {
+      "key": "use_cooldown",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "使用冷却",
+      "desc": "Example: /give @p ender_pearl"
+    },
+    {
+      "key": "use_effects",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "使用效果",
+      "desc": "Example 1: /give @p splash_potion"
+    },
+    {
+      "key": "use_remainder",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "使用后残留",
+      "desc": "Example 1: /give @p splash_potion"
+    },
+    {
+      "key": "villager_food",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "村民食物",
+      "desc": "Example: /give @s minecraft:golden_apple 1"
+    },
+    {
+      "key": "waxed",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "已打蜡",
+      "desc": "Example: /give @s minecraft:oak_sign}] 1"
+    },
+    {
+      "key": "weapon",
+      "type": "compound",
+      "category": "combat",
+      "since": "1.20.5",
+      "zh": "武器",
+      "desc": "If present, the item acts as a weapon. For attack damage see the attribute_modifiers component."
+    },
+    {
+      "key": "writable_book_content",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "书与笔内容",
+      "desc": "Entity variant components are a group of components that are present in items like spawn eggs, mob buckets,…"
+    },
+    {
+      "key": "written_book_content",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "成书内容",
+      "desc": "Entity variant components are a group of components that are present in items like spawn eggs, mob buckets,…"
+    }
+  ]
+}

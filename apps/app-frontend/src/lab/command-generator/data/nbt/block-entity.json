@@ -1,0 +1,2602 @@
+{
+  "schemaVersion": 1,
+  "domain": "block_entity",
+  "retrievedAt": "2026-11-20",
+  "sources": [
+    {
+      "page": "Block entity format",
+      "revision": 0
+    }
+  ],
+  "groups": {
+    "entity": {
+      "ids": ["beehive"]
+    },
+    "itemnoslot": {
+      "ids": ["decorated_pot", "jukebox", "lectern"]
+    },
+    "item": {
+      "ids": [
+        "barrel",
+        "blast_furnace",
+        "brewing_stand",
+        "campfire",
+        "chest",
+        "chiseled_bookshelf",
+        "crafter",
+        "dispenser",
+        "dropper",
+        "furnace",
+        "hopper",
+        "shulker_box",
+        "smoker",
+        "soul_campfire",
+        "trapped_chest",
+        "vault"
+      ]
+    },
+    "block-state": {
+      "ids": ["piston"]
+    },
+    "profile": {
+      "ids": ["skull"]
+    },
+    "spawn-data": {
+      "ids": ["mob_spawner", "trial_spawner"]
+    },
+    "blockentity": {
+      "any": true
+    },
+    "nameable": {
+      "ids": [
+        "banner",
+        "barrel",
+        "beacon",
+        "blast_furnace",
+        "brewing_stand",
+        "chest",
+        "command_block",
+        "crafter",
+        "dispenser",
+        "dropper",
+        "enchanting_table",
+        "furnace",
+        "hopper",
+        "shulker_box",
+        "smoker",
+        "trapped_chest"
+      ]
+    },
+    "banner-pattern": {
+      "ids": ["banner"]
+    },
+    "lockable": {
+      "ids": [
+        "barrel",
+        "beacon",
+        "blast_furnace",
+        "brewing_stand",
+        "chest",
+        "crafter",
+        "dispenser",
+        "dropper",
+        "furnace",
+        "hopper",
+        "shulker_box",
+        "smoker",
+        "trapped_chest"
+      ]
+    },
+    "lootable": {
+      "ids": [
+        "barrel",
+        "brushable_block",
+        "chest",
+        "crafter",
+        "decorated_pot",
+        "dispenser",
+        "dropper",
+        "hopper",
+        "shulker_box",
+        "trapped_chest"
+      ]
+    },
+    "sign-text-object": {
+      "ids": ["hanging_sign", "sign"]
+    },
+    "trial-spawner-config": {
+      "ids": ["trial_spawner"]
+    }
+  },
+  "fields": [
+    {
+      "key": "Age",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["end_gateway"]
+      },
+      "zh": "成长时间",
+      "desc": "Age of the portal, in ticks. This is used to determine when the beam is rendered."
+    },
+    {
+      "key": "Air",
+      "type": "short",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "氧气值",
+      "desc": "How much air the entity has, in game ticks."
+    },
+    {
+      "key": "allow_op_features",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["hanging_sign"]
+      },
+      "zh": "允许管理员特性",
+      "desc": "1 or 0 (true/false), defaults to false. If true, the sign will execute run_command, show_dialog, and custom…"
+    },
+    {
+      "key": "allow_op_features",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sign"]
+      },
+      "zh": "允许管理员特性",
+      "desc": "1 or 0 (true/false), defaults to false. If true, the sign will execute run_command, show_dialog, and custom…"
+    },
+    {
+      "key": "asset_id",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "banner-pattern"
+      },
+      "zh": "资源 ID",
+      "desc": "The resource location for the texture asset."
+    },
+    {
+      "key": "author",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "作者",
+      "desc": "Author of the structure; only set to \"?\" for most vanilla structures."
+    },
+    {
+      "key": "auto",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block"]
+      },
+      "zh": "自动执行",
+      "desc": "1 or 0 (true/false) - Allows to activate the command without the requirement of a redstone signal."
+    },
+    {
+      "key": "back_text",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["hanging_sign"]
+      },
+      "zh": "背面文字",
+      "desc": "A compound that describes back text. Represents the minecraft:sign_text_back component."
+    },
+    {
+      "key": "back_text",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sign"]
+      },
+      "zh": "背面文字",
+      "desc": "A compound that describes back text. Represents the minecraft:sign_text_back component."
+    },
+    {
+      "key": "bees",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["beehive"]
+      },
+      "zh": "蜜蜂",
+      "desc": "Entities currently in the hive. Represents the minecraft:bees component."
+    },
+    {
+      "key": "blockState",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piston"]
+      },
+      "zh": "方块状态",
+      "desc": "The moving block represented by this block entity."
+    },
+    {
+      "key": "Book",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["lectern"]
+      },
+      "editor": "written_book",
+      "zh": "书内容",
+      "desc": "The book item, without the slot tag, currently on the lectern, may not exist."
+    },
+    {
+      "key": "BrewTime",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["brewing_stand"]
+      },
+      "zh": "酿造时间",
+      "desc": "The number of ticks the potions have to brew."
+    },
+    {
+      "key": "cape",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "披风",
+      "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specifi…"
+    },
+    {
+      "key": "color",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "sign-text-object"
+      },
+      "zh": "颜色",
+      "desc": "The color that has been used to dye the sign."
+    },
+    {
+      "key": "Command",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block"]
+      },
+      "zh": "命令",
+      "desc": "The command to issue to the server."
+    },
+    {
+      "key": "conditionMet",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block"]
+      },
+      "zh": "条件已满足",
+      "desc": "1 or 0 (true/false) - Indicates whether a conditional command block had its condition met when last activated."
+    },
+    {
+      "key": "config",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["vault"]
+      },
+      "zh": "配置",
+      "desc": "Configuration data that does not automatically change.",
+      "children": [
+        {
+          "key": "loot_table",
+          "type": "string",
+          "category": "data",
+          "zh": "战利品表",
+          "desc": "A resource location to the loot table that is ejected when unlocking the vault."
+        },
+        {
+          "key": "override_loot_table_to_display",
+          "type": "string",
+          "category": "data",
+          "zh": "覆盖显示战利品表",
+          "desc": "A resource location to the loot table that is used to display items in the vault."
+        },
+        {
+          "key": "activation_range",
+          "type": "double",
+          "default": "4d",
+          "category": "data",
+          "zh": "激活范围",
+          "desc": "The range in blocks when the vault should activate."
+        },
+        {
+          "key": "deactivation_range",
+          "type": "double",
+          "default": "4.5d",
+          "category": "data",
+          "zh": "失活范围",
+          "desc": "The range in blocks when the vault should deactivate."
+        },
+        {
+          "key": "key_item",
+          "type": "compound",
+          "category": "data",
+          "zh": "关键物品",
+          "desc": "The key item that is used to check for valid keys."
+        }
+      ]
+    },
+    {
+      "key": "cooking_time_spent",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["blast_furnace"]
+      },
+      "zh": "已烹饪时间",
+      "desc": "Number of ticks the item has been smelting for."
+    },
+    {
+      "key": "cooking_time_spent",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["furnace"]
+      },
+      "zh": "已烹饪时间",
+      "desc": "Number of ticks the item has been smelting for."
+    },
+    {
+      "key": "cooking_time_spent",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["smoker"]
+      },
+      "zh": "已烹饪时间",
+      "desc": "Number of ticks the item has been smelting for."
+    },
+    {
+      "key": "cooking_total_time",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["blast_furnace"]
+      },
+      "zh": "烹饪总时长",
+      "desc": "Number of ticks it takes for the item to be smelted."
+    },
+    {
+      "key": "cooking_total_time",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["furnace"]
+      },
+      "zh": "烹饪总时长",
+      "desc": "Number of ticks it takes for the item to be smelted."
+    },
+    {
+      "key": "cooking_total_time",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["smoker"]
+      },
+      "zh": "烹饪总时长",
+      "desc": "Number of ticks it takes for the item to be smelted."
+    },
+    {
+      "key": "CookingTimes",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["campfire"]
+      },
+      "zh": "烹饪进度",
+      "desc": "How long each item has been cooking, first index is slot 0, etc."
+    },
+    {
+      "key": "CookingTimes",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["soul_campfire"]
+      },
+      "zh": "烹饪进度",
+      "desc": "How long each item has been cooking, first index is slot 0, etc."
+    },
+    {
+      "key": "CookingTotalTimes",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["campfire"]
+      },
+      "zh": "烹饪总时长",
+      "desc": "How long each item has to cook, first index is slot 0, etc."
+    },
+    {
+      "key": "CookingTotalTimes",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["soul_campfire"]
+      },
+      "zh": "烹饪总时长",
+      "desc": "How long each item has to cook, first index is slot 0, etc."
+    },
+    {
+      "key": "cooldown_ends_at",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "冷却结束时间",
+      "desc": "Gametime in ticks when the cooldown ends. 0 if not currently in cooldown."
+    },
+    {
+      "key": "count",
+      "type": "int",
+      "default": "1",
+      "category": "basic",
+      "appliesTo": {
+        "group": "item"
+      },
+      "zh": "数量",
+      "desc": "Number of items stacked in this inventory slot."
+    },
+    {
+      "key": "count",
+      "type": "int",
+      "default": "1",
+      "category": "basic",
+      "appliesTo": {
+        "group": "itemnoslot"
+      },
+      "zh": "数量",
+      "desc": "Number of items stacked in this inventory slot."
+    },
+    {
+      "key": "countdown",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["potent_sulfur"]
+      },
+      "zh": "倒计时",
+      "desc": "The number of seconds remaining until this potent sulfur block switches between dormant and erupting phases."
+    },
+    {
+      "key": "crafting_ticks_remaining",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["crafter"]
+      },
+      "zh": "剩余合成刻数",
+      "desc": "Set to 6 when the crafter crafts something."
+    },
+    {
+      "key": "creaking",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["creaking_heart"]
+      },
+      "zh": "嘎枝",
+      "desc": "The UUID of the transient creaking associated with this creaking heart, stored as four ints."
+    },
+    {
+      "key": "current_mobs",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "当前生物数",
+      "desc": "A set of mob UUIDs. — The mobs that were spawned by this spawner and are still alive."
+    },
+    {
+      "key": "cursors",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sculk_catalyst"]
+      },
+      "zh": "光标",
+      "desc": "List of sculk charge clusters associated with the sculk catalyst."
+    },
+    {
+      "key": "custom_name",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["skull"]
+      },
+      "zh": "自定义名称",
+      "desc": "Optional. The custom name of the head or skull. Represents the minecraft:custom_name component."
+    },
+    {
+      "key": "custom_spawn_rules",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "spawn-data"
+      },
+      "zh": "自定义生成规则",
+      "desc": "Optional custom fields to override spawning requirements.",
+      "children": [
+        {
+          "key": "block_light_limit",
+          "type": "int",
+          "category": "data",
+          "zh": "方块光照上限",
+          "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive."
+        },
+        {
+          "key": "sky_light_limit",
+          "type": "int",
+          "category": "data",
+          "zh": "天空光照上限",
+          "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive."
+        }
+      ]
+    },
+    {
+      "key": "CustomName",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "自定义名称",
+      "desc": "The custom name text component of this entity."
+    },
+    {
+      "key": "CustomName",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "nameable"
+      },
+      "zh": "自定义名称",
+      "desc": "The custom name text component of this block."
+    },
+    {
+      "key": "CustomNameVisible",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "名称始终显示",
+      "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity,…"
+    },
+    {
+      "key": "data",
+      "type": "compound",
+      "category": "data",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "自定义数据",
+      "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component."
+    },
+    {
+      "key": "Delay",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mob_spawner"]
+      },
+      "zh": "延迟",
+      "desc": "Ticks until next spawn. If 0, it spawns immediately when a player enters its range. If set to -1 (this stat…"
+    },
+    {
+      "key": "disabled_slots",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["crafter"]
+      },
+      "zh": "禁用槽位",
+      "desc": "Indexes of slots that are disabled."
+    },
+    {
+      "key": "ejecting_loot_table",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "喷出战利品表",
+      "desc": "A resource location to the loot table that is given as a reward."
+    },
+    {
+      "key": "elytra",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "鞘翅",
+      "desc": "Optional. path to an elytra texture, relative to the textures folder in a resource pack. If specified, this…"
+    },
+    {
+      "key": "entity",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "spawn-data"
+      },
+      "zh": "实体",
+      "desc": "An entity, including the entity id."
+    },
+    {
+      "key": "equipment",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "group": "spawn-data"
+      },
+      "zh": "装备",
+      "desc": "Optional. Determines the equipment the entity will wear.",
+      "children": [
+        {
+          "key": "loot_table",
+          "type": "string",
+          "category": "data",
+          "zh": "战利品表",
+          "desc": "Resource location of a loot table to use to generate the equipment"
+        },
+        {
+          "key": "slot_drop_chances",
+          "type": "float",
+          "category": "data",
+          "zh": "槽位掉落概率",
+          "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+          "children": [
+            {
+              "key": "feet",
+              "type": "float",
+              "category": "data",
+              "zh": "脚部",
+              "desc": "Optional. Drop chance of the boots."
+            },
+            {
+              "key": "legs",
+              "type": "float",
+              "category": "data",
+              "zh": "腿部",
+              "desc": "Optional. Drop chance of the leggings."
+            },
+            {
+              "key": "chest",
+              "type": "float",
+              "category": "data",
+              "zh": "箱子",
+              "desc": "Optional. Drop chance of the chestplate."
+            },
+            {
+              "key": "head",
+              "type": "float",
+              "category": "data",
+              "zh": "头部",
+              "desc": "Optional. Drop chance of the helmet."
+            },
+            {
+              "key": "body",
+              "type": "float",
+              "category": "data",
+              "zh": "躯干",
+              "desc": "Optional. Drop chance of the body armor."
+            },
+            {
+              "key": "mainhand",
+              "type": "float",
+              "category": "data",
+              "zh": "主手",
+              "desc": "Optional. Drop chance of the weapon in the main hand."
+            },
+            {
+              "key": "offhand",
+              "type": "float",
+              "category": "data",
+              "zh": "副手",
+              "desc": "Optional. Drop chance of the weapon in the off hand."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ExactTeleport",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["end_gateway"]
+      },
+      "zh": "精确传送",
+      "desc": "1 or 0 (true/false) - Teleports entities directly to the exit_portal coordinates instead of near them."
+    },
+    {
+      "key": "exit_portal",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["end_gateway"]
+      },
+      "zh": "出口传送门",
+      "desc": "Location entities are teleported to when entering the portal."
+    },
+    {
+      "key": "extending",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piston"]
+      },
+      "zh": "伸出中",
+      "desc": "1 or 0 (true/false) – true if the piston is extending instead of withdrawing."
+    },
+    {
+      "key": "facing",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piston"]
+      },
+      "zh": "朝向",
+      "desc": "Direction that the piston pushes (0=down, 1=up, 2=north, 3=south, 4=west, 5=east)."
+    },
+    {
+      "key": "fall_distance",
+      "type": "double",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "摔落距离",
+      "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands."
+    },
+    {
+      "key": "filtered_messages",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "group": "sign-text-object"
+      },
+      "zh": "已过滤消息",
+      "desc": "Only in Realms. The lines of text shown to players with the profanity filter turned on instead of the regul…"
+    },
+    {
+      "key": "final_state",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["jigsaw"]
+      },
+      "zh": "最终状态",
+      "desc": "The block that this jigsaw block becomes."
+    },
+    {
+      "key": "Fire",
+      "type": "short",
+      "default": "-20s",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "着火刻数",
+      "desc": "Number of game ticks until the fire is put out."
+    },
+    {
+      "key": "flower_pos",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["beehive"]
+      },
+      "zh": "花朵位置",
+      "desc": "Stores the block location, as 3 integers, of the flower that the last bee to enter the hive pollenated."
+    },
+    {
+      "key": "front_text",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["hanging_sign"]
+      },
+      "zh": "正面文字",
+      "desc": "A compound that describes front text. Represents the minecraft:sign_text_front component."
+    },
+    {
+      "key": "front_text",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sign"]
+      },
+      "zh": "正面文字",
+      "desc": "A compound that describes front text. Represents the minecraft:sign_text_front component."
+    },
+    {
+      "key": "Fuel",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["brewing_stand"]
+      },
+      "zh": "燃料",
+      "desc": "Remaining fuel for the brewing stand. 20 when full, and counts down by 1 each time a potion is brewed."
+    },
+    {
+      "key": "Glowing",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "发光",
+      "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline."
+    },
+    {
+      "key": "has_glowing_text",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "sign-text-object"
+      },
+      "zh": "发光文字",
+      "desc": "Optional, defaults to false. true if the sign has been dyed with a glow ink sac."
+    },
+    {
+      "key": "HasVisualFire",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "视觉着火",
+      "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire."
+    },
+    {
+      "key": "id",
+      "type": "string",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "block-state"
+      },
+      "zh": "ID",
+      "desc": "The identifier of the block to use."
+    },
+    {
+      "key": "id",
+      "type": "string",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "blockentity"
+      },
+      "zh": "ID",
+      "desc": "Block entity ID"
+    },
+    {
+      "key": "id",
+      "type": "string",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "ID",
+      "desc": "Namespaced ID of the entity's entity type."
+    },
+    {
+      "key": "id",
+      "type": "string",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "item"
+      },
+      "zh": "ID",
+      "desc": "The identifier of the item. Must not be minecraft:air."
+    },
+    {
+      "key": "id",
+      "type": "string",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "itemnoslot"
+      },
+      "zh": "ID",
+      "desc": "The identifier of the item. Must not be minecraft:air."
+    },
+    {
+      "key": "id",
+      "type": "int_array",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "ID",
+      "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile…"
+    },
+    {
+      "key": "ignoreEntities",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "忽略实体",
+      "desc": "1 or 0 (true/false): Whether entities should be ignored in the structure."
+    },
+    {
+      "key": "integrity",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "完整度",
+      "desc": "How complete the structure is that gets placed."
+    },
+    {
+      "key": "Invulnerable",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "combat",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "无敌",
+      "desc": "1 or 0 (true/false) - if true, the entity should not take damage."
+    },
+    {
+      "key": "invulnerable_time",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "无敌时间",
+      "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks.…"
+    },
+    {
+      "key": "is_waxed",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["hanging_sign"]
+      },
+      "zh": "已打蜡",
+      "desc": "1 or 0 (true/false), defaults to false. true if the text is locked with honeycomb. Represents the minecraft…"
+    },
+    {
+      "key": "is_waxed",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sign"]
+      },
+      "zh": "已打蜡",
+      "desc": "1 or 0 (true/false), defaults to false. true if the text is locked with honeycomb. Represents the minecraft…"
+    },
+    {
+      "key": "item",
+      "type": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["brushable_block"]
+      },
+      "zh": "物品",
+      "desc": "The item in the block. May not exist."
+    },
+    {
+      "key": "item",
+      "type": "byte",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["decorated_pot"]
+      },
+      "zh": "物品",
+      "desc": "The single item stack stored in this container."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["barrel"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in the container. Represents the minecraft:container component. The component is still presen…"
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["blast_furnace"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["brewing_stand"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["campfire"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["chiseled_bookshelf"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of books in the bookshelf. Represents the minecraft:container component."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["chest"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["crafter"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["dispenser"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["dropper"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["furnace"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["hopper"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["shulker_box"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Does not exist if the shulker box is empty (unlike all other container blo…"
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["smoker"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["soul_campfire"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component."
+    },
+    {
+      "key": "Items",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": ["trapped_chest"]
+      },
+      "editor": "item_list",
+      "zh": "物品列表",
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still prese…"
+    },
+    {
+      "key": "items_to_drop_when_ominous",
+      "type": "string",
+      "category": "inventory",
+      "appliesTo": {
+        "group": "trial-spawner-config"
+      },
+      "zh": "不祥时掉落物品",
+      "desc": "Defaults to minecraft:spawners/trial_chamber/items_to_drop_when_ominous — A resource location to a loot table."
+    },
+    {
+      "key": "joint",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["jigsaw"]
+      },
+      "zh": "关节",
+      "desc": "The joint option value, either \"rollable\" or \"aligned\"."
+    },
+    {
+      "key": "keepPacked",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "group": "blockentity"
+      },
+      "zh": "保留未加载",
+      "desc": "1 or 0 (true/false) - If true, this is an invalid block entity, and this block is not immediately placed wh…"
+    },
+    {
+      "key": "last_interacted_slot",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["chiseled_bookshelf"]
+      },
+      "zh": "上次交互槽位",
+      "desc": "Last interacted slot (0–5), or -1 if no slot has been interacted with yet."
+    },
+    {
+      "key": "last_vibration_frequency",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["calibrated_sculk_sensor"]
+      },
+      "zh": "上次振动频率",
+      "desc": "The frequency of the last vibration."
+    },
+    {
+      "key": "last_vibration_frequency",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sculk_sensor"]
+      },
+      "zh": "上次振动频率",
+      "desc": "The frequency of the last vibration."
+    },
+    {
+      "key": "LastExecution",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block"]
+      },
+      "zh": "上次执行",
+      "desc": "stores the tick a chain command block was last executed in."
+    },
+    {
+      "key": "LastOutput",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block"]
+      },
+      "zh": "上次输出",
+      "desc": "The last line of output generated by the command block."
+    },
+    {
+      "key": "listener",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["calibrated_sculk_sensor"]
+      },
+      "zh": "振动监听",
+      "desc": "The vibration event listener for this sculk shrieker, sculk sensor, or calibrated sculk sensor.",
+      "children": [
+        {
+          "key": "event",
+          "type": "compound",
+          "category": "data",
+          "zh": "事件",
+          "desc": "Exists only if there is an incoming vibration.",
+          "children": [
+            {
+              "key": "distance",
+              "type": "float",
+              "category": "data",
+              "zh": "距离",
+              "desc": "The distance between this vibration's source and the block."
+            },
+            {
+              "key": "game_event",
+              "type": "string",
+              "category": "data",
+              "zh": "游戏事件",
+              "desc": "The resource location of the vibration event that caused the current incoming vibration."
+            },
+            {
+              "key": "pos",
+              "type": "list",
+              "category": "data",
+              "advanced": true,
+              "zh": "坐标",
+              "desc": "The coordinates of the source of this vibration."
+            },
+            {
+              "key": "projectile_owner",
+              "type": "int_array",
+              "category": "data",
+              "zh": "弹射物主人",
+              "desc": "If the vibration was caused by a projectile, this is the UUID of the entity that launched the projectile."
+            },
+            {
+              "key": "source",
+              "type": "int_array",
+              "category": "data",
+              "zh": "来源",
+              "desc": "The UUID of the entity that caused the vibration."
+            }
+          ]
+        },
+        {
+          "key": "event_delay",
+          "type": "int",
+          "category": "data",
+          "zh": "事件延迟",
+          "desc": "How many ticks remain until triggered by the vibration."
+        },
+        {
+          "key": "selector",
+          "type": "compound",
+          "category": "data",
+          "zh": "选择器",
+          "desc": "The data of the vibration selector.",
+          "children": [
+            {
+              "key": "tick",
+              "type": "long",
+              "category": "data",
+              "zh": "刻",
+              "desc": "The game time when the vibration occurs, or -1 if there is no vibration to choose from."
+            },
+            {
+              "key": "event",
+              "type": "compound",
+              "category": "data",
+              "zh": "事件",
+              "desc": "Candidate game event, with the same structure as the tag above."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "listener",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["sculk_sensor"]
+      },
+      "zh": "振动监听",
+      "desc": "The vibration event listener for this sculk shrieker, sculk sensor, or calibrated sculk sensor.",
+      "children": [
+        {
+          "key": "event",
+          "type": "compound",
+          "category": "data",
+          "zh": "事件",
+          "desc": "Exists only if there is an incoming vibration.",
+          "children": [
+            {
+              "key": "distance",
+              "type": "float",
+              "category": "data",
+              "zh": "距离",
+              "desc": "The distance between this vibration's source and the block."
+            },
+            {
+              "key": "game_event",
+              "type": "string",
+              "category": "data",
+              "zh": "游戏事件",
+              "desc": "The resource location of the vibration event that caused the current incoming vibration."
+            },
+            {
+              "key": "pos",
+              "type": "list",
+              "category": "data",
+              "advanced": true,
+              "zh": "坐标",
+              "desc": "The coordinates of the source of this vibration."
+            },
+            {
+              "key": "projectile_owner",
+              "type": "int_array",
+              "category": "data",
+              "zh": "弹射物主人",
+              "desc": "If the vibration was caused by a projectile, this is the UUID of the entity that launched the projectile."
+            },
+            {
+              "key": "source",
+              "type": "int_array",
+              "category": "data",
+              "zh": "来源",
+              "desc": "The UUID of the entity that caused the vibration."
+            }
+          ]
+        },
+        {
+          "key": "event_delay",
+          "type": "int",
+          "category": "data",
+          "zh": "事件延迟",
+          "desc": "How many ticks remain until triggered by the vibration."
+        },
+        {
+          "key": "selector",
+          "type": "compound",
+          "category": "data",
+          "zh": "选择器",
+          "desc": "The data of the vibration selector.",
+          "children": [
+            {
+              "key": "tick",
+              "type": "long",
+              "category": "data",
+              "zh": "刻",
+              "desc": "The game time when the vibration occurs, or -1 if there is no vibration to choose from."
+            },
+            {
+              "key": "event",
+              "type": "compound",
+              "category": "data",
+              "zh": "事件",
+              "desc": "Candidate game event, with the same structure as the tag above."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "lit_time_remaining",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["blast_furnace"]
+      },
+      "zh": "剩余燃烧时间",
+      "desc": "Number of ticks left before the current fuel runs out."
+    },
+    {
+      "key": "lit_time_remaining",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["furnace"]
+      },
+      "zh": "剩余燃烧时间",
+      "desc": "Number of ticks left before the current fuel runs out."
+    },
+    {
+      "key": "lit_time_remaining",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["smoker"]
+      },
+      "zh": "剩余燃烧时间",
+      "desc": "Number of ticks left before the current fuel runs out."
+    },
+    {
+      "key": "lit_total_time",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["blast_furnace"]
+      },
+      "zh": "总燃烧时间",
+      "desc": "Represent the total time the furnace should be lit."
+    },
+    {
+      "key": "lit_total_time",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["furnace"]
+      },
+      "zh": "总燃烧时间",
+      "desc": "Represent the total time the furnace should be lit."
+    },
+    {
+      "key": "lit_total_time",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["smoker"]
+      },
+      "zh": "总燃烧时间",
+      "desc": "Represent the total time the furnace should be lit."
+    },
+    {
+      "key": "lock",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "lockable"
+      },
+      "zh": "锁",
+      "desc": "Optional. An item predicate representing the \"key\" to open this container. If the player is not holding an…"
+    },
+    {
+      "key": "loot_tables_to_eject",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "group": "trial-spawner-config"
+      },
+      "zh": "待喷出战利品表",
+      "desc": "Defaults to a list of minecraft:spawners/trial_chamber/consumables and minecraft:spawners/trial_chamber/key…"
+    },
+    {
+      "key": "LootTable",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "group": "lootable"
+      },
+      "zh": "战利品表",
+      "desc": "Optional. Name of the loot table to use. If this is used in a chest-like container, the loot table generate…"
+    },
+    {
+      "key": "LootTableSeed",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "group": "lootable"
+      },
+      "zh": "战利品表种子",
+      "desc": "Optional. Seed for generating the loot table. The default value works similarly to the seeds for worlds, wh…"
+    },
+    {
+      "key": "Lunar",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["dropper"]
+      },
+      "zh": "月相",
+      "desc": "Exists only in the april fools snapshot 23w13a_or_b."
+    },
+    {
+      "key": "MaxNearbyEntities",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mob_spawner"]
+      },
+      "zh": "附近实体上限",
+      "desc": "Overrides the maximum number of nearby (within a box of SpawnRange*2+1 × SpawnRange*2+1 × 8 centered around…"
+    },
+    {
+      "key": "MaxSpawnDelay",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mob_spawner"]
+      },
+      "zh": "最大生成延迟",
+      "desc": "The maximum random delay for the next spawn delay."
+    },
+    {
+      "key": "messages",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "group": "sign-text-object"
+      },
+      "zh": "消息",
+      "desc": "A list of four text components, one for each line."
+    },
+    {
+      "key": "metadata",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "元数据",
+      "desc": "Value of the data structure block field."
+    },
+    {
+      "key": "MinSpawnDelay",
+      "type": "short",
+      "default": "0s",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mob_spawner"]
+      },
+      "zh": "最小生成延迟",
+      "desc": "The minimum random delay for the next spawn delay."
+    },
+    {
+      "key": "mirror",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "镜像",
+      "desc": "How the structure is mirrored, one of \"NONE\", \"LEFT_RIGHT\" (mirrored over X axis when not rotated), or \"FRO…"
+    },
+    {
+      "key": "mode",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "模式",
+      "desc": "The current mode of this structure block, one of \"SAVE\", \"LOAD\", \"CORNER\", or \"DATA\"."
+    },
+    {
+      "key": "model",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "模型",
+      "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model…"
+    },
+    {
+      "key": "Motion",
+      "type": "double",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "速度",
+      "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick."
+    },
+    {
+      "key": "name",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["jigsaw"]
+      },
+      "zh": "名称",
+      "desc": "The jigsaw block's name. This jigsaw block gets aligned with another structure's jigsaw block that has this…"
+    },
+    {
+      "key": "name",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "名称",
+      "desc": "Name of the structure."
+    },
+    {
+      "key": "name",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "名称",
+      "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive…"
+    },
+    {
+      "key": "next_mob_spawns_at",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "下次生成时间",
+      "desc": "Gametime in ticks when the next spawn attempt happens."
+    },
+    {
+      "key": "NoGravity",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "movement",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "无重力",
+      "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally."
+    },
+    {
+      "key": "normal_config",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "普通配置",
+      "desc": "(optional) One trial spawner configuration (an ID, or a new trial spawner configuration definition) — The c…"
+    },
+    {
+      "key": "note_block_sound",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["skull"]
+      },
+      "zh": "音符盒音效",
+      "desc": "Optional. If this block is a player head, this is the sound event produced by the note block that this head…"
+    },
+    {
+      "key": "ominous_config",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "不祥配置",
+      "desc": "(optional) One trial spawner configuration (an ID, or a new trial spawner configuration definition) — The c…"
+    },
+    {
+      "key": "OnGround",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "movement",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "在地面",
+      "desc": "1 or 0 (true/false) - if true, the entity is touching the ground."
+    },
+    {
+      "key": "OutputSignal",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["comparator"]
+      },
+      "zh": "输出信号",
+      "desc": "Represents the strength of the analog signal output of this redstone comparator."
+    },
+    {
+      "key": "Page",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["lectern"]
+      },
+      "zh": "页码",
+      "desc": "The page the book is currently on, starting from 0, does not exist if there's no book."
+    },
+    {
+      "key": "Passengers",
+      "type": "list",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "乘客",
+      "desc": "The data of the entities that are riding this entity."
+    },
+    {
+      "key": "patterns",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["banner"]
+      },
+      "zh": "图案",
+      "desc": "List of all patterns applied to the banner."
+    },
+    {
+      "key": "placement_priority",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["jigsaw"]
+      },
+      "zh": "放置优先级",
+      "desc": "Priority of the piece generated by this jigsaw block to place its children."
+    },
+    {
+      "key": "pool",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["jigsaw"]
+      },
+      "zh": "池",
+      "desc": "The jigsaw block's target pool to select a structure from."
+    },
+    {
+      "key": "PortalCooldown",
+      "type": "int",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "传送门冷却",
+      "desc": "The number of game ticks before which the entity may be teleported back through a nether portal."
+    },
+    {
+      "key": "Pos",
+      "type": "double",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "坐标",
+      "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity."
+    },
+    {
+      "key": "posX",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "X 坐标",
+      "desc": "X-position of the structure."
+    },
+    {
+      "key": "posY",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "Y 坐标",
+      "desc": "Y-position of the structure."
+    },
+    {
+      "key": "posZ",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "Z 坐标",
+      "desc": "Z-position of the structure."
+    },
+    {
+      "key": "powered",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block"]
+      },
+      "zh": "已激活",
+      "desc": "1 or 0 (true/false) - States whether or not the command block is powered by redstone or not."
+    },
+    {
+      "key": "powered",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "已激活",
+      "desc": "1 or 0 (true/false): Whether this structure block is being powered by redstone."
+    },
+    {
+      "key": "primary_effect",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["beacon"]
+      },
+      "zh": "主要效果",
+      "desc": "Optional. The primary effect selected, see Potion effects for resource locations. Cannot be set to an effec…"
+    },
+    {
+      "key": "profile",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": ["skull"]
+      },
+      "zh": "玩家档案",
+      "desc": "Optional. The textures and/or player profile used to render a player head. If specified as a string, it cor…"
+    },
+    {
+      "key": "progress",
+      "type": "float",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piston"]
+      },
+      "zh": "进度",
+      "desc": "How far the block has been moved. Starts at 0.0, and increments by 0.5 each tick, including the tick on whi…"
+    },
+    {
+      "key": "properties",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "group": "block-state"
+      },
+      "zh": "属性",
+      "desc": "(Optional, can be empty) Block properties."
+    },
+    {
+      "key": "properties",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "属性",
+      "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are…"
+    },
+    {
+      "key": "RecipesUsed",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["blast_furnace"]
+      },
+      "zh": "已用配方",
+      "desc": "Which recipes have been used since the last time a recipe result item was manually removed from the GUI.",
+      "children": [
+        {
+          "key": "recipe ID",
+          "type": "int",
+          "category": "data",
+          "zh": "配方 ID",
+          "desc": "How many times this specific recipe has been used."
+        }
+      ]
+    },
+    {
+      "key": "RecipesUsed",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["furnace"]
+      },
+      "zh": "已用配方",
+      "desc": "Which recipes have been used since the last time a recipe result item was manually removed from the GUI.",
+      "children": [
+        {
+          "key": "recipe ID",
+          "type": "int",
+          "category": "data",
+          "zh": "配方 ID",
+          "desc": "How many times this specific recipe has been used."
+        }
+      ]
+    },
+    {
+      "key": "RecipesUsed",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["smoker"]
+      },
+      "zh": "已用配方",
+      "desc": "Which recipes have been used since the last time a recipe result item was manually removed from the GUI.",
+      "children": [
+        {
+          "key": "recipe ID",
+          "type": "int",
+          "category": "data",
+          "zh": "配方 ID",
+          "desc": "How many times this specific recipe has been used."
+        }
+      ]
+    },
+    {
+      "key": "RecordItem",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["jukebox"]
+      },
+      "zh": "唱片物品",
+      "desc": "The single item stack stored in this jukebox."
+    },
+    {
+      "key": "registered_players",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "已登记玩家",
+      "desc": "A set of player UUIDs. — All the players that have joined the battle. The length of this array determines t…"
+    },
+    {
+      "key": "required_player_range",
+      "type": "int",
+      "default": "14",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "所需玩家距离",
+      "desc": "Between 1 and 128. Defaults to 14. — Maximum distance in blocks for players to join the battle."
+    },
+    {
+      "key": "RequiredPlayerRange",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mob_spawner"]
+      },
+      "zh": "所需玩家距离",
+      "desc": "Overrides the block radius of the sphere of activation by players for this spawner."
+    },
+    {
+      "key": "rotation",
+      "type": "string",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "旋转",
+      "desc": "Rotation of the structure, one of \"NONE\", \"CLOCKWISE_90\", \"CLOCKWISE_180\", or \"COUNTERCLOCKWISE_90\"."
+    },
+    {
+      "key": "Rotation",
+      "type": "float",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "朝向角",
+      "desc": "List of 2 floats representing the entity's server-side rotation (facing direction).",
+      "children": [
+        {
+          "key": "0",
+          "type": "float",
+          "category": "data",
+          "zh": "第一项",
+          "desc": "The entity's yaw. Yaw is rotation about the Y axis. It is measured in degrees and ranges from -180 to +180.…"
+        },
+        {
+          "key": "1",
+          "type": "float",
+          "category": "data",
+          "zh": "第二项",
+          "desc": "The entity's pitch. Pitch is rotation about the local X axis after yaw is applied. It is measured in degree…"
+        }
+      ]
+    },
+    {
+      "key": "secondary_effect",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["beacon"]
+      },
+      "zh": "次要效果",
+      "desc": "Optional. The secondary effect selected, see Potion effects for resource locations. Cannot be set to an eff…"
+    },
+    {
+      "key": "seed",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "种子",
+      "desc": "The seed to use for the structure integrity, 0 means random."
+    },
+    {
+      "key": "selection_priority",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["jigsaw"]
+      },
+      "zh": "选择优先级",
+      "desc": "Priority of this jigsaw block being selected for generation."
+    },
+    {
+      "key": "server_data",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["vault"]
+      },
+      "zh": "服务器数据",
+      "desc": "Data that is only stored on the server.",
+      "children": [
+        {
+          "key": "rewarded_players",
+          "type": "list",
+          "category": "data",
+          "zh": "已奖励玩家",
+          "desc": "A set of player UUIDs that have already received their rewards from this vault."
+        },
+        {
+          "key": "state_updating_resumes_at",
+          "type": "long",
+          "category": "data",
+          "zh": "状态恢复时间",
+          "desc": "The game time when the vault processes block state changes, such as changing from unlocking to ejecting aft…"
+        },
+        {
+          "key": "items_to_eject",
+          "type": "list",
+          "elementType": "compound",
+          "category": "data",
+          "zh": "待喷出物品",
+          "desc": "List of item stacks that have been rolled by the loot table and are waiting to be ejected."
+        },
+        {
+          "key": "total_ejections_needed",
+          "type": "int",
+          "category": "data",
+          "zh": "所需喷出总数",
+          "desc": "The total amount of item stacks that need to be ejected."
+        }
+      ]
+    },
+    {
+      "key": "shared_data",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["vault"]
+      },
+      "zh": "共享数据",
+      "desc": "Data that is synced between the server and client.",
+      "children": [
+        {
+          "key": "display_item",
+          "type": "compound",
+          "category": "data",
+          "zh": "显示物品",
+          "desc": "The item that is currently being displayed."
+        },
+        {
+          "key": "connected_players",
+          "type": "list",
+          "category": "data",
+          "zh": "连接玩家",
+          "desc": "A set of player UUIDs that are within range of the vault."
+        },
+        {
+          "key": "connected_particles_range",
+          "type": "double",
+          "category": "data",
+          "zh": "粒子连接范围",
+          "desc": "The range in blocks when the vault emits particles."
+        }
+      ]
+    },
+    {
+      "key": "sherds",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["decorated_pot"]
+      },
+      "zh": "陶片",
+      "desc": "A map for face to the item stacks. Represents the minecraft:pot_decorations component. Item stacks with the…",
+      "children": [
+        {
+          "key": "left",
+          "type": "compound",
+          "category": "data",
+          "zh": "左侧",
+          "desc": "The item stack in the left side."
+        },
+        {
+          "key": "back",
+          "type": "compound",
+          "category": "data",
+          "zh": "背面",
+          "desc": "The item stack in the back side."
+        },
+        {
+          "key": "right",
+          "type": "compound",
+          "category": "data",
+          "zh": "右侧",
+          "desc": "The item stack in the right side."
+        },
+        {
+          "key": "front",
+          "type": "compound",
+          "category": "data",
+          "zh": "正面",
+          "desc": "The item stack in the front side."
+        }
+      ]
+    },
+    {
+      "key": "showboundingbox",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "显示边界框",
+      "desc": "1 or 0 (true/false): Whether to show the structure's bounding box to players in Creative mode."
+    },
+    {
+      "key": "Silent",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "appearance",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "静音",
+      "desc": "1 or 0 (true/false) - if true, this entity is silenced."
+    },
+    {
+      "key": "simultaneous_mobs",
+      "type": "float",
+      "default": "2f",
+      "category": "basic",
+      "appliesTo": {
+        "group": "trial-spawner-config"
+      },
+      "zh": "同时生物数",
+      "desc": "Defaults to 2 — The amount of spawned mobs from this spawner that are allowed to exist simultaneously."
+    },
+    {
+      "key": "simultaneous_mobs_added_per_player",
+      "type": "float",
+      "default": "1f",
+      "category": "basic",
+      "appliesTo": {
+        "group": "trial-spawner-config"
+      },
+      "zh": "每玩家增加生物数",
+      "desc": "Defaults to 1 — Amount of simultaneous mobs added for each additional player."
+    },
+    {
+      "key": "sizeX",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "X 尺寸",
+      "desc": "X-size of the structure, its length."
+    },
+    {
+      "key": "sizeY",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "Y 尺寸",
+      "desc": "Y-size of the structure, its height."
+    },
+    {
+      "key": "sizeZ",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["structure_block"]
+      },
+      "zh": "Z 尺寸",
+      "desc": "Z-size of the structure, its depth."
+    },
+    {
+      "key": "Slot",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "group": "item"
+      },
+      "zh": "槽位",
+      "desc": "The slot this item is in."
+    },
+    {
+      "key": "source",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["piston"]
+      },
+      "zh": "来源",
+      "desc": "1 or 0 (true/false) – true if the block represents the piston head itself, false if it represents a block b…"
+    },
+    {
+      "key": "spawn_data",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "生成数据",
+      "desc": "The next mob to attempt to spawn. Selected from after the last attempt. Determines the mob displayed in the…"
+    },
+    {
+      "key": "spawn_potentials",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "group": "trial-spawner-config"
+      },
+      "zh": "可能生成项",
+      "desc": "Defaults to an empty list — List of possible entities to spawn."
+    },
+    {
+      "key": "spawn_range",
+      "type": "int",
+      "default": "4",
+      "category": "basic",
+      "appliesTo": {
+        "group": "trial-spawner-config"
+      },
+      "zh": "生成范围",
+      "desc": "Between 1 and 128. Defaults to 4 — Maximum distance in blocks that mobs can spawn."
+    },
+    {
+      "key": "SpawnCount",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mob_spawner"]
+      },
+      "zh": "生成数量",
+      "desc": "How many mobs to attempt to spawn each time."
+    },
+    {
+      "key": "SpawnData",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mob_spawner"]
+      },
+      "zh": "生成数据",
+      "desc": "Contains tags to copy to the next spawned entity(s) after spawning."
+    },
+    {
+      "key": "SpawnPotentials",
+      "type": "list",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mob_spawner"]
+      },
+      "zh": "可能生成项",
+      "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft g…"
+    },
+    {
+      "key": "SpawnRange",
+      "type": "short",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["mob_spawner"]
+      },
+      "zh": "生成范围",
+      "desc": "The radius around which the spawner attempts to place mobs randomly."
+    },
+    {
+      "key": "SuccessCount",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block"]
+      },
+      "zh": "成功次数",
+      "desc": "Represents the strength of the analog signal output by redstone comparators attached to this command block."
+    },
+    {
+      "key": "Tags",
+      "type": "list",
+      "elementType": "string",
+      "category": "data",
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "计分板标签",
+      "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed."
+    },
+    {
+      "key": "target",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["jigsaw"]
+      },
+      "zh": "目标",
+      "desc": "The jigsaw block's target name. This jigsaw block gets aligned with another structure's jigsaw block that h…"
+    },
+    {
+      "key": "Target",
+      "type": "int_array",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["conduit"]
+      },
+      "zh": "目标",
+      "desc": "The UUID of the hostile mob the conduit is currently attacking, stored as four ints."
+    },
+    {
+      "key": "target_cooldown_length",
+      "type": "int",
+      "default": "36000",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "目标冷却时长",
+      "desc": "Defaults to 36000. — Time in ticks of the cooldown period. Includes the time spent ejecting rewards."
+    },
+    {
+      "key": "texture",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "profile"
+      },
+      "zh": "纹理",
+      "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If…"
+    },
+    {
+      "key": "ticks_between_spawn",
+      "type": "int",
+      "default": "40",
+      "category": "basic",
+      "appliesTo": {
+        "group": "trial-spawner-config"
+      },
+      "zh": "生成间隔刻数",
+      "desc": "Defaults to 40 — Time in ticks between spawn attempts."
+    },
+    {
+      "key": "ticks_since_song_started",
+      "type": "long",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["jukebox"]
+      },
+      "zh": "距歌曲开始刻数",
+      "desc": "The number of ticks since the song started playing."
+    },
+    {
+      "key": "TicksFrozen",
+      "type": "int",
+      "category": "movement",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "冰冻刻数",
+      "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in p…"
+    },
+    {
+      "key": "total_mobs",
+      "type": "float",
+      "default": "6f",
+      "category": "basic",
+      "appliesTo": {
+        "group": "trial-spawner-config"
+      },
+      "zh": "生物总数",
+      "desc": "Defaults to 6 — Total amount of mobs spawned before cooldown for a single player."
+    },
+    {
+      "key": "total_mobs_added_per_player",
+      "type": "float",
+      "default": "2f",
+      "category": "basic",
+      "appliesTo": {
+        "group": "trial-spawner-config"
+      },
+      "zh": "每玩家增加生物总数",
+      "desc": "Defaults to 2 — Amount of total mobs added for each additional player."
+    },
+    {
+      "key": "total_mobs_spawned",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["trial_spawner"]
+      },
+      "zh": "已生成生物总数",
+      "desc": "The total amount of mobs that have already been spawned in this cycle."
+    },
+    {
+      "key": "TrackOutput",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block"]
+      },
+      "zh": "记录输出",
+      "desc": "1 or 0 (true/false) - Determines whether the LastOutput is stored."
+    },
+    {
+      "key": "TransferCooldown",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["hopper"]
+      },
+      "zh": "传输冷却",
+      "desc": "Time until the next transfer in game ticks, naturally between 1 and 8 or 0 if there is no transfer."
+    },
+    {
+      "key": "translation_key",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": {
+        "group": "banner-pattern"
+      },
+      "zh": "翻译键",
+      "desc": "The translation key for displaying the banner tooltip."
+    },
+    {
+      "key": "triggered",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["crafter"]
+      },
+      "zh": "已触发",
+      "desc": "Set to 1 when it is powered. It is otherwise 0."
+    },
+    {
+      "key": "UpdateLastExecution",
+      "type": "byte",
+      "category": "basic",
+      "appliesTo": {
+        "ids": ["command_block"]
+      },
+      "zh": "更新上次执行",
+      "desc": "1 or 0 (true/false) - Defaults to true. If set to false, loops can be created where the same command block…"
+    },
+    {
+      "key": "UUID",
+      "type": "int",
+      "category": "data",
+      "advanced": true,
+      "appliesTo": {
+        "group": "entity"
+      },
+      "zh": "UUID",
+      "desc": "This entity's Universally Unique IDentifier."
+    },
+    {
+      "key": "x",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "blockentity"
+      },
+      "zh": "X",
+      "desc": "X coordinate of the block entity."
+    },
+    {
+      "key": "y",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "blockentity"
+      },
+      "zh": "Y",
+      "desc": "Y coordinate of the block entity."
+    },
+    {
+      "key": "z",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "group": "blockentity"
+      },
+      "zh": "Z",
+      "desc": "Z coordinate of the block entity."
+    }
+  ]
+}

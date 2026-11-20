@@ -1,5 +1,6 @@
 use super::files::paths;
 use super::{LauncherBackend, business_error, page, serialize};
+use crate::AppHandle;
 use launcher_tools::{BackendContext, Command, ToolError};
 use serde_json::{Value, json};
 async fn idle() -> Result<(), ToolError> {
@@ -19,7 +20,7 @@ async fn idle() -> Result<(), ToolError> {
     }
     Ok(())
 }
-fn app(backend: &LauncherBackend) -> Result<tauri::AppHandle, ToolError> {
+fn app(backend: &LauncherBackend) -> Result<AppHandle, ToolError> {
     backend.app.clone().ok_or_else(|| {
         ToolError::new("app_unavailable", "Desktop app handle is unavailable")
     })

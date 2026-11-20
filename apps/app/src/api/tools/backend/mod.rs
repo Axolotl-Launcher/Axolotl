@@ -1,3 +1,4 @@
+use crate::AppHandle;
 mod accounts;
 mod backups;
 mod core;
@@ -40,7 +41,7 @@ use serde_json::{Value, json};
 
 #[derive(Default)]
 pub(super) struct LauncherBackend {
-    app: Option<tauri::AppHandle>,
+    app: Option<AppHandle>,
     plans: ScopedRegistry<theseus::resources::ResourceOperationPlan>,
     restores: ScopedRegistry<backups::RestorePreview>,
     deletions: ScopedRegistry<instance_maintenance::DeletePreview>,
@@ -56,7 +57,7 @@ pub(super) struct LauncherBackend {
 }
 
 impl LauncherBackend {
-    pub(super) fn new(app: tauri::AppHandle) -> Self {
+    pub(super) fn new(app: AppHandle) -> Self {
         Self {
             app: Some(app),
             ..Default::default()

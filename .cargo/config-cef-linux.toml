@@ -16,5 +16,4 @@ tauri-utils = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82
 # These plugins pass a global scope schema to the build helper. Pin their CEF
 # migration so the plugin and helper agree on the schemars 1 API.
 tauri-plugin-fs = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "1423992771e0b57582ca3b06a6adc46ec26aa784" }
-tauri-plugin-http = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "1423992771e0b57582ca3b06a6adc46ec26aa784" }
 tauri-plugin-opener = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "1423992771e0b57582ca3b06a6adc46ec26aa784" }

@@ -2,6 +2,7 @@ use super::{
     config::{Preferences, config_path},
     source::LauncherCapture,
 };
+use crate::AppHandle;
 use launcher_observability_mcp::{Server, Snapshot};
 use serde::Serialize;
 use std::sync::Arc;
@@ -54,7 +55,7 @@ impl Controller {
 
     pub(super) async fn start(
         &mut self,
-        app: &tauri::AppHandle,
+        app: &AppHandle,
     ) -> Result<(), String> {
         let token = if self.preferences.require_auth {
             let credential = keyring::Entry::new(
@@ -116,7 +117,7 @@ impl Controller {
     }
 }
 
-pub async fn initialize(app: &tauri::AppHandle) {
+pub async fn initialize(app: &AppHandle) {
     let service = app.state::<ObservabilityMcpService>();
     let mut controller = service.0.lock().await;
     if controller.loaded {
@@ -144,7 +145,7 @@ pub async fn initialize(app: &tauri::AppHandle) {
     let _ = app.emit_to("main", EVENT, controller.state());
 }
 
-pub async fn shutdown(app: &tauri::AppHandle) {
+pub async fn shutdown(app: &AppHandle) {
     let service = app.state::<ObservabilityMcpService>();
     let mut controller = service.0.lock().await;
     controller.stop().await;

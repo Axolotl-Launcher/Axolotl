@@ -612,7 +612,7 @@ async fn exit_app(app: AppHandle, force: bool) -> api::Result<()> {
     Ok(())
 }
 
-impl exit_barrier::Restarter for tauri::AppHandle {
+impl exit_barrier::Restarter for AppHandle {
     fn request_restart(&self) {
         tauri::AppHandle::request_restart(self);
     }
@@ -662,7 +662,7 @@ fn exit_losses() -> Vec<exit_barrier::Loss> {
 }
 
 #[cfg(feature = "updater")]
-fn update_is_pending(app: &tauri::AppHandle) -> bool {
+fn update_is_pending(app: &AppHandle) -> bool {
     app.state::<PendingUpdateData>()
         .inner()
         .0
@@ -672,14 +672,14 @@ fn update_is_pending(app: &tauri::AppHandle) -> bool {
 }
 
 #[cfg(not(feature = "updater"))]
-fn update_is_pending(_app: &tauri::AppHandle) -> bool {
+fn update_is_pending(_app: &AppHandle) -> bool {
     false
 }
 
 /// Steps 2–5 of the exit barrier. `ExitRequested` normally runs this; a macOS
 /// Quit reaches `RunEvent::Exit` without that event, so the exit handler runs
 /// it once when no pass has happened.
-fn run_exit_steps(app: &tauri::AppHandle) {
+fn run_exit_steps(app: &AppHandle) {
     // Stop the debounced retry before the bounded exit flush: otherwise it
     // could wake during database shutdown or the installer and start an
     // untimed Mojang request.

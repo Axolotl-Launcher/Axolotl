@@ -1,10 +1,11 @@
+use crate::Window;
 use serde::Serialize;
 
 #[cfg(any(windows, test))]
 mod placement;
 
 pub(crate) fn present_main_window(
-    window: &tauri::Window,
+    window: &Window,
     activate: bool,
 ) -> tauri::Result<()> {
     let target = window.clone();
@@ -17,7 +18,7 @@ pub(crate) fn present_main_window(
 }
 
 fn present_main_window_on_ui_thread(
-    window: &tauri::Window,
+    window: &Window,
     activate: bool,
 ) -> tauri::Result<()> {
     if !window.is_visible()? {
@@ -55,7 +56,7 @@ fn present_main_window_on_ui_thread(
 }
 
 #[cfg(windows)]
-fn keep_title_bar_reachable(window: &tauri::Window) -> tauri::Result<()> {
+fn keep_title_bar_reachable(window: &Window) -> tauri::Result<()> {
     use placement::{WindowRect, center_in_work_area, title_bar_is_reachable};
     use tauri::PhysicalSize;
 
@@ -155,7 +156,7 @@ fn configure_frame(
 
 pub async fn apply_frame(
     enabled: bool,
-    window: &tauri::Window,
+    window: &Window,
 ) -> Result<FrameResult, String> {
     let decorated = window.is_decorated().map_err(|error| error.to_string())?;
     let maximized = window.is_maximized().map_err(|error| error.to_string())?;

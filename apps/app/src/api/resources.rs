@@ -1,3 +1,4 @@
+use crate::AppHandle;
 use dashmap::DashMap;
 use std::sync::{Arc, LazyLock};
 use theseus::resources::favorite_groups::{
@@ -147,9 +148,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
-pub async fn initialize_content_refresh_events(
-    app: &tauri::AppHandle,
-) -> Result<()> {
+pub async fn initialize_content_refresh_events(app: &AppHandle) -> Result<()> {
     use tauri::{Emitter, Manager};
     CONTENT_REFRESH_EVENTS.get_or_try_init(|| async {
         let mut events = theseus::resources::refresh::subscribe().await?;

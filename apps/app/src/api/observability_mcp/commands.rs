@@ -4,12 +4,13 @@ use super::{
         EVENT, ObservabilityMcpService, ObservabilityMcpState, initialize,
     },
 };
+use crate::AppHandle;
 use tauri::{Emitter, Manager};
 
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn observability_mcp_get_state(
-    app: tauri::AppHandle,
+    app: AppHandle,
 ) -> Result<ObservabilityMcpState, String> {
     initialize(&app).await;
     Ok(app
@@ -23,7 +24,7 @@ pub async fn observability_mcp_get_state(
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn observability_mcp_configure(
-    app: tauri::AppHandle,
+    app: AppHandle,
     enabled: bool,
     require_auth: bool,
 ) -> Result<ObservabilityMcpState, String> {

@@ -1,3 +1,4 @@
+use crate::AppHandle;
 use launcher_tools::{BackendContext, ToolError};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -16,7 +17,7 @@ struct Pending {
     answer: oneshot::Sender<Result<Value, ToolError>>,
 }
 struct PendingGuard {
-    app: tauri::AppHandle,
+    app: AppHandle,
     id: Uuid,
 }
 impl Drop for PendingGuard {
@@ -31,7 +32,7 @@ impl Drop for PendingGuard {
 }
 
 pub(super) async fn request(
-    app: &tauri::AppHandle,
+    app: &AppHandle,
     context: BackendContext,
     full: bool,
     action: Value,
@@ -79,7 +80,9 @@ pub(super) async fn request(
         .map_err(|_| ToolError::new("ui_cancelled", "UI request cancelled"))?
 }
 
-fn main_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+fn main_window(
+    window: &tauri::WebviewWindow<crate::AppRuntime>,
+) -> Result<(), String> {
     if window.label() != "main" {
         return Err(
             "Only the main launcher webview may answer UI requests".into()
@@ -97,8 +100,8 @@ pub(crate) struct UiClaim {
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub(crate) async fn mcp_ui_claim(
-    app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    app: AppHandle,
+    window: tauri::WebviewWindow<crate::AppRuntime>,
     request_id: Uuid,
 ) -> Result<UiClaim, String> {
     main_window(&window)?;
@@ -126,8 +129,8 @@ pub(crate) async fn mcp_ui_claim(
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub(crate) async fn mcp_ui_respond(
-    app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    app: AppHandle,
+    window: tauri::WebviewWindow<crate::AppRuntime>,
     request_id: Uuid,
     result: Value,
 ) -> Result<(), String> {

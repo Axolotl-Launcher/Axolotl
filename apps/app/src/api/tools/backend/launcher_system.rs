@@ -1,4 +1,5 @@
 use super::{LauncherBackend, business_error, files::paths, serialize};
+use crate::AppHandle;
 use launcher_tools::{BackendContext, Command, ToolError};
 use serde_json::{Value, json};
 use tauri::{Emitter, Manager};
@@ -13,7 +14,7 @@ pub(super) struct UpdateHandle {
     _lease: Option<std::sync::Arc<UpdateResource>>,
 }
 struct UpdateResource {
-    view: tauri::Webview<tauri::Wry>,
+    view: tauri::Webview<crate::AppRuntime>,
     rid: u32,
 }
 impl Drop for UpdateResource {
@@ -28,7 +29,7 @@ fn error(e: impl std::fmt::Display) -> ToolError {
         "Launcher action failed; inspect native updater/lifecycle state",
     )
 }
-fn app(backend: &LauncherBackend) -> Result<tauri::AppHandle, ToolError> {
+fn app(backend: &LauncherBackend) -> Result<AppHandle, ToolError> {
     backend
         .app
         .clone()

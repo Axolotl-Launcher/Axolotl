@@ -1,3 +1,4 @@
+use crate::AppHandle;
 use serde::{Deserialize, Serialize};
 use std::{io::Write, path::PathBuf};
 
@@ -10,7 +11,7 @@ pub struct Preferences {
     pub require_auth: bool,
 }
 
-pub fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
     theseus::DirectoryInfo::initial_settings_dir_path(&app.config().identifier)
         .map(|path| path.join("observability-mcp.json"))
         .ok_or_else(|| {
@@ -19,7 +20,7 @@ pub fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 pub(super) fn save_preferences(
-    app: &tauri::AppHandle,
+    app: &AppHandle,
     preferences: Preferences,
 ) -> Result<(), String> {
     let path = config_path(app)?;

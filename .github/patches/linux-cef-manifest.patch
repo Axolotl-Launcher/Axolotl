@@ -1,7 +1,9 @@
 diff --git a/Cargo.toml b/Cargo.toml
+index 6d0c92799..0a3db5919 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
-@@ -110,6 +110,6 @@ symlink-rs = "1"
+@@ -136,7 +136,7 @@ sqlx = { version = "0.9.0", default-features = false }
+ symlink-rs = "1"
  sysinfo = { version = "0.37.2", default-features = false }
  tar = "0.4.44"
 -tauri = "2.8.5"
@@ -10,17 +12,18 @@ diff --git a/Cargo.toml b/Cargo.toml
  tauri-plugin-deep-link = "2.4.3"
  tauri-plugin-dialog = "2.4.0"
 diff --git a/apps/app/Cargo.toml b/apps/app/Cargo.toml
+index fccee72a4..19aa37ecd 100644
 --- a/apps/app/Cargo.toml
 +++ b/apps/app/Cargo.toml
-@@ -71,6 +71,7 @@ tauri-build = { workspace = true, features = ["codegen"] }
- [target.'cfg(target_os = "linux")'.dependencies]
- ashpd = { version = "0.13.13", default-features = false, features = [
+@@ -90,6 +90,7 @@ ashpd = { version = "0.13.13", default-features = false, features = [
    "async-io",
    "settings",
  ] }
 +gtk = { version = "0.18.2", optional = true }
  tauri-plugin-updater = { workspace = true, optional = true }
-@@ -79,7 +80,7 @@ features = ["Win32_Graphics_Dwm", "Win32_System_Com", "Win32_UI_Shell"]
+
+ [target.'cfg(target_os = "macos")'.dependencies]
+@@ -141,7 +142,7 @@ features = [
  # by default Tauri runs in production mode
  # when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
  default = ["custom-protocol"]
@@ -30,10 +33,28 @@ diff --git a/apps/app/Cargo.toml b/apps/app/Cargo.toml
  # DO NOT remove this
  custom-protocol = ["tauri/custom-protocol"]
 diff --git a/packages/app-lib/Cargo.toml b/packages/app-lib/Cargo.toml
+index 961d1be68..4475fb340 100644
 --- a/packages/app-lib/Cargo.toml
 +++ b/packages/app-lib/Cargo.toml
-@@ -169,3 +169,3 @@ winreg = { workspace = true }
+@@ -216,7 +216,7 @@ windows-core = { workspace = true }
+ winreg = { workspace = true }
+
  [features]
 -cef = []
 +cef = ["tauri/cef"]
  cli = ["dep:indicatif"]
+ tauri = ["dep:tauri"]
+
+diff --git a/third-party/tauri-plugin-http/Cargo.toml b/third-party/tauri-plugin-http/Cargo.toml
+index a3163a3ba..5400de4be 100644
+--- a/third-party/tauri-plugin-http/Cargo.toml
++++ b/third-party/tauri-plugin-http/Cargo.toml
+@@ -34,7 +34,7 @@ urlpattern = "0.3"
+
+ [build-dependencies]
+ regex = "1"
+-schemars = "0.8"
++schemars = "1"
+ serde = { version = "1", features = ["derive"] }
+ tauri-plugin = { version = "2.5", features = ["build"] }
+ url = "2"

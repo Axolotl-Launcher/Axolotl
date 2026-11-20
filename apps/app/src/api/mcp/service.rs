@@ -1,4 +1,5 @@
 use super::config::{Preferences, config_path};
+use crate::AppHandle;
 use launcher_mcp::{Server, Snapshot};
 use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -48,7 +49,7 @@ impl Controller {
 
     pub(super) async fn start(
         &mut self,
-        app: &tauri::AppHandle,
+        app: &AppHandle,
     ) -> Result<(), String> {
         self.revision_base = next_generation();
         let revision_base = self.revision_base;
@@ -123,7 +124,7 @@ pub(super) fn next_generation() -> u64 {
     (GENERATION.fetch_add(1, Ordering::SeqCst) + 1) << 32
 }
 
-pub async fn initialize(app: &tauri::AppHandle) {
+pub async fn initialize(app: &AppHandle) {
     let service = app.state::<McpService>();
     let mut controller = service.0.lock().await;
     if controller.loaded {
@@ -151,7 +152,7 @@ pub async fn initialize(app: &tauri::AppHandle) {
     let _ = app.emit_to("main", EVENT, controller.state());
 }
 
-pub async fn shutdown(app: &tauri::AppHandle) {
+pub async fn shutdown(app: &AppHandle) {
     let service = app.state::<McpService>();
     let mut controller = service.0.lock().await;
     if let Some(server) = controller.server.take() {

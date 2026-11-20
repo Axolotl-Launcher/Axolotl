@@ -7,7 +7,7 @@ use service::McpService;
 pub use service::{initialize, shutdown};
 use tauri::Manager;
 
-pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+pub fn init() -> tauri::plugin::TauriPlugin<crate::AppRuntime> {
     tauri::plugin::Builder::new("mcp")
         .invoke_handler(tauri::generate_handler![
             commands::mcp_get_state,

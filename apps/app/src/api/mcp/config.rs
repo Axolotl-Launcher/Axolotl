@@ -1,3 +1,4 @@
+use crate::AppHandle;
 use serde::{Deserialize, Serialize};
 use std::{io::Write, path::PathBuf};
 #[derive(Clone, Copy, Default, Deserialize, Serialize)]
@@ -8,14 +9,14 @@ pub(super) struct Preferences {
     pub(super) require_auth: bool,
 }
 
-pub(super) fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub(super) fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
     theseus::DirectoryInfo::initial_settings_dir_path(&app.config().identifier)
         .map(|path| path.join("mcp.json"))
         .ok_or_else(|| "Cannot locate MCP settings directory".into())
 }
 
 pub(super) fn save_preferences(
-    app: &tauri::AppHandle,
+    app: &AppHandle,
     preferences: Preferences,
 ) -> Result<(), String> {
     let path = config_path(app)?;

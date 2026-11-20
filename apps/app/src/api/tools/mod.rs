@@ -1,3 +1,4 @@
+use crate::AppHandle;
 mod backend;
 pub(crate) mod interface;
 
@@ -8,7 +9,7 @@ use tauri::Manager;
 /// App-owned runtime survives external MCP listener restarts and is shared by future internal callers.
 pub(crate) struct LauncherTools(pub Arc<ToolRuntime>);
 
-pub(crate) fn initialize(app: &tauri::AppHandle) {
+pub(crate) fn initialize(app: &AppHandle) {
     app.manage(LauncherTools(Arc::new(ToolRuntime::new(
         LauncherInfo::new(env!("CARGO_PKG_VERSION")),
         Arc::new(backend::LauncherBackend::new(app.clone())),

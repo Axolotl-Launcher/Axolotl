@@ -1,4 +1,5 @@
 use super::{LauncherBackend, business_error, serialize};
+use crate::AppHandle;
 use launcher_tools::{BackendContext, Command, ToolError};
 use serde_json::{Value, json};
 use tauri::Emitter;
@@ -122,7 +123,7 @@ fn validate_patch(value: &Value) -> Result<(), ToolError> {
     }
     Ok(())
 }
-fn app(backend: &LauncherBackend) -> Result<tauri::AppHandle, ToolError> {
+fn app(backend: &LauncherBackend) -> Result<AppHandle, ToolError> {
     backend.app.clone().ok_or_else(|| {
         ToolError::new("app_unavailable", "Desktop app handle is unavailable")
     })

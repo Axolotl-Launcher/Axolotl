@@ -2,10 +2,11 @@ use super::{
     config::{Preferences, save_preferences},
     service::{EVENT, McpService, McpState, initialize, next_generation},
 };
+use crate::AppHandle;
 use tauri::{Emitter, Manager};
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
-pub async fn mcp_get_state(app: tauri::AppHandle) -> Result<McpState, String> {
+pub async fn mcp_get_state(app: AppHandle) -> Result<McpState, String> {
     initialize(&app).await;
     Ok(app.state::<McpService>().0.lock().await.state())
 }
@@ -13,7 +14,7 @@ pub async fn mcp_get_state(app: tauri::AppHandle) -> Result<McpState, String> {
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcp_configure(
-    app: tauri::AppHandle,
+    app: AppHandle,
     enabled: bool,
     full_access: bool,
     require_auth: bool,
@@ -45,7 +46,7 @@ pub async fn mcp_configure(
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcp_respond(
-    app: tauri::AppHandle,
+    app: AppHandle,
     connection_id: String,
     allow: bool,
 ) -> Result<McpState, String> {
@@ -66,7 +67,7 @@ pub async fn mcp_respond(
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn mcp_disconnect(
-    app: tauri::AppHandle,
+    app: AppHandle,
     connection_id: String,
 ) -> Result<McpState, String> {
     let service = app.state::<McpService>();

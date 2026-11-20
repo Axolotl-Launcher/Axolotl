@@ -46,6 +46,9 @@ jobs:
         with:
           toolchain: 1.95.0
 
+      - name: Set up the Linux linker
+        uses: ./.github/actions/setup-mold
+
       - name: Set up Rust compiler cache
         uses: mozilla-actions/sccache-action@2df7dbab909c49ab7d3382d05da469f3f975c2d6 # v0.0.7
 
@@ -85,25 +88,11 @@ jobs:
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Blockbench skin editor dependencies
-        run: npm ci
-        working-directory: third-party/blockbench
-
-      - name: Replace Gradle mirror
-        uses: ./.github/actions/replace-gradle-mirror
-
-      - name: Set build version from the latest release tag
-        shell: bash
+      - name: Prepare desktop build resources
         run: |
-          set -euo pipefail
-          version_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$GITHUB_SHA")"
-          node scripts/axolotl/set-version.mjs "$version_tag"
-          version="${version_tag#v}"
-          echo "CEF_BUILD_TAG=$version_tag" >> "$GITHUB_ENV"
-          echo "CEF_BUILD_VERSION=$version" >> "$GITHUB_ENV"
-
-      - name: Build frontend
-        run: pnpm --filter @modrinth/app-frontend build
+          resources="$GITHUB_WORKSPACE/target/build-resources"
+          node scripts/axolotl/prepare-build-resources.mjs --output "$resources"
+          echo "AXOLOTL_BUILD_RESOURCES=$resources" >> "$GITHUB_ENV"
 
       - name: Install matching Tauri CEF CLI
         shell: bash
@@ -144,19 +133,21 @@ jobs:
             ${{ runner.temp }}/tauri-cef
           key: linux-cef-${{ runner.os }}-${{ env.TAURI_CEF_REV }}-${{ env.CEF_VERSION }}-${{ hashFiles('Cargo.cef-linux.lock', '.cargo/config-cef-linux.toml') }}
 
-      - name: Activate locked Linux CEF dependency graph
+      - name: Activate the Linux CEF manifests and lockfile
         run: |
-          git apply --check .github/patches/linux-cef-manifest.patch
           git apply .github/patches/linux-cef-manifest.patch
           cp Cargo.cef-linux.lock Cargo.lock
-          # set-version updates only workspace package versions. Let Cargo
-          # synchronize those local entries before enforcing the locked graph.
-          cargo metadata \
-            --format-version 1 \
-            --filter-platform x86_64-unknown-linux-gnu \
-            --no-default-features \
-            --features cef,custom-protocol,updater \
-            > /dev/null
+
+      - name: Set build version from the latest release tag
+        shell: bash
+        run: |
+          version_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$GITHUB_SHA")"
+          node scripts/axolotl/set-version.mjs "$version_tag"
+          echo "CEF_BUILD_TAG=$version_tag" >> "$GITHUB_ENV"
+          echo "CEF_BUILD_VERSION=${version_tag#v}" >> "$GITHUB_ENV"
+
+      - name: Verify the locked Linux CEF dependency graph
+        run: |
           cargo metadata \
             --locked \
             --format-version 1 \
@@ -178,7 +169,7 @@ jobs:
           grep -F "cef v$CEF_VERSION" "$tree_file"
           grep -F "tauri-plugin v2.6.3 (https://github.com/tauri-apps/tauri?rev=$TAURI_CEF_REV" "$tree_file"
           grep -F "tauri-plugin-fs v2.5.1 (https://github.com/tauri-apps/plugins-workspace?rev=$TAURI_CEF_PLUGINS_REV" "$tree_file"
-          grep -F "tauri-plugin-http v2.5.9 (https://github.com/tauri-apps/plugins-workspace?rev=$TAURI_CEF_PLUGINS_REV" "$tree_file"
+          grep -F "tauri-plugin-http v2.5.9 ($GITHUB_WORKSPACE/third-party/tauri-plugin-http)" "$tree_file"
           grep -F "tauri-plugin-opener v2.5.4 (https://github.com/tauri-apps/plugins-workspace?rev=$TAURI_CEF_PLUGINS_REV" "$tree_file"
           grep -F 'schemars v1.2.1' "$tree_file"
           if grep -Eq 'tauri-runtime-wry|webkit2gtk' "$tree_file"; then
@@ -186,6 +177,9 @@ jobs:
             grep -E 'tauri-runtime-wry|webkit2gtk' "$tree_file"
             exit 1
           fi
+
+      - name: Build frontend
+        run: pnpm --filter @modrinth/app-frontend build
 
       - name: Build Linux CEF packages
         working-directory: apps/app
@@ -263,13 +257,18 @@ jobs:
             exit 1
           fi
 
+          rpm_version="$CEF_BUILD_VERSION"
+          if [[ "$CEF_BUILD_VERSION" == *-* ]]; then
+            prerelease="${CEF_BUILD_VERSION#*-}"
+            rpm_version="${CEF_BUILD_VERSION%%-*}~${prerelease//-/.}"
+          fi
           for rpm_package in "${rpms[@]}"; do
             echo "Checking $rpm_package"
             contents="$(rpm -qplv "$rpm_package")"
             printf '%s\n' "$contents"
             package_version="$(rpm -qp --qf '%{VERSION}' "$rpm_package")"
-            if [[ "$package_version" != "$CEF_BUILD_VERSION" ]]; then
-              echo "$rpm_package has version $package_version; expected $CEF_BUILD_VERSION from $CEF_BUILD_TAG"
+            if [[ "$package_version" != "$rpm_version" ]]; then
+              echo "$rpm_package has version $package_version; expected $rpm_version from $CEF_BUILD_TAG"
               exit 1
             fi
             check_cef_files "$rpm_package" "$contents"

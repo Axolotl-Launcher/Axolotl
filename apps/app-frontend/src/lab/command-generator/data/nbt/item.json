@@ -1754,7 +1754,7 @@
         {
           "key": "title",
           "type": "string",
-          "desc": "The title of this written book. Overrides the base item name. If set to an empty string, it is ignored and does not override the base item name. If set to a string, it",
+          "desc": "The title of this written book. Overrides the base item name. If set to an empty string, it is ignored and does not override the base item name.",
           "category": "basic",
           "zh": "标题"
         },

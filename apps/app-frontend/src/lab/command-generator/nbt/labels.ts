@@ -6,7 +6,8 @@
  * wiki 英文原文。
  */
 
-import { ITEM_COMPONENT_DESCRIPTIONS } from './descriptions.ts'
+import { catalogFor } from './catalog.ts'
+import { ITEM_DESCRIPTIONS } from './descriptions.ts'
 import type { NbtTagType } from './model.ts'
 import { humanizeKey, type NbtDomain, type NbtFieldSpec } from './schema.ts'
 
@@ -18,8 +19,35 @@ interface MessageDescriptor {
 /** `useVIntl()` 的 `formatMessage`，只取这里用得到的部分。 */
 export type MessageFormatter = (descriptor: MessageDescriptor) => string
 
+/**
+ * 说明文案按「字段路径」登记，但界面手上只有字段对象。目录是静态 import 的，
+ * 对象身份稳定，所以建一次路径索引就能长期复用。
+ */
 const DESCRIPTIONS: Partial<Record<NbtDomain, Record<string, MessageDescriptor>>> = {
-    item: ITEM_COMPONENT_DESCRIPTIONS as Record<string, MessageDescriptor>,
+    item: ITEM_DESCRIPTIONS as Record<string, MessageDescriptor>,
+}
+
+const indexes = new Map<NbtDomain, WeakMap<NbtFieldSpec, MessageDescriptor>>()
+
+function descriptionIndex(domain: NbtDomain): WeakMap<NbtFieldSpec, MessageDescriptor> {
+    const cached = indexes.get(domain)
+    if (cached) return cached
+
+    const table = DESCRIPTIONS[domain]
+    const index = new WeakMap<NbtFieldSpec, MessageDescriptor>()
+    if (table) {
+        const walk = (fields: NbtFieldSpec[], prefix: string) => {
+            for (const field of fields) {
+                const path = prefix ? `${prefix}.${field.key}` : field.key
+                const descriptor = table[path]
+                if (descriptor) index.set(field, descriptor)
+                walk(field.children ?? [], path)
+            }
+        }
+        walk(catalogFor(domain).fields, '')
+    }
+    indexes.set(domain, index)
+    return index
 }
 
 /** 列表里用的紧凑类型标记：和 SNBT 的写法保持一致，省得再记一套缩写。 */
@@ -69,7 +97,7 @@ export function fieldDescription(
     domain: NbtDomain,
     formatMessage: MessageFormatter,
 ): string {
-    const descriptor = DESCRIPTIONS[domain]?.[spec.key]
+    const descriptor = descriptionIndex(domain).get(spec)
     if (descriptor) return formatMessage(descriptor)
     return spec.desc ?? ''
 }

@@ -1,13 +1,14 @@
 /**
- * 物品组件的说明文案。
+ * 物品组件的说明文案，键是目录里的字段路径（子字段用点连接）。
  *
  * 目录数据里的 `desc` 是 wiki 英文原文（搜索也会用到），但界面要给两种语言，
  * 所以显示走这里的消息描述符。id 必须写成字面量，formatjs 才能静态抽取。
+ * 文案里的尖括号与花括号是字面量，按 ICU 规则用单引号转义。
  */
 
 import { defineMessages } from '@modrinth/ui'
 
-export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
+export const ITEM_DESCRIPTIONS = defineMessages({
     additional_trade_cost: {
         id: 'app.lab.command-generator.nbt.desc.item.additional_trade_cost',
         defaultMessage:
@@ -31,6 +32,14 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         defaultMessage:
             'List of all patterns applied to the banner or the shield. If used on a shield and the minecraft:base_color component is not specified, then white is used as the base banner color.',
     },
+    'banner_patterns.color': {
+        id: 'app.lab.command-generator.nbt.desc.item.banner_patterns.color',
+        defaultMessage: 'Dye color of the section.',
+    },
+    'banner_patterns.pattern': {
+        id: 'app.lab.command-generator.nbt.desc.item.banner_patterns.pattern',
+        defaultMessage: 'One banner pattern (an ID, or a new banner pattern definition).',
+    },
     base_color: {
         id: 'app.lab.command-generator.nbt.desc.item.base_color',
         defaultMessage:
@@ -40,6 +49,19 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.bees',
         defaultMessage:
             'A list of the entities currently in the beehive or bee nest. If present on an item, text is added to the item\'s tooltip that says how many entries are in the list (e.g. if there are two entries, the tooltip will say "Bees: 2 / 3") and each item is considered a full stack for the minecraft:bundle_contents components. Despite the tooltip suggesting there is a maximum of 3 entries, there is no limit to the size of this component.',
+    },
+    'bees.entity_data': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data',
+        defaultMessage:
+            'Must include id tag. If the id is not minecraft:bee then the entity will never leave the hive. The Passengers, Pos, Rotation, and UUID tags are ignored when the bee spawns (the bee will always spawn in front of the hive with a random UUID, facing south, and without any passengers).',
+    },
+    'bees.min_ticks_in_hive': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.min_ticks_in_hive',
+        defaultMessage: 'The minimum amount of time in ticks for this entity to stay in the hive.',
+    },
+    'bees.ticks_in_hive': {
+        id: 'app.lab.command-generator.nbt.desc.item.bees.ticks_in_hive',
+        defaultMessage: 'The amount of ticks the entity has stayed in the hive.',
     },
     block_entity_data: {
         id: 'app.lab.command-generator.nbt.desc.item.block_entity_data',
@@ -85,10 +107,60 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         defaultMessage:
             'When present, the player holding the item can break the specified blocks in Adventure mode.',
     },
+    'can_break.blocks': {
+        id: 'app.lab.command-generator.nbt.desc.item.can_break.blocks',
+        defaultMessage:
+            'Any number of block types (an ID, or a tag with #, or a list of IDs). Test fails if the block is not a matching block type.',
+    },
+    'can_break.state': {
+        id: 'app.lab.command-generator.nbt.desc.item.can_break.state',
+        defaultMessage:
+            "Tests the block state. Test fails if the block doesn't have matching block state properties.",
+    },
+    'can_break.nbt': {
+        id: 'app.lab.command-generator.nbt.desc.item.can_break.nbt',
+        defaultMessage:
+            'An NBT compound, represented either as an object or a string containing SNBT. Test fails if the block does not have matching NBT data.',
+    },
+    'can_break.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.can_break.components',
+        defaultMessage:
+            "Data components to match exactly. Each key in this object is a component ID, and its value is a full component of that type. Test fails if the block doesn't have exactly the same value for every provided component.",
+    },
+    'can_break.predicates': {
+        id: 'app.lab.command-generator.nbt.desc.item.can_break.predicates',
+        defaultMessage:
+            "Data component predicates to match components loosely. Each key in this object is a component predicate ID, and its value is a component predicate of that type. Test fails if the block's components do not match all predicates.",
+    },
     can_place_on: {
         id: 'app.lab.command-generator.nbt.desc.item.can_place_on',
         defaultMessage:
             'Determines which blocks that blocks with this component can be placed against in Adventure mode. If defined as a compound, corresponds to [NBT Compound / JSON Object] A single block predicate. Items are listed in the tooltip in the order specified (when viewed in inventory).',
+    },
+    'can_place_on.blocks': {
+        id: 'app.lab.command-generator.nbt.desc.item.can_place_on.blocks',
+        defaultMessage:
+            'Any number of block types (an ID, or a tag with #, or a list of IDs). Test fails if the block is not a matching block type.',
+    },
+    'can_place_on.state': {
+        id: 'app.lab.command-generator.nbt.desc.item.can_place_on.state',
+        defaultMessage:
+            "Tests the block state. Test fails if the block doesn't have matching block state properties.",
+    },
+    'can_place_on.nbt': {
+        id: 'app.lab.command-generator.nbt.desc.item.can_place_on.nbt',
+        defaultMessage:
+            'An NBT compound, represented either as an object or a string containing SNBT. Test fails if the block does not have matching NBT data.',
+    },
+    'can_place_on.components': {
+        id: 'app.lab.command-generator.nbt.desc.item.can_place_on.components',
+        defaultMessage:
+            "Data components to match exactly. Each key in this object is a component ID, and its value is a full component of that type. Test fails if the block doesn't have exactly the same value for every provided component.",
+    },
+    'can_place_on.predicates': {
+        id: 'app.lab.command-generator.nbt.desc.item.can_place_on.predicates',
+        defaultMessage:
+            "Data component predicates to match components loosely. Each key in this object is a component predicate ID, and its value is a component predicate of that type. Test fails if the block's components do not match all predicates.",
     },
     charged_projectiles: {
         id: 'app.lab.command-generator.nbt.desc.item.charged_projectiles',
@@ -104,10 +176,43 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.consumable',
         defaultMessage: 'If present, the item can be consumed. Its options can also be modified.',
     },
+    'consumable.consume_seconds': {
+        id: 'app.lab.command-generator.nbt.desc.item.consumable.consume_seconds',
+        defaultMessage:
+            'The amount of seconds it takes for a player to consume the item. Defaults to 1.6.',
+    },
+    'consumable.animation': {
+        id: 'app.lab.command-generator.nbt.desc.item.consumable.animation',
+        defaultMessage:
+            'The animation used during consumption of the item. Must be one of none, eat, drink, block, bow, spear, crossbow, spyglass, toot_horn, brush, bundle, or trident. Defaults to eat.',
+    },
+    'consumable.sound': {
+        id: 'app.lab.command-generator.nbt.desc.item.consumable.sound',
+        defaultMessage:
+            "Optional. One server-side sound event (an ID, or a new server-side sound event definition) used during and on completion of the item's consumption. Defaults to entity.generic.eat.",
+    },
+    'consumable.has_consume_particles': {
+        id: 'app.lab.command-generator.nbt.desc.item.consumable.has_consume_particles',
+        defaultMessage:
+            'Whether consumption particles are emitted while consuming this item. Defaults to true.',
+    },
+    'consumable.on_consume_effects': {
+        id: 'app.lab.command-generator.nbt.desc.item.consumable.on_consume_effects',
+        defaultMessage:
+            'A list of effects which take place as a result of consuming this item. Optional.',
+    },
     container: {
         id: 'app.lab.command-generator.nbt.desc.item.container',
         defaultMessage:
             "The items contained in this container's slots. If present on an item, the first 5 item slots in the container are listed in the tooltip, and the number of any extra slots are listed as \"and '<N>' more...\" underneath (only seen on shulker boxes in normal gameplay or ctrl-middle-clicked containers in creative mode). This component supports up to 256 item slots but, when present on some block entities, the number of slots may be artificially limited based on the number of slots the block needs (e.g. 1 for decorated pots, and 27 for chests).",
+    },
+    'container.item': {
+        id: 'app.lab.command-generator.nbt.desc.item.container.item',
+        defaultMessage: 'The item stack in this slot.',
+    },
+    'container.slot': {
+        id: 'app.lab.command-generator.nbt.desc.item.container.slot',
+        defaultMessage: 'A slot in this container. Can be from 0 to 255 (inclusive).',
     },
     container_loot: {
         id: 'app.lab.command-generator.nbt.desc.item.container_loot',
@@ -133,6 +238,26 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         defaultMessage:
             'A list of values used by items model definitions for model selection and coloring.',
     },
+    'custom_model_data.floats': {
+        id: 'app.lab.command-generator.nbt.desc.item.custom_model_data.floats',
+        defaultMessage:
+            'A list of floats for the range_dispatch model type. Missing values return the fallback model.',
+    },
+    'custom_model_data.flags': {
+        id: 'app.lab.command-generator.nbt.desc.item.custom_model_data.flags',
+        defaultMessage:
+            'A list of booleans for the condition model type. Missing value returns the is_false model.',
+    },
+    'custom_model_data.strings': {
+        id: 'app.lab.command-generator.nbt.desc.item.custom_model_data.strings',
+        defaultMessage:
+            'A list of strings for the select model type. Missing value returns the fallback model.',
+    },
+    'custom_model_data.colors': {
+        id: 'app.lab.command-generator.nbt.desc.item.custom_model_data.colors',
+        defaultMessage:
+            "A list of RGB values for the model model type's tints. Missing values return the default value provided by the item model definition. Any provided lists of three floats automatically convert to an integer, so the component is saved as an int array.",
+    },
     custom_name: {
         id: 'app.lab.command-generator.nbt.desc.item.custom_name',
         defaultMessage: "Used to specify an item, block, or entity's custom name.",
@@ -146,6 +271,10 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.damage_resistant',
         defaultMessage:
             'If specified, this item is invulnerable to the specified damage types when in entity form or equipped.',
+    },
+    'damage_resistant.types': {
+        id: 'app.lab.command-generator.nbt.desc.item.damage_resistant.types',
+        defaultMessage: 'A damage type tag prefixed with #.',
     },
     damage_type: {
         id: 'app.lab.command-generator.nbt.desc.item.damage_type',
@@ -168,12 +297,17 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
     dyed_color: {
         id: 'app.lab.command-generator.nbt.desc.item.dyed_color',
         defaultMessage:
-            'The RGB color of the tint applied to a dyed item, typically as a result of combining the item with dyes in a minecraft:crafting_dyed type crafting recipe. More generally, this component is used as the minecraft:dye color provider in item model definitions (so only item models that explicitly use this color provider will be tinted). If present on an item, gray text is added to the tooltip showing either an italic "Dyed" when advanced tooltips is off, or a non-italic "Color: #\'<hex color code>\'" instead when advanced tooltips is on. The color is stored as an integer which packs the color\'s red, green and blue channels using this formula:( Red ＜＜ 16) + ( Green ＜＜ 8) + Blue',
+            "The RGB color of the tint applied to a dyed item, typically as a result of combining the item with dyes in a minecraft:crafting_dyed type crafting recipe. More generally, this component is used as the minecraft:dye color provider in item model definitions (so only item models that explicitly use this color provider will be tinted). If present on an item, gray text is added to the tooltip showing either an italic \"Dyed\" when advanced tooltips is off, or a non-italic \"Color: #'<hex color code>'\" instead when advanced tooltips is on. The color is stored as an integer which packs the color's red, green and blue channels using this formula:( Red '<<' 16) + ( Green '<<' 8) + Blue",
     },
     enchantable: {
         id: 'app.lab.command-generator.nbt.desc.item.enchantable',
         defaultMessage:
             'If this and minecraft:enchantments are present on an item, and applicable enchantments are available, the item can be enchanted in an enchanting table.',
+    },
+    'enchantable.value': {
+        id: 'app.lab.command-generator.nbt.desc.item.enchantable.value',
+        defaultMessage:
+            "Positive integer representing the item's enchantability. A higher value allows enchantments with a higher cost to be picked.",
     },
     enchantment_glint_override: {
         id: 'app.lab.command-generator.nbt.desc.item.enchantment_glint_override',
@@ -194,6 +328,60 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.equippable',
         defaultMessage: 'If present, this item can be equipped in the specified slot.',
     },
+    'equippable.slot': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.slot',
+        defaultMessage:
+            'The slot to put the item on. Can be one of head, chest, legs, feet, body, mainhand, offhand, or saddle.',
+    },
+    'equippable.equip_sound': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.equip_sound',
+        defaultMessage:
+            'Optional. One server-side sound event (an ID, or a new server-side sound event definition) to play when the item is equipped. Defaults to item.armor.equip_generic.',
+    },
+    'equippable.asset_id': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.asset_id',
+        defaultMessage:
+            "The identifier of the equipment model to use when equipped. The directory this refers to is assets/'<namespace>'/equipment/'<id>'.json. If not specified, falls back to rendering as the item itself when in the head slot (if not applicable, the item does not render).",
+    },
+    'equippable.allowed_entities': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.allowed_entities',
+        defaultMessage:
+            'Entity ID, Entity Tag, or list of Entity IDs to limit which entities can equip this item. Defaults to all entities.',
+    },
+    'equippable.dispensable': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.dispensable',
+        defaultMessage: 'Whether the item can be dispensed by using a dispenser. Defaults to true.',
+    },
+    'equippable.swappable': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.swappable',
+        defaultMessage:
+            'Whether the item can be equipped into the relevant slot by right-clicking. Defaults to true.',
+    },
+    'equippable.damage_on_hurt': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.damage_on_hurt',
+        defaultMessage:
+            'Whether this item is damaged when the wearing entity is damaged. Defaults to true.',
+    },
+    'equippable.equip_on_interact': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.equip_on_interact',
+        defaultMessage:
+            'Whether this item can be equipped onto a target mob by pressing use on it (as long as this item can be equipped on the target at all). Defaults to false.',
+    },
+    'equippable.camera_overlay': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.camera_overlay',
+        defaultMessage:
+            "The identifier of the overlay texture to use when equipped. The directory this refers to is assets/'<namespace>'/textures/'<id>'. Assets which do not exist will use the missing texture, rather than falling back to a default such as the pumpkin overlay.",
+    },
+    'equippable.can_be_sheared': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.can_be_sheared',
+        defaultMessage:
+            'Whether this item can be unequipped from a target mob by right-clicking with Shears. Defaults to false.',
+    },
+    'equippable.shearing_sound': {
+        id: 'app.lab.command-generator.nbt.desc.item.equippable.shearing_sound',
+        defaultMessage:
+            'Optional. One server-side sound event (an ID, or a new server-side sound event definition) to play when the item is sheared. Defaults to item.shears.snip.',
+    },
     firework_explosion: {
         id: 'app.lab.command-generator.nbt.desc.item.firework_explosion',
         defaultMessage: 'The explosion effect stored by this firework star.',
@@ -207,10 +395,24 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.food',
         defaultMessage: 'The food stats applied to the mob or player upon consuming this item.',
     },
+    'food.nutrition': {
+        id: 'app.lab.command-generator.nbt.desc.item.food.nutrition',
+        defaultMessage:
+            'The number of food points restored by this item when the player eats. The number of health points restored by this item when used to feed cats. Wolfs, nautilus and zombie nautilus restored the twice the value. Must be a non-negative integer.',
+    },
+    'food.saturation': {
+        id: 'app.lab.command-generator.nbt.desc.item.food.saturation',
+        defaultMessage: 'The amount of saturation restored by this item when eaten.',
+    },
+    'food.can_always_eat': {
+        id: 'app.lab.command-generator.nbt.desc.item.food.can_always_eat',
+        defaultMessage:
+            'If true, this item can be eaten even if the player is not hungry. Defaults to false.',
+    },
     glider: {
         id: 'app.lab.command-generator.nbt.desc.item.glider',
         defaultMessage:
-            "If present, this item allows living entities to glide (as with elytra) when equipped. If the item is damageable, it will only allow entities to glide if it has minecraft:damage ＜ minecraft:max_damage − 1. Every second while an entity is gliding, the game will select a random equipped glider item that isn't too damaged to function and try to apply one point of durability damage.",
+            "If present, this item allows living entities to glide (as with elytra) when equipped. If the item is damageable, it will only allow entities to glide if it has minecraft:damage '<' minecraft:max_damage − 1. Every second while an entity is gliding, the game will select a random equipped glider item that isn't too damaged to function and try to apply one point of durability damage.",
     },
     instrument: {
         id: 'app.lab.command-generator.nbt.desc.item.instrument',
@@ -321,6 +523,22 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         defaultMessage:
             'A map for face to the item stacks (typically pottery sherds or bricks). The faces can be empty. When used on a decorated pot, it defines the items that will be dropped from its faces when broken. If an item has the minecraft:provides_pottery_pattern component, it defines the texture of the corresponding face.',
     },
+    'pot_decorations.left': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.left',
+        defaultMessage: 'The item stack in the left side.',
+    },
+    'pot_decorations.back': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.back',
+        defaultMessage: 'The item stack in the back side.',
+    },
+    'pot_decorations.right': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.right',
+        defaultMessage: 'The item stack in the right side.',
+    },
+    'pot_decorations.front': {
+        id: 'app.lab.command-generator.nbt.desc.item.pot_decorations.front',
+        defaultMessage: 'The item stack in the front side.',
+    },
     potion_contents: {
         id: 'app.lab.command-generator.nbt.desc.item.potion_contents',
         defaultMessage:
@@ -335,6 +553,53 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.profile',
         defaultMessage:
             'Provides the textures needed for rendering player models (player head blocks, player head item models, and mannequins) and player face sprites. Each texture can be provided either as the namespaced path to a texture in a resource pack, or from a player profile. A player profile can be specified either as player information whose profile properties must be requested on the fly, or a list of already-resolved profile properties.',
+    },
+    'profile.name': {
+        id: 'app.lab.command-generator.nbt.desc.item.profile.name',
+        defaultMessage:
+            "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive than actual player usernames, which must be 3-16 characters and may only contain letters, numbers, and underscores). If no other profile fields are specified, this is used to dynamically request the profile of a player with that username from Mojang's servers.",
+    },
+    'profile.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.profile.id',
+        defaultMessage:
+            "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile of a player with that UUID from Mojang's servers.",
+    },
+    'profile.properties': {
+        id: 'app.lab.command-generator.nbt.desc.item.profile.properties',
+        defaultMessage:
+            'Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component.',
+    },
+    'profile.properties.name': {
+        id: 'app.lab.command-generator.nbt.desc.item.profile.properties.name',
+        defaultMessage: 'The name of the property. Can only be "textures".',
+    },
+    'profile.properties.value': {
+        id: 'app.lab.command-generator.nbt.desc.item.profile.properties.value',
+        defaultMessage: 'The texture data json, encoded in base64.',
+    },
+    'profile.properties.signature': {
+        id: 'app.lab.command-generator.nbt.desc.item.profile.properties.signature',
+        defaultMessage: "Optional. Mojang's signature of the value, encoded in base64.",
+    },
+    'profile.texture': {
+        id: 'app.lab.command-generator.nbt.desc.item.profile.texture',
+        defaultMessage:
+            'Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a player model or skin, overriding the skin texture provided by a profile.',
+    },
+    'profile.cape': {
+        id: 'app.lab.command-generator.nbt.desc.item.profile.cape',
+        defaultMessage:
+            'Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a cape, overriding the cape texture provided by a profile. This does not affect the elytra texture.',
+    },
+    'profile.elytra': {
+        id: 'app.lab.command-generator.nbt.desc.item.profile.elytra',
+        defaultMessage:
+            'Optional. Namespaced path to an elytra texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering an elytra, overriding the elytra texture provided by a profile. This does not affect the cape texture.',
+    },
+    'profile.model': {
+        id: 'app.lab.command-generator.nbt.desc.item.profile.model',
+        defaultMessage:
+            'Optional. The type of player model to use. Either "wide" or "slim". If specified, this overrides the model type provided by a profile.',
     },
     provides_banner_patterns: {
         id: 'app.lab.command-generator.nbt.desc.item.provides_banner_patterns',
@@ -392,6 +657,14 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         defaultMessage:
             "A list of unamplified mob effects given to the player or mob upon consuming this item (normally a suspicious stew). minecraft:potion_duration_scale is ignored. When present on an item, text is added to the item's tooltip only when it is inside of the item selection screen.",
     },
+    'suspicious_stew_effects.id': {
+        id: 'app.lab.command-generator.nbt.desc.item.suspicious_stew_effects.id',
+        defaultMessage: 'The ID of the effect.',
+    },
+    'suspicious_stew_effects.duration': {
+        id: 'app.lab.command-generator.nbt.desc.item.suspicious_stew_effects.duration',
+        defaultMessage: 'The duration of the effect in ticks. Defaults to 160.',
+    },
     swing_animation: {
         id: 'app.lab.command-generator.nbt.desc.item.swing_animation',
         defaultMessage:
@@ -401,14 +674,325 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.tag',
         defaultMessage: 'Item data before 1.20.5, replaced by data components.',
     },
+    'tag.display': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.display',
+        defaultMessage: 'Display properties.',
+    },
+    'tag.display.Name': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.display.Name',
+        defaultMessage: 'The JSON text component to use to display the item.',
+    },
+    'tag.display.Lore': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.display.Lore',
+        defaultMessage: 'List of strings to display as lore for the item.',
+    },
+    'tag.display.color': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.display.color',
+        defaultMessage:
+            "The color of the leather armor. The tooltip displays \"Dyed\" if advanced tooltips are disabled, otherwise it displays the hexadecimal color value. Color codes are the hex code of the color converted to a decimal number, or can be calculated from the Red, Green and Blue components using this formula: Red'<<'16 + Green'<<'8 + Blue.",
+    },
+    'tag.display.MapColor': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.display.MapColor',
+        defaultMessage: "The color of the markings on the item's texture.",
+    },
+    'tag.HideFlags': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.HideFlags',
+        defaultMessage: 'Bit field determining which parts of the tooltip to hide on an item.',
+    },
+    'tag.CustomModelData': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.CustomModelData',
+        defaultMessage:
+            'A value used in the "custom_model_data" item tag in the overrides of item models.',
+    },
+    'tag.AttributeModifiers': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.AttributeModifiers',
+        defaultMessage:
+            'Contains Attribute Modifiers on this item which modify Attributes of the wearer or holder (if the item is not in the hand or armor slots, it has no effect).',
+    },
+    'tag.Enchantments': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Enchantments',
+        defaultMessage: 'Contains enchantments on this item that affect the way the item works.',
+    },
+    'tag.StoredEnchantments': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.StoredEnchantments',
+        defaultMessage: 'Contains enchantments for enchanted books.',
+    },
+    'tag.RepairCost': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.RepairCost',
+        defaultMessage:
+            'Number of experience levels to add to the base level cost when repairing, combining, or renaming this item with an Anvil.',
+    },
+    'tag.CanDestroy': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.CanDestroy',
+        defaultMessage:
+            'The only blocks this item may break when used by a player in adventure mode.',
+    },
+    'tag.CanPlaceOn': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.CanPlaceOn',
+        defaultMessage:
+            'Determines which blocks that blocks with this tag can be placed against in adventure mode.',
+    },
+    'tag.BlockEntityTag': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.BlockEntityTag',
+        defaultMessage: 'Block entity NBT tags which are applied when this block is placed.',
+    },
+    'tag.BlockStateTag': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.BlockStateTag',
+        defaultMessage:
+            'A compound where each key is a block state key, and the value is the block state value to force place for this block.',
+    },
+    'tag.BlockStateTag.Block state key': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.BlockStateTag.Block state key',
+        defaultMessage: 'The block state value of the block to edit, for example, facing: "east".',
+    },
+    'tag.Damage': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Damage',
+        defaultMessage: "The number of uses consumed (not remaining) of the item's durability.",
+    },
+    'tag.Unbreakable': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Unbreakable',
+        defaultMessage:
+            "1 or 0 (true/false) - if true, the item doesn't lose durability when used.",
+    },
+    'tag.custom_potion_effects': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.custom_potion_effects',
+        defaultMessage:
+            'The custom potion effects (status effects) this potion or tipped arrow has.',
+    },
+    'tag.Potion': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Potion',
+        defaultMessage:
+            'The name of the default potion effect. This name differs from the status effect name. For example, the value for an "Instant Health II" potion is "minecraft:strong_healing". A potion or tipped arrow getting its effects from this tag is named with the proper effect. The default value is "minecraft:empty", which gives it the "Uncraftable" name.',
+    },
+    'tag.CustomPotionColor': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.CustomPotionColor',
+        defaultMessage:
+            "The item uses this custom color, and area-of-effect clouds, arrows, and splash and lingering potions use it for their particle effects. This color does not extend, however, to the particles given off by entities who ultimately receive the effect. The numeric color codes are equal to the hex code of the color converted to a decimal number, or can alternatively be calculated from the Red, Green and Blue components using this formula: Red'<<'16 + Green'<<'8 + Blue. For positive values larger than 0x00FFFFFF, the top byte is ignored. All negative values produce white.",
+    },
+    'tag.Trim': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Trim',
+        defaultMessage: 'Properties of Armor Trim.',
+    },
+    'tag.Trim.material': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Trim.material',
+        defaultMessage: 'The material which decides the color of armor trim.',
+    },
+    'tag.Trim.pattern': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Trim.pattern',
+        defaultMessage: 'The pattern of armor trim.',
+    },
+    'tag.EntityTag': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.EntityTag',
+        defaultMessage: 'Stores entity data that is applied to the entity when created.',
+    },
+    'tag.filtered_pages': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.filtered_pages',
+        defaultMessage:
+            'Only in Realms. The pages shown to players with the profanity filter turned on instead of some of the regular pages. This compound is automatically given a tag named after the page number and set to "" when a player with the profanity filter turned off closes a book with that specific page containing one or more blocked words, so players with the filter on cannot see the blocked words. If multiple pages have been edited before the book is closed, only the pages containing blocked words are blanked.',
+    },
+    'tag.pages': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.pages',
+        defaultMessage: 'The list of pages in the book.',
+    },
+    'tag.filtered_title': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.filtered_title',
+        defaultMessage:
+            'Only in Realms. The title shown to players with the profanity filter turned on instead of the regular title. This tag is automatically set to "" when a player with the profanity filter turned off signs a book with a title containing one or more blocked words, so players with the filter on cannot see the blocked words.',
+    },
+    'tag.resolved': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.resolved',
+        defaultMessage:
+            'Optional. Created and set to 1 when the book (or a book from the stack) is opened for the first time after being created. Used to determine whether to resolve advanced components within JSON, because their values become fixed at that point.',
+    },
+    'tag.generation': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.generation',
+        defaultMessage:
+            'Optional. The copy tier of the book. 0 = original, 1 = copy of original, 2 = copy of copy, 3 = tattered. If the value is greater than 1, the book cannot be copied. Does not exist for original books. If this tag is missing, it is assumed the book is an original. "Tattered" is unused in normal gameplay, and functions identically to the "copy of copy" tier.',
+    },
+    'tag.author': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.author',
+        defaultMessage: 'The author of the written book.',
+    },
+    'tag.title': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.title',
+        defaultMessage:
+            'The title of the written book. Lower priority than the item name set by tag.display.Name. Cannot be used to open locked containers.',
+    },
+    'tag.Recipes': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Recipes',
+        defaultMessage: 'The list of recipes this book contains.',
+    },
+    'tag.BucketVariantTag': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.BucketVariantTag',
+        defaultMessage: 'The variant data of the tropical fish in the bucket.',
+    },
+    'tag.Items': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Items',
+        defaultMessage: 'List of items in the bundle.',
+    },
+    'tag.LodestoneTracked': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.LodestoneTracked',
+        defaultMessage:
+            'Optional. 1 or 0 (true/false) - true if the compass is connected to a lodestone. When false, LodestoneDimension and LodestonePos is not automatically removed when the lodestone is destroyed, but the compass still points to that location.',
+    },
+    'tag.LodestoneDimension': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.LodestoneDimension',
+        defaultMessage:
+            'Optional. The dimension of the lodestone to which the compass is pointing.',
+    },
+    'tag.LodestonePos': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.LodestonePos',
+        defaultMessage:
+            'Optional. The coordinates of the lodestone to which the compass is pointing.',
+    },
+    'tag.LodestonePos.X': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.LodestonePos.X',
+        defaultMessage: 'x coordinate',
+    },
+    'tag.LodestonePos.Y': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.LodestonePos.Y',
+        defaultMessage: 'y coordinate',
+    },
+    'tag.LodestonePos.Z': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.LodestonePos.Z',
+        defaultMessage: 'z coordinate',
+    },
+    'tag.ChargedProjectiles': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.ChargedProjectiles',
+        defaultMessage:
+            'The items this crossbow has charged, normally one entry (three if enchanted with multishot)',
+    },
+    'tag.Charged': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Charged',
+        defaultMessage: 'If the crossbow is charged.',
+    },
+    'tag.DebugProperty': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.DebugProperty',
+        defaultMessage:
+            'A compound where each key is a block ID, and the value is the block state key to edit for that block ID.',
+    },
+    'tag.DebugProperty.Block ID': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.DebugProperty.Block ID',
+        defaultMessage:
+            'The block state key of the block to edit, for example "minecraft:oak_fence": "east".',
+    },
+    'tag.Fireworks': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Fireworks',
+        defaultMessage: 'One of these may appear on a firework rocket.',
+    },
+    'tag.Fireworks.Explosions': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Fireworks.Explosions',
+        defaultMessage: 'List of compounds representing each explosion this firework causes.',
+    },
+    'tag.Fireworks.Flight': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Fireworks.Flight',
+        defaultMessage:
+            'Indicates the flight duration of the firework (equals the amount of gunpowder used in crafting the rocket).',
+    },
+    'tag.Explosion': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Explosion',
+        defaultMessage: 'The explosion effect contributed by this firework star.',
+    },
+    'tag.instrument': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.instrument',
+        defaultMessage: 'The identifier of the goat horn variant.',
+    },
+    'tag.map': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.map',
+        defaultMessage: 'The map number.',
+    },
+    'tag.map_scale_direction': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.map_scale_direction',
+        defaultMessage:
+            'Only internally used when scaling a map, after that directly removed: The amount to increase the current map scale by when crafting. Always 1.',
+    },
+    'tag.map_to_lock': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.map_to_lock',
+        defaultMessage:
+            '1 or 0 (true/false) - true if the map should be locked after being taken out of the cartography table.',
+    },
+    'tag.Decorations': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.Decorations',
+        defaultMessage: 'A list of optional icons to display on the map.',
+    },
+    'tag.SkullOwner': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.SkullOwner',
+        defaultMessage: 'The username of the player this is a skull of.',
+    },
+    'tag.SkullOwner.Id': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.SkullOwner.Id',
+        defaultMessage:
+            "UUID of owner, stored as four ints. Optional. Used to update the other tags when the chunk loads or the holder logs in, in case the owner's name has changed.",
+    },
+    'tag.SkullOwner.Name': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.SkullOwner.Name',
+        defaultMessage:
+            'Username of owner. If missing or empty, the head appears as a Steve head. Otherwise, used to store or retrieve the downloaded skin in the cache. Need not be a valid player name, but must not be all spaces.',
+    },
+    'tag.SkullOwner.Properties': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.SkullOwner.Properties',
+        defaultMessage: 'The skin properties of the head owner.',
+    },
+    'tag.SkullOwner.Properties.textures': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.SkullOwner.Properties.textures',
+        defaultMessage:
+            'The individual texture entries of the head owner, each holding a Base64-encoded JSON object in Value.',
+    },
+    'tag.effects': {
+        id: 'app.lab.command-generator.nbt.desc.item.tag.effects',
+        defaultMessage: 'The status effects this suspicious stew has.',
+    },
     tool: {
         id: 'app.lab.command-generator.nbt.desc.item.tool',
         defaultMessage: 'If set, this item is considered as a tool.',
+    },
+    'tool.default_mining_speed': {
+        id: 'app.lab.command-generator.nbt.desc.item.tool.default_mining_speed',
+        defaultMessage:
+            'The default mining speed of this tool, used if no rules override it. Defaults to 1.0.',
+    },
+    'tool.damage_per_block': {
+        id: 'app.lab.command-generator.nbt.desc.item.tool.damage_per_block',
+        defaultMessage:
+            'The amount of durability to remove each time a block is broken with this tool. Must be a non-negative integer. Defaults to 1.',
+    },
+    'tool.can_destroy_blocks_in_creative': {
+        id: 'app.lab.command-generator.nbt.desc.item.tool.can_destroy_blocks_in_creative',
+        defaultMessage:
+            'Whether players can break blocks while holding this tool in Creative mode. Defaults to true.',
+    },
+    'tool.rules': {
+        id: 'app.lab.command-generator.nbt.desc.item.tool.rules',
+        defaultMessage:
+            'A list of rules for the blocks that this tool has a special behavior with. If a field is overridden by multiple matched rules, the one that comes first in the list is chosen.',
+    },
+    'tool.rules.blocks': {
+        id: 'app.lab.command-generator.nbt.desc.item.tool.rules.blocks',
+        defaultMessage:
+            'The blocks to match with. Can be a block ID or a block tag with a #, or a list of block IDs.',
+    },
+    'tool.rules.speed': {
+        id: 'app.lab.command-generator.nbt.desc.item.tool.rules.speed',
+        defaultMessage: 'If the blocks match, overrides the default mining speed. Optional.',
+    },
+    'tool.rules.correct_for_drops': {
+        id: 'app.lab.command-generator.nbt.desc.item.tool.rules.correct_for_drops',
+        defaultMessage:
+            "If the blocks match, overrides whether or not this tool is considered correct to mine at its most efficient speed, and to drop items if the block's loot table requires it. If not set by any rules, defaults to false. Optional.",
     },
     tooltip_display: {
         id: 'app.lab.command-generator.nbt.desc.item.tooltip_display',
         defaultMessage:
             'Allows the tooltips provided specifically by any given item component to be suppressed.',
+    },
+    'tooltip_display.hide_tooltip': {
+        id: 'app.lab.command-generator.nbt.desc.item.tooltip_display.hide_tooltip',
+        defaultMessage: 'If true, the item has no tooltip when hovered.',
+    },
+    'tooltip_display.hidden_components': {
+        id: 'app.lab.command-generator.nbt.desc.item.tooltip_display.hidden_components',
+        defaultMessage:
+            'The tooltips provided by any component in this list are hidden. If that component provides no tooltip, it has no effect.',
     },
     tooltip_style: {
         id: 'app.lab.command-generator.nbt.desc.item.tooltip_style',
@@ -420,6 +1004,14 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         defaultMessage:
             "Contains the trim applied to this armor piece. If present on an item, information about the armor trim is added to the item's tooltip.",
     },
+    'trim.pattern': {
+        id: 'app.lab.command-generator.nbt.desc.item.trim.pattern',
+        defaultMessage: 'One trim pattern (an ID, or a new trim pattern definition).',
+    },
+    'trim.material': {
+        id: 'app.lab.command-generator.nbt.desc.item.trim.material',
+        defaultMessage: 'One trim material (an ID, or a new trim material definition).',
+    },
     unbreakable: {
         id: 'app.lab.command-generator.nbt.desc.item.unbreakable',
         defaultMessage:
@@ -429,6 +1021,15 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.use_cooldown',
         defaultMessage:
             'If present, this item applies a use cooldown to all items of the same type when it has been used.',
+    },
+    'use_cooldown.seconds': {
+        id: 'app.lab.command-generator.nbt.desc.item.use_cooldown.seconds',
+        defaultMessage: 'The use cooldown duration in seconds.',
+    },
+    'use_cooldown.cooldown_group': {
+        id: 'app.lab.command-generator.nbt.desc.item.use_cooldown.cooldown_group',
+        defaultMessage:
+            'The unique identifier to identify this cooldown group. If present, the item is included in a use cooldown group and no longer shares cooldowns with its base item type, but instead with any other items that are part of the same use cooldown group. Optional.',
     },
     use_effects: {
         id: 'app.lab.command-generator.nbt.desc.item.use_effects',
@@ -463,5 +1064,28 @@ export const ITEM_COMPONENT_DESCRIPTIONS = defineMessages({
         id: 'app.lab.command-generator.nbt.desc.item.written_book_content',
         defaultMessage:
             'The contents and metadata of this written book. Adding this component to any item other than a written_book does nothing except add text to the item tooltip. If this component is removed from a written_book item, attempting to use the item will still swing the arm and increment its used statistic, but no UI will appear.',
+    },
+    'written_book_content.pages': {
+        id: 'app.lab.command-generator.nbt.desc.item.written_book_content.pages',
+        defaultMessage: 'A list of the pages in the book.',
+    },
+    'written_book_content.title': {
+        id: 'app.lab.command-generator.nbt.desc.item.written_book_content.title',
+        defaultMessage:
+            'The title of this written book. Overrides the base item name. If set to an empty string, it is ignored and does not override the base item name.',
+    },
+    'written_book_content.author': {
+        id: 'app.lab.command-generator.nbt.desc.item.written_book_content.author',
+        defaultMessage: 'The author of this written book. This is shown in the item tooltip.',
+    },
+    'written_book_content.generation': {
+        id: 'app.lab.command-generator.nbt.desc.item.written_book_content.generation',
+        defaultMessage:
+            'The number of times this written book has been copied. 0 = original, 1 = copy of original, 2 = copy of copy, 3 = tattered. Defaults to 0. If the value is greater than 1, the book cannot be copied. If specified, this is shown in the item tooltip.',
+    },
+    'written_book_content.resolved': {
+        id: 'app.lab.command-generator.nbt.desc.item.written_book_content.resolved',
+        defaultMessage:
+            "If true, the text components have already been resolved by the server. If false, they are resolved either when the book is opened by an operator, when the book is placed into a lectern by an operator, or when the item stack is written to a lectern's Book tag by a command. Defaults to false.",
     },
 })

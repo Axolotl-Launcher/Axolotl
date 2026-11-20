@@ -30,6 +30,124 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
+        id: 'launcher-1.11.2-beta.2',
+        version: '1.11.2-beta.2',
+        publishedAt: '2026-11-20',
+        title: {
+            'en-US': 'Axolotl Launcher 1.11.2-beta.2',
+            'zh-CN': 'Axolotl Launcher 1.11.2-beta.2',
+        },
+        changes: {
+            added: [
+                {
+                    'en-US':
+                        'Added file associations for .litematic, .schem, and .schematic files, with options to open schematics in Schematic Workshop.',
+                    'zh-CN':
+                        '新增 .litematic、.schem 和 .schematic 文件关联，支持将投影文件交给投影工坊打开。',
+                },
+                {
+                    'en-US': 'Added document icons for modpack and schematic files.',
+                    'zh-CN': '新增整合包和投影文件的文档图标。',
+                },
+                {
+                    'en-US':
+                        'Added a local, read-only observability MCP for inspecting recent diagnostic events, metrics, and spans.',
+                    'zh-CN':
+                        '新增本地只读可观测性 MCP，可供 AI 客户端查看近期诊断事件、指标和执行记录。',
+                },
+                {
+                    'en-US': 'Added CurseForge CDN fallback addresses to generic modpack exports.',
+                    'zh-CN': '通用整合包导出新增 CurseForge CDN 备用下载地址。',
+                },
+            ],
+            changed: [
+                {
+                    'en-US':
+                        'Improved launcher update downloads by testing available distribution nodes and choosing a responsive node.',
+                    'zh-CN': '优化启动器更新下载，测试可用分发节点并选择响应较快的节点。',
+                },
+                {
+                    'en-US':
+                        'Improved startup by deferring recovery and maintenance work until after the first frame is displayed.',
+                    'zh-CN': '优化启动过程，将恢复和维护工作延后到首帧显示之后。',
+                },
+                {
+                    'en-US':
+                        'Improved instance navigation by reusing detail snapshots and reducing repeated library refreshes.',
+                    'zh-CN': '优化实例页面切换，复用实例详情快照并减少实例库重复刷新。',
+                },
+                {
+                    'en-US':
+                        'Improved tooltip positioning when controls move, resize, or scroll out of view.',
+                    'zh-CN': '优化控件移动、缩放或滚出视野时的提示位置与显示行为。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed linked PCL CE instances failing to launch because of version arguments, libraries, or runtime dependency selection.',
+                    'zh-CN':
+                        '修复关联的 PCL CE 实例因版本参数、库文件或运行时依赖选择而无法启动的问题。',
+                },
+                {
+                    'en-US': 'Fixed the Home page failing to load while offline.',
+                    'zh-CN': '修复断网时主页无法加载的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed importing unmanaged instances from an older Axolotl data directory.',
+                    'zh-CN': '修复从旧 Axolotl 数据目录导入非托管实例的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed loader version catalogs ignoring the configured metadata mirror settings.',
+                    'zh-CN': '修复加载器版本列表未遵循元数据镜像设置的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed NeoForge server libraries not using configured download mirrors.',
+                    'zh-CN': '修复 NeoForge 服务器库文件未使用已配置下载镜像的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed instance log processing continuing to stall after leaving the Logs tab.',
+                    'zh-CN': '修复离开日志页面后，实例日志处理仍可能卡住的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed installed badges disappearing when clearing the selection on the Favorites page.',
+                    'zh-CN': '修复在收藏页面清除选择时，已安装标记消失的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed Windows launcher windows reopening outside the reachable screen area.',
+                    'zh-CN': '修复 Windows 启动器窗口重新打开时出现在屏幕可访问区域之外的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed a blank window flashing during Windows startup and added retry guidance for startup failures.',
+                    'zh-CN':
+                        '修复 Windows 启动时短暂闪出空白窗口的问题，并为启动失败提供重试提示。',
+                },
+                {
+                    'en-US':
+                        'Fixed tray menus and lightweight-mode sessions becoming inconsistent.',
+                    'zh-CN': '修复系统托盘菜单和轻量模式会话状态不一致的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed file association choices not being retained correctly during installation or updates.',
+                    'zh-CN': '修复安装或更新时未正确保留文件关联选择的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed the first-run setup title bar overlapping macOS window controls.',
+                    'zh-CN': '修复首次启动设置的标题栏与 macOS 窗口控制按钮重叠的问题。',
+                },
+            ],
+        },
+    },
+    {
         id: 'launcher-1.11.2-beta.1',
         version: '1.11.2-beta.1',
         publishedAt: '2026-11-18',

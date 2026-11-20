@@ -2906,32 +2906,23 @@ async function downloadUpdate(versionToDownload: typeof availableUpdate.value) {
     downloading.value = true
 
     try {
-        enqueueUpdateForInstallation(versionToDownload.rid)
-            .then(() => {
-                downloading.value = false
-                finishedDownloading.value = true
-                unlistenUpdateDownload?.()
-                unlistenUpdateDownload = null
-                console.log('Finished downloading!')
-                recordEvent('app_update', { source: 'enqueue' })
-                markAppUpdateActionable(versionToDownload.version, 'downloaded')
-                scheduleDelayedUpdatePopup()
-            })
-            .catch((error) => {
-                downloading.value = false
-                appUpdateDownload.progress.value = 0
-                unlistenUpdateDownload?.()
-                unlistenUpdateDownload = null
-                handleError(error)
-            })
         unlistenUpdateDownload = await subscribeToDownloadProgress(
             appUpdateDownload,
             versionToDownload.version,
         )
+        await enqueueUpdateForInstallation(versionToDownload.rid)
+        finishedDownloading.value = true
+        console.log('Finished downloading!')
+        recordEvent('app_update', { source: 'enqueue' })
+        markAppUpdateActionable(versionToDownload.version, 'downloaded')
+        scheduleDelayedUpdatePopup()
     } catch (error) {
-        downloading.value = false
         appUpdateDownload.progress.value = 0
         handleError(error)
+    } finally {
+        downloading.value = false
+        unlistenUpdateDownload?.()
+        unlistenUpdateDownload = null
     }
 }
 

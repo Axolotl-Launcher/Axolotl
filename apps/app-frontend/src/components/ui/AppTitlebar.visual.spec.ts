@@ -10,6 +10,7 @@ import { computed, defineComponent, h, nextTick, ref, Suspense } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { useMcpPreview } from '@/features/mcp/preview'
+import { appUpdateState } from '@/providers/app-update'
 import { mountThemed, waitFor } from '@/test/visual-harness'
 
 import AppActionBar from './AppActionBar.vue'
@@ -88,23 +89,46 @@ vi.mock(import('@/composables/browse/install-job-notifications'), () => ({
         dispose: vi.fn(),
     }),
 }))
-vi.mock('@/providers/app-update', () => ({
-    appUpdateState: {
-        downloading: ref(false),
-        downloadPercent: ref(100),
-        downloadProgress: ref(1),
-        finishedDownloading: ref(true),
-        isVisible: ref(true),
-        manualInstall: ref(false),
-        metered: ref(false),
-        restarting: ref(false),
-    },
-    downloadAvailableAppUpdate: vi.fn(),
-    installAvailableAppUpdate: vi.fn(),
-}))
+vi.mock('@/providers/app-update', () => {
+    const progress = ref(1)
+    return {
+        appUpdateState: {
+            progress,
+            downloading: ref(false),
+            downloadPercent: computed(() => Math.trunc(progress.value * 100)),
+            downloadProgress: progress,
+            finishedDownloading: ref(true),
+            isVisible: ref(true),
+            manualInstall: ref(false),
+            metered: ref(false),
+            restarting: ref(false),
+        },
+        downloadAvailableAppUpdate: vi.fn(),
+        installAvailableAppUpdate: vi.fn(),
+    }
+})
 
 const cleanup: (() => void)[] = []
 afterEach(() => cleanup.splice(0).forEach((dispose) => dispose()))
+
+it('shows preparation without a percentage before the update starts transferring', async () => {
+    const state = appUpdateState
+    cleanup.push(() => {
+        state.downloading.value = false
+        state.finishedDownloading.value = true
+        state.progress.value = 1
+    })
+    state.downloading.value = true
+    state.finishedDownloading.value = false
+    state.progress.value = 0
+    const { wrapper } = await mountTitlebar(true)
+    await waitFor(() => wrapper.find('button[aria-busy="true"]').exists())
+    expect(wrapper.get('button[aria-busy="true"]').text()).toBe('Preparing')
+
+    state.progress.value = 0.25
+    await nextTick()
+    expect(wrapper.get('button[aria-busy="true"]').text()).toContain('25%')
+})
 
 it('keeps the connected AI control and download actions accessible together', async () => {
     const { wrapper, width } = await mountTitlebar(true)

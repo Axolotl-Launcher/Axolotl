@@ -239,6 +239,9 @@
   "app.action-bar.offline": {
     "message": "Offline"
   },
+  "app.action-bar.preparing-update": {
+    "message": "Preparing"
+  },
   "app.action-bar.primary-instance": {
     "message": "Primary instance"
   },

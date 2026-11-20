@@ -15,7 +15,10 @@
     >
         <RefreshCwIcon v-if="finishedDownloading" :class="{ 'animate-spin': restarting }" />
         <DownloadIcon v-else />
-        <span v-if="isUpdateDownloading">
+        <span v-if="isUpdateDownloading && downloadProgress === 0">
+            {{ formatMessage(messages.preparingUpdate) }}
+        </span>
+        <span v-else-if="isUpdateDownloading">
             {{ formatMessage(messages.downloadingUpdate) }}
             <span class="inline-block w-[3ch] text-right tabular-nums">{{ downloadPercent }}%</span>
         </span>
@@ -45,6 +48,10 @@ const messages = defineMessages({
         id: 'app.action-bar.downloading-update',
         defaultMessage: 'Downloading update',
     },
+    preparingUpdate: {
+        id: 'app.action-bar.preparing-update',
+        defaultMessage: 'Preparing',
+    },
     reloadToUpdate: {
         id: 'app.action-bar.reload-to-update',
         defaultMessage: 'Reload to update',
@@ -70,14 +77,13 @@ const isUpdateDownloading = computed(
 const showUpdatePill = computed(
     () =>
         isUpdateVisible.value &&
-        (finishedDownloading.value || metered.value || manualInstall.value),
+        (isUpdateDownloading.value ||
+            finishedDownloading.value ||
+            metered.value ||
+            manualInstall.value),
 )
 const animateReadyPill = ref(false)
 const updateLabel = computed(() => {
-    if (isUpdateDownloading.value) {
-        return formatMessage(messages.downloadingUpdate)
-    }
-
     if (finishedDownloading.value) {
         return formatMessage(messages.reloadToUpdate)
     }

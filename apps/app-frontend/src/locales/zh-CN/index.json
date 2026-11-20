@@ -239,6 +239,9 @@
   "app.action-bar.offline": {
     "message": "离线"
   },
+  "app.action-bar.preparing-update": {
+    "message": "准备中"
+  },
   "app.action-bar.primary-instance": {
     "message": "主实例"
   },

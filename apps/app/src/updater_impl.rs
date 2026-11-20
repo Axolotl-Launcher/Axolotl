@@ -1,10 +1,15 @@
 use crate::api::Result;
 use base64::Engine;
+use futures::{StreamExt, stream::FuturesUnordered};
 use minisign_verify::{PublicKey, Signature};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::HashSet;
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::http::HeaderValue;
-use tauri::http::header::ACCEPT;
+use tauri::http::header::{ACCEPT, ACCEPT_ENCODING, CONTENT_RANGE, RANGE};
 use tauri::{Manager, ResourceId, Runtime, Webview};
 use tauri_plugin_http::reqwest;
 use tauri_plugin_updater::{Error, Update, UpdaterExt};
@@ -21,6 +26,9 @@ use url::Url;
 const UPDATE_SERVER_LATEST_URL: &str = "https://update.axlmc.org/latest";
 const UPDATE_SERVER_API: &str = "https://update.axlmc.org/api/versions";
 const UPDATE_ARTIFACT_BASE: &str = "https://dist.axlmc.org/";
+const UPDATE_NODE_DNS: &str = "saas.sin.fan";
+const UPDATE_NODE_PROBE_TIMEOUT: Duration = Duration::from_secs(8);
+const UPDATE_NODE_PROBE_BYTES: u64 = 4 * 1024 * 1024;
 
 // Bound the whole transfer, including retries and range requests.
 const UPDATE_DOWNLOAD_TIMEOUT: std::time::Duration =
@@ -638,33 +646,165 @@ pub async fn get_update_size<R: Runtime>(
     Ok(content_length)
 }
 
+async fn select_update_node(
+    asset: &UpdateArtifact,
+    proxy: &theseus::ProxyConfig,
+) -> Option<(reqwest::Client, SocketAddr)> {
+    let origin = Url::parse(UPDATE_ARTIFACT_BASE).ok()?;
+    if asset.url.origin() != origin.origin()
+        || proxy.mode == theseus::ProxyMode::Custom
+        || asset.size == 0
+    {
+        return None;
+    }
+    tokio::time::timeout(UPDATE_NODE_PROBE_TIMEOUT, async {
+        let addresses: HashSet<_> =
+            tokio::net::lookup_host((UPDATE_NODE_DNS, 443))
+                .await
+                .ok()?
+                .collect();
+        let host = origin.host_str()?;
+        let mut probes: FuturesUnordered<_> = addresses
+            .into_iter()
+            .filter_map(|address| {
+                let builder = theseus::http_client_builder()
+                    .user_agent(launcher_user_agent())
+                    .read_timeout(Duration::from_secs(15))
+                    .redirect(reqwest::redirect::Policy::none())
+                    .no_gzip()
+                    .no_brotli()
+                    .no_deflate()
+                    .no_zstd()
+                    .resolve(host, address);
+                let client = proxy.apply(builder).ok()?.build().ok()?;
+                Some(async move {
+                    probe_update_node(&client, asset, address)
+                        .await
+                        .map(|()| (client, address))
+                })
+            })
+            .collect();
+        // The first complete sample wins because all nodes transfer the same bytes.
+        while let Some(result) = probes.next().await {
+            if result.is_some() {
+                return result;
+            }
+        }
+        None
+    })
+    .await
+    .ok()?
+}
+
+async fn probe_update_node(
+    client: &reqwest::Client,
+    asset: &UpdateArtifact,
+    address: SocketAddr,
+) -> Option<()> {
+    let sample_size = asset.size.min(UPDATE_NODE_PROBE_BYTES);
+    let end = sample_size.checked_sub(1)?;
+    let mut response = client
+        .get(asset.url.clone())
+        .header(ACCEPT_ENCODING, "identity")
+        .header(RANGE, format!("bytes=0-{end}"))
+        .send()
+        .await
+        .ok()?;
+    let expected_range = format!("bytes 0-{end}/{}", asset.size);
+    if response.remote_addr() != Some(address)
+        || response.status() != reqwest::StatusCode::PARTIAL_CONTENT
+        || response.headers().get(CONTENT_RANGE)?.to_str().ok()?
+            != expected_range
+    {
+        return None;
+    }
+    let mut received = 0;
+    while let Some(chunk) = response.chunk().await.ok()? {
+        received += chunk.len() as u64;
+        if received > sample_size {
+            return None;
+        }
+    }
+    (received == sample_size).then_some(())
+}
+
+async fn download_from_update_node(
+    (client, address): (reqwest::Client, SocketAddr),
+    asset: &UpdateArtifact,
+    progress: &mut FetchProgressFn<'_>,
+) -> Result<Vec<u8>> {
+    let mut response = client
+        .get(asset.url.clone())
+        .header(ACCEPT_ENCODING, "identity")
+        .send()
+        .await?;
+    if response.remote_addr() != Some(address)
+        || response.status() != reqwest::StatusCode::OK
+    {
+        return Err(Error::Network(format!(
+            "Update node returned {}",
+            response.status()
+        ))
+        .into());
+    }
+    let mut bytes = Vec::new();
+    let mut hash = Sha256::new();
+    while let Some(chunk) = response.chunk().await? {
+        let received = bytes.len() as u64 + chunk.len() as u64;
+        if received > asset.size {
+            return Err(Error::Network(
+                "Update node exceeded artifact size".into(),
+            )
+            .into());
+        }
+        hash.update(&chunk);
+        bytes.extend_from_slice(&chunk);
+        progress(received, asset.size).await?;
+    }
+    if bytes.len() as u64 != asset.size
+        || !format!("{:x}", hash.finalize()).eq_ignore_ascii_case(&asset.sha256)
+    {
+        return Err(Error::Network(
+            "Update node artifact failed integrity verification".into(),
+        )
+        .into());
+    }
+    Ok(bytes)
+}
+
 async fn download_update_artifact(
     asset: &UpdateArtifact,
     progress: &mut FetchProgressFn<'_>,
 ) -> Result<Vec<u8>> {
     let state = theseus::State::get().await?;
-    let directory = tempfile::tempdir().map_err(Error::Io)?;
-    let destination = directory.path().join("update");
-    let request =
-        DownloadRequest::new(asset.url.as_str(), ResourceClass::Other)
-            .with_integrity(Integrity {
-                size: Some(asset.size),
-                sha256: Some(asset.sha256.clone()),
-                ..Integrity::default()
-            })
-            .with_large_file_download_policy();
-    tokio::time::timeout(
+    let node = match state.proxy_config().await {
+        Ok(proxy) => select_update_node(asset, &proxy).await,
+        Err(_) => None,
+    };
+    let bytes = tokio::time::timeout(
         UPDATE_DOWNLOAD_TIMEOUT,
-        download_to_path(
-            request,
-            &destination,
-            &state.download_semaphore,
-            Some(progress),
-        ),
+        async {
+            if let Some(client) = node {
+                match download_from_update_node(client, asset, progress).await {
+                    Ok(bytes) => return Ok::<_, crate::api::TheseusSerializableError>(bytes),
+                    Err(error) => tracing::warn!(?error, "Selected update node failed; using the default download route"),
+                }
+            }
+            let directory = tempfile::tempdir().map_err(Error::Io)?;
+            let destination = directory.path().join("update");
+            let request = DownloadRequest::new(asset.url.as_str(), ResourceClass::Other)
+                .with_integrity(Integrity {
+                    size: Some(asset.size),
+                    sha256: Some(asset.sha256.clone()),
+                    ..Integrity::default()
+                })
+                .with_large_file_download_policy();
+            download_to_path(request, &destination, &state.download_semaphore, Some(progress)).await?;
+            Ok(tokio::fs::read(&destination).await.map_err(Error::Io)?)
+        },
     )
     .await
     .map_err(|_| Error::Network("Update download timed out".into()))??;
-    let bytes = tokio::fs::read(&destination).await.map_err(Error::Io)?;
     // Catalog size is an exact update artifact constraint, even when a hash
     // matches (the shared downloader permits stale sizes for other resources).
     if bytes.len() as u64 != asset.size {
@@ -715,7 +855,7 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
             current_version: update.current_version.clone(),
         },
         1.0,
-        "Downloading update...",
+        "Preparing update...",
     )
     .await?;
 
@@ -742,7 +882,11 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
             };
             let increment = (fraction - reported_fraction).max(0.0);
             reported_fraction += increment;
-            if let Err(error) = emit_loading(&progress, increment, None) {
+            if let Err(error) = emit_loading(
+                &progress,
+                increment,
+                Some("Downloading update..."),
+            ) {
                 tracing::error!(
                     "Failed to update download progress bar: {error}"
                 );
@@ -1112,6 +1256,51 @@ mod tests {
     };
     use base64::{Engine, engine::general_purpose::STANDARD};
     use tauri::utils::config::BundleType;
+
+    #[tokio::test]
+    async fn update_node_probe_requires_the_exact_range_and_body() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        for (status, range, body, accepted) in [
+            ("206 Partial Content", "bytes 0-3/4", "test", true),
+            ("200 OK", "bytes 0-3/4", "test", false),
+            ("206 Partial Content", "bytes 1-4/5", "test", false),
+            ("206 Partial Content", "bytes 0-3/4", "tes", false),
+            ("206 Partial Content", "bytes 0-3/4", "tests", false),
+        ] {
+            let listener =
+                tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let asset = super::UpdateArtifact {
+                url: format!("http://{address}/update").parse().unwrap(),
+                sha256: String::new(),
+                size: 4,
+                signature: None,
+            };
+            let client =
+                theseus::http_client_builder().no_proxy().build().unwrap();
+            let serve = async {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut request = Vec::new();
+                while !request.ends_with(b"\r\n\r\n") {
+                    request.push(stream.read_u8().await.unwrap());
+                }
+                let request =
+                    String::from_utf8(request).unwrap().to_ascii_lowercase();
+                assert!(request.contains("\r\nrange: bytes=0-3\r\n"));
+                let response = format!(
+                    "HTTP/1.1 {status}\r\nContent-Range: {range}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+            };
+            let (result, ()) = tokio::join!(
+                super::probe_update_node(&client, &asset, address),
+                serve
+            );
+            assert_eq!(result.is_some(), accepted);
+        }
+    }
 
     fn probe_exit_command(code: u8) -> tokio::process::Command {
         #[cfg(windows)]

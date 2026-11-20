@@ -139,10 +139,11 @@ const paletteFields = computed<NbtFieldSpec[] | undefined>(() => {
     return childrenAtPath(domain.value, path, props.targetId) ?? []
 })
 
-/** 面板标题里带上母项，明确「这些是它的子项」。 */
+/** 面板标题里带上母项，明确「这些是它的子项」。列表元素用列表名，不用显示序号。 */
 const paletteParentKey = computed(() => {
     if (paletteParentId.value === null) return undefined
-    return findNbtNode(nodes.value, paletteParentId.value)?.name
+    const path = nbtKeyPathFor(nodes.value, paletteParentId.value)
+    return path?.[path.length - 1]
 })
 
 const paletteExistingKeys = computed(() => {

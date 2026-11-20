@@ -26,6 +26,7 @@ use serde_json::{Map, Value};
 
 use super::direct_link::LinkedLauncherDialect;
 use super::version_json::{parse_merged_version_json, parse_version_json};
+use super::{pcl_ce_arguments, pcl_ce_json};
 
 /// A library plus community-launcher fields which daedalus intentionally does
 /// not model. Keeping these fields is required for direct-link path resolution.
@@ -558,13 +559,20 @@ fn load_pcl_version_chain(
     dialect: LinkedLauncherDialect,
 ) -> crate::Result<MergedVersion> {
     let mut visited = HashSet::new();
-    let (path, value) = resolve_pcl_json(
+    let (path, mut value) = resolve_pcl_json(
         root,
         version_id,
         version_json,
         dialect,
         &mut visited,
     )?;
+    if dialect == LinkedLauncherDialect::PclCe {
+        pcl_ce_arguments::normalize(&mut value, &path)?;
+        value["id"] = Value::String(version_id.to_string());
+        if let Some(object) = value.as_object_mut() {
+            object.remove("patches");
+        }
+    }
     let mut document: RawVersionDocument =
         parse_merged_version_json(&path, &value)?;
     document.id = version_id.to_string();
@@ -587,9 +595,16 @@ fn resolve_pcl_json(
 
     let path = match version_json {
         Some(path) => path.to_path_buf(),
+        None if dialect == LinkedLauncherDialect::PclCe => {
+            pcl_ce_json::discover(&root.join("versions").join(version_id))?
+        }
         None => discover_version_json(root, version_id)?,
     };
-    let mut child: Value = read_document_path(&path)?;
+    let mut child = if dialect == LinkedLauncherDialect::PclCe {
+        pcl_ce_json::read(&path)?
+    } else {
+        read_document_path(&path)?
+    };
 
     // PCL McInstance.JsonObject converts HMCL-format documents by sorting
     // patches ascending and repeatedly applying JObject.Merge. PCL-CE's
@@ -1062,25 +1077,103 @@ mod tests {
             }),
         );
         let path = dir.path().join("versions/child/client.json");
-        for dialect in
-            [LinkedLauncherDialect::Pcl, LinkedLauncherDialect::PclCe]
-        {
-            let error = load_version_for_dialect(
+        let error = load_version_for_dialect(
+            dir.path(),
+            "child",
+            Some(&path),
+            LinkedLauncherDialect::Pcl,
+        )
+        .unwrap_err();
+        let message = error.to_string();
+        assert!(message.contains("merged version JSON"));
+        assert!(message.contains(&path.display().to_string()));
+        assert!(message.contains("arguments.game[1].value"));
+        assert!(message.contains("expected a string or an array of strings"));
+        assert!(!message.contains("private-test-token"));
+    }
+
+    #[test]
+    fn pcl_ce_merges_lenient_parent_and_child_before_interpreting_arguments() {
+        let dir = tempdir().unwrap();
+        let versions = dir.path().join("versions");
+        for (folder, filename, contents) in [
+            (
+                "base",
+                "base.json",
+                r#"{
+                // Base metadata from another launcher
+                "ID":"base", "ARGUMENTS":{"GAME":["--base"], "JVM":["-Dbase=true"],},
+            }"#,
+            ),
+            (
+                "child",
+                "profile.json",
+                r#"{
+                "InheritsFrom":"base", "Arguments": {
+                    "game":[{"Rules":null,"Value":["--numbers",23,true]}, {"rules":[]}],
+                    "jvm":null, "future-arguments":{},
+                }
+            }"#,
+            ),
+        ] {
+            let path = versions.join(folder);
+            std::fs::create_dir_all(&path).unwrap();
+            std::fs::write(path.join(filename), contents).unwrap();
+        }
+
+        let version = load_version_for_dialect(
+            dir.path(),
+            "child",
+            None,
+            LinkedLauncherDialect::PclCe,
+        )
+        .unwrap();
+        assert_eq!(version.id, "child");
+        assert_eq!(version.jar.as_deref(), Some("base"));
+        let arguments = version.arguments.unwrap();
+        assert!(!arguments.contains_key(&ArgumentType::Jvm));
+        let game = &arguments[&ArgumentType::Game];
+        assert_eq!(game.len(), 2);
+        assert!(
+            matches!(&game[0], Argument::Normal(value) if value == "--base")
+        );
+        assert!(matches!(&game[1], Argument::Ruled {
+            rules,
+            value: daedalus::minecraft::ArgumentValue::Many(values),
+        } if rules.is_empty() && values == &["--numbers", "23", "true"]));
+        assert!(
+            load_version_for_dialect(
                 dir.path(),
                 "child",
-                Some(&path),
-                dialect,
+                None,
+                LinkedLauncherDialect::Generic
             )
-            .unwrap_err();
-            let message = error.to_string();
-            assert!(message.contains("merged version JSON"));
-            assert!(message.contains(&path.display().to_string()));
-            assert!(message.contains("arguments.game[1].value"));
-            assert!(
-                message.contains("expected a string or an array of strings")
-            );
-            assert!(!message.contains("private-test-token"));
-        }
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn pcl_ce_reports_invalid_active_values_without_logging_argument_contents()
+    {
+        let dir = tempdir().unwrap();
+        write_json(
+            dir.path(),
+            "test",
+            "test.json",
+            json!({
+                "id": "test", "arguments": {"jvm": ["private-test-token", {"value": 10}]}
+            }),
+        );
+        let err = load_version_for_dialect(
+            dir.path(),
+            "test",
+            None,
+            LinkedLauncherDialect::PclCe,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("arguments.jvm[1].value"), "{err}");
+        assert!(!err.contains("private-test-token"));
     }
 
     #[test]

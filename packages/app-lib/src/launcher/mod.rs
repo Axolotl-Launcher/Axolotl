@@ -76,6 +76,8 @@ pub mod language;
 pub mod local_version;
 pub(crate) mod multimc;
 pub mod optifine;
+mod pcl_ce_arguments;
+pub(crate) mod pcl_ce_json;
 pub mod quick_play_version;
 
 const UTF8_GAME_ARGUMENT_PREFIX: &str = "__THESEUS_UTF8__:";

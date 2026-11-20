@@ -1,7 +1,6 @@
 use super::create_direct_link_instance::create_direct_link_instance;
 use crate::api::pack::import::direct_link::{
-    detect_direct_link_source, has_minecraft_version_manifest,
-    resolve_direct_link,
+    detect_direct_link_source, has_linked_version_manifest, resolve_direct_link,
 };
 use crate::event::{InstancePayloadType, emit::emit_instance};
 use crate::launcher::ExternalGameDirMode;
@@ -108,13 +107,13 @@ pub(crate) async fn sync_direct_link_instances(
             // left by an interrupted install. They have no version manifest,
             // so they are not Minecraft instances and should not surface a
             // warning on every root synchronization.
-            if !has_minecraft_version_manifest(&folder) {
+            let source = detect_direct_link_source(root, &folder);
+            if !has_linked_version_manifest(&folder, source.launcher) {
                 continue;
             }
             tracing::debug!(root = %root.display(), version_dir = %folder.display(), mode = %mode.key(), "attempting direct-link instance sync");
             let folder_name = entry.file_name().to_string_lossy().to_string();
             let instance_folder = Path::new("versions").join(&folder_name);
-            let source = detect_direct_link_source(root, &folder);
             let resolved = match resolve_direct_link(
                 source.launcher,
                 source.launcher_root.clone(),

@@ -1839,6 +1839,16 @@
       ]
     },
     {
+      "file": "packages/app-lib/src/launcher/pcl_ce_json.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "Reviewed PCL-CE version file discovery and decoding, shared with the existing synchronous local instance import and launch resolver; no file writes or nested managed resource acquisition, outside L0 (D17)",
+      "sites": [
+        "discover: let entries = std::fs::read_dir(version_dir).map_err(|error| {",
+        "read: let bytes = std::fs::read(path).map_err(|error| {"
+      ]
+    },
+    {
       "file": "packages/app-lib/src/launcher/mod.rs",
       "form": "spawn_blocking",
       "count": 1,

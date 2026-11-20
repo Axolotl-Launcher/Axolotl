@@ -142,9 +142,37 @@ pub fn detect(path: &Path) -> Option<InstanceInfo> {
             return None;
         }
     };
+    detect_document(path, &name, &content, &json)
+}
+
+pub(super) fn detect_pcl_ce_manifest(
+    version_json: &Path,
+) -> crate::Result<Option<InstanceInfo>> {
+    let json = crate::launcher::pcl_ce_json::read(version_json)?;
+    let Some((parent, name)) = version_json
+        .parent()
+        .zip(version_json.file_stem().and_then(|name| name.to_str()))
+    else {
+        return Ok(None);
+    };
+    let content = json.to_string();
+    Ok(detect_document(parent, name, &content, &json))
+}
+
+pub(super) fn detect_pcl_ce(path: &Path) -> Option<InstanceInfo> {
+    let manifest = crate::launcher::pcl_ce_json::discover(path).ok()?;
+    detect_pcl_ce_manifest(&manifest).ok().flatten()
+}
+
+fn detect_document(
+    path: &Path,
+    name: &str,
+    content: &str,
+    json: &Value,
+) -> Option<InstanceInfo> {
     let client_jar = path.join(format!("{name}.jar"));
     let mut vanilla_name =
-        extract_version(&json, &content, &client_jar, Some(&name));
+        extract_version(json, content, &client_jar, Some(name));
     debug!(
         "instance_json: path={} extract_version returned {:?}",
         path.display(),
@@ -158,7 +186,7 @@ pub fn detect(path: &Path) -> Option<InstanceInfo> {
         return None;
     }
     vanilla_name = normalize_version(&vanilla_name);
-    let mut loader = detect_loader(&content, &json).map(|(loader, version)| {
+    let mut loader = detect_loader(content, json).map(|(loader, version)| {
         let version = version.map(|version| {
             normalize_imported_loader_version(&loader, &vanilla_name, &version)
         });
@@ -182,7 +210,7 @@ pub fn detect(path: &Path) -> Option<InstanceInfo> {
         loader = Some(("cleanroom".into(), None));
     }
     let adjuncts = detect_adjuncts(
-        &content,
+        content,
         loader.as_ref().map(|(loader, _)| loader.as_str()),
     )
     .into_iter()

@@ -2230,7 +2230,7 @@
         {
           "key": "Air",
           "type": "short",
-          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
           "category": "basic",
           "zh": "氧气值"
         },
@@ -2392,7 +2392,7 @@
         {
           "key": "UUID",
           "type": "int_array",
-          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
           "category": "basic",
           "zh": "UUID"
         }
@@ -2676,7 +2676,7 @@
           "type": "compound",
           "category": "data",
           "zh": "槽位掉落概率",
-          "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+          "desc": "Optional. A single float sets the drop chance for every slot; a compound sets the drop chance per slot.",
           "children": [
             {
               "key": "feet",
@@ -6450,7 +6450,7 @@
         {
           "key": "Air",
           "type": "short",
-          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
           "category": "data",
           "zh": "氧气值"
         },
@@ -6612,7 +6612,7 @@
         {
           "key": "UUID",
           "type": "int_array",
-          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
           "category": "data",
           "zh": "UUID"
         }
@@ -6847,13 +6847,152 @@
     },
     {
       "key": "potion_contents",
-      "type": "string",
+      "type": "compound",
       "category": "effect",
       "appliesTo": {
         "ids": ["area_effect_cloud"]
       },
       "zh": "药水内容",
-      "desc": "The potion and custom effects contained in this area effect cloud."
+      "desc": "The potion and custom effects contained in this area effect cloud. May also be written as a plain string holding a potion ID.",
+      "children": [
+        {
+          "key": "potion",
+          "type": "string",
+          "desc": "The ID of a potion type. Optional. See Potion#Item data.",
+          "category": "effect",
+          "zh": "药水"
+        },
+        {
+          "key": "custom_color",
+          "type": "int",
+          "desc": "The overriding color of this potion texture, and/or the particles of the area effect cloud created.",
+          "category": "effect",
+          "zh": "自定义颜色"
+        },
+        {
+          "key": "custom_name",
+          "type": "string",
+          "desc": "An optional string used to generate containing stack name. The game uses the translation key item.minecraft.<item type>.effect.<value>. This name has a higher priority than the minecraft:item_name component, but lower than the minecraft:custom_name component.",
+          "category": "effect",
+          "zh": "自定义名称"
+        },
+        {
+          "key": "custom_effects",
+          "type": "list",
+          "desc": "A list of the additional effects that this item should apply.",
+          "elementType": "compound",
+          "category": "effect",
+          "zh": "自定义效果",
+          "children": [
+            {
+              "key": "ambient",
+              "type": "byte",
+              "desc": "1 or 0 (true/false). Whether or not any particles created should be translucent as opposed to opaque. If absent, particles are spawned opaque.",
+              "valueKind": "boolean",
+              "category": "effect",
+              "zh": "环境效果"
+            },
+            {
+              "key": "amplifier",
+              "type": "byte",
+              "desc": "Represents the effect level minus 1; that is, 0b corresponds to level 1. If absent, the effect is level 1.",
+              "category": "effect",
+              "zh": "倍率"
+            },
+            {
+              "key": "duration",
+              "type": "int",
+              "desc": "The number of game ticks before the effect wears off. -1 means infinite duration.",
+              "category": "effect",
+              "zh": "持续时间"
+            },
+            {
+              "key": "hidden_effect",
+              "type": "compound",
+              "desc": "An inactive, lower-amplifier effect of the same type. When the enclosing effect wears off, this replaces it. (The duration field of a hidden effect still decreases every tick if greater than 0. To avoid redundancy, the id field is not stored.)",
+              "category": "effect",
+              "zh": "隐藏效果",
+              "children": [
+                {
+                  "key": "ambient",
+                  "type": "byte",
+                  "desc": "1 or 0 (true/false). Whether or not any particles created should be translucent as opposed to opaque. If absent, particles are spawned opaque.",
+                  "valueKind": "boolean",
+                  "category": "effect",
+                  "zh": "环境效果"
+                },
+                {
+                  "key": "amplifier",
+                  "type": "byte",
+                  "desc": "Represents the effect level minus 1; that is, 0b corresponds to level 1. If absent, the effect is level 1.",
+                  "category": "effect",
+                  "zh": "倍率"
+                },
+                {
+                  "key": "duration",
+                  "type": "int",
+                  "desc": "The number of game ticks before the effect wears off. -1 means infinite duration.",
+                  "category": "effect",
+                  "zh": "持续时间"
+                },
+                {
+                  "key": "hidden_effect",
+                  "type": "compound",
+                  "desc": "An inactive, lower-amplifier effect of the same type. When the enclosing effect wears off, this replaces it. (The duration field of a hidden effect still decreases every tick if greater than 0. To avoid redundancy, the id field is not stored.)",
+                  "category": "effect",
+                  "zh": "隐藏效果"
+                },
+                {
+                  "key": "id",
+                  "type": "string",
+                  "desc": "The effect name.",
+                  "category": "effect",
+                  "zh": "效果"
+                },
+                {
+                  "key": "show_icon",
+                  "type": "byte",
+                  "desc": "1 or 0 (true/false). Whether or not an icon is displayed in the top-right corner of the affected player's screen. Defaults to true if not specified.",
+                  "valueKind": "boolean",
+                  "category": "effect",
+                  "zh": "显示图标"
+                },
+                {
+                  "key": "show_particles",
+                  "type": "byte",
+                  "desc": "1 or 0 (true/false). Whether or not particles are created. If not specified, particles are created.",
+                  "valueKind": "boolean",
+                  "category": "effect",
+                  "zh": "显示粒子"
+                }
+              ]
+            },
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The effect name.",
+              "category": "effect",
+              "zh": "效果"
+            },
+            {
+              "key": "show_icon",
+              "type": "byte",
+              "desc": "1 or 0 (true/false). Whether or not an icon is displayed in the top-right corner of the affected player's screen. Defaults to true if not specified.",
+              "valueKind": "boolean",
+              "category": "effect",
+              "zh": "显示图标"
+            },
+            {
+              "key": "show_particles",
+              "type": "byte",
+              "desc": "1 or 0 (true/false). Whether or not particles are created. If not specified, particles are created.",
+              "valueKind": "boolean",
+              "category": "effect",
+              "zh": "显示粒子"
+            }
+          ]
+        }
+      ]
     },
     {
       "key": "potion_duration_scale",
@@ -6889,13 +7028,89 @@
     },
     {
       "key": "profile",
-      "type": "string",
+      "type": "compound",
       "category": "appearance",
       "appliesTo": {
         "ids": ["mannequin"]
       },
       "zh": "玩家档案",
-      "desc": "The textures and/or player profile used to render the mannequin's player model."
+      "desc": "The textures and/or player profile used to render the mannequin's player model. May also be written as a plain string holding a player name or UUID.",
+      "children": [
+        {
+          "key": "name",
+          "type": "string",
+          "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive than actual player usernames, which must be 3-16 characters and may only contain letters, numbers, and underscores). If no other profile fields are specified, this is used to dynamically request the profile of a player with that username from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given name).",
+          "category": "appearance",
+          "zh": "玩家名"
+        },
+        {
+          "key": "id",
+          "type": "int_array",
+          "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile of a player with that UUID from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given UUID).",
+          "length": 4,
+          "category": "appearance",
+          "zh": "UUID"
+        },
+        {
+          "key": "properties",
+          "type": "list",
+          "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component.",
+          "elementType": "compound",
+          "category": "appearance",
+          "zh": "皮肤属性",
+          "children": [
+            {
+              "key": "name",
+              "type": "string",
+              "desc": "The name of the property. Can only be \"textures\".",
+              "category": "basic",
+              "zh": "属性名"
+            },
+            {
+              "key": "value",
+              "type": "string",
+              "desc": "The texture data json, encoded in base64.",
+              "category": "basic",
+              "zh": "属性值"
+            },
+            {
+              "key": "signature",
+              "type": "string",
+              "desc": "Optional. Mojang's signature of the value, encoded in base64.",
+              "category": "basic",
+              "zh": "签名"
+            }
+          ]
+        },
+        {
+          "key": "texture",
+          "type": "string",
+          "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a player model or skin, overriding the skin texture provided by a profile. This skin texture may have transparent pixels on the inner body layers whereas resolved skins' are always opaque. If omitted and no skin is provided by a profile, the slim Alex skin is used (minecraft:entity/player/slim/alex).",
+          "category": "appearance",
+          "zh": "皮肤"
+        },
+        {
+          "key": "cape",
+          "type": "string",
+          "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a cape, overriding the cape texture provided by a profile. If the resolved profile (or lack thereof) does not have a cape, it will gain one. This does not affect the elytra texture.",
+          "category": "appearance",
+          "zh": "披风"
+        },
+        {
+          "key": "elytra",
+          "type": "string",
+          "desc": "Optional. path to an elytra texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering an elytra, overriding the elytra texture provided by a profile. This does not affect the cape texture. If omitted and no elytra texture is provided by a profile, the normal elytra texture is used (minecraft:entity/equipment/wings/elytra).",
+          "category": "appearance",
+          "zh": "鞘翅"
+        },
+        {
+          "key": "model",
+          "type": "string",
+          "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model type provided by a profile. If omitted and no model type is provided by a profile, a slim model type is used.",
+          "category": "appearance",
+          "zh": "模型"
+        }
+      ]
     },
     {
       "key": "properties",
@@ -7271,7 +7486,7 @@
             {
               "key": "Air",
               "type": "short",
-              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
               "category": "data",
               "zh": "氧气值"
             },
@@ -7433,7 +7648,7 @@
             {
               "key": "UUID",
               "type": "int_array",
-              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
               "category": "data",
               "zh": "UUID"
             }
@@ -7637,7 +7852,7 @@
         {
           "key": "Air",
           "type": "short",
-          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
           "category": "basic",
           "zh": "氧气值"
         },
@@ -7799,7 +8014,7 @@
         {
           "key": "UUID",
           "type": "int_array",
-          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
           "category": "basic",
           "zh": "UUID"
         }
@@ -7818,7 +8033,7 @@
         {
           "key": "Air",
           "type": "short",
-          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
           "category": "basic",
           "zh": "氧气值"
         },
@@ -7980,7 +8195,7 @@
         {
           "key": "UUID",
           "type": "int_array",
-          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
           "category": "basic",
           "zh": "UUID"
         }
@@ -8250,7 +8465,7 @@
             {
               "key": "Air",
               "type": "short",
-              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
               "category": "basic",
               "zh": "氧气值"
             },
@@ -8412,7 +8627,7 @@
             {
               "key": "UUID",
               "type": "int_array",
-              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
               "category": "basic",
               "zh": "UUID"
             }
@@ -8458,9 +8673,60 @@
             {
               "key": "slot_drop_chances",
               "type": "compound",
-              "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+              "desc": "Optional. A single float sets the drop chance for every slot; a compound sets the drop chance per slot.",
               "category": "basic",
-              "zh": "各槽位掉落概率"
+              "zh": "各槽位掉落概率",
+              "children": [
+                {
+                  "key": "feet",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the boots.",
+                  "category": "inventory",
+                  "zh": "靴子"
+                },
+                {
+                  "key": "legs",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the leggings.",
+                  "category": "inventory",
+                  "zh": "护腿"
+                },
+                {
+                  "key": "chest",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the chestplate.",
+                  "category": "inventory",
+                  "zh": "胸甲"
+                },
+                {
+                  "key": "head",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the helmet.",
+                  "category": "inventory",
+                  "zh": "头盔"
+                },
+                {
+                  "key": "body",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the body armor.",
+                  "category": "inventory",
+                  "zh": "护身甲"
+                },
+                {
+                  "key": "mainhand",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the weapon in the main hand.",
+                  "category": "inventory",
+                  "zh": "主手"
+                },
+                {
+                  "key": "offhand",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the weapon in the off hand.",
+                  "category": "inventory",
+                  "zh": "副手"
+                }
+              ]
             }
           ]
         }
@@ -8501,7 +8767,7 @@
                 {
                   "key": "Air",
                   "type": "short",
-                  "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+                  "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
                   "category": "basic",
                   "zh": "氧气值"
                 },
@@ -8663,7 +8929,7 @@
                 {
                   "key": "UUID",
                   "type": "int_array",
-                  "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+                  "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
                   "category": "basic",
                   "zh": "UUID"
                 }
@@ -8709,9 +8975,60 @@
                 {
                   "key": "slot_drop_chances",
                   "type": "compound",
-                  "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+                  "desc": "Optional. A single float sets the drop chance for every slot; a compound sets the drop chance per slot.",
                   "category": "basic",
-                  "zh": "各槽位掉落概率"
+                  "zh": "各槽位掉落概率",
+                  "children": [
+                    {
+                      "key": "feet",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the boots.",
+                      "category": "inventory",
+                      "zh": "靴子"
+                    },
+                    {
+                      "key": "legs",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the leggings.",
+                      "category": "inventory",
+                      "zh": "护腿"
+                    },
+                    {
+                      "key": "chest",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the chestplate.",
+                      "category": "inventory",
+                      "zh": "胸甲"
+                    },
+                    {
+                      "key": "head",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the helmet.",
+                      "category": "inventory",
+                      "zh": "头盔"
+                    },
+                    {
+                      "key": "body",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the body armor.",
+                      "category": "inventory",
+                      "zh": "护身甲"
+                    },
+                    {
+                      "key": "mainhand",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the weapon in the main hand.",
+                      "category": "inventory",
+                      "zh": "主手"
+                    },
+                    {
+                      "key": "offhand",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the weapon in the off hand.",
+                      "category": "inventory",
+                      "zh": "副手"
+                    }
+                  ]
                 }
               ]
             }
@@ -9171,7 +9488,52 @@
         "ids": ["falling_block"]
       },
       "zh": "方块实体数据",
-      "desc": "Optional. The tags of the block entity for this block."
+      "desc": "Optional. The tags of the block entity for this block.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "Block entity ID",
+          "category": "data",
+          "zh": "方块实体 ID"
+        },
+        {
+          "key": "keepPacked",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - If true, this is an invalid block entity, and this block is not immediately placed when a loaded chunk is loaded.",
+          "valueKind": "boolean",
+          "category": "data",
+          "zh": "保留打包状态"
+        },
+        {
+          "key": "x",
+          "type": "int",
+          "desc": "X coordinate of the block entity.",
+          "category": "data",
+          "zh": "X 坐标"
+        },
+        {
+          "key": "y",
+          "type": "int",
+          "desc": "Y coordinate of the block entity.",
+          "category": "data",
+          "zh": "Y 坐标"
+        },
+        {
+          "key": "z",
+          "type": "int",
+          "desc": "Z coordinate of the block entity.",
+          "category": "data",
+          "zh": "Z 坐标"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of data components that are not represented by additional fields.",
+          "category": "data",
+          "zh": "数据组件"
+        }
+      ]
     },
     {
       "key": "Time",

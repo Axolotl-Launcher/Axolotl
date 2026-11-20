@@ -286,9 +286,180 @@
         {
           "key": "entity_data",
           "type": "compound",
-          "desc": "Must include id tag. If the id is not minecraft:bee then the entity will never leave the hive. The Passengers, Pos, Rotation, and UUID tags are ignored when the bee spawns (the bee will always spawn in front of the hive with a random UUID, facing south, and without any passengers).",
+          "desc": "Must include id tag. If the id is not minecraft:bee then the entity will never leave the hive. The Passengers, Pos, Rotation, and UUID tags are ignored when the bee spawns (the bee will always spawn in front of the hive with a random UUID, facing south, and without any passengers). May also be written as a plain string holding the entity ID.",
           "category": "basic",
-          "zh": "实体数据"
+          "zh": "实体数据",
+          "children": [
+            {
+              "key": "Air",
+              "type": "short",
+              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+              "category": "data",
+              "zh": "氧气值"
+            },
+            {
+              "key": "CustomName",
+              "type": "compound",
+              "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+              "category": "data",
+              "zh": "自定义名称"
+            },
+            {
+              "key": "CustomNameVisible",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "名称始终显示"
+            },
+            {
+              "key": "data",
+              "type": "compound",
+              "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+              "category": "data",
+              "zh": "自定义数据"
+            },
+            {
+              "key": "fall_distance",
+              "type": "double",
+              "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+              "category": "data",
+              "zh": "下落距离"
+            },
+            {
+              "key": "Fire",
+              "type": "short",
+              "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+              "category": "data",
+              "zh": "着火时间"
+            },
+            {
+              "key": "Glowing",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "发光"
+            },
+            {
+              "key": "HasVisualFire",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "视觉着火"
+            },
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+              "category": "data",
+              "zh": "实体 ID"
+            },
+            {
+              "key": "Invulnerable",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "无敌"
+            },
+            {
+              "key": "invulnerable_time",
+              "type": "int",
+              "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+              "category": "data",
+              "zh": "无敌时间"
+            },
+            {
+              "key": "Motion",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+              "category": "data",
+              "zh": "速度"
+            },
+            {
+              "key": "NoGravity",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "无重力"
+            },
+            {
+              "key": "OnGround",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "着地"
+            },
+            {
+              "key": "Passengers",
+              "type": "list",
+              "elementType": "compound",
+              "desc": "The data of the entities that are riding this entity.",
+              "category": "data",
+              "zh": "乘客"
+            },
+            {
+              "key": "PortalCooldown",
+              "type": "int",
+              "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+              "category": "data",
+              "zh": "传送冷却"
+            },
+            {
+              "key": "Pos",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+              "category": "data",
+              "zh": "坐标"
+            },
+            {
+              "key": "Rotation",
+              "type": "list",
+              "elementType": "float",
+              "length": 2,
+              "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+              "category": "data",
+              "zh": "朝向"
+            },
+            {
+              "key": "Silent",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "静默"
+            },
+            {
+              "key": "Tags",
+              "type": "list",
+              "elementType": "string",
+              "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+              "category": "data",
+              "zh": "计分板标签"
+            },
+            {
+              "key": "TicksFrozen",
+              "type": "int",
+              "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+              "category": "data",
+              "zh": "冻结刻数"
+            },
+            {
+              "key": "UUID",
+              "type": "int_array",
+              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+              "category": "data",
+              "zh": "UUID"
+            }
+          ]
         },
         {
           "key": "min_ticks_in_hive",
@@ -841,7 +1012,7 @@
         {
           "key": "Air",
           "type": "short",
-          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
           "category": "basic",
           "zh": "氧气值"
         },
@@ -1003,7 +1174,7 @@
         {
           "key": "UUID",
           "type": "int_array",
-          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
           "category": "basic",
           "zh": "UUID"
         }
@@ -1031,7 +1202,7 @@
           "type": "compound",
           "category": "data",
           "zh": "槽位掉落概率",
-          "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+          "desc": "Optional. A single float sets the drop chance for every slot; a compound sets the drop chance per slot.",
           "children": [
             {
               "key": "feet",
@@ -2754,13 +2925,389 @@
     },
     {
       "key": "normal_config",
-      "type": "string",
+      "type": "compound",
       "category": "basic",
       "appliesTo": {
         "ids": ["trial_spawner"]
       },
       "zh": "普通配置",
-      "desc": "(optional) One trial spawner configuration (an ID, or a new trial spawner configuration definition) — The configuration to use when not ominous."
+      "desc": "(optional) One trial spawner configuration (an ID, or a new trial spawner configuration definition) — The configuration to use when not ominous. May also be written as a plain string holding a preset ID.",
+      "children": [
+        {
+          "key": "spawn_range",
+          "type": "int",
+          "desc": "Between 1 and 128. Defaults to 4 — Maximum distance in blocks that mobs can spawn.",
+          "category": "basic",
+          "zh": "生成范围"
+        },
+        {
+          "key": "total_mobs",
+          "type": "float",
+          "desc": "Defaults to 6 — Total amount of mobs spawned before cooldown for a single player.",
+          "category": "basic",
+          "zh": "总生成数"
+        },
+        {
+          "key": "simultaneous_mobs",
+          "type": "float",
+          "desc": "Defaults to 2 — The amount of spawned mobs from this spawner that are allowed to exist simultaneously.",
+          "category": "basic",
+          "zh": "同时存在数"
+        },
+        {
+          "key": "total_mobs_added_per_player",
+          "type": "float",
+          "desc": "Defaults to 2 — Amount of total mobs added for each additional player.",
+          "category": "basic",
+          "zh": "每额外玩家增加总数"
+        },
+        {
+          "key": "simultaneous_mobs_added_per_player",
+          "type": "float",
+          "desc": "Defaults to 1 — Amount of simultaneous mobs added for each additional player.",
+          "category": "basic",
+          "zh": "每额外玩家增加同时数"
+        },
+        {
+          "key": "ticks_between_spawn",
+          "type": "int",
+          "desc": "Defaults to 40 — Time in ticks between spawn attempts.",
+          "category": "basic",
+          "zh": "生成间隔"
+        },
+        {
+          "key": "spawn_potentials",
+          "type": "list",
+          "desc": "Defaults to an empty list — List of possible entities to spawn.",
+          "elementType": "compound",
+          "category": "basic",
+          "zh": "生成候选",
+          "children": [
+            {
+              "key": "weight",
+              "type": "int",
+              "desc": "The chance that this spawn gets picked in comparison to other spawn weights. Must be positive and at least 1.",
+              "category": "advanced",
+              "zh": "权重"
+            },
+            {
+              "key": "data",
+              "type": "compound",
+              "desc": "The spawn data this entry will use, same structure as SpawnData.",
+              "category": "advanced",
+              "zh": "刷怪数据",
+              "children": [
+                {
+                  "key": "entity",
+                  "type": "compound",
+                  "desc": "An entity, including the entity id.",
+                  "category": "basic",
+                  "zh": "实体",
+                  "children": [
+                    {
+                      "key": "Air",
+                      "type": "short",
+                      "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+                      "category": "basic",
+                      "zh": "氧气值"
+                    },
+                    {
+                      "key": "CustomName",
+                      "type": "compound",
+                      "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+                      "category": "basic",
+                      "zh": "自定义名称"
+                    },
+                    {
+                      "key": "CustomNameVisible",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "名称始终显示"
+                    },
+                    {
+                      "key": "data",
+                      "type": "compound",
+                      "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+                      "category": "basic",
+                      "zh": "自定义数据"
+                    },
+                    {
+                      "key": "fall_distance",
+                      "type": "double",
+                      "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+                      "category": "basic",
+                      "zh": "下落距离"
+                    },
+                    {
+                      "key": "Fire",
+                      "type": "short",
+                      "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+                      "category": "basic",
+                      "zh": "着火时间"
+                    },
+                    {
+                      "key": "Glowing",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "发光"
+                    },
+                    {
+                      "key": "HasVisualFire",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "视觉着火"
+                    },
+                    {
+                      "key": "id",
+                      "type": "string",
+                      "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+                      "category": "basic",
+                      "zh": "实体 ID"
+                    },
+                    {
+                      "key": "Invulnerable",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "无敌"
+                    },
+                    {
+                      "key": "invulnerable_time",
+                      "type": "int",
+                      "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+                      "category": "basic",
+                      "zh": "无敌时间"
+                    },
+                    {
+                      "key": "Motion",
+                      "type": "list",
+                      "elementType": "double",
+                      "length": 3,
+                      "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+                      "category": "basic",
+                      "zh": "速度"
+                    },
+                    {
+                      "key": "NoGravity",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "无重力"
+                    },
+                    {
+                      "key": "OnGround",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "着地"
+                    },
+                    {
+                      "key": "Passengers",
+                      "type": "list",
+                      "elementType": "compound",
+                      "desc": "The data of the entities that are riding this entity.",
+                      "category": "basic",
+                      "zh": "乘客"
+                    },
+                    {
+                      "key": "PortalCooldown",
+                      "type": "int",
+                      "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+                      "category": "basic",
+                      "zh": "传送冷却"
+                    },
+                    {
+                      "key": "Pos",
+                      "type": "list",
+                      "elementType": "double",
+                      "length": 3,
+                      "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+                      "category": "basic",
+                      "zh": "坐标"
+                    },
+                    {
+                      "key": "Rotation",
+                      "type": "list",
+                      "elementType": "float",
+                      "length": 2,
+                      "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+                      "category": "basic",
+                      "zh": "朝向"
+                    },
+                    {
+                      "key": "Silent",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "静默"
+                    },
+                    {
+                      "key": "Tags",
+                      "type": "list",
+                      "elementType": "string",
+                      "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+                      "category": "basic",
+                      "zh": "计分板标签"
+                    },
+                    {
+                      "key": "TicksFrozen",
+                      "type": "int",
+                      "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+                      "category": "basic",
+                      "zh": "冻结刻数"
+                    },
+                    {
+                      "key": "UUID",
+                      "type": "int_array",
+                      "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+                      "category": "basic",
+                      "zh": "UUID"
+                    }
+                  ]
+                },
+                {
+                  "key": "custom_spawn_rules",
+                  "type": "compound",
+                  "desc": "Optional custom fields to override spawning requirements.",
+                  "category": "basic",
+                  "zh": "自定义生成规则",
+                  "children": [
+                    {
+                      "key": "block_light_limit",
+                      "type": "int",
+                      "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the block light check when spawning the entity.",
+                      "category": "basic",
+                      "zh": "方块光照上限"
+                    },
+                    {
+                      "key": "sky_light_limit",
+                      "type": "int",
+                      "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the sky light check when spawning the entity.",
+                      "category": "basic",
+                      "zh": "天空光照上限"
+                    }
+                  ]
+                },
+                {
+                  "key": "equipment",
+                  "type": "compound",
+                  "desc": "Optional. Determines the equipment the entity will wear.",
+                  "category": "basic",
+                  "zh": "装备",
+                  "children": [
+                    {
+                      "key": "loot_table",
+                      "type": "string",
+                      "desc": "Resource location of a loot table to use to generate the equipment",
+                      "category": "basic",
+                      "zh": "战利品表"
+                    },
+                    {
+                      "key": "slot_drop_chances",
+                      "type": "compound",
+                      "desc": "Optional. A single float sets the drop chance for every slot; a compound sets the drop chance per slot.",
+                      "category": "basic",
+                      "zh": "各槽位掉落概率",
+                      "children": [
+                        {
+                          "key": "feet",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the boots.",
+                          "category": "inventory",
+                          "zh": "靴子"
+                        },
+                        {
+                          "key": "legs",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the leggings.",
+                          "category": "inventory",
+                          "zh": "护腿"
+                        },
+                        {
+                          "key": "chest",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the chestplate.",
+                          "category": "inventory",
+                          "zh": "胸甲"
+                        },
+                        {
+                          "key": "head",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the helmet.",
+                          "category": "inventory",
+                          "zh": "头盔"
+                        },
+                        {
+                          "key": "body",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the body armor.",
+                          "category": "inventory",
+                          "zh": "护身甲"
+                        },
+                        {
+                          "key": "mainhand",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the weapon in the main hand.",
+                          "category": "inventory",
+                          "zh": "主手"
+                        },
+                        {
+                          "key": "offhand",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the weapon in the off hand.",
+                          "category": "inventory",
+                          "zh": "副手"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "loot_tables_to_eject",
+          "type": "list",
+          "desc": "Defaults to a list of minecraft:spawners/trial_chamber/consumables and minecraft:spawners/trial_chamber/key, both with weight 1 — List of possible loot tables to give as reward.",
+          "elementType": "compound",
+          "category": "basic",
+          "zh": "喷出战利品表",
+          "children": [
+            {
+              "key": "data",
+              "type": "string",
+              "desc": "A resource location to a loot table.",
+              "category": "basic",
+              "zh": "战利品表"
+            },
+            {
+              "key": "weight",
+              "type": "int",
+              "desc": "The chance that this loot table gets picked in comparison to other loot table weights. Must be positive and at least 1.",
+              "category": "basic",
+              "zh": "权重"
+            }
+          ]
+        },
+        {
+          "key": "items_to_drop_when_ominous",
+          "type": "string",
+          "desc": "Defaults to minecraft:spawners/trial_chamber/items_to_drop_when_ominous — A resource location to a loot table. Determines the items used by ominous item spawners spawned during the active phase when ominous. Ignored in normal mode.",
+          "category": "basic",
+          "zh": "不祥之兆掉落物"
+        }
+      ]
     },
     {
       "key": "note_block_sound",
@@ -2774,13 +3321,389 @@
     },
     {
       "key": "ominous_config",
-      "type": "string",
+      "type": "compound",
       "category": "basic",
       "appliesTo": {
         "ids": ["trial_spawner"]
       },
       "zh": "不祥配置",
-      "desc": "(optional) One trial spawner configuration (an ID, or a new trial spawner configuration definition) — The configuration to use when ominous. The following fields are used to keep track of the current state of the trial spawner."
+      "desc": "(optional) One trial spawner configuration (an ID, or a new trial spawner configuration definition) — The configuration to use when ominous. The following fields are used to keep track of the current state of the trial spawner. May also be written as a plain string holding a preset ID.",
+      "children": [
+        {
+          "key": "spawn_range",
+          "type": "int",
+          "desc": "Between 1 and 128. Defaults to 4 — Maximum distance in blocks that mobs can spawn.",
+          "category": "basic",
+          "zh": "生成范围"
+        },
+        {
+          "key": "total_mobs",
+          "type": "float",
+          "desc": "Defaults to 6 — Total amount of mobs spawned before cooldown for a single player.",
+          "category": "basic",
+          "zh": "总生成数"
+        },
+        {
+          "key": "simultaneous_mobs",
+          "type": "float",
+          "desc": "Defaults to 2 — The amount of spawned mobs from this spawner that are allowed to exist simultaneously.",
+          "category": "basic",
+          "zh": "同时存在数"
+        },
+        {
+          "key": "total_mobs_added_per_player",
+          "type": "float",
+          "desc": "Defaults to 2 — Amount of total mobs added for each additional player.",
+          "category": "basic",
+          "zh": "每额外玩家增加总数"
+        },
+        {
+          "key": "simultaneous_mobs_added_per_player",
+          "type": "float",
+          "desc": "Defaults to 1 — Amount of simultaneous mobs added for each additional player.",
+          "category": "basic",
+          "zh": "每额外玩家增加同时数"
+        },
+        {
+          "key": "ticks_between_spawn",
+          "type": "int",
+          "desc": "Defaults to 40 — Time in ticks between spawn attempts.",
+          "category": "basic",
+          "zh": "生成间隔"
+        },
+        {
+          "key": "spawn_potentials",
+          "type": "list",
+          "desc": "Defaults to an empty list — List of possible entities to spawn.",
+          "elementType": "compound",
+          "category": "basic",
+          "zh": "生成候选",
+          "children": [
+            {
+              "key": "weight",
+              "type": "int",
+              "desc": "The chance that this spawn gets picked in comparison to other spawn weights. Must be positive and at least 1.",
+              "category": "advanced",
+              "zh": "权重"
+            },
+            {
+              "key": "data",
+              "type": "compound",
+              "desc": "The spawn data this entry will use, same structure as SpawnData.",
+              "category": "advanced",
+              "zh": "刷怪数据",
+              "children": [
+                {
+                  "key": "entity",
+                  "type": "compound",
+                  "desc": "An entity, including the entity id.",
+                  "category": "basic",
+                  "zh": "实体",
+                  "children": [
+                    {
+                      "key": "Air",
+                      "type": "short",
+                      "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+                      "category": "basic",
+                      "zh": "氧气值"
+                    },
+                    {
+                      "key": "CustomName",
+                      "type": "compound",
+                      "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+                      "category": "basic",
+                      "zh": "自定义名称"
+                    },
+                    {
+                      "key": "CustomNameVisible",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "名称始终显示"
+                    },
+                    {
+                      "key": "data",
+                      "type": "compound",
+                      "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+                      "category": "basic",
+                      "zh": "自定义数据"
+                    },
+                    {
+                      "key": "fall_distance",
+                      "type": "double",
+                      "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+                      "category": "basic",
+                      "zh": "下落距离"
+                    },
+                    {
+                      "key": "Fire",
+                      "type": "short",
+                      "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+                      "category": "basic",
+                      "zh": "着火时间"
+                    },
+                    {
+                      "key": "Glowing",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "发光"
+                    },
+                    {
+                      "key": "HasVisualFire",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "视觉着火"
+                    },
+                    {
+                      "key": "id",
+                      "type": "string",
+                      "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+                      "category": "basic",
+                      "zh": "实体 ID"
+                    },
+                    {
+                      "key": "Invulnerable",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "无敌"
+                    },
+                    {
+                      "key": "invulnerable_time",
+                      "type": "int",
+                      "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+                      "category": "basic",
+                      "zh": "无敌时间"
+                    },
+                    {
+                      "key": "Motion",
+                      "type": "list",
+                      "elementType": "double",
+                      "length": 3,
+                      "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+                      "category": "basic",
+                      "zh": "速度"
+                    },
+                    {
+                      "key": "NoGravity",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "无重力"
+                    },
+                    {
+                      "key": "OnGround",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "着地"
+                    },
+                    {
+                      "key": "Passengers",
+                      "type": "list",
+                      "elementType": "compound",
+                      "desc": "The data of the entities that are riding this entity.",
+                      "category": "basic",
+                      "zh": "乘客"
+                    },
+                    {
+                      "key": "PortalCooldown",
+                      "type": "int",
+                      "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+                      "category": "basic",
+                      "zh": "传送冷却"
+                    },
+                    {
+                      "key": "Pos",
+                      "type": "list",
+                      "elementType": "double",
+                      "length": 3,
+                      "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+                      "category": "basic",
+                      "zh": "坐标"
+                    },
+                    {
+                      "key": "Rotation",
+                      "type": "list",
+                      "elementType": "float",
+                      "length": 2,
+                      "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+                      "category": "basic",
+                      "zh": "朝向"
+                    },
+                    {
+                      "key": "Silent",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+                      "valueKind": "boolean",
+                      "category": "basic",
+                      "zh": "静默"
+                    },
+                    {
+                      "key": "Tags",
+                      "type": "list",
+                      "elementType": "string",
+                      "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+                      "category": "basic",
+                      "zh": "计分板标签"
+                    },
+                    {
+                      "key": "TicksFrozen",
+                      "type": "int",
+                      "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+                      "category": "basic",
+                      "zh": "冻结刻数"
+                    },
+                    {
+                      "key": "UUID",
+                      "type": "int_array",
+                      "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+                      "category": "basic",
+                      "zh": "UUID"
+                    }
+                  ]
+                },
+                {
+                  "key": "custom_spawn_rules",
+                  "type": "compound",
+                  "desc": "Optional custom fields to override spawning requirements.",
+                  "category": "basic",
+                  "zh": "自定义生成规则",
+                  "children": [
+                    {
+                      "key": "block_light_limit",
+                      "type": "int",
+                      "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the block light check when spawning the entity.",
+                      "category": "basic",
+                      "zh": "方块光照上限"
+                    },
+                    {
+                      "key": "sky_light_limit",
+                      "type": "int",
+                      "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the sky light check when spawning the entity.",
+                      "category": "basic",
+                      "zh": "天空光照上限"
+                    }
+                  ]
+                },
+                {
+                  "key": "equipment",
+                  "type": "compound",
+                  "desc": "Optional. Determines the equipment the entity will wear.",
+                  "category": "basic",
+                  "zh": "装备",
+                  "children": [
+                    {
+                      "key": "loot_table",
+                      "type": "string",
+                      "desc": "Resource location of a loot table to use to generate the equipment",
+                      "category": "basic",
+                      "zh": "战利品表"
+                    },
+                    {
+                      "key": "slot_drop_chances",
+                      "type": "compound",
+                      "desc": "Optional. A single float sets the drop chance for every slot; a compound sets the drop chance per slot.",
+                      "category": "basic",
+                      "zh": "各槽位掉落概率",
+                      "children": [
+                        {
+                          "key": "feet",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the boots.",
+                          "category": "inventory",
+                          "zh": "靴子"
+                        },
+                        {
+                          "key": "legs",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the leggings.",
+                          "category": "inventory",
+                          "zh": "护腿"
+                        },
+                        {
+                          "key": "chest",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the chestplate.",
+                          "category": "inventory",
+                          "zh": "胸甲"
+                        },
+                        {
+                          "key": "head",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the helmet.",
+                          "category": "inventory",
+                          "zh": "头盔"
+                        },
+                        {
+                          "key": "body",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the body armor.",
+                          "category": "inventory",
+                          "zh": "护身甲"
+                        },
+                        {
+                          "key": "mainhand",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the weapon in the main hand.",
+                          "category": "inventory",
+                          "zh": "主手"
+                        },
+                        {
+                          "key": "offhand",
+                          "type": "float",
+                          "desc": "Optional. Drop chance of the weapon in the off hand.",
+                          "category": "inventory",
+                          "zh": "副手"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "loot_tables_to_eject",
+          "type": "list",
+          "desc": "Defaults to a list of minecraft:spawners/trial_chamber/consumables and minecraft:spawners/trial_chamber/key, both with weight 1 — List of possible loot tables to give as reward.",
+          "elementType": "compound",
+          "category": "basic",
+          "zh": "喷出战利品表",
+          "children": [
+            {
+              "key": "data",
+              "type": "string",
+              "desc": "A resource location to a loot table.",
+              "category": "basic",
+              "zh": "战利品表"
+            },
+            {
+              "key": "weight",
+              "type": "int",
+              "desc": "The chance that this loot table gets picked in comparison to other loot table weights. Must be positive and at least 1.",
+              "category": "basic",
+              "zh": "权重"
+            }
+          ]
+        },
+        {
+          "key": "items_to_drop_when_ominous",
+          "type": "string",
+          "desc": "Defaults to minecraft:spawners/trial_chamber/items_to_drop_when_ominous — A resource location to a loot table. Determines the items used by ominous item spawners spawned during the active phase when ominous. Ignored in normal mode.",
+          "category": "basic",
+          "zh": "不祥之兆掉落物"
+        }
+      ]
     },
     {
       "key": "OnGround",
@@ -2828,7 +3751,7 @@
         {
           "key": "Air",
           "type": "short",
-          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
           "category": "data",
           "zh": "氧气值"
         },
@@ -2990,7 +3913,7 @@
         {
           "key": "UUID",
           "type": "int_array",
-          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
           "category": "data",
           "zh": "UUID"
         }
@@ -3016,10 +3939,26 @@
         },
         {
           "key": "pattern",
-          "type": "string",
+          "type": "compound",
           "desc": "One Banner pattern (an ID, or a new Banner pattern definition) — The banner pattern the color is applied to.",
           "category": "appearance",
-          "zh": "图案"
+          "zh": "图案",
+          "children": [
+            {
+              "key": "asset_id",
+              "type": "string",
+              "desc": "The resource location for the texture asset.",
+              "category": "appearance",
+              "zh": "图案资源"
+            },
+            {
+              "key": "translation_key",
+              "type": "string",
+              "desc": "The translation key for displaying the banner tooltip.",
+              "category": "appearance",
+              "zh": "翻译键"
+            }
+          ]
         }
       ]
     },
@@ -3127,13 +4066,89 @@
     },
     {
       "key": "profile",
-      "type": "string",
+      "type": "compound",
       "category": "appearance",
       "appliesTo": {
         "ids": ["skull"]
       },
       "zh": "玩家档案",
-      "desc": "Optional. The textures and/or player profile used to render a player head. If specified as a string, it corresponds to and is always saved as a compound. If omitted, a the wide Steve skin is used. Does nothing if present on any other head or skull type. Represents the minecraft:profile component."
+      "desc": "Optional. The textures and/or player profile used to render a player head. If specified as a string, it corresponds to and is always saved as a compound. If omitted, a the wide Steve skin is used. Does nothing if present on any other head or skull type. Represents the minecraft:profile component. May also be written as a plain string holding a player name or UUID.",
+      "children": [
+        {
+          "key": "name",
+          "type": "string",
+          "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive than actual player usernames, which must be 3-16 characters and may only contain letters, numbers, and underscores). If no other profile fields are specified, this is used to dynamically request the profile of a player with that username from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given name).",
+          "category": "appearance",
+          "zh": "玩家名"
+        },
+        {
+          "key": "id",
+          "type": "int_array",
+          "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile of a player with that UUID from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given UUID).",
+          "length": 4,
+          "category": "appearance",
+          "zh": "UUID"
+        },
+        {
+          "key": "properties",
+          "type": "list",
+          "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component.",
+          "elementType": "compound",
+          "category": "appearance",
+          "zh": "皮肤属性",
+          "children": [
+            {
+              "key": "name",
+              "type": "string",
+              "desc": "The name of the property. Can only be \"textures\".",
+              "category": "basic",
+              "zh": "属性名"
+            },
+            {
+              "key": "value",
+              "type": "string",
+              "desc": "The texture data json, encoded in base64.",
+              "category": "basic",
+              "zh": "属性值"
+            },
+            {
+              "key": "signature",
+              "type": "string",
+              "desc": "Optional. Mojang's signature of the value, encoded in base64.",
+              "category": "basic",
+              "zh": "签名"
+            }
+          ]
+        },
+        {
+          "key": "texture",
+          "type": "string",
+          "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a player model or skin, overriding the skin texture provided by a profile. This skin texture may have transparent pixels on the inner body layers whereas resolved skins' are always opaque. If omitted and no skin is provided by a profile, the slim Alex skin is used (minecraft:entity/player/slim/alex).",
+          "category": "appearance",
+          "zh": "皮肤"
+        },
+        {
+          "key": "cape",
+          "type": "string",
+          "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a cape, overriding the cape texture provided by a profile. If the resolved profile (or lack thereof) does not have a cape, it will gain one. This does not affect the elytra texture.",
+          "category": "appearance",
+          "zh": "披风"
+        },
+        {
+          "key": "elytra",
+          "type": "string",
+          "desc": "Optional. path to an elytra texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering an elytra, overriding the elytra texture provided by a profile. This does not affect the cape texture. If omitted and no elytra texture is provided by a profile, the normal elytra texture is used (minecraft:entity/equipment/wings/elytra).",
+          "category": "appearance",
+          "zh": "鞘翅"
+        },
+        {
+          "key": "model",
+          "type": "string",
+          "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model type provided by a profile. If omitted and no model type is provided by a profile, a slim model type is used.",
+          "category": "appearance",
+          "zh": "模型"
+        }
+      ]
     },
     {
       "key": "progress",
@@ -3716,7 +4731,7 @@
             {
               "key": "Air",
               "type": "short",
-              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
               "category": "basic",
               "zh": "氧气值"
             },
@@ -3878,7 +4893,7 @@
             {
               "key": "UUID",
               "type": "int_array",
-              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
               "category": "basic",
               "zh": "UUID"
             }
@@ -3924,9 +4939,60 @@
             {
               "key": "slot_drop_chances",
               "type": "compound",
-              "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+              "desc": "Optional. A single float sets the drop chance for every slot; a compound sets the drop chance per slot.",
               "category": "basic",
-              "zh": "各槽位掉落概率"
+              "zh": "各槽位掉落概率",
+              "children": [
+                {
+                  "key": "feet",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the boots.",
+                  "category": "inventory",
+                  "zh": "靴子"
+                },
+                {
+                  "key": "legs",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the leggings.",
+                  "category": "inventory",
+                  "zh": "护腿"
+                },
+                {
+                  "key": "chest",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the chestplate.",
+                  "category": "inventory",
+                  "zh": "胸甲"
+                },
+                {
+                  "key": "head",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the helmet.",
+                  "category": "inventory",
+                  "zh": "头盔"
+                },
+                {
+                  "key": "body",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the body armor.",
+                  "category": "inventory",
+                  "zh": "护身甲"
+                },
+                {
+                  "key": "mainhand",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the weapon in the main hand.",
+                  "category": "inventory",
+                  "zh": "主手"
+                },
+                {
+                  "key": "offhand",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the weapon in the off hand.",
+                  "category": "inventory",
+                  "zh": "副手"
+                }
+              ]
             }
           ]
         }
@@ -3967,7 +5033,7 @@
                 {
                   "key": "Air",
                   "type": "short",
-                  "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+                  "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
                   "category": "basic",
                   "zh": "氧气值"
                 },
@@ -4129,7 +5195,7 @@
                 {
                   "key": "UUID",
                   "type": "int_array",
-                  "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+                  "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
                   "category": "basic",
                   "zh": "UUID"
                 }
@@ -4175,9 +5241,60 @@
                 {
                   "key": "slot_drop_chances",
                   "type": "compound",
-                  "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+                  "desc": "Optional. A single float sets the drop chance for every slot; a compound sets the drop chance per slot.",
                   "category": "basic",
-                  "zh": "各槽位掉落概率"
+                  "zh": "各槽位掉落概率",
+                  "children": [
+                    {
+                      "key": "feet",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the boots.",
+                      "category": "inventory",
+                      "zh": "靴子"
+                    },
+                    {
+                      "key": "legs",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the leggings.",
+                      "category": "inventory",
+                      "zh": "护腿"
+                    },
+                    {
+                      "key": "chest",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the chestplate.",
+                      "category": "inventory",
+                      "zh": "胸甲"
+                    },
+                    {
+                      "key": "head",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the helmet.",
+                      "category": "inventory",
+                      "zh": "头盔"
+                    },
+                    {
+                      "key": "body",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the body armor.",
+                      "category": "inventory",
+                      "zh": "护身甲"
+                    },
+                    {
+                      "key": "mainhand",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the weapon in the main hand.",
+                      "category": "inventory",
+                      "zh": "主手"
+                    },
+                    {
+                      "key": "offhand",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the weapon in the off hand.",
+                      "category": "inventory",
+                      "zh": "副手"
+                    }
+                  ]
                 }
               ]
             }
@@ -4226,7 +5343,7 @@
             {
               "key": "Air",
               "type": "short",
-              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
               "category": "basic",
               "zh": "氧气值"
             },
@@ -4388,7 +5505,7 @@
             {
               "key": "UUID",
               "type": "int_array",
-              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
               "category": "basic",
               "zh": "UUID"
             }
@@ -4434,9 +5551,60 @@
             {
               "key": "slot_drop_chances",
               "type": "compound",
-              "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+              "desc": "Optional. A single float sets the drop chance for every slot; a compound sets the drop chance per slot.",
               "category": "basic",
-              "zh": "各槽位掉落概率"
+              "zh": "各槽位掉落概率",
+              "children": [
+                {
+                  "key": "feet",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the boots.",
+                  "category": "inventory",
+                  "zh": "靴子"
+                },
+                {
+                  "key": "legs",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the leggings.",
+                  "category": "inventory",
+                  "zh": "护腿"
+                },
+                {
+                  "key": "chest",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the chestplate.",
+                  "category": "inventory",
+                  "zh": "胸甲"
+                },
+                {
+                  "key": "head",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the helmet.",
+                  "category": "inventory",
+                  "zh": "头盔"
+                },
+                {
+                  "key": "body",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the body armor.",
+                  "category": "inventory",
+                  "zh": "护身甲"
+                },
+                {
+                  "key": "mainhand",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the weapon in the main hand.",
+                  "category": "inventory",
+                  "zh": "主手"
+                },
+                {
+                  "key": "offhand",
+                  "type": "float",
+                  "desc": "Optional. Drop chance of the weapon in the off hand.",
+                  "category": "inventory",
+                  "zh": "副手"
+                }
+              ]
             }
           ]
         }
@@ -4477,7 +5645,7 @@
                 {
                   "key": "Air",
                   "type": "short",
-                  "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+                  "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
                   "category": "basic",
                   "zh": "氧气值"
                 },
@@ -4639,7 +5807,7 @@
                 {
                   "key": "UUID",
                   "type": "int_array",
-                  "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+                  "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
                   "category": "basic",
                   "zh": "UUID"
                 }
@@ -4685,9 +5853,60 @@
                 {
                   "key": "slot_drop_chances",
                   "type": "compound",
-                  "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+                  "desc": "Optional. A single float sets the drop chance for every slot; a compound sets the drop chance per slot.",
                   "category": "basic",
-                  "zh": "各槽位掉落概率"
+                  "zh": "各槽位掉落概率",
+                  "children": [
+                    {
+                      "key": "feet",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the boots.",
+                      "category": "inventory",
+                      "zh": "靴子"
+                    },
+                    {
+                      "key": "legs",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the leggings.",
+                      "category": "inventory",
+                      "zh": "护腿"
+                    },
+                    {
+                      "key": "chest",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the chestplate.",
+                      "category": "inventory",
+                      "zh": "胸甲"
+                    },
+                    {
+                      "key": "head",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the helmet.",
+                      "category": "inventory",
+                      "zh": "头盔"
+                    },
+                    {
+                      "key": "body",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the body armor.",
+                      "category": "inventory",
+                      "zh": "护身甲"
+                    },
+                    {
+                      "key": "mainhand",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the weapon in the main hand.",
+                      "category": "inventory",
+                      "zh": "主手"
+                    },
+                    {
+                      "key": "offhand",
+                      "type": "float",
+                      "desc": "Optional. Drop chance of the weapon in the off hand.",
+                      "category": "inventory",
+                      "zh": "副手"
+                    }
+                  ]
                 }
               ]
             }

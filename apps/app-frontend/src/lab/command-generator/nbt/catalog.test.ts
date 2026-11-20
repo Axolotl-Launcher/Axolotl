@@ -274,6 +274,79 @@ describe('NBT 目录数据', () => {
         expect((field!.children ?? []).map((child) => child.key)).toEqual([...expected])
     })
 
+    /**
+     * 子项自己还能是复合标签。旗帜图案的 `pattern` 既可以只写图案 ID，也可以写成
+     * `{asset_id, translation_key}`；只展开一层的话，用户选中 `pattern` 之后
+     * 再也加不进这两个键，等于把「图案定义」这条写法藏了起来。
+     */
+    it.each([
+        ['block_entity', 'patterns.pattern', ['asset_id', 'translation_key']],
+        ['item', 'banner_patterns.pattern', ['asset_id', 'translation_key']],
+        [
+            'block_entity',
+            'profile',
+            ['name', 'id', 'properties', 'texture', 'cape', 'elytra', 'model'],
+        ],
+        ['entity', 'profile', ['name', 'id', 'properties', 'texture', 'cape', 'elytra', 'model']],
+        ['entity', 'potion_contents', ['potion', 'custom_color', 'custom_name', 'custom_effects']],
+        ['entity', 'TileEntityData', ['id', 'keepPacked', 'x', 'y', 'z', 'components']],
+        ['item', 'container.item', ['id', 'count', 'components']],
+        ['item', 'pot_decorations.left', ['id', 'count', 'components']],
+        ['item', 'written_book_content.title', ['raw', 'filtered']],
+    ] as const)('%s 的 %s 还能再往下展开', (domain, path, expected) => {
+        const field = findFieldByPath(domain, path)
+        expect(field, `缺少字段 ${path}`).toBeDefined()
+        expect((field!.children ?? []).map((child) => child.key)).toEqual([...expected])
+    })
+
+    /** 试炼刷怪笼的配置里还套着生成候选，候选里又套着实体。 */
+    it('刷怪配置一层层展开到实体', () => {
+        for (const domain of ['entity', 'block_entity'] as const) {
+            const data = findFieldByPath(domain, 'SpawnPotentials.data')
+            expect(data, `${domain} 缺少 SpawnPotentials.data`).toBeDefined()
+            expect((data!.children ?? []).map((child) => child.key)).toEqual([
+                'entity',
+                'custom_spawn_rules',
+                'equipment',
+            ])
+        }
+        const config = findFieldByPath('block_entity', 'normal_config')
+        expect((config!.children ?? []).map((child) => child.key)).toContain('spawn_potentials')
+    })
+
+    /**
+     * 同一个结构散落在很多地方（每个实体、每个刷怪配置都有一份），只要有一处
+     * 写岔了，用户在不同入口看到的字段就对不上。
+     */
+    it('槽位掉落概率在各处结构一致', () => {
+        const SLOTS = ['feet', 'legs', 'chest', 'head', 'body', 'mainhand', 'offhand']
+        let count = 0
+        for (const domain of DOMAINS) {
+            walk(catalogFor(domain).fields, (field, path) => {
+                if (field.key !== 'slot_drop_chances') return
+                count++
+                expect(field.type, `${domain}:${path} 应该是复合标签`).toBe('compound')
+                expect(
+                    (field.children ?? []).map((child) => child.key),
+                    `${domain}:${path} 的槽位`,
+                ).toEqual(SLOTS)
+            })
+        }
+        expect(count).toBeGreaterThan(5)
+    })
+
+    it('物品栈在各处结构一致', () => {
+        const STACK = ['id', 'count', 'components']
+        const holders: string[] = []
+        walk(catalogFor('item').fields, (field, path) => {
+            const keys = (field.children ?? []).map((child) => child.key)
+            if (keys.length !== STACK.length || !STACK.every((key) => keys.includes(key))) return
+            holders.push(path)
+            expect(keys, `item:${path} 的物品栈结构不对`).toEqual(STACK)
+        })
+        expect(holders.length).toBeGreaterThanOrEqual(8)
+    })
+
     it('childrenAtPath 按母项取子字段', () => {
         expect(childrenAtPath('block_entity', ['patterns'], 'banner')?.map((f) => f.key)).toEqual([
             'color',

@@ -22,6 +22,7 @@ const allowedUntranslatedMessages = new Set([
     '{title} - {count}',
     '@e[type=zombie,distance=..10]',
     'Inventory[0].id',
+    'minecraft:…',
     'Hooks',
     '/path/to/java',
     'https://example.com/api/yggdrasil',

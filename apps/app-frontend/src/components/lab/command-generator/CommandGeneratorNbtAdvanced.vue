@@ -127,6 +127,7 @@ function onUpdate(id: string, field: string, value: string) {
         if (field === 'name') node.name = value
         else if (field === 'value') node.value = value
         else if (field === 'type') node.type = value as NbtTagNode['type']
+        else if (field === 'raw') node.raw = value === '1'
         publish()
     }
 }
@@ -229,6 +230,7 @@ function removeNodeById(list: NbtTagNode[], id: string): boolean {
                 @remove="onRemove"
                 @add-child="onAddChild"
                 @move="onMove"
+                @change="publish"
             />
             <button
                 class="mt-1 flex items-center gap-2 self-start rounded-lg bg-surface-3 px-3 py-2 text-sm font-medium hover:bg-surface-4 focus-visible:outline-brand"

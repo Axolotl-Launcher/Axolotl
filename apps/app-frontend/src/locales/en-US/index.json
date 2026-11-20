@@ -7970,8 +7970,26 @@
   "app.lab.command-generator.nbt.child-count": {
     "message": "{count} children"
   },
+  "app.lab.command-generator.nbt.edit-as-group": {
+    "message": "Edit as a list"
+  },
+  "app.lab.command-generator.nbt.edit-as-raw": {
+    "message": "Edit as raw tags"
+  },
   "app.lab.command-generator.nbt.element-type": {
     "message": "Holds {type}"
+  },
+  "app.lab.command-generator.nbt.group.add-row": {
+    "message": "Add entry"
+  },
+  "app.lab.command-generator.nbt.group.empty": {
+    "message": "No entries yet."
+  },
+  "app.lab.command-generator.nbt.group.id-placeholder": {
+    "message": "minecraft:…"
+  },
+  "app.lab.command-generator.nbt.group.remove-row": {
+    "message": "Remove entry"
   },
   "app.lab.command-generator.nbt.move-down": {
     "message": "Move down"

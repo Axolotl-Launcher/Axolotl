@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '@modrinth/assets'
+import { ChevronDownIcon, ChevronUpIcon, ListOrderedIcon, PlusIcon, XIcon } from '@modrinth/assets'
 import {
     Button,
     Checkbox,
@@ -10,6 +10,7 @@ import {
 } from '@modrinth/ui'
 import { computed, ref } from 'vue'
 
+import { groupSpec } from '@/lab/command-generator/nbt/groups.ts'
 import { NBT_TYPE_SHORT } from '@/lab/command-generator/nbt/labels.ts'
 import {
     isNbtArray,
@@ -17,6 +18,8 @@ import {
     type NbtTagNode,
     type NbtTagType,
 } from '@/lab/command-generator/nbt/model.ts'
+
+import CommandGeneratorNbtGroup from './CommandGeneratorNbtGroup.vue'
 
 const props = defineProps<{
     node: NbtTagNode
@@ -31,6 +34,7 @@ const emit = defineEmits<{
     remove: [id: string]
     'add-child': [id: string]
     move: [id: string, offset: number]
+    change: []
 }>()
 
 const { formatMessage } = useVIntl()
@@ -112,11 +116,23 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.nbt.move-down',
         defaultMessage: 'Move down',
     },
+    editAsGroup: {
+        id: 'app.lab.command-generator.nbt.edit-as-group',
+        defaultMessage: 'Edit as a list',
+    },
+    editAsRaw: {
+        id: 'app.lab.command-generator.nbt.edit-as-raw',
+        defaultMessage: 'Edit as raw tags',
+    },
 })
 
 const expanded = ref(true)
 
 const container = computed(() => isNbtContainer(props.node))
+
+/** 目录里登记过结构化编辑器的标签（附魔、状态效果、描述）走表格，而不是标签树。 */
+const spec = computed(() => groupSpec(props.node.group))
+const asGroup = computed(() => Boolean(spec.value) && !props.node.raw)
 const array = computed(() => isNbtArray(props.node))
 const booleanValue = computed(() => props.node.valueKind === 'boolean')
 
@@ -219,7 +235,19 @@ const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
             </span>
 
             <Button
-                v-if="container"
+                v-if="spec"
+                v-tooltip="formatMessage(asGroup ? messages.editAsRaw : messages.editAsGroup)"
+                type="quiet"
+                size="sm"
+                icon-only
+                :label="formatMessage(asGroup ? messages.editAsRaw : messages.editAsGroup)"
+                :aria-pressed="asGroup"
+                @click="emit('update', node.id, 'raw', node.raw ? '' : '1')"
+            >
+                <ListOrderedIcon />
+            </Button>
+            <Button
+                v-if="container && !asGroup"
                 v-tooltip="formatMessage(messages.addTag)"
                 type="quiet"
                 size="sm"
@@ -264,7 +292,14 @@ const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
         </div>
 
         <div
-            v-if="container && expanded"
+            v-if="container && expanded && asGroup && spec"
+            class="ml-3 flex min-w-0 flex-col gap-2 border-0 border-l border-solid border-surface-4 pl-3"
+        >
+            <CommandGeneratorNbtGroup :node="node" :spec="spec" @change="emit('change')" />
+        </div>
+
+        <div
+            v-else-if="container && expanded"
             class="ml-3 flex min-w-0 flex-col gap-2 border-0 border-l border-solid border-surface-4 pl-3"
         >
             <CommandGeneratorNbtNode
@@ -278,6 +313,7 @@ const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
                 @remove="(id) => emit('remove', id)"
                 @add-child="(id) => emit('add-child', id)"
                 @move="(id, offset) => emit('move', id, offset)"
+                @change="emit('change')"
             />
         </div>
     </div>

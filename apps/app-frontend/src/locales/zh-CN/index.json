@@ -7970,8 +7970,26 @@
   "app.lab.command-generator.nbt.child-count": {
     "message": "{count} 个子项"
   },
+  "app.lab.command-generator.nbt.edit-as-group": {
+    "message": "按列表编辑"
+  },
+  "app.lab.command-generator.nbt.edit-as-raw": {
+    "message": "按原始标签编辑"
+  },
   "app.lab.command-generator.nbt.element-type": {
     "message": "元素为 {type}"
+  },
+  "app.lab.command-generator.nbt.group.add-row": {
+    "message": "添加一项"
+  },
+  "app.lab.command-generator.nbt.group.empty": {
+    "message": "还没有内容。"
+  },
+  "app.lab.command-generator.nbt.group.id-placeholder": {
+    "message": "minecraft:…"
+  },
+  "app.lab.command-generator.nbt.group.remove-row": {
+    "message": "删除这一项"
   },
   "app.lab.command-generator.nbt.move-down": {
     "message": "下移"

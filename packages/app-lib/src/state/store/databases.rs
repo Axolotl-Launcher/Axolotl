@@ -437,6 +437,8 @@ where
         super::configuration_documents::lock_files(settings_dir).await?;
     let result = async {
         let mut exclusions = Vec::<String>::new();
+        let mut copied_files = Vec::new();
+        transaction_diagnostics.phase("snapshot_core_files");
         let domains = attached_domains(&mut *transaction).await?;
         for name in std::iter::once("system").chain(
             DOMAINS
@@ -448,13 +450,9 @@ where
             let target = staging.join(&file);
             tokio::fs::copy(directory(settings_dir).join(&file), &target)
                 .await?;
-            tokio::fs::OpenOptions::new()
-                .write(true)
-                .open(&target)
-                .await?
-                .sync_all()
-                .await?;
+            copied_files.push(target);
         }
+        transaction_diagnostics.phase("snapshot_settings");
         let settings = settings_dir.join(layout::SETTINGS);
         let target_settings = staging.join(layout::SETTINGS);
         tokio::fs::create_dir_all(&target_settings).await?;
@@ -469,22 +467,19 @@ where
                 }
                 let target = target_settings.join(entry.file_name());
                 tokio::fs::copy(entry.path(), &target).await?;
-                tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .open(&target)
-                    .await?
-                    .sync_all()
-                    .await?;
+                copied_files.push(target);
             }
         }
         // The sync descriptor names the immutable generation frozen below.
         // Other independent domains capture their own authority after core is free.
+        transaction_diagnostics.phase("snapshot_sync");
         backup_receipts(settings_dir, &staging, &mut exclusions, true).await?;
         if let Err(error)=super::sync_documents::backup_in(&mut transaction,&crate::state::persistence::Persistence::new(settings_dir),&staging.join("synced-options")).await{
             tracing::warn!(%error,"Backup excludes unavailable shared sync state");
             exclusions.push("sync".into());
             crate::state::persistence::document::write_json(&staging.join("sync-backup-status.json"),serde_json::to_vec(&serde_json::json!({"unavailable":true}))?).await?;
         }
+        transaction_diagnostics.phase("snapshot_instance_recovery");
         if let Err(error)=crate::state::instances::manifest::backup(settings_dir,&staging).await {
             tracing::warn!(%error,"Instance recovery copies excluded from this core snapshot");
             exclusions.push("instance-recovery-copies".into());
@@ -498,7 +493,7 @@ where
                 None => absent_settings.push(relative),
             }
         }
-        Ok::<_, crate::Error>((exclusions, absent_settings))
+        Ok::<_, crate::Error>((exclusions, absent_settings, copied_files))
     }
     .await;
     transaction_diagnostics
@@ -511,7 +506,7 @@ where
     drop(_document_files);
     drop(_documents);
     drop(_settings);
-    let (mut exclusions, absent_settings) = match result {
+    let (mut exclusions, absent_settings, copied_files) = match result {
         Ok(result) => result,
         Err(error) => {
             tracing::warn!(path = %staging.display(), "Incomplete database snapshot retained for inspection");
@@ -520,6 +515,16 @@ where
     };
     before_copy().await;
     let result = async {
+        // The staged files are private. Flush them before marking the bundle
+        // complete, without making foreground writers wait for disk flushes.
+        for file in copied_files {
+            tokio::fs::OpenOptions::new()
+                .write(true)
+                .open(file)
+                .await?
+                .sync_all()
+                .await?;
+        }
         backup_receipts(settings_dir, &staging, &mut exclusions, false).await?;
         if !exclusions.iter().any(|domain| domain == "sync") {
             super::sync_documents::copy_pack_files(

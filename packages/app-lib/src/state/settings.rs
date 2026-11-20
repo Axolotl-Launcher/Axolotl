@@ -483,7 +483,7 @@ impl Default for Settings {
 }
 
 impl Settings {
-    const CURRENT_VERSION: usize = 3;
+    pub(super) const CURRENT_VERSION: usize = 3;
 
     pub(crate) fn advanced_download_info_enabled(&self) -> bool {
         self.developer_mode
@@ -1042,13 +1042,14 @@ impl Settings {
         let _guard = crate::api::settings::SETTINGS_WRITE.lock().await;
         let mut settings = Self::get(handle).await?;
 
-        if settings.version < Settings::CURRENT_VERSION {
-            tracing::info!(
-                "Migrating settings version {} to {:?}",
-                settings.version,
-                Settings::CURRENT_VERSION
-            );
+        if settings.version >= Settings::CURRENT_VERSION {
+            return Ok(());
         }
+        tracing::info!(
+            "Migrating settings version {} to {:?}",
+            settings.version,
+            Settings::CURRENT_VERSION
+        );
         while settings.version < Settings::CURRENT_VERSION {
             if let Err(err) = settings.perform_migration() {
                 tracing::error!(

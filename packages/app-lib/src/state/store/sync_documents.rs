@@ -355,6 +355,28 @@ pub(crate) async fn decision(
     .fetch_optional(connection)
     .await?)
 }
+
+pub(crate) async fn read_collections(
+    handle: &super::Handle,
+) -> crate::Result<manifest::Collections> {
+    super::recovery_mode::ensure_writable(handle.pool())?;
+    let persistence = handle.persistence();
+    super::recovery_mode::ensure_path_writable(persistence.root())?;
+    let root = authority(&persistence).await?;
+    let mut connection = handle.pool().acquire().await?;
+    // Publication also holds the file lock through the SQL decision and head
+    // update. Sample the committed token under that lock using autocommit so
+    // a reader neither reserves the writer nor waits with a SQL read lock.
+    let _lock = sync_state::journal::initial_lock(&root).await?;
+    let committed = decision(&mut connection).await?;
+    drop(connection);
+    if let Some(token) = committed {
+        sync_state::journal::replay(&root, &token).await?;
+    }
+    let (_, collections) = manifest::load(&root).await?;
+    Ok(collections)
+}
+
 pub(crate) async fn decide(
     connection: &mut SqliteConnection,
     token: &str,
@@ -609,17 +631,35 @@ mod tests {
         super::super::configuration::prepare_documents(&mut sql,root.path(),vec![("resources".into(),json!({"schema_version":1,"data":{"preferred_source":"curseforge"}}))]).await.unwrap();
         sql.commit().await.unwrap();
         drop(sync);
+        // The sync decision is already committed. A foreground writer may
+        // obtain its reservation before a reader gets around to replaying it.
+        let held_writer = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
         for _ in 0..2 {
             assert_eq!(
-                SyncedGameOptionState::get(&handle, &Singleton)
-                    .await
-                    .unwrap(),
+                tokio::time::timeout(
+                    std::time::Duration::from_secs(2),
+                    SyncedGameOptionState::get(&handle, &Singleton),
+                )
+                .await
+                .expect("reading a committed sync decision must not reserve the writer")
+                .unwrap(),
                 Some(GameOptionStateRecord {
                     revision: 12,
                     catalog_revision: 3
                 }),
             );
         }
+        held_writer.rollback().await.unwrap();
+        super::super::configuration::flush_committed(&pool)
+            .await
+            .unwrap();
+        let published: Value = serde_json::from_slice(
+            &tokio::fs::read(root.path().join("data/settings/resources.json"))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(published["data"]["preferred_source"], "curseforge");
         tokio::fs::write(
             root.path().join("data/settings/resources.json"),
             br#"{"schema_version":1,"data":{"preferred_source":"mcarchive"}}"#,

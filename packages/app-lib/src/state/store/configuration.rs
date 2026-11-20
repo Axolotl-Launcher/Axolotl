@@ -4,7 +4,9 @@
 
 use crate::state::layout;
 use serde_json::{Value, json};
-use sqlx::{Executor, Sqlite, SqliteConnection, SqlitePool, Transaction};
+use sqlx::{
+    Connection, Executor, Sqlite, SqliteConnection, SqlitePool, Transaction,
+};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -151,8 +153,10 @@ async fn finalize(
     token: &str,
 ) -> Result<(), sqlx::Error> {
     uuid::Uuid::parse_str(token).map_err(protocol)?;
-    connection.execute("BEGIN IMMEDIATE").await?;
-    let result = async {
+    // A failed SQLite COMMIT can leave the transaction active. Use a managed
+    // transaction so both errors and cancellation roll it back before reuse.
+    let mut transaction = connection.begin_with("BEGIN IMMEDIATE").await?;
+    {
         let _writing = crate::state::documents::WRITES.lock().await;
         let _files = super::configuration_documents::lock_files(root)
             .await
@@ -160,27 +164,16 @@ async fn finalize(
         let current: Option<String> = sqlx::query_scalar(
             "SELECT token FROM main.document_commits WHERE id=1",
         )
-        .fetch_optional(&mut *connection)
+        .fetch_optional(&mut *transaction)
         .await?;
-        if current.as_deref() != Some(token) {
-            return Ok(());
-        }
-        publish(root, token).await?;
-        connection
-            .execute("DELETE FROM main.document_commits WHERE id=1")
-            .await?;
-        Ok::<(), sqlx::Error>(())
-    }
-    .await;
-    match result {
-        Ok(()) => {
-            connection.execute("COMMIT").await?;
-        }
-        Err(error) => {
-            let _ = connection.execute("ROLLBACK").await;
-            return Err(error);
+        if current.as_deref() == Some(token) {
+            publish(root, token).await?;
+            transaction
+                .execute("DELETE FROM main.document_commits WHERE id=1")
+                .await?;
         }
     }
+    transaction.commit().await?;
     let stage = root
         .join(layout::SETTINGS)
         .join(".transactions")
@@ -251,6 +244,60 @@ pub(super) async fn recover_and_load(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn busy_configuration_commit_releases_the_writer_and_can_be_retried()
+    {
+        let root = tempfile::tempdir().unwrap();
+        let pool = super::super::databases::open(root.path()).await.unwrap();
+        let mut publication = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+        let token = prepare_documents(
+            &mut publication,
+            root.path(),
+            vec![(
+                "resources".into(),
+                json!({"schema_version":1,"data":{"preferred_source":"curseforge"}}),
+            )],
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        publication.commit().await.unwrap();
+
+        let mut writer = pool.acquire().await.unwrap();
+        writer.execute("PRAGMA busy_timeout=0").await.unwrap();
+        let mut reader = pool.begin().await.unwrap();
+        assert_eq!(
+            pending_token(&mut reader).await.unwrap().as_deref(),
+            Some(token.as_str())
+        );
+        let error = finalize(&mut writer, root.path(), &token)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error
+                .as_database_error()
+                .and_then(|error| error.code())
+                .as_deref(),
+            Some("5")
+        );
+        reader.rollback().await.unwrap();
+
+        let mut probe = writer.begin_with("BEGIN IMMEDIATE").await.unwrap();
+        assert_eq!(
+            pending_token(&mut probe).await.unwrap().as_deref(),
+            Some(token.as_str())
+        );
+        probe.rollback().await.unwrap();
+        finalize(&mut writer, root.path(), &token).await.unwrap();
+        assert_eq!(pending_token(&mut writer).await.unwrap(), None);
+        let preferences =
+            read_document(&root.path().join("data/settings/resources.json"))
+                .await
+                .unwrap();
+        assert_eq!(preferences["data"]["preferred_source"], "curseforge");
+    }
+
     #[tokio::test]
     async fn staged_document_is_invisible_until_decision_and_replay_does_not_overwrite_a_manual_edit()
      {

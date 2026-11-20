@@ -155,8 +155,20 @@ async fn cold_core_pool_serves_reads_during_disabled_sync_config_and_backup() {
     // deadlock never completes at any size. CI measures this test inside the
     // instrumented coverage build, where the five concurrent branches racing a
     // cold SQLite pool run far slower than they do uninstrumented.
+    async fn branch(
+        name: &str,
+        work: impl std::future::Future<Output = crate::Result<()>>,
+    ) -> crate::Result<()> {
+        work.await.map_err(|error| error.with_context(name))
+    }
     tokio::time::timeout(Duration::from_secs(120), async {
-        tokio::try_join!(reads, sync, configs, settings, backup)
+        tokio::try_join!(
+            branch("startup instance and settings reads", reads),
+            branch("startup disabled sync reconciliation", sync),
+            branch("startup recovery copy publication", configs),
+            branch("startup settings migration", settings),
+            branch("startup database backup", backup),
+        )
     })
     .await
     .expect(

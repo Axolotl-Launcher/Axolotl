@@ -51,10 +51,6 @@ pub(crate) fn mark_dirty(instance_id: impl Into<String>) {
 }
 
 pub(crate) async fn run(state: Arc<State>) {
-    if let Err(error) = reconcile_all(&state).await {
-        tracing::warn!("Failed to reconcile instance config files: {error}");
-    }
-
     let mut dirty_tick = tokio::time::interval(DIRTY_POLL_INTERVAL);
     dirty_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     dirty_tick.tick().await;

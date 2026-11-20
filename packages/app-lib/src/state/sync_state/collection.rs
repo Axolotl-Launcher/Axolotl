@@ -1,4 +1,5 @@
 //! Typed collection operations participate in the explicit file transaction.
+use super::manifest::Collections;
 use super::{key, supported};
 use crate::state::store::{Atom, Handle, atom};
 use serde::{Serialize, de::DeserializeOwned};
@@ -26,27 +27,27 @@ pub(crate) trait Collection {
         handle: &Handle,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
-        let mut unit = atom(handle).await?;
-        let result = Self::atom_get(&mut unit, key).await?;
-        unit.commit().await?;
-        Ok(result)
+        let collections =
+            crate::state::store::sync_documents::read_collections(handle)
+                .await?;
+        Self::read(&collections, key)
     }
     async fn get_all(
         handle: &Handle,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
-        let mut unit = atom(handle).await?;
-        let result = Self::atom_get_all(&mut unit).await?;
-        unit.commit().await?;
-        Ok(result)
+        let collections =
+            crate::state::store::sync_documents::read_collections(handle)
+                .await?;
+        Self::read_all(&collections)
     }
     async fn get_scoped(
         handle: &Handle,
         scope: &Self::Scope,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
-        let mut unit = atom(handle).await?;
-        let result = Self::atom_get_scoped(&mut unit, scope).await?;
-        unit.commit().await?;
-        Ok(result)
+        let collections =
+            crate::state::store::sync_documents::read_collections(handle)
+                .await?;
+        Self::read_scoped(&collections, scope)
     }
     async fn set(
         handle: &Handle,
@@ -78,12 +79,15 @@ pub(crate) trait Collection {
         unit: &mut Atom,
         wanted: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
+        Self::read(&unit.sync().await?.collections, wanted)
+    }
+    fn read(
+        collections: &Collections,
+        wanted: &Self::Key,
+    ) -> crate::Result<Option<Self::Record>> {
         let id = key(&serde_json::to_value(wanted)?)?;
-        let transaction = unit.sync().await?;
-        let Some(raw) = transaction
-            .collections
-            .get(Self::NAME)
-            .and_then(|rows| rows.get(&id))
+        let Some(raw) =
+            collections.get(Self::NAME).and_then(|rows| rows.get(&id))
         else {
             return Ok(None);
         };
@@ -105,9 +109,13 @@ pub(crate) trait Collection {
     async fn atom_get_all(
         unit: &mut Atom,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
-        let transaction = unit.sync().await?;
+        Self::read_all(&unit.sync().await?.collections)
+    }
+    fn read_all(
+        collections: &Collections,
+    ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
         let mut result = Vec::new();
-        if let Some(rows) = transaction.collections.get(Self::NAME) {
+        if let Some(rows) = collections.get(Self::NAME) {
             for (identity, raw) in rows {
                 if !supported(raw) || !Self::record_supported(&raw["record"]) {
                     continue;
@@ -138,8 +146,13 @@ pub(crate) trait Collection {
         unit: &mut Atom,
         scope: &Self::Scope,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
-        Ok(Self::atom_get_all(unit)
-            .await?
+        Self::read_scoped(&unit.sync().await?.collections, scope)
+    }
+    fn read_scoped(
+        collections: &Collections,
+        scope: &Self::Scope,
+    ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        Ok(Self::read_all(collections)?
             .into_iter()
             .filter(|(key, _)| Self::in_scope(scope, key))
             .collect())

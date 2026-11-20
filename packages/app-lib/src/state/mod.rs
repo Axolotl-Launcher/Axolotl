@@ -196,11 +196,16 @@ mod initialization_tests;
 /// must still release the deferred work once the state exists.
 static FRONTEND_READY: FrontendReadiness = FrontendReadiness::new();
 
-/// Guards the process-wide startup work. Recreating the main webview calls
-/// `State::init` again; a second recovery pass can interrupt install workers
-/// that are still running, and a second copy of the loops would double their
-/// work. The cell records registration, not completion of the workers.
+/// Reusing the webview must not run recovery or register periodic workers again.
 static STARTUP_WORK: OnceCell<()> = OnceCell::const_new();
+tokio::task_local! {
+    static STARTUP_CONTEXT: ();
+}
+
+fn state_access_ready(state_published: bool, startup_complete: bool) -> bool {
+    state_published
+        && (startup_complete || STARTUP_CONTEXT.try_with(|_| ()).is_ok())
+}
 
 /// Bounds how long deferred startup work waits for the frontend. A window
 /// that never reports readiness (for example, a hidden lightweight-mode
@@ -844,54 +849,68 @@ impl State {
     }
 
     pub async fn init(app_identifier: String) -> crate::Result<()> {
-        let initialization = INITIALIZATION.begin();
+        let _initialization = INITIALIZATION.begin();
         let state = LAUNCHER_STATE
             .get_or_try_init(move || Self::initialize_state(app_identifier))
             .await?;
-        drop(initialization);
-
         STARTUP_WORK
-            .get_or_init(|| async { Self::start_background(Arc::clone(state)) })
-            .await;
+            .get_or_try_init(|| {
+                STARTUP_CONTEXT.scope((), Self::finish_startup(state))
+            })
+            .await?;
         Ok(())
     }
 
-    /// Performs the recovery and background work that must happen once per
-    /// process. `STARTUP_WORK` serializes this for a recreated webview instead
-    /// of running recovery while the previous webview's workers are alive.
-    fn start_background(state: Arc<Self>) {
+    #[tracing::instrument(skip_all, level = "info")]
+    async fn finish_startup(state: &Arc<Self>) -> crate::Result<()> {
         if store::recovery_mode::root(&state.pool).is_some() {
             // Recovery copies permit existing runtime launch, never journal
             // replay, adoption, cleanup, directory migration or watcher writes.
-            return;
+            return Ok(());
         }
         crate::scheduler::quota::check_at_startup();
+        crate::api::instance::recover_backup_repository().await?;
+        recovery::coordinator::run_at_startup(Arc::clone(state)).await;
+        crate::scheduler::reconcile::at_startup(state).await;
+        if let Err(error) =
+            crate::api::curseforge::reconcile_persisted_curseforge_waiting_jobs(
+                state,
+            )
+            .await
+        {
+            tracing::error!(%error, "Could not reconcile persisted CurseForge waiting install jobs");
+        }
 
+        instances::watcher::watch_instances_init(
+            &state.file_watcher,
+            &state.directories,
+            &state.pool,
+        )
+        .await;
+        if let Err(error) = instances::refresh_all_instances().await {
+            tracing::error!(%error, "Could not refresh instances at startup");
+        }
+        if let Err(error) = instances::config_sync::reconcile_all(state).await {
+            tracing::warn!(%error, "Could not reconcile instance config files at startup");
+        }
+        if let Err(error) = state.maintain_database_backups().await {
+            tracing::warn!(%error, "Could not maintain database snapshots at startup");
+        }
+        if let Err(error) =
+            crate::api::instance::maintain_backup_repository().await
+        {
+            tracing::warn!(%error, "Could not maintain the instance backup repository at startup");
+        }
+
+        Self::start_background(Arc::clone(state));
+        Ok(())
+    }
+
+    fn start_background(state: Arc<Self>) {
+        crate::telemetry::start(Arc::clone(&state));
         state.spawn_background({
             let state = Arc::clone(&state);
-            async move {
-                wait_for_frontend_ready("startup recovery and reconciliation")
-                    .await;
-                recovery::coordinator::start(Arc::clone(&state));
-                crate::scheduler::reconcile::at_startup(&state).await;
-                crate::telemetry::start(Arc::clone(&state));
-                if let Err(error) =
-                    crate::api::curseforge::reconcile_persisted_curseforge_waiting_jobs(
-                        &state,
-                    )
-                    .await
-                {
-                    tracing::error!(%error, "Could not reconcile persisted CurseForge waiting install jobs");
-                }
-            }
-        });
-
-        state.spawn_background({
-            let state = Arc::clone(&state);
-            async move {
-                wait_for_frontend_ready("deferred instance config sync").await;
-                instances::config_sync::run(state).await;
-            }
+            async move { instances::config_sync::run(state).await }
         });
 
         state.spawn_background({
@@ -909,42 +928,15 @@ impl State {
         state.spawn_background({
             let state = Arc::clone(&state);
             async move {
-                // Discord presence and settings migration do not scan
-                // instance directories, and the frontend reads settings while
-                // it sets up, so they start immediately instead of waiting for
-                // the first frame. Only the instance scans below are deferred.
-                let res = tokio::try_join!(
-                    state.discord_rpc.clear_to_default(true),
-                    Settings::migrate(&state.data),
-                );
-
-                if let Err(e) = res {
-                    tracing::error!(
-                        "Error running discord RPC or migrating settings: {e}"
-                    );
+                if let Err(error) = state.discord_rpc.clear_to_default(true).await {
+                    tracing::error!(%error, "Could not initialize Discord presence");
                 }
 
-                wait_for_frontend_ready("instance watcher and refresh").await;
-
+                wait_for_frontend_ready("partial download cleanup").await;
                 crate::util::fetch::cleanup_stale_partial_downloads(vec![
                     state.directories.metadata_dir(),
                     state.directories.caches_dir(),
                 ]);
-
-                // Per-instance folder setup is serial database and filesystem
-                // work, so keep it off the first-paint path. The refresh below
-                // re-reads every instance after registration, which reconciles
-                // changes made before the watcher existed.
-                instances::watcher::watch_instances_init(
-                    &state.file_watcher,
-                    &state.directories,
-                    &state.pool,
-                )
-                .await;
-
-                if let Err(e) = instances::refresh_all_instances().await {
-                    tracing::error!("Error refreshing instances: {e}");
-                }
             }
         });
     }
@@ -954,10 +946,11 @@ impl State {
         app_identifier: String,
     ) -> crate::Result<Arc<Self>> {
         let _initialization = INITIALIZATION.begin();
-        LAUNCHER_STATE
+        let state = LAUNCHER_STATE
             .get_or_try_init(move || Self::initialize_state(app_identifier))
-            .await
-            .cloned()
+            .await?;
+        let _ = STARTUP_WORK.set(());
+        Ok(Arc::clone(state))
     }
 
     /// Get the current launcher state, waiting for initialization
@@ -966,13 +959,19 @@ impl State {
     /// migration. If no caller starts init, the wait is bounded; failure or
     /// cancellation of the initializer releases pending commands promptly.
     pub async fn get() -> crate::Result<Arc<Self>> {
-        if !LAUNCHER_STATE.initialized() {
+        let ready = || {
+            state_access_ready(
+                LAUNCHER_STATE.initialized(),
+                STARTUP_WORK.initialized(),
+            )
+        };
+        if !ready() {
             tracing::debug!(
                 "State not ready yet; waiting for launcher initialization before serving command"
             );
 
             INITIALIZATION
-                .wait(|| LAUNCHER_STATE.initialized())
+                .wait(ready)
                 .await
                 .map_err(|unavailable| {
                     crate::ErrorKind::StateNotInitialized(
@@ -1500,6 +1499,15 @@ impl State {
 
         tracing::info!("Fetching app settings");
         let mut settings = Settings::get(&data).await?;
+        if !recovery_mode && settings.version < Settings::CURRENT_VERSION {
+            // Runtime clients and the first frontend read need the same settings.
+            match Settings::migrate(&data).await {
+                Ok(()) => settings = Settings::get(&data).await?,
+                Err(error) => {
+                    tracing::error!(%error, "Could not migrate launcher settings")
+                }
+            }
+        }
         if !recovery_mode {
             installer_settings::apply_pending_installer_directory(
                 &mut settings,

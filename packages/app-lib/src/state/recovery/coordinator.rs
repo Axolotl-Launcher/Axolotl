@@ -15,7 +15,6 @@ use std::{
     time::Duration,
 };
 const RECORD_BUDGET: Duration = Duration::from_secs(15);
-static STARTED: AtomicBool = AtomicBool::new(false);
 static IMPORT_DONE: AtomicBool = AtomicBool::new(false);
 static FAIL_OK: OnceLock<DashSet<String>> = OnceLock::new();
 pub(crate) fn fail_ok(instance_id: &str) -> bool {
@@ -58,30 +57,50 @@ pub(crate) async fn before_launch(state: Arc<State>, instance_id: &str) {
     }
 }
 
-pub(crate) fn start(state: Arc<State>) {
-    if STARTED
-        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-        .is_err()
-    {
-        return;
-    }
+pub(crate) async fn run_at_startup(state: Arc<State>) {
+    let (send, mut receive) = tokio::sync::oneshot::channel();
     let worker = Arc::clone(&state);
     state.spawn_background(async move {
         if let Err(error) = recovery_documents::interpret_all(&worker.pool).await {
             tracing::warn!(%error, "Some recovery records remain opaque; other records continue");
         }
-        IMPORT_DONE.store(true,Ordering::Release);
-        // Execution is independent of the per-instance launch budget.
-        if let Err(error) = recover_content_file_operations(&worker).await {
-            tracing::warn!(%error, "Some file recoveries remain pending");
-        }
-        if let Err(error) = recover_legacy_rollbacks(&worker).await {
-            tracing::warn!(%error, "Some legacy recovery records remain pending");
-        }
-        if let Err(error) = recover_published_jobs(&worker, &worker.startup_install_jobs, None).await {
-            tracing::warn!(%error, "Some install recoveries remain pending");
-        }
+        let _ = send.send(());
     });
+    match tokio::time::timeout(RECORD_BUDGET, &mut receive).await {
+        Ok(Ok(())) => execute_pending(&state).await,
+        Ok(Err(error)) => {
+            tracing::warn!(%error, "Startup recovery record inspection stopped")
+        }
+        Err(_) => {
+            tracing::warn!(
+                "Recovery record inspection exceeded the startup budget; continuing in background"
+            );
+            let worker = Arc::clone(&state);
+            state.spawn_background(async move {
+                // The delayed pass must not write alongside the other startup steps.
+                if receive.await.is_ok() && State::get().await.is_ok() {
+                    execute_pending(&worker).await;
+                }
+            });
+        }
+    }
+}
+
+async fn execute_pending(state: &State) {
+    IMPORT_DONE.store(true, Ordering::Release);
+    // File recovery and rollback have their own execution semantics. The
+    // 15-second budget applies only to reading the records that select them.
+    if let Err(error) = recover_content_file_operations(state).await {
+        tracing::warn!(%error, "Some file recoveries remain pending");
+    }
+    if let Err(error) = recover_legacy_rollbacks(state).await {
+        tracing::warn!(%error, "Some legacy recovery records remain pending");
+    }
+    if let Err(error) =
+        recover_published_jobs(state, &state.startup_install_jobs, None).await
+    {
+        tracing::warn!(%error, "Some install recoveries remain pending");
+    }
 }
 
 #[cfg(test)]

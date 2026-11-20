@@ -140,15 +140,16 @@ pub(in crate::api::instance) async fn detach_instance(
     state: &State,
 ) -> crate::Result<()> {
     let feature = SyncedOption::GameOptions.as_str();
-    InstanceSyncCheckpoints::set_scoped(
-        &state.data,
-        &CheckpointScope {
-            instance_id: metadata.instance.id.clone(),
-            feature: feature.to_string(),
-        },
-        &[],
-    )
-    .await?;
+    let scope = CheckpointScope {
+        instance_id: metadata.instance.id.clone(),
+        feature: feature.to_string(),
+    };
+    if !InstanceSyncCheckpoints::get_scoped(&state.data, &scope)
+        .await?
+        .is_empty()
+    {
+        InstanceSyncCheckpoints::set_scoped(&state.data, &scope, &[]).await?;
+    }
     Ok(())
 }
 

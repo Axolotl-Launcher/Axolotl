@@ -1,0 +1,3 @@
+# Gitignored files `wt step copy-ignored` copies into new worktrees.
+# Add one path per line (e.g. start-dev.ps1, .dev.vars) once such files exist locally.
+.env

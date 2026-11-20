@@ -190,7 +190,42 @@
         "ids": ["hanging_sign"]
       },
       "zh": "背面文字",
-      "desc": "A compound that describes back text. Represents the minecraft:sign_text_back component."
+      "desc": "A compound that describes back text. Represents the minecraft:sign_text_back component.",
+      "children": [
+        {
+          "key": "messages",
+          "type": "list",
+          "elementType": "string",
+          "length": 4,
+          "desc": "A list of four text components, one for each line.",
+          "category": "basic",
+          "zh": "文字"
+        },
+        {
+          "key": "filtered_messages",
+          "type": "list",
+          "elementType": "string",
+          "length": 4,
+          "desc": "Only in Realms. The lines of text shown to players with the profanity filter turned on instead of the regular lines. This tag is automatically set to \"\" for lines containing blocked words and to the line's normal contents for the other lines when a player with the profanity filter turned off edits the sign, so players with the filter on cannot see the blocked words. If a player with the filter on tries to use blocked words in one or more lines, the line(s) in containing blocked words are set to \"\", which makes them render completely blank, and this tag is also given the same contents. If multiple lines have been edited before the sign editing GUI is closed, only the lines containing blocked words are blanked.",
+          "category": "basic",
+          "zh": "过滤后文字"
+        },
+        {
+          "key": "color",
+          "type": "string",
+          "desc": "The color that has been used to dye the sign. The default value is black One of white, orange, magenta, light_blue, yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, and black.",
+          "category": "basic",
+          "zh": "颜色"
+        },
+        {
+          "key": "has_glowing_text",
+          "type": "byte",
+          "desc": "Optional, defaults to false. true if the sign has been dyed with a glow ink sac.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "发光文字"
+        }
+      ]
     },
     {
       "key": "back_text",
@@ -200,7 +235,42 @@
         "ids": ["sign"]
       },
       "zh": "背面文字",
-      "desc": "A compound that describes back text. Represents the minecraft:sign_text_back component."
+      "desc": "A compound that describes back text. Represents the minecraft:sign_text_back component.",
+      "children": [
+        {
+          "key": "messages",
+          "type": "list",
+          "elementType": "string",
+          "length": 4,
+          "desc": "A list of four text components, one for each line.",
+          "category": "basic",
+          "zh": "文字"
+        },
+        {
+          "key": "filtered_messages",
+          "type": "list",
+          "elementType": "string",
+          "length": 4,
+          "desc": "Only in Realms. The lines of text shown to players with the profanity filter turned on instead of the regular lines. This tag is automatically set to \"\" for lines containing blocked words and to the line's normal contents for the other lines when a player with the profanity filter turned off edits the sign, so players with the filter on cannot see the blocked words. If a player with the filter on tries to use blocked words in one or more lines, the line(s) in containing blocked words are set to \"\", which makes them render completely blank, and this tag is also given the same contents. If multiple lines have been edited before the sign editing GUI is closed, only the lines containing blocked words are blanked.",
+          "category": "basic",
+          "zh": "过滤后文字"
+        },
+        {
+          "key": "color",
+          "type": "string",
+          "desc": "The color that has been used to dye the sign. The default value is black One of white, orange, magenta, light_blue, yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, and black.",
+          "category": "basic",
+          "zh": "颜色"
+        },
+        {
+          "key": "has_glowing_text",
+          "type": "byte",
+          "desc": "Optional, defaults to false. true if the sign has been dyed with a glow ink sac.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "发光文字"
+        }
+      ]
     },
     {
       "key": "bees",
@@ -211,7 +281,30 @@
       },
       "zh": "蜜蜂",
       "desc": "Entities currently in the hive. Represents the minecraft:bees component.",
-      "elementType": "compound"
+      "elementType": "compound",
+      "children": [
+        {
+          "key": "entity_data",
+          "type": "compound",
+          "desc": "Must include id tag. If the id is not minecraft:bee then the entity will never leave the hive. The Passengers, Pos, Rotation, and UUID tags are ignored when the bee spawns (the bee will always spawn in front of the hive with a random UUID, facing south, and without any passengers).",
+          "category": "basic",
+          "zh": "实体数据"
+        },
+        {
+          "key": "min_ticks_in_hive",
+          "type": "int",
+          "desc": "The minimum amount of time in ticks for this entity to stay in the hive.",
+          "category": "basic",
+          "zh": "最短留巢时间"
+        },
+        {
+          "key": "ticks_in_hive",
+          "type": "int",
+          "desc": "The amount of ticks the entity has stayed in the hive.",
+          "category": "basic",
+          "zh": "留巢时间"
+        }
+      ]
     },
     {
       "key": "blockState",
@@ -221,7 +314,23 @@
         "ids": ["piston"]
       },
       "zh": "方块状态",
-      "desc": "The moving block represented by this block entity."
+      "desc": "The moving block represented by this block entity.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the block to use.",
+          "category": "basic",
+          "zh": "方块 ID"
+        },
+        {
+          "key": "properties",
+          "type": "compound",
+          "desc": "(Optional, can be empty) Block properties. Unspecified properties of the specified block will be set to their default values.",
+          "category": "basic",
+          "zh": "方块状态属性"
+        }
+      ]
     },
     {
       "key": "Book",
@@ -232,7 +341,30 @@
       },
       "editor": "written_book",
       "zh": "书内容",
-      "desc": "The book item, without the slot tag, currently on the lectern, may not exist."
+      "desc": "The book item, without the slot tag, currently on the lectern, may not exist.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "basic",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "basic",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "basic",
+          "zh": "数据组件"
+        }
+      ]
     },
     {
       "key": "BrewTime",
@@ -329,7 +461,30 @@
           "type": "compound",
           "category": "data",
           "zh": "关键物品",
-          "desc": "The key item that is used to check for valid keys."
+          "desc": "The key item that is used to check for valid keys.",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "data",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+              "category": "data",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "data",
+              "zh": "数据组件"
+            }
+          ]
         }
       ]
     },
@@ -515,7 +670,46 @@
       },
       "zh": "光标",
       "desc": "List of sculk charge clusters associated with the sculk catalyst.",
-      "elementType": "compound"
+      "elementType": "compound",
+      "children": [
+        {
+          "key": "charge",
+          "type": "int",
+          "desc": "How many sculk charges are being carried in the cluster.",
+          "category": "basic",
+          "zh": "幽匿电荷数"
+        },
+        {
+          "key": "pos",
+          "type": "list",
+          "elementType": "int",
+          "length": 3,
+          "desc": "List of three integers representing the coordinates of the cluster.",
+          "category": "basic",
+          "zh": "坐标"
+        },
+        {
+          "key": "decay_delay",
+          "type": "int",
+          "desc": "1, or 0 (true/false) - Not to be confused with update_delay. This controls the decay of the cluster. If this is true, then the cluster was spread from a sculk block or sculk vein, and this cluster can only spread to sculk, sculk veins, and blocks with the sculk_replaceable tag set to true. If this is false, then all the sculk charges disappear when the cluster discharges to a block that is not in the sculk family.",
+          "category": "basic",
+          "zh": "衰减延迟"
+        },
+        {
+          "key": "update_delay",
+          "type": "int",
+          "desc": "Delay in game ticks until the cluster begins to discharge (or travel) after being created. Usually starts at 1 game tick when a cluster discharges to a new block.",
+          "category": "basic",
+          "zh": "更新延迟"
+        },
+        {
+          "key": "facings",
+          "type": "byte_array",
+          "desc": "If the block to replace is an air or water block, the block is replaced with sculk veins, and the faces where the sculk veins are placed are stored in this list. The sculk veins never grow directly on the faces of a sculk block. The same thing is done to any air or water blocks that are adjacent to blocks that are adjacent to this sculk block, if sculk veins can't grow in the blocks adjacent to this sculk block without growing directly on the faces of sculk blocks.",
+          "category": "basic",
+          "zh": "附着面"
+        }
+      ]
     },
     {
       "key": "custom_name",
@@ -642,7 +836,178 @@
         "group": "spawn-data"
       },
       "zh": "实体",
-      "desc": "An entity, including the entity id."
+      "desc": "An entity, including the entity id.",
+      "children": [
+        {
+          "key": "Air",
+          "type": "short",
+          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+          "category": "basic",
+          "zh": "氧气值"
+        },
+        {
+          "key": "CustomName",
+          "type": "compound",
+          "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+          "category": "basic",
+          "zh": "自定义名称"
+        },
+        {
+          "key": "CustomNameVisible",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "名称始终显示"
+        },
+        {
+          "key": "data",
+          "type": "compound",
+          "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+          "category": "basic",
+          "zh": "自定义数据"
+        },
+        {
+          "key": "fall_distance",
+          "type": "double",
+          "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+          "category": "basic",
+          "zh": "下落距离"
+        },
+        {
+          "key": "Fire",
+          "type": "short",
+          "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+          "category": "basic",
+          "zh": "着火时间"
+        },
+        {
+          "key": "Glowing",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "发光"
+        },
+        {
+          "key": "HasVisualFire",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "视觉着火"
+        },
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+          "category": "basic",
+          "zh": "实体 ID"
+        },
+        {
+          "key": "Invulnerable",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "无敌"
+        },
+        {
+          "key": "invulnerable_time",
+          "type": "int",
+          "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+          "category": "basic",
+          "zh": "无敌时间"
+        },
+        {
+          "key": "Motion",
+          "type": "list",
+          "elementType": "double",
+          "length": 3,
+          "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+          "category": "basic",
+          "zh": "速度"
+        },
+        {
+          "key": "NoGravity",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "无重力"
+        },
+        {
+          "key": "OnGround",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "着地"
+        },
+        {
+          "key": "Passengers",
+          "type": "list",
+          "elementType": "compound",
+          "desc": "The data of the entities that are riding this entity.",
+          "category": "basic",
+          "zh": "乘客"
+        },
+        {
+          "key": "PortalCooldown",
+          "type": "int",
+          "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+          "category": "basic",
+          "zh": "传送冷却"
+        },
+        {
+          "key": "Pos",
+          "type": "list",
+          "elementType": "double",
+          "length": 3,
+          "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+          "category": "basic",
+          "zh": "坐标"
+        },
+        {
+          "key": "Rotation",
+          "type": "list",
+          "elementType": "float",
+          "length": 2,
+          "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+          "category": "basic",
+          "zh": "朝向"
+        },
+        {
+          "key": "Silent",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "静默"
+        },
+        {
+          "key": "Tags",
+          "type": "list",
+          "elementType": "string",
+          "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+          "category": "basic",
+          "zh": "计分板标签"
+        },
+        {
+          "key": "TicksFrozen",
+          "type": "int",
+          "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+          "category": "basic",
+          "zh": "冻结刻数"
+        },
+        {
+          "key": "UUID",
+          "type": "int_array",
+          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+          "category": "basic",
+          "zh": "UUID"
+        }
+      ]
     },
     {
       "key": "equipment",
@@ -823,7 +1188,42 @@
         "ids": ["hanging_sign"]
       },
       "zh": "正面文字",
-      "desc": "A compound that describes front text. Represents the minecraft:sign_text_front component."
+      "desc": "A compound that describes front text. Represents the minecraft:sign_text_front component.",
+      "children": [
+        {
+          "key": "messages",
+          "type": "list",
+          "elementType": "string",
+          "length": 4,
+          "desc": "A list of four text components, one for each line.",
+          "category": "basic",
+          "zh": "文字"
+        },
+        {
+          "key": "filtered_messages",
+          "type": "list",
+          "elementType": "string",
+          "length": 4,
+          "desc": "Only in Realms. The lines of text shown to players with the profanity filter turned on instead of the regular lines. This tag is automatically set to \"\" for lines containing blocked words and to the line's normal contents for the other lines when a player with the profanity filter turned off edits the sign, so players with the filter on cannot see the blocked words. If a player with the filter on tries to use blocked words in one or more lines, the line(s) in containing blocked words are set to \"\", which makes them render completely blank, and this tag is also given the same contents. If multiple lines have been edited before the sign editing GUI is closed, only the lines containing blocked words are blanked.",
+          "category": "basic",
+          "zh": "过滤后文字"
+        },
+        {
+          "key": "color",
+          "type": "string",
+          "desc": "The color that has been used to dye the sign. The default value is black One of white, orange, magenta, light_blue, yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, and black.",
+          "category": "basic",
+          "zh": "颜色"
+        },
+        {
+          "key": "has_glowing_text",
+          "type": "byte",
+          "desc": "Optional, defaults to false. true if the sign has been dyed with a glow ink sac.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "发光文字"
+        }
+      ]
     },
     {
       "key": "front_text",
@@ -833,7 +1233,42 @@
         "ids": ["sign"]
       },
       "zh": "正面文字",
-      "desc": "A compound that describes front text. Represents the minecraft:sign_text_front component."
+      "desc": "A compound that describes front text. Represents the minecraft:sign_text_front component.",
+      "children": [
+        {
+          "key": "messages",
+          "type": "list",
+          "elementType": "string",
+          "length": 4,
+          "desc": "A list of four text components, one for each line.",
+          "category": "basic",
+          "zh": "文字"
+        },
+        {
+          "key": "filtered_messages",
+          "type": "list",
+          "elementType": "string",
+          "length": 4,
+          "desc": "Only in Realms. The lines of text shown to players with the profanity filter turned on instead of the regular lines. This tag is automatically set to \"\" for lines containing blocked words and to the line's normal contents for the other lines when a player with the profanity filter turned off edits the sign, so players with the filter on cannot see the blocked words. If a player with the filter on tries to use blocked words in one or more lines, the line(s) in containing blocked words are set to \"\", which makes them render completely blank, and this tag is also given the same contents. If multiple lines have been edited before the sign editing GUI is closed, only the lines containing blocked words are blanked.",
+          "category": "basic",
+          "zh": "过滤后文字"
+        },
+        {
+          "key": "color",
+          "type": "string",
+          "desc": "The color that has been used to dye the sign. The default value is black One of white, orange, magenta, light_blue, yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, and black.",
+          "category": "basic",
+          "zh": "颜色"
+        },
+        {
+          "key": "has_glowing_text",
+          "type": "byte",
+          "desc": "Optional, defaults to false. true if the sign has been dyed with a glow ink sac.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "发光文字"
+        }
+      ]
     },
     {
       "key": "Fuel",
@@ -1017,17 +1452,63 @@
         "ids": ["brushable_block"]
       },
       "zh": "物品",
-      "desc": "The item in the block. May not exist."
+      "desc": "The item in the block. May not exist.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        }
+      ]
     },
     {
       "key": "item",
-      "type": "byte",
+      "type": "compound",
       "category": "inventory",
       "appliesTo": {
         "ids": ["decorated_pot"]
       },
       "zh": "物品",
-      "desc": "The single item stack stored in this container."
+      "desc": "The single item stack stored in this container.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1039,7 +1520,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in the container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
+      "desc": "List of items in the container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead).",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1051,7 +1562,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component."
+      "desc": "List of items in this container. Represents the minecraft:container component.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1063,7 +1604,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component."
+      "desc": "List of items in this container. Represents the minecraft:container component.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1075,7 +1646,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component."
+      "desc": "List of items in this container. Represents the minecraft:container component.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1087,7 +1688,37 @@
       "editor": "item_list",
       "zh": "物品列表",
       "desc": "List of books in the bookshelf. Represents the minecraft:container component.",
-      "elementType": "compound"
+      "elementType": "compound",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1099,7 +1730,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead).",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1111,7 +1772,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead).",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1123,7 +1814,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead).",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1135,7 +1856,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead).",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1147,7 +1898,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component."
+      "desc": "List of items in this container. Represents the minecraft:container component.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1159,7 +1940,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead).",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1171,7 +1982,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Does not exist if the shulker box is empty (unlike all other container blocks with the Items tag, which store an empty list). Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist."
+      "desc": "List of items in this container. Does not exist if the shulker box is empty (unlike all other container blocks with the Items tag, which store an empty list). Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1183,7 +2024,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component."
+      "desc": "List of items in this container. Represents the minecraft:container component.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1195,7 +2066,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component."
+      "desc": "List of items in this container. Represents the minecraft:container component.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "Items",
@@ -1207,7 +2108,37 @@
       },
       "editor": "item_list",
       "zh": "物品列表",
-      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead)."
+      "desc": "List of items in this container. Represents the minecraft:container component. The component is still present on the block entity, even if the tag does not exist (due to a loot table existing instead).",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        },
+        {
+          "key": "Slot",
+          "type": "byte",
+          "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
     },
     {
       "key": "items_to_drop_when_ominous",
@@ -1373,7 +2304,48 @@
               "type": "compound",
               "category": "data",
               "zh": "事件",
-              "desc": "Candidate game event, with the same structure as the tag above."
+              "desc": "Candidate game event, with the same structure as the tag above.",
+              "children": [
+                {
+                  "key": "game_event",
+                  "type": "string",
+                  "desc": "A resource location of the game event.",
+                  "category": "data",
+                  "zh": "游戏事件"
+                },
+                {
+                  "key": "pos",
+                  "type": "list",
+                  "elementType": "double",
+                  "length": 3,
+                  "desc": "Three doubles representing the X, Y, and Z coordinates.",
+                  "category": "data",
+                  "zh": "坐标"
+                },
+                {
+                  "key": "distance",
+                  "type": "int",
+                  "desc": "Nonnegative integer.",
+                  "category": "data",
+                  "zh": "距离"
+                },
+                {
+                  "key": "projectile_owner",
+                  "type": "int_array",
+                  "length": 4,
+                  "desc": "Optional. The projectile owner's UUID. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+                  "category": "data",
+                  "zh": "发射者"
+                },
+                {
+                  "key": "source",
+                  "type": "int_array",
+                  "length": 4,
+                  "desc": "Optional. The source entity's UUID. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+                  "category": "data",
+                  "zh": "来源实体"
+                }
+              ]
             }
           ]
         }
@@ -1462,7 +2434,48 @@
               "type": "compound",
               "category": "data",
               "zh": "事件",
-              "desc": "Candidate game event, with the same structure as the tag above."
+              "desc": "Candidate game event, with the same structure as the tag above.",
+              "children": [
+                {
+                  "key": "game_event",
+                  "type": "string",
+                  "desc": "A resource location of the game event.",
+                  "category": "data",
+                  "zh": "游戏事件"
+                },
+                {
+                  "key": "pos",
+                  "type": "list",
+                  "elementType": "double",
+                  "length": 3,
+                  "desc": "Three doubles representing the X, Y, and Z coordinates.",
+                  "category": "data",
+                  "zh": "坐标"
+                },
+                {
+                  "key": "distance",
+                  "type": "int",
+                  "desc": "Nonnegative integer.",
+                  "category": "data",
+                  "zh": "距离"
+                },
+                {
+                  "key": "projectile_owner",
+                  "type": "int_array",
+                  "length": 4,
+                  "desc": "Optional. The projectile owner's UUID. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+                  "category": "data",
+                  "zh": "发射者"
+                },
+                {
+                  "key": "source",
+                  "type": "int_array",
+                  "length": 4,
+                  "desc": "Optional. The source entity's UUID. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+                  "category": "data",
+                  "zh": "来源实体"
+                }
+              ]
             }
           ]
         }
@@ -1536,7 +2549,37 @@
         "group": "lockable"
       },
       "zh": "锁",
-      "desc": "Optional. An item predicate representing the \"key\" to open this container. If the player is not holding an item that passes this predicate in their main hand, they cannot open the container. Does not exist if empty. Represents the minecraft:lock component."
+      "desc": "Optional. An item predicate representing the \"key\" to open this container. If the player is not holding an item that passes this predicate in their main hand, they cannot open the container. Does not exist if empty. Represents the minecraft:lock component.",
+      "children": [
+        {
+          "key": "blocks",
+          "type": "string",
+          "desc": "Any number of block types (an ID, or a tag with #, or a list of IDs). Test fails if the block is not a matching block type.",
+          "category": "basic",
+          "zh": "方块"
+        },
+        {
+          "key": "state",
+          "type": "compound",
+          "desc": "Tests the block state. Test fails if the block doesn't have matching block state properties.",
+          "category": "basic",
+          "zh": "方块状态"
+        },
+        {
+          "key": "nbt",
+          "type": "compound",
+          "desc": "An NBT compound, represented either as an object or a string containing SNBT. Test fails if the block does not have matching NBT data.",
+          "category": "basic",
+          "zh": "NBT"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Data components to match exactly. Each key in this object is a component id.",
+          "category": "basic",
+          "zh": "数据组件"
+        }
+      ]
     },
     {
       "key": "loot_tables_to_eject",
@@ -1547,7 +2590,23 @@
       },
       "zh": "待喷出战利品表",
       "desc": "Defaults to a list of minecraft:spawners/trial_chamber/consumables and minecraft:spawners/trial_chamber/key, both with weight 1 — List of possible loot tables to give as reward.",
-      "elementType": "compound"
+      "elementType": "compound",
+      "children": [
+        {
+          "key": "data",
+          "type": "string",
+          "desc": "A resource location to a loot table.",
+          "category": "basic",
+          "zh": "战利品表"
+        },
+        {
+          "key": "weight",
+          "type": "int",
+          "desc": "The chance that this loot table gets picked in comparison to other loot table weights. Must be positive and at least 1.",
+          "category": "basic",
+          "zh": "权重"
+        }
+      ]
     },
     {
       "key": "LootTable",
@@ -1794,7 +2853,178 @@
       },
       "zh": "乘客",
       "desc": "The data of the entities that are riding this entity.",
-      "elementType": "compound"
+      "elementType": "compound",
+      "children": [
+        {
+          "key": "Air",
+          "type": "short",
+          "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+          "category": "data",
+          "zh": "氧气值"
+        },
+        {
+          "key": "CustomName",
+          "type": "compound",
+          "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+          "category": "data",
+          "zh": "自定义名称"
+        },
+        {
+          "key": "CustomNameVisible",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+          "valueKind": "boolean",
+          "category": "data",
+          "zh": "名称始终显示"
+        },
+        {
+          "key": "data",
+          "type": "compound",
+          "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+          "category": "data",
+          "zh": "自定义数据"
+        },
+        {
+          "key": "fall_distance",
+          "type": "double",
+          "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+          "category": "data",
+          "zh": "下落距离"
+        },
+        {
+          "key": "Fire",
+          "type": "short",
+          "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+          "category": "data",
+          "zh": "着火时间"
+        },
+        {
+          "key": "Glowing",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+          "valueKind": "boolean",
+          "category": "data",
+          "zh": "发光"
+        },
+        {
+          "key": "HasVisualFire",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+          "valueKind": "boolean",
+          "category": "data",
+          "zh": "视觉着火"
+        },
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+          "category": "data",
+          "zh": "实体 ID"
+        },
+        {
+          "key": "Invulnerable",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+          "valueKind": "boolean",
+          "category": "data",
+          "zh": "无敌"
+        },
+        {
+          "key": "invulnerable_time",
+          "type": "int",
+          "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+          "category": "data",
+          "zh": "无敌时间"
+        },
+        {
+          "key": "Motion",
+          "type": "list",
+          "elementType": "double",
+          "length": 3,
+          "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+          "category": "data",
+          "zh": "速度"
+        },
+        {
+          "key": "NoGravity",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+          "valueKind": "boolean",
+          "category": "data",
+          "zh": "无重力"
+        },
+        {
+          "key": "OnGround",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+          "valueKind": "boolean",
+          "category": "data",
+          "zh": "着地"
+        },
+        {
+          "key": "Passengers",
+          "type": "list",
+          "elementType": "compound",
+          "desc": "The data of the entities that are riding this entity.",
+          "category": "data",
+          "zh": "乘客"
+        },
+        {
+          "key": "PortalCooldown",
+          "type": "int",
+          "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+          "category": "data",
+          "zh": "传送冷却"
+        },
+        {
+          "key": "Pos",
+          "type": "list",
+          "elementType": "double",
+          "length": 3,
+          "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+          "category": "data",
+          "zh": "坐标"
+        },
+        {
+          "key": "Rotation",
+          "type": "list",
+          "elementType": "float",
+          "length": 2,
+          "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+          "category": "data",
+          "zh": "朝向"
+        },
+        {
+          "key": "Silent",
+          "type": "byte",
+          "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+          "valueKind": "boolean",
+          "category": "data",
+          "zh": "静默"
+        },
+        {
+          "key": "Tags",
+          "type": "list",
+          "elementType": "string",
+          "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+          "category": "data",
+          "zh": "计分板标签"
+        },
+        {
+          "key": "TicksFrozen",
+          "type": "int",
+          "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+          "category": "data",
+          "zh": "冻结刻数"
+        },
+        {
+          "key": "UUID",
+          "type": "int_array",
+          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+          "category": "data",
+          "zh": "UUID"
+        }
+      ]
     },
     {
       "key": "patterns",
@@ -1805,7 +3035,23 @@
       },
       "zh": "图案",
       "desc": "List of all patterns applied to the banner.",
-      "elementType": "compound"
+      "elementType": "compound",
+      "children": [
+        {
+          "key": "asset_id",
+          "type": "string",
+          "desc": "The resource location for the texture asset.",
+          "category": "basic",
+          "zh": "图案资源"
+        },
+        {
+          "key": "translation_key",
+          "type": "string",
+          "desc": "The translation key for displaying the banner tooltip.",
+          "category": "basic",
+          "zh": "翻译键"
+        }
+      ]
     },
     {
       "key": "placement_priority",
@@ -2015,7 +3261,30 @@
         "ids": ["jukebox"]
       },
       "zh": "唱片物品",
-      "desc": "The single item stack stored in this jukebox."
+      "desc": "The single item stack stored in this jukebox.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "basic",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+          "category": "basic",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "basic",
+          "zh": "数据组件"
+        }
+      ]
     },
     {
       "key": "registered_players",
@@ -2148,7 +3417,37 @@
           "elementType": "compound",
           "category": "data",
           "zh": "待喷出物品",
-          "desc": "List of item stacks that have been rolled by the loot table and are waiting to be ejected."
+          "desc": "List of item stacks that have been rolled by the loot table and are waiting to be ejected.",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "data",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+              "category": "data",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "data",
+              "zh": "数据组件"
+            },
+            {
+              "key": "Slot",
+              "type": "byte",
+              "desc": "Includes the tag - slots are numbered 0–26, inclusive.",
+              "category": "data",
+              "zh": "槽位"
+            }
+          ]
         },
         {
           "key": "total_ejections_needed",
@@ -2174,7 +3473,30 @@
           "type": "compound",
           "category": "data",
           "zh": "显示物品",
-          "desc": "The item that is currently being displayed."
+          "desc": "The item that is currently being displayed.",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "data",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+              "category": "data",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "data",
+              "zh": "数据组件"
+            }
+          ]
         },
         {
           "key": "connected_players",
@@ -2208,28 +3530,120 @@
           "type": "compound",
           "category": "data",
           "zh": "左侧",
-          "desc": "The item stack in the left side."
+          "desc": "The item stack in the left side.",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "data",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+              "category": "data",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "data",
+              "zh": "数据组件"
+            }
+          ]
         },
         {
           "key": "back",
           "type": "compound",
           "category": "data",
           "zh": "背面",
-          "desc": "The item stack in the back side."
+          "desc": "The item stack in the back side.",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "data",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+              "category": "data",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "data",
+              "zh": "数据组件"
+            }
+          ]
         },
         {
           "key": "right",
           "type": "compound",
           "category": "data",
           "zh": "右侧",
-          "desc": "The item stack in the right side."
+          "desc": "The item stack in the right side.",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "data",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+              "category": "data",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "data",
+              "zh": "数据组件"
+            }
+          ]
         },
         {
           "key": "front",
           "type": "compound",
           "category": "data",
           "zh": "正面",
-          "desc": "The item stack in the front side."
+          "desc": "The item stack in the front side.",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "data",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Any item can be stacked, even if unstackable through normal means. Defaults to 1 if not specified. Valid range is 1 to 99.",
+              "category": "data",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "data",
+              "zh": "数据组件"
+            }
+          ]
         }
       ]
     },
@@ -2334,7 +3748,233 @@
         "ids": ["trial_spawner"]
       },
       "zh": "生成数据",
-      "desc": "The next mob to attempt to spawn. Selected from after the last attempt. Determines the mob displayed in the spawner."
+      "desc": "The next mob to attempt to spawn. Selected from after the last attempt. Determines the mob displayed in the spawner.",
+      "children": [
+        {
+          "key": "entity",
+          "type": "compound",
+          "desc": "An entity, including the entity id.",
+          "category": "basic",
+          "zh": "实体",
+          "children": [
+            {
+              "key": "Air",
+              "type": "short",
+              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+              "category": "basic",
+              "zh": "氧气值"
+            },
+            {
+              "key": "CustomName",
+              "type": "compound",
+              "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+              "category": "basic",
+              "zh": "自定义名称"
+            },
+            {
+              "key": "CustomNameVisible",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "名称始终显示"
+            },
+            {
+              "key": "data",
+              "type": "compound",
+              "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+              "category": "basic",
+              "zh": "自定义数据"
+            },
+            {
+              "key": "fall_distance",
+              "type": "double",
+              "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+              "category": "basic",
+              "zh": "下落距离"
+            },
+            {
+              "key": "Fire",
+              "type": "short",
+              "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+              "category": "basic",
+              "zh": "着火时间"
+            },
+            {
+              "key": "Glowing",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "发光"
+            },
+            {
+              "key": "HasVisualFire",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "视觉着火"
+            },
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+              "category": "basic",
+              "zh": "实体 ID"
+            },
+            {
+              "key": "Invulnerable",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "无敌"
+            },
+            {
+              "key": "invulnerable_time",
+              "type": "int",
+              "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+              "category": "basic",
+              "zh": "无敌时间"
+            },
+            {
+              "key": "Motion",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+              "category": "basic",
+              "zh": "速度"
+            },
+            {
+              "key": "NoGravity",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "无重力"
+            },
+            {
+              "key": "OnGround",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "着地"
+            },
+            {
+              "key": "Passengers",
+              "type": "list",
+              "elementType": "compound",
+              "desc": "The data of the entities that are riding this entity.",
+              "category": "basic",
+              "zh": "乘客"
+            },
+            {
+              "key": "PortalCooldown",
+              "type": "int",
+              "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+              "category": "basic",
+              "zh": "传送冷却"
+            },
+            {
+              "key": "Pos",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+              "category": "basic",
+              "zh": "坐标"
+            },
+            {
+              "key": "Rotation",
+              "type": "list",
+              "elementType": "float",
+              "length": 2,
+              "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+              "category": "basic",
+              "zh": "朝向"
+            },
+            {
+              "key": "Silent",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "静默"
+            },
+            {
+              "key": "Tags",
+              "type": "list",
+              "elementType": "string",
+              "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+              "category": "basic",
+              "zh": "计分板标签"
+            },
+            {
+              "key": "TicksFrozen",
+              "type": "int",
+              "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+              "category": "basic",
+              "zh": "冻结刻数"
+            },
+            {
+              "key": "UUID",
+              "type": "int_array",
+              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+              "category": "basic",
+              "zh": "UUID"
+            }
+          ]
+        },
+        {
+          "key": "custom_spawn_rules",
+          "type": "compound",
+          "desc": "Optional custom fields to override spawning requirements.",
+          "category": "basic",
+          "zh": "自定义生成规则",
+          "children": [
+            {
+              "key": "block_light_limit",
+              "type": "int",
+              "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the block light check when spawning the entity.",
+              "category": "basic",
+              "zh": "方块光照上限"
+            },
+            {
+              "key": "sky_light_limit",
+              "type": "int",
+              "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the sky light check when spawning the entity.",
+              "category": "basic",
+              "zh": "天空光照上限"
+            }
+          ]
+        },
+        {
+          "key": "equipment",
+          "type": "compound",
+          "desc": "Optional. Determines the equipment the entity will wear.",
+          "category": "basic",
+          "zh": "装备",
+          "children": [
+            {
+              "key": "loot_table",
+              "type": "string",
+              "desc": "Resource location of a loot table to use to generate the equipment",
+              "category": "basic",
+              "zh": "战利品表"
+            },
+            {
+              "key": "slot_drop_chances",
+              "type": "float",
+              "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+              "category": "basic",
+              "zh": "各槽位掉落概率"
+            }
+          ]
+        }
+      ]
     },
     {
       "key": "spawn_potentials",
@@ -2345,7 +3985,233 @@
       },
       "zh": "可能生成项",
       "desc": "Defaults to an empty list — List of possible entities to spawn.",
-      "elementType": "compound"
+      "elementType": "compound",
+      "children": [
+        {
+          "key": "entity",
+          "type": "compound",
+          "desc": "An entity, including the entity id.",
+          "category": "basic",
+          "zh": "实体",
+          "children": [
+            {
+              "key": "Air",
+              "type": "short",
+              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+              "category": "basic",
+              "zh": "氧气值"
+            },
+            {
+              "key": "CustomName",
+              "type": "compound",
+              "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+              "category": "basic",
+              "zh": "自定义名称"
+            },
+            {
+              "key": "CustomNameVisible",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "名称始终显示"
+            },
+            {
+              "key": "data",
+              "type": "compound",
+              "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+              "category": "basic",
+              "zh": "自定义数据"
+            },
+            {
+              "key": "fall_distance",
+              "type": "double",
+              "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+              "category": "basic",
+              "zh": "下落距离"
+            },
+            {
+              "key": "Fire",
+              "type": "short",
+              "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+              "category": "basic",
+              "zh": "着火时间"
+            },
+            {
+              "key": "Glowing",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "发光"
+            },
+            {
+              "key": "HasVisualFire",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "视觉着火"
+            },
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+              "category": "basic",
+              "zh": "实体 ID"
+            },
+            {
+              "key": "Invulnerable",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "无敌"
+            },
+            {
+              "key": "invulnerable_time",
+              "type": "int",
+              "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+              "category": "basic",
+              "zh": "无敌时间"
+            },
+            {
+              "key": "Motion",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+              "category": "basic",
+              "zh": "速度"
+            },
+            {
+              "key": "NoGravity",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "无重力"
+            },
+            {
+              "key": "OnGround",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "着地"
+            },
+            {
+              "key": "Passengers",
+              "type": "list",
+              "elementType": "compound",
+              "desc": "The data of the entities that are riding this entity.",
+              "category": "basic",
+              "zh": "乘客"
+            },
+            {
+              "key": "PortalCooldown",
+              "type": "int",
+              "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+              "category": "basic",
+              "zh": "传送冷却"
+            },
+            {
+              "key": "Pos",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+              "category": "basic",
+              "zh": "坐标"
+            },
+            {
+              "key": "Rotation",
+              "type": "list",
+              "elementType": "float",
+              "length": 2,
+              "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+              "category": "basic",
+              "zh": "朝向"
+            },
+            {
+              "key": "Silent",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "静默"
+            },
+            {
+              "key": "Tags",
+              "type": "list",
+              "elementType": "string",
+              "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+              "category": "basic",
+              "zh": "计分板标签"
+            },
+            {
+              "key": "TicksFrozen",
+              "type": "int",
+              "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+              "category": "basic",
+              "zh": "冻结刻数"
+            },
+            {
+              "key": "UUID",
+              "type": "int_array",
+              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+              "category": "basic",
+              "zh": "UUID"
+            }
+          ]
+        },
+        {
+          "key": "custom_spawn_rules",
+          "type": "compound",
+          "desc": "Optional custom fields to override spawning requirements.",
+          "category": "basic",
+          "zh": "自定义生成规则",
+          "children": [
+            {
+              "key": "block_light_limit",
+              "type": "int",
+              "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the block light check when spawning the entity.",
+              "category": "basic",
+              "zh": "方块光照上限"
+            },
+            {
+              "key": "sky_light_limit",
+              "type": "int",
+              "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the sky light check when spawning the entity.",
+              "category": "basic",
+              "zh": "天空光照上限"
+            }
+          ]
+        },
+        {
+          "key": "equipment",
+          "type": "compound",
+          "desc": "Optional. Determines the equipment the entity will wear.",
+          "category": "basic",
+          "zh": "装备",
+          "children": [
+            {
+              "key": "loot_table",
+              "type": "string",
+              "desc": "Resource location of a loot table to use to generate the equipment",
+              "category": "basic",
+              "zh": "战利品表"
+            },
+            {
+              "key": "slot_drop_chances",
+              "type": "float",
+              "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+              "category": "basic",
+              "zh": "各槽位掉落概率"
+            }
+          ]
+        }
+      ]
     },
     {
       "key": "spawn_range",
@@ -2376,7 +4242,233 @@
         "ids": ["mob_spawner"]
       },
       "zh": "生成数据",
-      "desc": "Contains tags to copy to the next spawned entity(s) after spawning."
+      "desc": "Contains tags to copy to the next spawned entity(s) after spawning.",
+      "children": [
+        {
+          "key": "entity",
+          "type": "compound",
+          "desc": "An entity, including the entity id.",
+          "category": "basic",
+          "zh": "实体",
+          "children": [
+            {
+              "key": "Air",
+              "type": "short",
+              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+              "category": "basic",
+              "zh": "氧气值"
+            },
+            {
+              "key": "CustomName",
+              "type": "compound",
+              "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+              "category": "basic",
+              "zh": "自定义名称"
+            },
+            {
+              "key": "CustomNameVisible",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "名称始终显示"
+            },
+            {
+              "key": "data",
+              "type": "compound",
+              "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+              "category": "basic",
+              "zh": "自定义数据"
+            },
+            {
+              "key": "fall_distance",
+              "type": "double",
+              "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+              "category": "basic",
+              "zh": "下落距离"
+            },
+            {
+              "key": "Fire",
+              "type": "short",
+              "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+              "category": "basic",
+              "zh": "着火时间"
+            },
+            {
+              "key": "Glowing",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "发光"
+            },
+            {
+              "key": "HasVisualFire",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "视觉着火"
+            },
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+              "category": "basic",
+              "zh": "实体 ID"
+            },
+            {
+              "key": "Invulnerable",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "无敌"
+            },
+            {
+              "key": "invulnerable_time",
+              "type": "int",
+              "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+              "category": "basic",
+              "zh": "无敌时间"
+            },
+            {
+              "key": "Motion",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+              "category": "basic",
+              "zh": "速度"
+            },
+            {
+              "key": "NoGravity",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "无重力"
+            },
+            {
+              "key": "OnGround",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "着地"
+            },
+            {
+              "key": "Passengers",
+              "type": "list",
+              "elementType": "compound",
+              "desc": "The data of the entities that are riding this entity.",
+              "category": "basic",
+              "zh": "乘客"
+            },
+            {
+              "key": "PortalCooldown",
+              "type": "int",
+              "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+              "category": "basic",
+              "zh": "传送冷却"
+            },
+            {
+              "key": "Pos",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+              "category": "basic",
+              "zh": "坐标"
+            },
+            {
+              "key": "Rotation",
+              "type": "list",
+              "elementType": "float",
+              "length": 2,
+              "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+              "category": "basic",
+              "zh": "朝向"
+            },
+            {
+              "key": "Silent",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "静默"
+            },
+            {
+              "key": "Tags",
+              "type": "list",
+              "elementType": "string",
+              "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+              "category": "basic",
+              "zh": "计分板标签"
+            },
+            {
+              "key": "TicksFrozen",
+              "type": "int",
+              "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+              "category": "basic",
+              "zh": "冻结刻数"
+            },
+            {
+              "key": "UUID",
+              "type": "int_array",
+              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+              "category": "basic",
+              "zh": "UUID"
+            }
+          ]
+        },
+        {
+          "key": "custom_spawn_rules",
+          "type": "compound",
+          "desc": "Optional custom fields to override spawning requirements.",
+          "category": "basic",
+          "zh": "自定义生成规则",
+          "children": [
+            {
+              "key": "block_light_limit",
+              "type": "int",
+              "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the block light check when spawning the entity.",
+              "category": "basic",
+              "zh": "方块光照上限"
+            },
+            {
+              "key": "sky_light_limit",
+              "type": "int",
+              "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the sky light check when spawning the entity.",
+              "category": "basic",
+              "zh": "天空光照上限"
+            }
+          ]
+        },
+        {
+          "key": "equipment",
+          "type": "compound",
+          "desc": "Optional. Determines the equipment the entity will wear.",
+          "category": "basic",
+          "zh": "装备",
+          "children": [
+            {
+              "key": "loot_table",
+              "type": "string",
+              "desc": "Resource location of a loot table to use to generate the equipment",
+              "category": "basic",
+              "zh": "战利品表"
+            },
+            {
+              "key": "slot_drop_chances",
+              "type": "float",
+              "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+              "category": "basic",
+              "zh": "各槽位掉落概率"
+            }
+          ]
+        }
+      ]
     },
     {
       "key": "SpawnPotentials",
@@ -2387,7 +4479,233 @@
       },
       "zh": "可能生成项",
       "desc": "Optional. List of possible entities to spawn. If this tag does not exist, but SpawnData exists, Minecraft generates it the next time the spawner tries to spawn an entity. The generated list contains a single entry derived from the SpawnData tag.",
-      "elementType": "compound"
+      "elementType": "compound",
+      "children": [
+        {
+          "key": "entity",
+          "type": "compound",
+          "desc": "An entity, including the entity id.",
+          "category": "basic",
+          "zh": "实体",
+          "children": [
+            {
+              "key": "Air",
+              "type": "short",
+              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. being <= -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of , while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+              "category": "basic",
+              "zh": "氧气值"
+            },
+            {
+              "key": "CustomName",
+              "type": "compound",
+              "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+              "category": "basic",
+              "zh": "自定义名称"
+            },
+            {
+              "key": "CustomNameVisible",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "名称始终显示"
+            },
+            {
+              "key": "data",
+              "type": "compound",
+              "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+              "category": "basic",
+              "zh": "自定义数据"
+            },
+            {
+              "key": "fall_distance",
+              "type": "double",
+              "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+              "category": "basic",
+              "zh": "下落距离"
+            },
+            {
+              "key": "Fire",
+              "type": "short",
+              "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+              "category": "basic",
+              "zh": "着火时间"
+            },
+            {
+              "key": "Glowing",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "发光"
+            },
+            {
+              "key": "HasVisualFire",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "视觉着火"
+            },
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+              "category": "basic",
+              "zh": "实体 ID"
+            },
+            {
+              "key": "Invulnerable",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "无敌"
+            },
+            {
+              "key": "invulnerable_time",
+              "type": "int",
+              "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+              "category": "basic",
+              "zh": "无敌时间"
+            },
+            {
+              "key": "Motion",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+              "category": "basic",
+              "zh": "速度"
+            },
+            {
+              "key": "NoGravity",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "无重力"
+            },
+            {
+              "key": "OnGround",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "着地"
+            },
+            {
+              "key": "Passengers",
+              "type": "list",
+              "elementType": "compound",
+              "desc": "The data of the entities that are riding this entity.",
+              "category": "basic",
+              "zh": "乘客"
+            },
+            {
+              "key": "PortalCooldown",
+              "type": "int",
+              "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+              "category": "basic",
+              "zh": "传送冷却"
+            },
+            {
+              "key": "Pos",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+              "category": "basic",
+              "zh": "坐标"
+            },
+            {
+              "key": "Rotation",
+              "type": "list",
+              "elementType": "float",
+              "length": 2,
+              "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+              "category": "basic",
+              "zh": "朝向"
+            },
+            {
+              "key": "Silent",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "静默"
+            },
+            {
+              "key": "Tags",
+              "type": "list",
+              "elementType": "string",
+              "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+              "category": "basic",
+              "zh": "计分板标签"
+            },
+            {
+              "key": "TicksFrozen",
+              "type": "int",
+              "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+              "category": "basic",
+              "zh": "冻结刻数"
+            },
+            {
+              "key": "UUID",
+              "type": "int_array",
+              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers (), ordered from most to least significant.",
+              "category": "basic",
+              "zh": "UUID"
+            }
+          ]
+        },
+        {
+          "key": "custom_spawn_rules",
+          "type": "compound",
+          "desc": "Optional custom fields to override spawning requirements.",
+          "category": "basic",
+          "zh": "自定义生成规则",
+          "children": [
+            {
+              "key": "block_light_limit",
+              "type": "int",
+              "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the block light check when spawning the entity.",
+              "category": "basic",
+              "zh": "方块光照上限"
+            },
+            {
+              "key": "sky_light_limit",
+              "type": "int",
+              "desc": "Can either be a single value, or a compound containing min_inclusive and max_inclusive. Overrides the sky light check when spawning the entity.",
+              "category": "basic",
+              "zh": "天空光照上限"
+            }
+          ]
+        },
+        {
+          "key": "equipment",
+          "type": "compound",
+          "desc": "Optional. Determines the equipment the entity will wear.",
+          "category": "basic",
+          "zh": "装备",
+          "children": [
+            {
+              "key": "loot_table",
+              "type": "string",
+              "desc": "Resource location of a loot table to use to generate the equipment",
+              "category": "basic",
+              "zh": "战利品表"
+            },
+            {
+              "key": "slot_drop_chances",
+              "type": "float",
+              "desc": "Optional. When a determines the drop chances for every slot. When a , controls the drop chances per slot.",
+              "category": "basic",
+              "zh": "各槽位掉落概率"
+            }
+          ]
+        }
+      ]
     },
     {
       "key": "SpawnRange",

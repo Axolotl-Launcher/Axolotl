@@ -66,6 +66,64 @@ const EXPECTED_STRUCTURED = [
     'written_book_content',
 ]
 
+/**
+ * 实体 / 方块实体里在 wiki 上有明确子结构的复合字段。缺了子字段时，面板只能给一个
+ * 空 `{}`，用户既不知道有哪些子项，也不知道哪些子项在什么情况下生效。
+ */
+const EXPECTED_STRUCTURED_BY_DOMAIN: [NbtDomain, string[]][] = [
+    [
+        'entity',
+        [
+            'Passengers',
+            'Inventory',
+            'EnderItems',
+            'Items',
+            'Item',
+            'item',
+            'attributes',
+            'active_effects',
+            'custom_effects',
+            'stew_effects',
+            'Gossips',
+            'Offers',
+            'SpawnData',
+            'SpawnPotentials',
+            'recipeBook',
+            'equipment',
+            'ShoulderEntityLeft',
+            'ShoulderEntityRight',
+            'anger',
+            'Brain',
+            'listener',
+            'block_state',
+            'BlockState',
+        ],
+    ],
+    [
+        'block_entity',
+        [
+            'Items',
+            'item',
+            'Book',
+            'RecordItem',
+            'front_text',
+            'back_text',
+            'patterns',
+            'bees',
+            'cursors',
+            'lock',
+            'loot_tables_to_eject',
+            'spawn_data',
+            'SpawnData',
+            'SpawnPotentials',
+            'blockState',
+            'entity',
+            'equipment',
+            'listener',
+        ],
+    ],
+]
+
 function walk(
     fields: NbtFieldSpec[],
     visit: (field: NbtFieldSpec, path: string, root: string) => void,
@@ -148,6 +206,23 @@ describe('NBT 目录数据', () => {
         const field = fieldsFor('item').find((entry) => entry.key === key)
         expect(field, `缺少组件 ${key}`).toBeDefined()
         expect((field!.children ?? []).length, `${key} 没有子字段`).toBeGreaterThan(0)
+    })
+
+    /**
+     * 这些字段在 wiki 里都有明确的子结构（物品栈、实体、方块状态、告示牌文本……），
+     * 只给一个空 `{}` 等于让用户自己去 wiki 抄键名。
+     */
+    it.each(EXPECTED_STRUCTURED_BY_DOMAIN)('%s 的关键复合字段展开子字段', (domain, keys) => {
+        for (const key of keys) {
+            const matches = fieldsFor(domain).filter((field) => field.key === key)
+            expect(matches.length, `缺少字段 ${key}`).toBeGreaterThan(0)
+            for (const field of matches) {
+                expect(
+                    (field.children ?? []).length,
+                    `${domain}:${key} 没有子字段`,
+                ).toBeGreaterThan(0)
+            }
+        }
     })
 
     /** 列表没有元素类型时，面板不知道要往里面插什么标签，只能插入裸值。 */

@@ -43,6 +43,7 @@ either = { workspace = true }
 encoding_rs = { workspace = true }
 enumset = { workspace = true }
 eyre = { workspace = true }
+fancy-regex = "0.20.2"
 fast-socks5 = { workspace = true }
 flate2 = { workspace = true }
 fs4 = { workspace = true, features = ["tokio"] }
@@ -120,6 +121,9 @@ serde_cbor = { workspace = true }
 serde_ini = { workspace = true }
 serde_json = { workspace = true }
 serde_json_lenient = "0.2.4"
+serde-saphyr = { version = "2.2.0", default-features = false, features = [
+  "deserialize"
+] }
 serde_with = { workspace = true }
 sha1_smol = { workspace = true }
 sha2 = { workspace = true }

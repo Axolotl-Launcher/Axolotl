@@ -5,6 +5,15 @@ use daedalus::minecraft::{Argument, ArgumentValue};
 
 const VERSION_TYPE: &str = "${version_type}";
 const OLD_DIRECT_MEMORY: &str = "-XX:MaxDirectMemorySize=256M";
+const OPTIFINE_TWEAKER: &str = "optifine.OptiFineTweaker";
+const OPTIFINE_FORGE_TWEAKER: &str = "optifine.OptiFineForgeTweaker";
+
+#[derive(Default)]
+pub(super) struct GameOptions {
+    pub(super) legacy_window_size: bool,
+    pub(super) optifine_with_forge_or_liteloader: bool,
+    pub(super) fullscreen: bool,
+}
 
 fn argument_strings(arguments: &[Argument]) -> impl Iterator<Item = &str> {
     arguments.iter().flat_map(|argument| {
@@ -53,23 +62,144 @@ fn join_distinct(groups: &[String]) -> String {
 }
 
 /// A result of PCL-CE rule evaluation is already represented in `arguments`.
+#[cfg(test)]
 pub(super) fn game_arguments(
     legacy: Option<&str>,
     arguments: Option<&[Argument]>,
     custom: Option<&str>,
     replacements: &[(&str, &str)],
 ) -> Vec<String> {
+    game_arguments_with_options(
+        legacy,
+        arguments,
+        custom,
+        replacements,
+        &GameOptions::default(),
+    )
+}
+
+pub(super) fn game_arguments_with_options(
+    legacy: Option<&str>,
+    arguments: Option<&[Argument]>,
+    custom: Option<&str>,
+    replacements: &[(&str, &str)],
+    options: &GameOptions,
+) -> Vec<String> {
     let groups: Vec<_> =
         group_arguments(argument_strings(arguments.unwrap_or_default()))
             .collect();
-    let modern = join_distinct(&groups);
+    let mut legacy = legacy.unwrap_or_default().to_owned();
+    if options.legacy_window_size
+        && !legacy.is_empty()
+        && !legacy.contains("--height")
+    {
+        legacy.push_str(
+            " --height ${resolution_height} --width ${resolution_width}",
+        );
+    }
+    let mut modern = join_distinct(&groups);
+    if options.optifine_with_forge_or_liteloader {
+        legacy = move_optifine_tweaker_to_end(&legacy);
+        modern = move_optifine_tweaker_to_end(&modern);
+    }
+    let generated = if options.fullscreen {
+        "--fullscreen"
+    } else {
+        ""
+    };
     let command_line = [
-        legacy.unwrap_or_default(),
+        legacy.as_str(),
         &modern,
+        generated,
         custom.unwrap_or_default(),
     ]
     .join(" ");
     expand_split_arguments(&command_line, replacements)
+}
+
+fn move_optifine_tweaker_to_end(command_line: &str) -> String {
+    let mut args = split_windows_arguments(command_line).into_iter().peekable();
+    let mut found = false;
+    let mut cleaned = Vec::new();
+    while let Some(arg) = args.next() {
+        if arg == "--tweakClass"
+            && args
+                .next_if(|class| {
+                    matches!(
+                        class.as_str(),
+                        OPTIFINE_TWEAKER | OPTIFINE_FORGE_TWEAKER
+                    )
+                })
+                .is_some()
+        {
+            found = true;
+        } else {
+            cleaned.push(quote_windows_argument(&arg));
+        }
+    }
+    if !found {
+        return command_line.to_owned();
+    }
+    cleaned.extend(["--tweakClass".into(), OPTIFINE_FORGE_TWEAKER.into()]);
+    cleaned.join(" ")
+}
+
+pub(super) fn jvm_runtime_options(
+    arguments: &mut Vec<String>,
+    memory: u32,
+    initial: Option<u32>,
+    java_major: u32,
+) {
+    let has_option = |args: &[String], prefix: &str| {
+        args.iter().any(|arg| arg.starts_with(prefix))
+    };
+    for (min_java, flag) in [
+        (9, "-Dstdout.encoding=UTF-8"),
+        (9, "-Dstderr.encoding=UTF-8"),
+        (18, "-Dfile.encoding=COMPAT"),
+    ] {
+        let (key, _) = flag
+            .split_once('=')
+            .expect("constant is a property assignment");
+        if java_major >= min_java && !has_option(arguments, &format!("{key}="))
+        {
+            arguments.insert(0, flag.into());
+        }
+    }
+    arguments.push(format!("-Xmn{}m", u64::from(memory) * 15 / 100));
+    arguments.push(format!("-Xmx{memory}m"));
+    if let Some(initial) = initial
+        && !arguments.iter().any(|arg| {
+            arg.get(..4)
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case("-Xms"))
+        })
+    {
+        arguments.push(format!("-Xms{}m", initial.min(memory)));
+    }
+}
+
+pub(super) fn initial_heap_mb(
+    maximum: u32,
+    lock: bool,
+    instance_mode: Option<&str>,
+    global_mode: Option<&str>,
+    instance_tick: Option<&str>,
+    global_tick: Option<&str>,
+) -> Option<u32> {
+    if lock {
+        return Some(maximum);
+    }
+    let tick = match instance_mode.unwrap_or("2") {
+        "1" => instance_tick,
+        "2" if global_mode == Some("1") => global_tick,
+        _ => None,
+    }?
+    .parse::<i64>()
+    .ok()
+    .filter(|tick| (1..=i64::from(i32::MAX)).contains(tick))?;
+    let megabytes =
+        (super::direct_link::pcl_slider_ram_gb(tick) * 1024.0).floor() as u32;
+    Some(megabytes.min(maximum))
 }
 
 /// Configured JVM entries have already been tokenized for JVM option checking.
@@ -289,6 +419,100 @@ mod tests {
                 "--name=a \"player\"",
                 "--unknown",
                 "${unknown}"
+            ]
+        );
+    }
+
+    #[test]
+    fn game_applies_legacy_size_optifine_and_fullscreen_without_rewriting_the_source()
+     {
+        let legacy = "--tweakClass optifine.OptiFineTweaker --username Player";
+        let modern = [
+            plain("--tweakClass"),
+            plain(OPTIFINE_FORGE_TWEAKER),
+            plain("--version"),
+            plain("1.12.2"),
+        ];
+        let arguments = game_arguments_with_options(
+            Some(legacy),
+            Some(&modern),
+            Some("--custom"),
+            &[
+                ("${resolution_width}", "854"),
+                ("${resolution_height}", "480"),
+            ],
+            &GameOptions {
+                legacy_window_size: true,
+                optifine_with_forge_or_liteloader: true,
+                fullscreen: true,
+            },
+        );
+        assert_eq!(
+            arguments,
+            [
+                "--username",
+                "Player",
+                "--height",
+                "480",
+                "--width",
+                "854",
+                "--tweakClass",
+                OPTIFINE_FORGE_TWEAKER,
+                "--version",
+                "1.12.2",
+                "--tweakClass",
+                OPTIFINE_FORGE_TWEAKER,
+                "--fullscreen",
+                "--custom"
+            ]
+        );
+        assert!(legacy.contains(OPTIFINE_TWEAKER));
+    }
+
+    #[test]
+    fn initial_heap_honors_manual_flags_and_lock_without_replacing_explicit_xms()
+     {
+        assert_eq!(
+            initial_heap_mb(2048, true, Some("0"), None, None, None),
+            Some(2048)
+        );
+        assert_eq!(
+            initial_heap_mb(
+                1024,
+                false,
+                Some("1"),
+                Some("0"),
+                Some("12"),
+                None
+            ),
+            Some(1024)
+        );
+        assert_eq!(
+            initial_heap_mb(
+                2048,
+                false,
+                Some("2"),
+                Some("1"),
+                None,
+                Some("12")
+            ),
+            Some(1536)
+        );
+        assert_eq!(
+            initial_heap_mb(2048, false, None, Some("0"), None, Some("12")),
+            None
+        );
+        let mut original =
+            vec!["-Xms768m".into(), "-Dstdout.encoding=GBK".into()];
+        jvm_runtime_options(&mut original, 2048, Some(1024), 17);
+        assert_eq!(
+            original,
+            [
+                "-Dstderr.encoding=UTF-8",
+                "-Xms768m",
+                "-Dstdout.encoding=GBK",
+                "-Xmn307m",
+                "-Xmx2048m"
             ]
         );
     }

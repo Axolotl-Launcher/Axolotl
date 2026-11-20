@@ -1,8 +1,12 @@
 use std::borrow::Cow;
+use std::fmt;
 use std::path::{Path, PathBuf};
 
 use encoding_rs::{UTF_16BE, UTF_16LE};
-use serde_json::Value;
+use serde::de::{
+    self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor,
+};
+use serde_json::{Map, Number, Value};
 
 pub(crate) fn discover(version_dir: &Path) -> crate::Result<PathBuf> {
     let folder_name = version_dir.file_name().ok_or_else(|| {
@@ -57,12 +61,17 @@ pub(crate) fn read(path: &Path) -> crate::Result<Value> {
     })?;
     let text = decode(&bytes)
         .ok_or_else(|| invalid_document(path, "invalid text encoding"))?;
-    let mut document: Value =
-        serde_json_lenient::from_str(&text).map_err(|error| {
+    let UniqueValue(mut document) = serde_json_lenient::from_str(&text)
+        .map_err(|error| {
+            let detail = if error.to_string().starts_with(DUPLICATE_PROPERTY) {
+                DUPLICATE_PROPERTY
+            } else {
+                "invalid JSON"
+            };
             invalid_document(
                 path,
                 &format!(
-                    "invalid JSON (line {}, column {})",
+                    "{detail} (line {}, column {})",
                     error.line(),
                     error.column()
                 ),
@@ -75,6 +84,84 @@ pub(crate) fn read(path: &Path) -> crate::Result<Value> {
         invalid_document(path, &format!("multiple spellings of `{key}`"))
     })?;
     Ok(document)
+}
+
+const DUPLICATE_PROPERTY: &str = "duplicate JSON property";
+
+struct UniqueValue(Value);
+
+impl<'de> Deserialize<'de> for UniqueValue {
+    fn deserialize<D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(UniqueValueVisitor).map(Self)
+    }
+}
+
+struct UniqueValueVisitor;
+
+impl<'de> Visitor<'de> for UniqueValueVisitor {
+    type Value = Value;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("JSON without duplicate object properties")
+    }
+
+    fn visit_unit<E: de::Error>(self) -> Result<Value, E> {
+        Ok(Value::Null)
+    }
+
+    fn visit_bool<E: de::Error>(self, value: bool) -> Result<Value, E> {
+        Ok(Value::Bool(value))
+    }
+
+    fn visit_i64<E: de::Error>(self, value: i64) -> Result<Value, E> {
+        Ok(Value::from(value))
+    }
+
+    fn visit_u64<E: de::Error>(self, value: u64) -> Result<Value, E> {
+        Ok(Value::from(value))
+    }
+
+    fn visit_f64<E: de::Error>(self, value: f64) -> Result<Value, E> {
+        Number::from_f64(value)
+            .map(Value::Number)
+            .ok_or_else(|| E::custom("non-finite JSON number"))
+    }
+
+    fn visit_str<E: de::Error>(self, value: &str) -> Result<Value, E> {
+        Ok(Value::from(value))
+    }
+
+    fn visit_string<E: de::Error>(self, value: String) -> Result<Value, E> {
+        Ok(Value::String(value))
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(
+        self,
+        mut entries: A,
+    ) -> Result<Value, A::Error> {
+        let mut values = Vec::new();
+        while let Some(UniqueValue(value)) = entries.next_element()? {
+            values.push(value);
+        }
+        Ok(Value::Array(values))
+    }
+
+    fn visit_map<A: MapAccess<'de>>(
+        self,
+        mut entries: A,
+    ) -> Result<Value, A::Error> {
+        let mut object = Map::new();
+        while let Some(key) = entries.next_key::<String>()? {
+            if object.contains_key(&key) {
+                return Err(de::Error::custom(DUPLICATE_PROPERTY));
+            }
+            let UniqueValue(value) = entries.next_value()?;
+            object.insert(key, value);
+        }
+        Ok(Value::Object(object))
+    }
 }
 
 fn decode(bytes: &[u8]) -> Option<Cow<'_, str>> {
@@ -396,6 +483,21 @@ mod tests {
             let message = read(&path).unwrap_err().to_string();
             assert!(message.contains("demo.json"), "{message}");
             assert!(!message.contains("private-value"), "{message}");
+        }
+    }
+
+    #[test]
+    fn exact_duplicate_properties_are_rejected_before_values_can_overwrite() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("demo.json");
+        for text in [
+            r#"{"id":"private-first","id":"private-second"}"#,
+            r#"{"arguments":{"game":[{"value":"private-first","\u0076alue":"private-second"}]}}"#,
+        ] {
+            fs::write(&path, text).unwrap();
+            let message = read(&path).unwrap_err().to_string();
+            assert!(message.contains("duplicate JSON property"), "{message}");
+            assert!(!message.contains("private-"), "{message}");
         }
     }
 

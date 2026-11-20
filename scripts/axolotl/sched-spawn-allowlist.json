@@ -1800,8 +1800,8 @@
     {
       "file": "packages/app-lib/src/launcher/direct_link.rs",
       "form": "std::fs",
-      "count": 12,
-      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "count": 13,
+      "reason": "Phase-0 synchronous file I/O plus one reviewed read-only PCL-CE configuration read beside the existing local config reader, outside L0 and managed critical sections (D17)",
       "sites": [
         "<module>: predicate: impl Fn(&std::fs::DirEntry) -> bool,",
         "directory_has: match std::fs::read_dir(path) {",
@@ -1814,7 +1814,8 @@
         "hmcl_global_game_settings: let presets_raw = std::fs::read_to_string(",
         "pcl_bundled_java_candidates: let Ok(entries) = std::fs::read_dir(&directory) else {",
         "pcl_mod_count: std::fs::read_dir(game_dir.join(\"mods\"))",
-        "read_flat_config: let content = match std::fs::read_to_string(path) {"
+        "read_flat_config: let content = match std::fs::read_to_string(path) {",
+        "read_pcl_ce_config_bytes: match std::fs::read(path) {"
       ]
     },
     {

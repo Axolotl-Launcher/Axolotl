@@ -450,15 +450,21 @@ async fn get_unknown_launcher_instances(
     }
 
     // Also check for a .minecraft folder next to the launcher executable.
-    if pe_info::folder_has_product(base_path, "Plain Craft Launcher")
-        && let Some(entry) = pcl::get_local_dotminecraft(base_path)
-    {
-        let detect = if direct_link::has_pcl_ce_local_config(base_path) {
+    if let Some(entry) = pcl::get_local_dotminecraft(base_path) {
+        let game_dir = Path::new(&entry.1);
+        let is_ce =
+            direct_link::detect_pcl_ce_root(game_dir, game_dir).is_some();
+        let detect = if is_ce {
             instance_json::detect_pcl_ce
         } else {
             instance_json::detect
         };
-        collect_launcher_instances(&mut collector, vec![entry], detect).await;
+        if is_ce
+            || pe_info::folder_has_product(base_path, "Plain Craft Launcher")
+        {
+            collect_launcher_instances(&mut collector, vec![entry], detect)
+                .await;
+        }
     }
 
     // HMCL
@@ -487,9 +493,14 @@ async fn get_unknown_launcher_instances(
     // Generic fallback: scan versions/ subdirectory and base path for
     // instance.json files (handles .minecraft and other unrecognized launchers).
     if collector.instances.is_empty() {
-        for (name, path) in
-            scan_instances_at(base_path, None, instance_json::detect).await
+        let detect = if direct_link::detect_pcl_ce_root(base_path, base_path)
+            .is_some()
         {
+            instance_json::detect_pcl_ce
+        } else {
+            instance_json::detect
+        };
+        for (name, path) in scan_instances_at(base_path, None, detect).await {
             collector.instances.push(ImportableInstance {
                 name,
                 path: path.to_string_lossy().to_string(),

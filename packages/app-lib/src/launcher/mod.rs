@@ -1059,6 +1059,15 @@ async fn promote_external_instance_link(
         )
     })?;
     let root = direct.dot_minecraft.to_string_lossy().to_string();
+    let launcher = if direct.dialect == LinkedLauncherDialect::PclCe {
+        "pcl2_ce"
+    } else {
+        "generic"
+    };
+    let launcher_root = direct.launcher_root.as_deref().map_or_else(
+        || root.clone(),
+        |path| path.to_string_lossy().into_owned(),
+    );
     let version_json = direct
         .version_json
         .as_deref()
@@ -1074,8 +1083,8 @@ async fn promote_external_instance_link(
     crate::state::instances::adapters::sqlite::instance_rows::set_direct_link_fields(
         &instance.id,
         &crate::state::instances::adapters::sqlite::instance_rows::DirectLinkFields {
-            launcher: Some("generic".to_string()),
-            launcher_root: Some(root.clone()),
+            launcher: Some(launcher.into()),
+            launcher_root: Some(launcher_root),
             dot_minecraft: Some(root.clone()),
             version_id: Some(direct.version_id.clone()),
             version_json_path: version_json,
@@ -2175,6 +2184,16 @@ pub async fn launch_minecraft(
         .as_ref()
         .zip(pcl_launch.as_ref())
         .filter(|(direct, _)| direct.dialect == LinkedLauncherDialect::PclCe);
+    if matches!(quick_play_type, QuickPlayType::None)
+        && let Some((_, settings)) = pcl_ce
+        && let Some(server) =
+            settings.pcl_ce_instance_value("VersionServerEnter")
+        && !server.trim().is_empty()
+    {
+        quick_play_type = QuickPlayType::Server(ServerAddress::Unresolved(
+            server.trim().to_owned(),
+        ));
+    }
 
     let (
         version_info,
@@ -2564,6 +2583,30 @@ pub async fn launch_minecraft(
             extra_game_args.extend(pcl.extra_game_args());
         }
     }
+    if let Some((_, settings)) = pcl_ce
+        && let Some(window_mode) =
+            settings.pcl_ce_global_value("LaunchArgumentWindowType")
+    {
+        if window_mode == "3" || window_mode.eq_ignore_ascii_case("custom") {
+            let dimension = |key, default| {
+                settings
+                    .pcl_ce_global_value(key)
+                    .and_then(|value| value.parse::<u16>().ok())
+                    .unwrap_or(default)
+                    .max(100)
+            };
+            effective_resolution = WindowSize(
+                dimension("LaunchArgumentWindowWidth", 854),
+                dimension("LaunchArgumentWindowHeight", 480),
+            );
+        } else if matches!(window_mode, "0" | "1" | "4")
+            || ["fullscreen", "default", "maximized"]
+                .iter()
+                .any(|mode| window_mode.eq_ignore_ascii_case(mode))
+        {
+            effective_resolution = WindowSize(854, 480);
+        }
+    }
     jvm_args::remove_unresolved_auto_gc_marker(&mut resolved_java_args);
 
     let settings = crate::state::Settings::get(&state.data).await?;
@@ -2771,7 +2814,9 @@ pub async fn launch_minecraft(
         content_set.game_version
     );
     if let QuickPlayType::Server(address) = &mut quick_play_type
-        && quick_play_version.server >= QuickPlayServerVersion::BuiltinLegacy
+        && (pcl_ce.is_some()
+            || quick_play_version.server
+                >= QuickPlayServerVersion::BuiltinLegacy)
     {
         // Record last-played for the original server address immediately so
         // recent-worlds can match without DNS/SRV resolution.
@@ -2802,7 +2847,9 @@ pub async fn launch_minecraft(
             tracing::warn!("Failed to write server join log entry: {e}");
         }
 
-        address.resolve().await?;
+        if pcl_ce.is_none() {
+            address.resolve().await?;
+        }
     }
 
     let (main_class_keep_alive, main_class_path) =
@@ -2872,8 +2919,10 @@ pub async fn launch_minecraft(
     };
 
     let launch_assets_dir = runtime.assets_dir(&state.directories);
-    let game_assets_dir = runtime
-        .game_assets_dir(&state.directories, version_info.assets == "legacy");
+    let game_assets_dir = runtime.game_assets_dir(
+        &state.directories,
+        pcl_ce.is_some() || version_info.assets == "legacy",
+    );
     let pcl_ce_values = if let Some((direct, pcl_ce_settings)) = pcl_ce {
         let version_dir = direct.version_dir();
         let context = args::PclCeArgumentContext {
@@ -2903,6 +2952,25 @@ pub async fn launch_minecraft(
             .collect::<Vec<_>>()
     });
 
+    let pcl_ce_jvm = pcl_ce.zip(pcl_ce_replacements.as_deref()).map(
+        |((_, settings), replacements)| args::PclCeJvmOptions {
+            replacements,
+            initial_heap_mb: pcl_ce_command::initial_heap_mb(
+                effective_memory.maximum,
+                settings
+                    .pcl_ce_global_value("LaunchAdvanceLockMemory")
+                    .is_some_and(|value| {
+                        value.eq_ignore_ascii_case("true") || value == "1"
+                    }),
+                settings.pcl_ce_instance_value("VersionRamType"),
+                settings.pcl_ce_global_value("LaunchRamType"),
+                settings.pcl_ce_instance_value("VersionRamCustomInitial"),
+                settings.pcl_ce_global_value("LaunchRamCustomInitial"),
+            ),
+            java_major: java_version.parsed_version,
+        },
+    );
+
     command.args(
         args::get_jvm_arguments(
             args.get(&d::minecraft::ArgumentType::Jvm)
@@ -2917,13 +2985,20 @@ pub async fn launch_minecraft(
             resolved_java_args.clone(),
             &java_version.architecture,
             &quick_play_type,
-            quick_play_version,
+            if pcl_ce.is_some() {
+                QuickPlayVersion {
+                    server: QuickPlayServerVersion::Unsupported,
+                    ..quick_play_version
+                }
+            } else {
+                quick_play_version
+            },
             version_info
                 .logging
                 .as_ref()
                 .and_then(|x| x.get(&LoggingSide::Client)),
             rpc_server.address(),
-            pcl_ce_replacements.as_deref(),
+            pcl_ce_jvm,
         )?
         .into_iter(),
     );
@@ -2979,16 +3054,39 @@ pub async fn launch_minecraft(
         if let (Some((_, pcl_ce_settings)), Some(replacements)) =
             (pcl_ce, pcl_ce_replacements.as_deref())
         {
-            let mut arguments = pcl_ce_command::game_arguments(
+            let has_library = |prefix: &str| {
+                version_info.libraries.iter().any(|library| {
+                    library.name.to_ascii_lowercase().starts_with(prefix)
+                })
+            };
+            let game_options = pcl_ce_command::GameOptions {
+                legacy_window_size: version_info.release_time.date_naive()
+                    >= chrono::NaiveDate::from_ymd_opt(2013, 6, 17).unwrap(),
+                optifine_with_forge_or_liteloader: (content_set.loader
+                    == ModLoader::OptiFine
+                    || has_library("optifine:optifine:"))
+                    && (matches!(
+                        content_set.loader,
+                        ModLoader::Forge | ModLoader::LiteLoader
+                    ) || has_library("net.minecraftforge:forge:")
+                        || has_library("com.mumfrey:liteloader:")),
+                fullscreen: pcl_ce_settings
+                    .pcl_ce_global_value("LaunchArgumentWindowType")
+                    .is_some_and(|value| {
+                        value == "0" || value.eq_ignore_ascii_case("fullscreen")
+                    }),
+            };
+            let mut arguments = pcl_ce_command::game_arguments_with_options(
                 legacy_game_arguments,
                 manifest_game_arguments,
                 pcl_ce_settings.extra_game_arguments_text(),
                 replacements,
+                &game_options,
             );
             args::append_pcl_ce_quick_play(
                 &mut arguments,
                 &quick_play_type,
-                quick_play_version,
+                version_info.release_time,
             )?;
             arguments
         } else {

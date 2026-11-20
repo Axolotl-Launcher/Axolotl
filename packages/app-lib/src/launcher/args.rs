@@ -5,9 +5,7 @@ use crate::launcher::direct_link::{
 };
 use crate::launcher::local_version::LinkedLibrary;
 use crate::launcher::pcl_ce_command;
-use crate::launcher::quick_play_version::{
-    QuickPlayServerVersion, QuickPlaySingleplayerVersion,
-};
+use crate::launcher::quick_play_version::QuickPlayServerVersion;
 use crate::launcher::{QuickPlayVersion, parse_rules};
 use crate::state::Credentials;
 use crate::{
@@ -265,7 +263,7 @@ pub fn get_lib_path(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn get_jvm_arguments(
+pub(super) fn get_jvm_arguments(
     arguments: Option<&[Argument]>,
     natives_path: &Path,
     libraries_path: &Path,
@@ -280,19 +278,19 @@ pub fn get_jvm_arguments(
     quick_play_version: QuickPlayVersion,
     log_config: Option<&LoggingConfiguration>,
     ipc_addr: SocketAddr,
-    pcl_ce_replacements: Option<&[(&str, &str)]>,
+    pcl_ce: Option<PclCeJvmOptions<'_>>,
 ) -> crate::Result<Vec<String>> {
     let mut parsed_arguments = Vec::new();
 
-    if let Some(replacements) = pcl_ce_replacements {
+    if let Some(options) = &pcl_ce {
         parsed_arguments = pcl_ce_command::jvm_arguments(
             arguments.unwrap_or_default(),
             &custom_args,
-            replacements,
+            options.replacements,
         );
     }
     if let Some(args) = arguments {
-        if pcl_ce_replacements.is_none() {
+        if pcl_ce.is_none() {
             parse_arguments(
                 args,
                 &mut parsed_arguments,
@@ -325,7 +323,16 @@ pub fn get_jvm_arguments(
         parsed_arguments.push(class_paths.to_string());
     }
 
-    parsed_arguments.push(format!("-Xmx{}M", memory.maximum));
+    if let Some(options) = &pcl_ce {
+        pcl_ce_command::jvm_runtime_options(
+            &mut parsed_arguments,
+            memory.maximum,
+            options.initial_heap_mb,
+            options.java_major,
+        );
+    } else {
+        parsed_arguments.push(format!("-Xmx{}M", memory.maximum));
+    }
 
     if let Some(LoggingConfiguration::Log4j2Xml { argument, file }) = log_config
     {
@@ -368,13 +375,19 @@ pub fn get_jvm_arguments(
         ]);
     }
 
-    if pcl_ce_replacements.is_none() {
+    if pcl_ce.is_none() {
         parsed_arguments
             .extend(custom_args.into_iter().filter(|arg| !arg.is_empty()));
     }
 
     add_fallen_discovery_java_arg(&mut parsed_arguments);
     Ok(parsed_arguments)
+}
+
+pub(super) struct PclCeJvmOptions<'a> {
+    pub(super) replacements: &'a [(&'a str, &'a str)],
+    pub(super) initial_heap_mb: Option<u32>,
+    pub(super) java_major: u32,
 }
 
 pub(super) struct PclCeArgumentContext<'a> {
@@ -441,48 +454,60 @@ impl PclCeArgumentContext<'_> {
 pub(super) fn append_pcl_ce_quick_play(
     arguments: &mut Vec<String>,
     target: &QuickPlayType,
-    version: QuickPlayVersion,
+    release_time: chrono::DateTime<chrono::Utc>,
 ) -> crate::Result<()> {
     match target {
-        QuickPlayType::Singleplayer(world)
-            if version.singleplayer
-                == QuickPlaySingleplayerVersion::Builtin =>
-        {
+        QuickPlayType::Singleplayer(world) => {
             arguments.extend(["--quickPlaySingleplayer".into(), world.clone()]);
         }
-        QuickPlayType::Server(server)
-            if version.server == QuickPlayServerVersion::Builtin =>
-        {
-            let address = match server {
-                crate::server_address::ServerAddress::Unresolved(address) => {
-                    address.clone()
+        QuickPlayType::Server(server) => {
+            use crate::server_address::{ServerAddress, parse_server_address};
+            let modern = release_time.naive_local()
+                > chrono::NaiveDate::from_ymd_opt(2023, 4, 4)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap();
+            match server {
+                ServerAddress::Unresolved(address) if modern => {
+                    arguments.extend([
+                        "--quickPlayMultiplayer".into(),
+                        address.clone(),
+                    ]);
                 }
-                crate::server_address::ServerAddress::Resolved {
+                ServerAddress::Resolved {
                     original_host,
                     original_port,
                     ..
-                } => {
-                    if original_host.contains(':') {
+                } if modern => {
+                    let address = if original_host.contains(':') {
                         format!("[{original_host}]:{original_port}")
                     } else {
                         format!("{original_host}:{original_port}")
-                    }
+                    };
+                    arguments
+                        .extend(["--quickPlayMultiplayer".into(), address]);
                 }
-            };
-            arguments.extend(["--quickPlayMultiplayer".into(), address]);
+                _ => {
+                    let (host, port) = match server {
+                        ServerAddress::Unresolved(address) => {
+                            parse_server_address(address)?
+                        }
+                        ServerAddress::Resolved {
+                            original_host,
+                            original_port,
+                            ..
+                        } => (original_host.as_str(), *original_port),
+                    };
+                    arguments.extend([
+                        "--server".into(),
+                        host.into(),
+                        "--port".into(),
+                        port.to_string(),
+                    ]);
+                }
+            }
         }
-        QuickPlayType::Server(server)
-            if version.server == QuickPlayServerVersion::BuiltinLegacy =>
-        {
-            let (host, port) = server.require_resolved()?;
-            arguments.extend([
-                "--server".into(),
-                host.to_string(),
-                "--port".into(),
-                port.to_string(),
-            ]);
-        }
-        _ => {}
+        QuickPlayType::None => {}
     }
     Ok(())
 }
@@ -904,18 +929,27 @@ mod tests {
             QuickPlayVersion::find_version(0, &[]),
             None,
             "127.0.0.1:12345".parse().unwrap(),
-            Some(&[
-                ("${version_name}", "Test Profile"),
-                ("${libraries_directory}", r"C:\PCL Files\libraries"),
-            ]),
+            Some(PclCeJvmOptions {
+                replacements: &[
+                    ("${version_name}", "Test Profile"),
+                    ("${libraries_directory}", r"C:\PCL Files\libraries"),
+                ],
+                initial_heap_mb: Some(1024),
+                java_major: 18,
+            }),
         )
         .unwrap();
         assert_eq!(
-            &parsed[..3],
+            &parsed[..8],
             &[
+                "-Dfile.encoding=COMPAT",
+                "-Dstderr.encoding=UTF-8",
+                "-Dstdout.encoding=UTF-8",
                 r"-Dcustom=C:\PCL Files\libraries",
                 "-Dprofile=Test Profile",
-                "-Xmx2048M"
+                "-Xmn307m",
+                "-Xmx2048m",
+                "-Xms1024m",
             ]
         );
         assert!(
@@ -935,9 +969,10 @@ mod tests {
                 resolved_port: 25570,
             },
         );
-        let version = QuickPlayVersion::find_version(0, &[]);
+        let release_time = "2023-04-05T00:00:00Z".parse().unwrap();
         let mut arguments = Vec::new();
-        append_pcl_ce_quick_play(&mut arguments, &server, version).unwrap();
+        append_pcl_ce_quick_play(&mut arguments, &server, release_time)
+            .unwrap();
         assert_eq!(
             arguments,
             ["--quickPlayMultiplayer", "play.example.test:25565"]
@@ -946,10 +981,21 @@ mod tests {
         append_pcl_ce_quick_play(
             &mut arguments,
             &QuickPlayType::Singleplayer("My World".into()),
-            version,
+            release_time,
         )
         .unwrap();
         assert_eq!(arguments, ["--quickPlaySingleplayer", "My World"]);
+        arguments.clear();
+        append_pcl_ce_quick_play(
+            &mut arguments,
+            &server,
+            "2023-04-03T00:00:00Z".parse().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            arguments,
+            ["--server", "play.example.test", "--port", "25565"]
+        );
     }
 
     #[test]

@@ -14,6 +14,7 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 use daedalus::minecraft::{
@@ -667,20 +668,63 @@ fn resolve_pcl_json(
     let hmcl_format =
         child.get("patches").is_some() && child.get("time").is_none();
     if hmcl_format {
-        let mut patches = child
+        let patches = child
             .get_mut("patches")
             .and_then(Value::as_array_mut)
-            .map(std::mem::take)
-            .unwrap_or_default();
-        patches.sort_by_key(|patch| {
-            patch.get("priority").and_then(Value::as_i64).unwrap_or(0)
-        });
+            .map(std::mem::take);
+        let mut patches = if dialect == LinkedLauncherDialect::PclCe {
+            patches.ok_or_else(|| {
+                crate::ErrorKind::InputError(format!(
+                    "Invalid PCL-CE patches in {}: expected an array",
+                    path.display()
+                ))
+            })?
+        } else {
+            patches.unwrap_or_default()
+        };
+        if dialect == LinkedLauncherDialect::PclCe {
+            for (index, patch) in patches.iter().enumerate() {
+                if !patch.is_object()
+                    || patch
+                        .get("id")
+                        .is_some_and(|id| !id.is_string() && !id.is_null())
+                {
+                    return Err(crate::ErrorKind::InputError(format!(
+                        "Invalid PCL-CE patches[{index}] in {}: expected an object with a string or null id",
+                        path.display()
+                    )).into());
+                }
+            }
+            let mut prioritized = patches
+                .into_iter()
+                .map(|patch| {
+                    (pcl_ce_patch_priority(patch.get("priority")), patch)
+                })
+                .collect::<Vec<_>>();
+            prioritized.sort_by(|left, right| {
+                left.0.partial_cmp(&right.0).unwrap_or(Ordering::Equal)
+            });
+            patches = prioritized.into_iter().map(|(_, patch)| patch).collect();
+        } else {
+            patches.sort_by_key(|patch| {
+                patch.get("priority").and_then(Value::as_i64).unwrap_or(0)
+            });
+        }
         let mut current = Value::Object(Map::new());
+        let mut applied = false;
         for patch in patches {
             // PCL ignores HMCL-format patches whose id is absent or null.
             if patch.get("id").is_some_and(|id| !id.is_null()) {
                 pcl_merge(&mut current, &patch);
+                applied = true;
             }
+        }
+        if dialect == LinkedLauncherDialect::PclCe && !applied {
+            return Err(crate::ErrorKind::InputError(format!(
+                "No identified PCL-CE patches in {}",
+                path.display()
+            ))
+            .into());
         }
         child = current;
         child["id"] = Value::String(version_id.to_string());
@@ -741,14 +785,58 @@ fn resolve_pcl_json(
         .get("inheritsFrom")
         .and_then(Value::as_str)
         .filter(|parent| {
+            dialect != LinkedLauncherDialect::PclCe || !parent.is_empty()
+        })
+        .or_else(|| {
+            if dialect != LinkedLauncherDialect::PclCe || hmcl_format {
+                return None;
+            }
+            implicit_pcl_ce_liteloader_parent(&child)
+        })
+        .filter(|parent| {
             *parent != version_id
                 && (dialect != LinkedLauncherDialect::PclCe
-                    || !parent.is_empty())
+                    || !path
+                        .parent()
+                        .and_then(Path::file_name)
+                        .and_then(|folder| folder.to_str())
+                        .is_some_and(|folder| {
+                            version_ids_match(folder, parent)
+                        }))
         })
         .map(str::to_string);
     let result = if let Some(parent_id) = parent_id {
-        let (_, mut parent) =
-            resolve_pcl_json(root, &parent_id, None, dialect, visited, pcl_ce)?;
+        let parent_path = if dialect == LinkedLauncherDialect::PclCe
+            && pcl_ce.jar_profiles.len() == 1
+        {
+            if !is_pcl_ce_version_id(&parent_id) {
+                return Err(crate::ErrorKind::InputError(
+                    "Invalid PCL-CE version ID".into(),
+                )
+                .into());
+            }
+            let named_manifest = root
+                .join("versions")
+                .join(&parent_id)
+                .join(format!("{parent_id}.json"));
+            if !named_manifest.is_file() {
+                return Err(crate::ErrorKind::InputError(format!(
+                    "Missing PCL-CE parent version JSON {}; repair the instance in PCL-CE first",
+                    named_manifest.display(),
+                )).into());
+            }
+            Some(named_manifest)
+        } else {
+            None
+        };
+        let (_, mut parent) = resolve_pcl_json(
+            root,
+            &parent_id,
+            parent_path.as_deref(),
+            dialect,
+            visited,
+            pcl_ce,
+        )?;
         let inherited_jar = parent
             .get("jar")
             .and_then(Value::as_str)
@@ -790,6 +878,129 @@ fn resolve_pcl_json(
     };
     visited.remove(version_id);
     Ok((path, result))
+}
+
+fn version_ids_match(left: &str, right: &str) -> bool {
+    left == right || (cfg!(windows) && left.eq_ignore_ascii_case(right))
+}
+
+fn implicit_pcl_ce_liteloader_parent(document: &Value) -> Option<&str> {
+    static VERSION: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+            r"(?:1\.[0-9]+(?:\.[0-9]+)?|[1-9][0-9]w[0-9]{2}[a-g])",
+        )
+        .expect("valid legacy Minecraft version pattern")
+    });
+    if document.get("logging").is_some() {
+        return None;
+    }
+    let jar = document.get("jar").filter(|jar| !jar.is_null());
+    let library_version = document
+        .get("libraries")
+        .and_then(Value::as_array)
+        .and_then(|libraries| {
+            libraries.iter().find_map(|library| {
+                library
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .and_then(|name| name.split_once(":liteloader:"))
+                    .map(|(_, version)| version)
+            })
+        });
+    let id = document.get("id").and_then(Value::as_str);
+    if library_version.is_none()
+        && !id.is_some_and(|id| id.contains("liteloader"))
+    {
+        return None;
+    }
+    let version = document
+        .get("clientVersion")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+        .or_else(|| {
+            library_version.and_then(|version| {
+                VERSION.find(version).map(|value| value.as_str())
+            })
+        })
+        .or_else(|| VERSION.find(id?).map(|value| value.as_str()))
+        .or_else(|| {
+            jar.and_then(Value::as_str)
+                .filter(|version| VERSION.is_match(version))
+        })?;
+    jar.is_none_or(|jar| jar.as_str() == Some(version))
+        .then_some(version)
+}
+
+fn pcl_ce_patch_priority(priority: Option<&Value>) -> f64 {
+    static DECIMAL: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+            r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eEdD][+-]?[0-9]+)?",
+        )
+        .expect("valid Visual Basic numeric prefix pattern")
+    });
+    let Some(priority) = priority else {
+        return 0.0;
+    };
+    if let Some(number) = priority.as_f64() {
+        return number;
+    }
+    let Some(priority) = priority.as_str() else {
+        return 0.0;
+    };
+    let text: String = priority
+        .chars()
+        .filter(|ch| !matches!(ch, ' ' | '\t' | '\r' | '\n'))
+        .collect();
+    if let Some((radix, digits)) =
+        text.get(..2).and_then(|prefix| match prefix.as_bytes() {
+            b"&H" | b"&h" => Some((16, &text[2..])),
+            b"&O" | b"&o" => Some((8, &text[2..])),
+            _ => None,
+        })
+    {
+        let end = digits
+            .find(|ch: char| !ch.is_digit(radix))
+            .unwrap_or(digits.len());
+        let Ok(number) = u64::from_str_radix(&digits[..end], radix) else {
+            return 0.0;
+        };
+        let suffix = digits[end..].as_bytes().first();
+        return match suffix {
+            Some(b'%') if number <= u16::MAX as u64 => number as i16 as f64,
+            Some(b'&') if number <= u32::MAX as u64 => number as i32 as f64,
+            Some(b'%' | b'&') => 0.0,
+            _ if number <= u16::MAX as u64 => number as i16 as f64,
+            _ if number <= u32::MAX as u64 => number as i32 as f64,
+            _ => number as i64 as f64,
+        };
+    }
+    let Some(prefix) = DECIMAL.find(&text) else {
+        return 0.0;
+    };
+    let Ok(number) = prefix.as_str().replace(['d', 'D'], "e").parse::<f64>()
+    else {
+        return 0.0;
+    };
+    if !number.is_finite() {
+        return 0.0;
+    }
+    match text[prefix.end()..].as_bytes().first() {
+        Some(b'%')
+            if number.fract() != 0.0
+                || number < i16::MIN as f64
+                || number > i16::MAX as f64 =>
+        {
+            0.0
+        }
+        Some(b'&')
+            if number.fract() != 0.0
+                || number < i32::MIN as f64
+                || number > i32::MAX as f64 =>
+        {
+            0.0
+        }
+        _ => number,
+    }
 }
 
 pub(super) fn is_pcl_ce_version_id(version_id: &str) -> bool {
@@ -1820,6 +2031,112 @@ mod tests {
                 .map(|library| library.library.name.as_str())
                 .collect::<Vec<_>>(),
             ["x:game:1", "x:loader:1"]
+        );
+    }
+
+    #[test]
+    fn pcl_ce_patch_priorities_use_numeric_json_and_visual_basic_prefixes() {
+        let dir = tempdir().unwrap();
+        write_json(
+            dir.path(),
+            "demo",
+            "demo.json",
+            json!({
+                "id":"demo", "patches":[
+                    {"id":"late", "priority":" 1.50 suffix", "mainClass":"loader.Main", "arguments":{"game":["--last"]}},
+                    {"id":"middle", "priority":0.75, "mainClass":"middle.Main", "arguments":{"game":["--middle"]}},
+                    {"id":"early", "priority":"-.5", "mainClass":"base.Main", "arguments":{"game":["--first"]}},
+                    {"id":null, "priority":"&H7FFF", "mainClass":"ignored.Main"}
+                ]
+            }),
+        );
+        let merged = load_version_for_dialect(
+            dir.path(),
+            "demo",
+            None,
+            LinkedLauncherDialect::PclCe,
+        )
+        .unwrap();
+        assert_eq!(merged.main_class.as_deref(), Some("loader.Main"));
+        assert_eq!(
+            serde_json::to_value(merged.arguments.unwrap()).unwrap(),
+            json!({"game":["--first","--middle","--last"]})
+        );
+        assert_eq!(pcl_ce_patch_priority(Some(&json!("2d-1"))), 0.2);
+        assert_eq!(pcl_ce_patch_priority(Some(&json!("&HFFFF"))), -1.0);
+        assert_eq!(pcl_ce_patch_priority(Some(&json!("&HFFFF&"))), 65535.0);
+        assert_eq!(pcl_ce_patch_priority(Some(&json!("1.5%"))), 0.0);
+    }
+
+    #[test]
+    fn pcl_ce_infers_legacy_liteloader_parent_but_preserves_custom_jar() {
+        let dir = tempdir().unwrap();
+        write_json(
+            dir.path(),
+            "1.5.2",
+            "1.5.2.json",
+            json!({
+                "id":"1.5.2", "mainClass":"base.Main", "minecraftArguments":"--legacy base"
+            }),
+        );
+        let mut lite = json!({
+            "id":"1.5.2-LiteLoader", "libraries":[{"name":"com.mumfrey:liteloader:1.5.2"}]
+        });
+        let load = |manifest: &Value, dialect| {
+            write_json(dir.path(), "custom", "custom.json", manifest.clone());
+            load_version_for_dialect(dir.path(), "custom", None, dialect)
+                .unwrap()
+        };
+        let inherited = load(&lite, LinkedLauncherDialect::PclCe);
+        assert_eq!(inherited.main_class.as_deref(), Some("base.Main"));
+        assert_eq!(inherited.jar.as_deref(), Some("1.5.2"));
+        assert_eq!(
+            inherited.minecraft_arguments.as_deref(),
+            Some("--legacy base")
+        );
+        assert_eq!(load(&lite, LinkedLauncherDialect::Pcl).main_class, None);
+
+        lite["jar"] = json!("custom-client");
+        assert_eq!(load(&lite, LinkedLauncherDialect::PclCe).main_class, None);
+
+        lite.as_object_mut().unwrap().remove("jar");
+        lite["logging"] = Value::Null;
+        assert_eq!(load(&lite, LinkedLauncherDialect::PclCe).main_class, None);
+    }
+
+    #[test]
+    fn pcl_ce_requires_the_named_parent_before_using_inherited_metadata() {
+        let dir = tempdir().unwrap();
+        write_json(
+            dir.path(),
+            "demo",
+            "demo.json",
+            json!({
+                "id":"demo", "inheritsFrom":"1.5.2", "mainClass":"child.Main"
+            }),
+        );
+        write_json(dir.path(), "1.5.2", "renamed.json", json!({"id":"1.5.2"}));
+        let error = load_version_for_dialect(
+            dir.path(),
+            "demo",
+            None,
+            LinkedLauncherDialect::PclCe,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("Missing PCL-CE parent version JSON"),
+            "{error}"
+        );
+        assert!(error.contains("1.5.2.json"), "{error}");
+        assert!(
+            load_version_for_dialect(
+                dir.path(),
+                "demo",
+                None,
+                LinkedLauncherDialect::Pcl
+            )
+            .is_ok()
         );
     }
 

@@ -984,6 +984,138 @@ mod tests {
         assert!(select(ModLoader::NeoForge, "1.21.1").is_err());
     }
 
+    #[test]
+    fn pcl_ce_repairs_with_verified_bytes_from_the_selected_profile_only() {
+        let root = tempdir().unwrap();
+        let versions = root.path().join("versions");
+        let base = versions.join("base");
+        let leaf = versions.join("demo");
+        let explicit = versions.join("custom");
+        for directory in [&base, &leaf, &explicit] {
+            std::fs::create_dir_all(directory).unwrap();
+        }
+        let vanilla_hash = "1234567890abcdef1234567890abcdef12345678";
+        let own_hash = "abcdef0123456789abcdef0123456789abcdef01";
+        let custom_hash = "ab0123456789cdefab0123456789cdefab012345";
+        let vanilla_url = "https://example.invalid/base.jar";
+        let own_url = "https://example.invalid/generated.jar";
+        let custom_url = "https://example.invalid/custom.jar";
+        let client = |url: &str, sha1: &str, size: u32| json!({"url": url, "sha1": sha1, "size": size});
+        let write = |path: PathBuf, value: serde_json::Value| {
+            std::fs::write(path, value.to_string()).unwrap();
+        };
+        write(
+            base.join("base.json"),
+            json!({
+                "id": "base", "downloads": {"client": client(vanilla_url, vanilla_hash, 40)},
+            }),
+        );
+        let write_leaf = |download: Option<serde_json::Value>,
+                          jar: Option<&str>| {
+            let mut document = json!({"id": "demo", "inheritsFrom": "base", "mainClass": "loader.Main"});
+            if let Some(download) = download {
+                document["downloads"] = json!({"client": download});
+            }
+            if let Some(jar) = jar {
+                document["jar"] = json!(jar);
+            }
+            write(leaf.join("demo.json"), document);
+        };
+        let direct = DirectLinkedLaunch {
+            dialect: LinkedLauncherDialect::PclCe,
+            ..direct_for(root.path())
+        };
+        let select = || {
+            let mut merged = direct.resolve().unwrap().merged;
+            direct
+                .pcl_ce_client_jar(&mut merged, ModLoader::NeoForge, "1.21.1")
+                .unwrap()
+                .unwrap()
+        };
+
+        for excluded in [
+            None,
+            Some(client(vanilla_url, own_hash, 50)),
+            Some(client(own_url, &vanilla_hash.to_ascii_uppercase(), 50)),
+            Some(client(own_url, "not-a-checksum", 50)),
+            Some(client(own_url, own_hash, 0)),
+            Some(client("file:///not-a-remote-client.jar", own_hash, 50)),
+        ] {
+            write_leaf(excluded, None);
+            let selected = select();
+            assert_eq!(selected.path, leaf.join("demo.jar"));
+            assert!(pcl_ce_client_plan(&selected).is_none());
+        }
+
+        write_leaf(
+            Some(client(own_url, &own_hash.to_ascii_uppercase(), 50)),
+            None,
+        );
+        let plan = pcl_ce_client_plan(&select()).unwrap();
+        assert_eq!(plan.destination, leaf.join("demo.jar"));
+        assert_eq!(plan.urls, [own_url]);
+        assert_eq!(plan.sha1.as_deref(), Some(own_hash));
+        assert_eq!(plan.size, Some(50));
+
+        write_leaf(Some(client(own_url, vanilla_hash, 50)), Some("demo"));
+        assert!(pcl_ce_client_plan(&select()).is_none());
+
+        let custom_manifest = explicit.join("custom.json");
+        write_leaf(Some(client(own_url, own_hash, 50)), Some("custom"));
+        write(
+            custom_manifest.clone(),
+            json!({"id": "custom", "inheritsFrom": "base"}),
+        );
+        let selected = select();
+        assert_eq!(selected.path, explicit.join("custom.jar"));
+        assert!(pcl_ce_client_plan(&selected).is_none());
+
+        write(
+            custom_manifest,
+            json!({
+                "id": "custom", "inheritsFrom": "base", "downloads": {"client": client(custom_url, custom_hash, 60)},
+            }),
+        );
+        let plan = pcl_ce_client_plan(&select()).unwrap();
+        assert_eq!(plan.destination, explicit.join("custom.jar"));
+        assert_eq!(plan.urls, [custom_url]);
+        assert_eq!(plan.sha1.as_deref(), Some(custom_hash));
+        assert_eq!(plan.size, Some(60));
+
+        let write_flattened = |url: &str, sha1: &str| {
+            write(
+                leaf.join("demo.json"),
+                json!({
+                    "id": "demo", "mainClass": "loader.Main", "downloads": {"client": client(url, sha1, 50)},
+                }),
+            );
+        };
+        for url in [
+            format!(
+                "https://piston-data.mojang.com/v1/objects/{vanilla_hash}/client.jar"
+            ),
+            format!(
+                "https://example.invalid/v1/objects/{vanilla_hash}/client.jar"
+            ),
+        ] {
+            write_flattened(&url, vanilla_hash);
+            assert!(pcl_ce_client_plan(&select()).is_none());
+        }
+
+        let vanilla = versions.join("1.21.1");
+        std::fs::create_dir_all(&vanilla).unwrap();
+        write(
+            vanilla.join("1.21.1.json"),
+            json!({
+                "id": "1.21.1", "downloads": {"client": client(vanilla_url, vanilla_hash, 40)},
+            }),
+        );
+        write_flattened(custom_url, vanilla_hash);
+        assert!(pcl_ce_client_plan(&select()).is_none());
+        write_flattened(own_url, own_hash);
+        assert_eq!(pcl_ce_client_plan(&select()).unwrap().urls, [own_url]);
+    }
+
     async fn ensure_test_state() -> (TempDir, Arc<State>) {
         let temp = TempDir::new().unwrap();
         let dirs = DirectoryInfo {

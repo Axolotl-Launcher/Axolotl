@@ -248,8 +248,7 @@ fn matches_os(os: &Map<String, Value>, platform: &Platform) -> bool {
                 .filter(|version| !version.is_null())
                 .is_none_or(|pattern| {
                     platform.windows_version.as_deref().is_some_and(|version| {
-                        regex::Regex::new(&node_text(pattern))
-                            .is_ok_and(|pattern| pattern.is_match(version))
+                        matches_windows_version(&node_text(pattern), version)
                     })
                 }),
             _ => false,
@@ -262,6 +261,26 @@ fn matches_os(os: &Map<String, Value>, platform: &Platform) -> bool {
             .is_none_or(|arch| {
                 (arch.as_str() == Some("x86")) == platform.is_32_bit
             })
+}
+
+fn matches_windows_version(pattern: &str, version: &str) -> bool {
+    const MAX_PATTERN_BYTES: usize = 4096;
+    const REGEX_SIZE_LIMIT: usize = 1024 * 1024;
+    if pattern.len() > MAX_PATTERN_BYTES {
+        return false;
+    }
+    if let Ok(regular) = regex::RegexBuilder::new(pattern)
+        .size_limit(REGEX_SIZE_LIMIT)
+        .build()
+    {
+        return regular.is_match(version);
+    }
+    fancy_regex::RegexBuilder::new(pattern)
+        .backtrack_limit(10_000)
+        .delegate_size_limit(REGEX_SIZE_LIMIT)
+        .delegate_dfa_size_limit(REGEX_SIZE_LIMIT)
+        .build()
+        .is_ok_and(|regex| regex.is_match(version).unwrap_or(false))
 }
 
 fn matches_features(features: &Map<String, Value>) -> bool {
@@ -370,6 +389,24 @@ mod tests {
                 {"value": "quick-key-case"},
             ])
         );
+    }
+
+    #[test]
+    fn supports_bounded_dotnet_style_lookarounds_and_backreferences() {
+        let windows = windows_platform();
+        let check = |version: &str| {
+            matches_os(
+                json!({"name":"windows", "version":version})
+                    .as_object()
+                    .unwrap(),
+                &windows,
+            )
+        };
+        assert!(check(r"(?<=^10\.0\.)22631(?=\.0$)"));
+        assert!(check(r"^10\.(0)\.22631\.\1$"));
+        assert!(!check(r"(?<=^6\.0\.)22631"));
+        assert!(!check("["));
+        assert!(!check(&".".repeat(4097)));
     }
 
     #[test]

@@ -5,20 +5,21 @@ use std::{
 };
 use tauri::{
     AppHandle, Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder,
-    menu::{
-        CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu,
-    },
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     window::WindowBuilder,
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use theseus::prelude::CommandPayload;
 
+mod tray_menu;
+use tray_menu::{TrayChange, TrayRefresh, schedule_tray_menu_update};
+
 const MAIN_WINDOW_LABEL: &str = "main";
 const LIGHTWEIGHT_HOST_WINDOW_LABEL: &str = "lightweight-host";
 const TRAY_ID: &str = "main";
 const LAUNCH_INSTANCE_PREFIX: &str = "launch-instance:";
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct TrayLabels {
     show_launcher: &'static str,
     launch_instance: &'static str,
@@ -68,7 +69,6 @@ struct LightweightModeState {
     frontend_ready: bool,
     restoring: bool,
     running_instance_ids: HashSet<String>,
-    tray_update_generation: u64,
 }
 
 impl Default for LightweightModeState {
@@ -82,7 +82,6 @@ impl Default for LightweightModeState {
             frontend_ready: false,
             restoring: false,
             running_instance_ids: HashSet::new(),
-            tray_update_generation: 0,
         }
     }
 }
@@ -94,22 +93,44 @@ pub struct PendingCrash {
 }
 
 #[derive(Default)]
-pub struct LightweightMode(Mutex<LightweightModeState>);
+pub struct LightweightMode(
+    Mutex<LightweightModeState>,
+    tokio::sync::Mutex<()>,
+    TrayRefresh,
+);
+
+fn keep_running_on_exit(
+    code: Option<i32>,
+    active: bool,
+    transitioning: bool,
+) -> bool {
+    code.is_none() && (active || transitioning)
+}
+
+pub(crate) fn prevent_implicit_tray_exit(
+    app: &AppHandle,
+    code: Option<i32>,
+) -> bool {
+    app.try_state::<LightweightMode>().is_some_and(|mode| {
+        keep_running_on_exit(code, mode.is_active(), mode.1.try_lock().is_err())
+    })
+}
 
 impl LightweightMode {
-    fn enter(&self, app: &AppHandle) -> Result<(), String> {
-        self.enter_internal(app, true)
+    async fn enter(&self, app: &AppHandle) -> Result<(), String> {
+        self.enter_internal(app, true).await
     }
 
-    pub fn enter_for_close(&self, app: &AppHandle) -> Result<(), String> {
-        self.enter_internal(app, false)
+    async fn enter_for_close(&self, app: &AppHandle) -> Result<(), String> {
+        self.enter_internal(app, false).await
     }
 
-    fn enter_internal(
+    async fn enter_internal(
         &self,
         app: &AppHandle,
         require_running: bool,
     ) -> Result<(), String> {
+        let _transition = self.1.lock().await;
         let state = self.0.lock().map_err(|error| error.to_string())?;
         if state.active {
             return Ok(());
@@ -122,14 +143,11 @@ impl LightweightMode {
         }
         let idle = state.running_processes == 0;
         drop(state);
+        // Keep the native, webview-free host for the process lifetime once
+        // created. Rapid restores must not remove the tray's last window.
         create_lightweight_host_window(app)?;
         let mut state = self.0.lock().map_err(|error| error.to_string())?;
-        if state.active {
-            drop(state);
-            destroy_lightweight_host_window(app);
-            return Ok(());
-        }
-
+        let was_frontend_ready = state.frontend_ready;
         state.active = true;
         state.frontend_ready = false;
         if let Some(theseus_state) = theseus::State::get_if_initialized() {
@@ -139,44 +157,50 @@ impl LightweightMode {
         if let Err(error) = destroy_main_window(app) {
             if let Ok(mut state) = self.0.lock() {
                 state.active = false;
+                state.frontend_ready = was_frontend_ready;
             }
             if let Some(theseus_state) = theseus::State::get_if_initialized() {
                 theseus_state.resume_background_services();
             }
-            destroy_lightweight_host_window(app);
             return Err(error);
         }
         schedule_lightweight_maintenance(idle);
-        schedule_tray_menu_update(app);
+        schedule_tray_menu_update(app, TrayChange::Presentation);
         Ok(())
     }
 
-    pub fn exit(&self, app: &AppHandle) -> Result<(), String> {
-        let state = self.0.lock().map_err(|error| error.to_string())?;
-        if !state.active {
-            return show_main_window(app);
-        }
+    pub async fn exit(&self, app: &AppHandle) -> Result<(), String> {
+        let _transition = self.1.lock().await;
+        let has_main_window = app.get_window(MAIN_WINDOW_LABEL).is_some();
+        let has_tray_host =
+            app.get_window(LIGHTWEIGHT_HOST_WINDOW_LABEL).is_some();
 
-        let route = state.route.clone();
-        drop(state);
-        if let Ok(mut state) = self.0.lock() {
+        let route = {
+            let mut state = self.0.lock().map_err(|error| error.to_string())?;
+            if !state.active && (has_main_window || !has_tray_host) {
+                drop(state);
+                return show_main_window(app);
+            }
             state.frontend_ready = false;
             state.restoring = true;
-        }
-        if let Err(error) = create_main_window(app, &route) {
+            state.route.clone()
+        };
+        let result = wait_for_main_window_destruction(app)
+            .await
+            .and_then(|()| create_main_window(app, &route));
+        if let Err(error) = result {
             if let Ok(mut state) = self.0.lock() {
                 state.restoring = false;
             }
             return Err(error);
         }
-        destroy_lightweight_host_window(app);
         if let Ok(mut state) = self.0.lock() {
             state.active = false;
             if let Some(theseus_state) = theseus::State::get_if_initialized() {
                 theseus_state.resume_background_services();
             }
         }
-        schedule_tray_menu_update(app);
+        schedule_tray_menu_update(app, TrayChange::Presentation);
         Ok(())
     }
 
@@ -203,7 +227,7 @@ impl LightweightMode {
                 "launched" => {
                     state.running_processes += 1;
                     state.running_instance_ids.insert(payload.instance_id);
-                    None
+                    false
                 }
                 "finished" => {
                     state.running_processes =
@@ -216,128 +240,71 @@ impl LightweightMode {
                             uuid: payload.uuid,
                         });
                     }
-                    let should_restore = if state.active {
-                        crashed || state.running_processes == 0
-                    } else {
-                        state.running_processes == 0
-                    };
-                    if should_restore {
-                        let was_lightweight = state.active;
-                        state.active = false;
-                        if was_lightweight {
-                            state.frontend_ready = false;
-                            state.restoring = true;
-                        }
-                        Some((state.route.clone(), was_lightweight))
-                    } else {
-                        None
-                    }
+                    state.running_processes == 0 || (state.active && crashed)
                 }
-                _ => None,
+                _ => return,
             }
         };
 
-        schedule_tray_menu_update(app);
-        match restore_window {
-            Some((route, was_lightweight)) => {
-                let app = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    let result = if was_lightweight {
-                        create_main_window(&app, &route).map(|()| {
-                            destroy_lightweight_host_window(&app);
-                        })
-                    } else {
-                        show_main_window(&app)
-                    };
-                    match result {
-                        Ok(()) => {
-                            if was_lightweight
-                                && let Ok(state) =
-                                    app.state::<LightweightMode>().0.lock()
-                            {
-                                // A concurrent enter may have re-activated
-                                // lightweight mode; only resume the gate when
-                                // it still matches a non-lightweight state.
-                                if !state.active {
-                                    if let Some(theseus_state) =
-                                        theseus::State::get_if_initialized()
-                                    {
-                                        theseus_state
-                                            .resume_background_services();
-                                    }
-                                }
-                            }
-                        }
-                        Err(error) => {
-                            if was_lightweight {
-                                // Keep the lightweight-mode invariant so the
-                                // tray can retry; the gate must stay paused to
-                                // match `active`.
-                                if let Ok(mut state) =
-                                    app.state::<LightweightMode>().0.lock()
-                                {
-                                    state.active = true;
-                                    state.restoring = false;
-                                }
-                            }
-                            tracing::error!(
-                                "Failed to restore launcher after Minecraft exited: {error}"
-                            );
-                        }
-                    }
-                });
-            }
-            None if payload.event == "launched" => {
-                let app = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    if payload.maximize_window {
-                        maximize_minecraft_window(
-                            payload.pid,
-                            payload.launch_preparation_timeout,
-                        )
-                        .await;
-                    }
-                    if let Some(title) = payload
-                        .window_title
-                        .as_ref()
-                        .map(|value| value.trim())
-                        .filter(|value| !value.is_empty())
-                    {
-                        rename_minecraft_window(
-                            payload.pid,
-                            title,
-                            payload.launch_preparation_timeout,
-                        )
-                        .await;
-                    }
-                    let settings = match theseus::settings::get().await {
-                        Ok(settings) => settings,
-                        Err(error) => {
-                            tracing::warn!(
-                                "Failed to read lightweight mode setting: {error}"
-                            );
-                            return;
-                        }
-                    };
-                    if settings.enter_lightweight_mode_on_game_launch {
-                        let state = app.state::<LightweightMode>();
-                        if let Err(error) = state.enter(&app) {
-                            tracing::warn!(
-                                "Failed to enter lightweight mode: {error}"
-                            );
-                        }
-                    } else if settings.hide_on_process_start
-                        && let Some(window) =
-                            app.get_webview_window(MAIN_WINDOW_LABEL)
-                        && let Err(error) = window.minimize()
-                    {
+        schedule_tray_menu_update(app, TrayChange::Presentation);
+        if restore_window {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) =
+                    app.state::<LightweightMode>().exit(&app).await
+                {
+                    tracing::error!(%error, "Failed to restore launcher after Minecraft exited");
+                }
+            });
+        } else if payload.event == "launched" {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if payload.maximize_window {
+                    maximize_minecraft_window(
+                        payload.pid,
+                        payload.launch_preparation_timeout,
+                    )
+                    .await;
+                }
+                if let Some(title) = payload
+                    .window_title
+                    .as_ref()
+                    .map(|value| value.trim())
+                    .filter(|value| !value.is_empty())
+                {
+                    rename_minecraft_window(
+                        payload.pid,
+                        title,
+                        payload.launch_preparation_timeout,
+                    )
+                    .await;
+                }
+                let settings = match theseus::settings::get().await {
+                    Ok(settings) => settings,
+                    Err(error) => {
                         tracing::warn!(
-                            "Failed to minimize launcher after Minecraft started: {error}"
+                            "Failed to read lightweight mode setting: {error}"
+                        );
+                        return;
+                    }
+                };
+                if settings.enter_lightweight_mode_on_game_launch {
+                    let state = app.state::<LightweightMode>();
+                    if let Err(error) = state.enter(&app).await {
+                        tracing::warn!(
+                            "Failed to enter lightweight mode: {error}"
                         );
                     }
-                });
-            }
-            None => {}
+                } else if settings.hide_on_process_start
+                    && let Some(window) =
+                        app.get_webview_window(MAIN_WINDOW_LABEL)
+                    && let Err(error) = window.minimize()
+                {
+                    tracing::warn!(
+                        "Failed to minimize launcher after Minecraft started: {error}"
+                    );
+                }
+            });
         }
     }
 
@@ -613,7 +580,7 @@ pub fn lightweight_mode_frontend_ready(
     let state = app.state::<LightweightMode>();
     state.set_route(route);
     let (pending_crashes, pending_commands) = state.mark_frontend_ready();
-    schedule_tray_menu_update(&app);
+    schedule_tray_menu_update(&app, TrayChange::Presentation);
     Ok(FrontendReadyPayload {
         pending_crashes,
         pending_commands,
@@ -640,7 +607,8 @@ pub fn lightweight_mode_enter(app: AppHandle) -> Result<(), String> {
     // waiting for a response from a window that is already being destroyed.
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        if let Err(error) = app.state::<LightweightMode>().enter_for_close(&app)
+        if let Err(error) =
+            app.state::<LightweightMode>().enter_for_close(&app).await
         {
             tracing::warn!(
                 "Failed to enter lightweight mode on close: {error}"
@@ -672,12 +640,18 @@ fn create_lightweight_host_window(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn destroy_lightweight_host_window(app: &AppHandle) {
-    if let Some(window) = app.get_window(LIGHTWEIGHT_HOST_WINDOW_LABEL)
-        && let Err(error) = window.destroy()
-    {
-        tracing::warn!("Failed to destroy lightweight host window: {error}");
-    }
+async fn wait_for_main_window_destruction(
+    app: &AppHandle,
+) -> Result<(), String> {
+    // Tauri queues Destroy on the native event loop. The old window can still
+    // occupy its label when a restore request arrives immediately afterward.
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        while app.get_window(MAIN_WINDOW_LABEL).is_some() {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .map_err(|_| "The previous launcher window has not closed yet".to_string())
 }
 
 fn create_main_window(app: &AppHandle, route: &str) -> Result<(), String> {
@@ -720,140 +694,12 @@ fn show_main_window(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn schedule_tray_menu_update(app: &AppHandle) {
-    let generation = {
-        let state = app.state::<LightweightMode>();
-        let Ok(mut state) = state.0.lock() else {
-            return;
-        };
-        state.tray_update_generation =
-            state.tray_update_generation.wrapping_add(1);
-        state.tray_update_generation
-    };
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        let (active, has_running_processes, running_instance_ids) = {
-            let state = app.state::<LightweightMode>();
-            let Ok(state) = state.0.lock() else {
-                return;
-            };
-            if state.tray_update_generation != generation {
-                return;
-            }
-            (
-                state.active,
-                state.running_processes > 0,
-                state.running_instance_ids.clone(),
-            )
-        };
-        if let Err(error) = rebuild_tray_menu(
-            &app,
-            active,
-            has_running_processes,
-            &running_instance_ids,
-        )
-        .await
-        {
-            tracing::warn!("Failed to update tray menu: {error}");
-        }
-    });
-}
-
-async fn rebuild_tray_menu(
-    app: &AppHandle,
-    active: bool,
-    has_running_processes: bool,
-    running_instance_ids: &HashSet<String>,
-) -> Result<(), String> {
-    let locale = theseus::settings::get()
-        .await
-        .map(|settings| settings.locale)
-        .unwrap_or_default();
-    let labels = tray_labels(&locale);
-    let show_launcher = MenuItem::with_id(
-        app,
-        "show-launcher",
-        labels.show_launcher,
-        true,
-        None::<&str>,
-    )
-    .map_err(|error| error.to_string())?;
-    let lightweight_mode = CheckMenuItem::with_id(
-        app,
-        "lightweight-mode",
-        labels.lightweight_mode,
-        has_running_processes,
-        active,
-        None::<&str>,
-    )
-    .map_err(|error| error.to_string())?;
-    let quit = MenuItem::with_id(app, "quit", labels.quit, true, None::<&str>)
-        .map_err(|error| error.to_string())?;
-    let first_separator = PredefinedMenuItem::separator(app)
-        .map_err(|error| error.to_string())?;
-    let second_separator = PredefinedMenuItem::separator(app)
-        .map_err(|error| error.to_string())?;
-    let instances = theseus::instance::list().await.unwrap_or_else(|error| {
-        tracing::debug!("Tray instance list is unavailable: {error}");
-        Vec::new()
-    });
-    let mut instance_items = Vec::with_capacity(instances.len());
-    for instance in instances {
-        let running = running_instance_ids.contains(&instance.instance.id);
-        instance_items.push(
-            MenuItem::with_id(
-                app,
-                format!("{LAUNCH_INSTANCE_PREFIX}{}", instance.instance.id),
-                if running {
-                    format!(
-                        "{}{}",
-                        labels.running_prefix, instance.instance.name
-                    )
-                } else {
-                    instance.instance.name.clone()
-                },
-                !running,
-                None::<&str>,
-            )
-            .map_err(|error| error.to_string())?,
-        );
-    }
-    let instance_references: Vec<&dyn IsMenuItem<_>> = instance_items
-        .iter()
-        .map(|item| item as &dyn IsMenuItem<_>)
-        .collect();
-    let launch_instances = Submenu::with_items(
-        app,
-        labels.launch_instance,
-        true,
-        &instance_references,
-    )
-    .map_err(|error| error.to_string())?;
-    let menu = Menu::with_items(
-        app,
-        &[
-            &show_launcher,
-            &first_separator,
-            &launch_instances,
-            &lightweight_mode,
-            &second_separator,
-            &quit,
-        ],
-    )
-    .map_err(|error| error.to_string())?;
-    app.tray_by_id(TRAY_ID)
-        .ok_or_else(|| "Tray icon is unavailable".to_string())?
-        .set_menu(Some(menu))
-        .map_err(|error| error.to_string())
-}
-
 fn handle_menu_event(app: &AppHandle, id: &str) {
     match id {
         "show-launcher" => {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
-                let _ = app.state::<LightweightMode>().exit(&app);
+                let _ = app.state::<LightweightMode>().exit(&app).await;
             });
         }
         "lightweight-mode" => {
@@ -861,8 +707,8 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             tauri::async_runtime::spawn(async move {
                 let state = app.state::<LightweightMode>();
                 if state.is_active() {
-                    let _ = state.exit(&app);
-                } else if let Err(error) = state.enter(&app) {
+                    let _ = state.exit(&app).await;
+                } else if let Err(error) = state.enter(&app).await {
                     tracing::debug!(
                         "Lightweight mode was not entered from tray: {error}"
                     );
@@ -923,14 +769,14 @@ pub fn init(app: &AppHandle) {
             ) {
                 let app = tray.app_handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    let _ = app.state::<LightweightMode>().exit(&app);
+                    let _ = app.state::<LightweightMode>().exit(&app).await;
                 });
             }
         })
         .build(app)
         .expect("failed to create system tray");
     let _tray = tray;
-    schedule_tray_menu_update(app);
+    tray_menu::start(app);
     let app_handle = app.clone();
     app.listen("process", move |event| {
         let Ok(payload) =
@@ -943,12 +789,14 @@ pub fn init(app: &AppHandle) {
             .process_event(&app_handle, payload);
     });
     let app_handle = app.clone();
-    app.listen("instance", move |_| {
-        schedule_tray_menu_update(&app_handle);
+    app.listen("instance", move |event| {
+        if tray_menu::changes_instance_menu(event.payload()) {
+            schedule_tray_menu_update(&app_handle, TrayChange::Instances);
+        }
     });
     let app_handle = app.clone();
     app.listen("settings", move |_| {
-        schedule_tray_menu_update(&app_handle);
+        schedule_tray_menu_update(&app_handle, TrayChange::Settings);
     });
     let app_handle = app.clone();
     app.listen("command", move |event| {
@@ -969,7 +817,26 @@ pub fn init(app: &AppHandle) {
         }
         let app = app_handle.clone();
         tauri::async_runtime::spawn(async move {
-            let _ = app.state::<LightweightMode>().exit(&app);
+            let _ = app.state::<LightweightMode>().exit(&app).await;
         });
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::keep_running_on_exit;
+
+    #[test]
+    fn implicit_exit_during_tray_mode_keeps_the_backend_alive() {
+        assert!(keep_running_on_exit(None, true, false));
+        assert!(keep_running_on_exit(None, false, true));
+        assert!(!keep_running_on_exit(None, false, false));
+    }
+
+    #[test]
+    fn explicit_quit_and_restart_can_exit_from_the_tray() {
+        for code in [0, tauri::RESTART_EXIT_CODE] {
+            assert!(!keep_running_on_exit(Some(code), true, true));
+        }
+    }
 }

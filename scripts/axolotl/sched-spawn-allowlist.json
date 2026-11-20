@@ -506,7 +506,7 @@
     {
       "file": "apps/app/src/lightweight_mode.rs",
       "form": "tauri::async_runtime::spawn",
-      "count": 10,
+      "count": 9,
       "reason": "phase-0 baseline: existing Tauri runtime spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
       "sites": [
         "handle_menu_event: tauri::async_runtime::spawn(async move {",
@@ -517,9 +517,15 @@
         "lightweight_mode_enter: tauri::async_runtime::spawn(async move {",
         "process_event: tauri::async_runtime::spawn(async move {",
         "process_event: tauri::async_runtime::spawn(async move {",
-        "schedule_lightweight_maintenance: tauri::async_runtime::spawn(async move {",
-        "schedule_tray_menu_update: tauri::async_runtime::spawn(async move {"
+        "schedule_lightweight_maintenance: tauri::async_runtime::spawn(async move {"
       ]
+    },
+    {
+      "file": "apps/app/src/lightweight_mode/tray_menu.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "One native tray worker coalesces event notifications and serializes menu updates for the application lifetime.",
+      "sites": ["start: tauri::async_runtime::spawn(async move {"]
     },
     {
       "file": "apps/app/src/main.rs",

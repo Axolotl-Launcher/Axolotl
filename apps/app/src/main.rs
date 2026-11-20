@@ -968,8 +968,9 @@ fn main() {
             // so focusing it is not enough (see #490).
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
-                let _ =
-                    app.state::<lightweight_mode::LightweightMode>().exit(&app);
+                let _ = app.state::<lightweight_mode::LightweightMode>()
+                    .exit(&app)
+                    .await;
             });
         }))
         .plugin(tauri_plugin_http::init())
@@ -1185,7 +1186,13 @@ fn main() {
                 // Steps 1–5 of the exit barrier (`exit_barrier`). Every
                 // ExitRequested starts a pass; its intent selects the cap that
                 // pass and steps 6–7 get.
-                if matches!(&event, tauri::RunEvent::ExitRequested { .. }) {
+                if let tauri::RunEvent::ExitRequested { code, api, .. } = &event {
+                    if lightweight_mode::prevent_implicit_tray_exit(app, *code) {
+                        tracing::debug!("Keeping launcher alive after an implicit tray window exit request");
+                        api.prevent_exit();
+                        return;
+                    }
+                    tracing::debug!(?code, "Launcher process exit requested");
                     let restart_requested = matches!(
                         &event,
                         tauri::RunEvent::ExitRequested {
@@ -1321,6 +1328,7 @@ fn main() {
                 }
                 // Steps 6–7 of the exit barrier.
                 if matches!(&event, tauri::RunEvent::Exit) {
+                    tracing::debug!("Finishing launcher database session on process exit");
                     exit_barrier::finish_exit(
                         || {
                             if let Some(state) = State::get_if_initialized()

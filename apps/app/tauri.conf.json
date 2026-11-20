@@ -58,6 +58,13 @@
       {
         "ext": ["mrpack"],
         "mimeType": "application/x-modrinth-modpack+zip"
+      },
+      {
+        "ext": ["litematic", "schem", "schematic"],
+        "name": "AxolotlSchematic",
+        "description": "Minecraft schematic",
+        "role": "Editor",
+        "mimeType": "application/x-axolotl-schematic"
       }
     ]
   },

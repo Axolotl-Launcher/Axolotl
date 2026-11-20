@@ -147,6 +147,7 @@ import {
 import { type DirectLinkSyncReport, get as getInstance, run } from '@/helpers/instance'
 import { type BackupOperation, cancelBackup, listBackupOperations } from '@/helpers/instance-backup'
 import { invoke } from '@/helpers/invoke'
+import { isModpackFileName } from '@/helpers/modpack-file'
 import { installNativeEditMenuBoundary } from '@/helpers/native-edit-menu'
 import { getNavShortcutEnabled } from '@/helpers/nav-shortcut-state'
 import { recordEvent } from '@/helpers/observability'
@@ -157,6 +158,7 @@ import {
     isResourceOperationError,
     resourceOperationError,
 } from '@/helpers/resource-operation-logic'
+import { requestSchematicOpen } from '@/helpers/schematic-open-request'
 import { getQuickScrollEnabled, getShowScrollTop } from '@/helpers/scroll-top-state'
 import {
     appSettingsKeys,
@@ -2495,6 +2497,17 @@ async function handleCommand(e: AppCommand | null) {
         await handlePrivilegedCommand(e)
         return
     }
+    // The workshop reads the schematic on this machine, so opening a file the
+    // operating system handed over must not depend on network status.
+    if (e.event === 'OpenSchematic') {
+        if (!e.path) return
+        // A mounted workshop takes the file directly. Pushing the same path a
+        // second time is an identical location the router skips, so a retry
+        // after a failed read would never reach the page.
+        if (requestSchematicOpen(e.path)) return
+        await router.push({ path: '/lab/schematic-preview', query: { external: e.path } })
+        return
+    }
     if (offline.value && e.event !== 'LaunchInstance') {
         await router.push('/library')
         return
@@ -2503,7 +2516,7 @@ async function handleCommand(e: AppCommand | null) {
     if (e.event === 'RunMRPack') {
         // RunMRPack should directly install a local modpack file given a path;
         // non-mrpack archives (CurseForge/MCBBS/HMCL/MultiMC zips) are format-sniffed by the backend
-        if (e.path && (e.path.endsWith('.mrpack') || e.path.endsWith('.zip'))) {
+        if (e.path && isModpackFileName(e.path)) {
             const location: CreatePackLocation = { type: 'fromFile', path: e.path }
             const preview = await install_get_modpack_preview(location).catch(handleError)
             if (preview?.unknownFile) {

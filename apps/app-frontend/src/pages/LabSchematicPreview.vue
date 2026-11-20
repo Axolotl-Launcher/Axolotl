@@ -79,6 +79,7 @@ import SchematicMaterialSwatch from '@/components/lab/schematic-preview/Schemati
 import SchematicStateCard from '@/components/lab/schematic-preview/SchematicStateCard.vue'
 import { errorText } from '@/helpers/error-text'
 import { list } from '@/helpers/instance'
+import { onSchematicOpenRequest } from '@/helpers/schematic-open-request'
 import { isSchematicFileName, isSchematicSource } from '@/helpers/schematics'
 import type { GameInstance } from '@/helpers/types.d.ts'
 import {
@@ -1605,13 +1606,58 @@ watch(showBounds, (value) => scene?.setBoundsVisible(value))
 watch(showTranslucent, (value) => scene?.setTranslucentVisible(value))
 watch(seamlessGlass, rebuildMeshes)
 
+/** Absolute path handed over by the shell when a schematic is opened from the OS. */
+function externalFilePath() {
+    const path = route.query.external
+    return typeof path === 'string' && isSchematicFileName(path) ? path : ''
+}
+
+// Reaching the workshop through the route only covers the first hand-off: a
+// second launch of the same file produces an identical location, so the page
+// also listens for hand-offs delivered directly while it is mounted.
+let stopSchematicOpenRequests: (() => void) | undefined
+
+// The route value read at mount time is a snapshot of the first hand-off. A
+// request that arrives before mounting finishes is newer, so it retires that
+// snapshot: without this the mount path would open the older file after the
+// newer one and cancel the request the user just made.
+let routeSnapshotSuperseded = false
+
+// A navigation that names a different file still has to load it, which mounting
+// cannot observe.
+watch(
+    () => route.query.external,
+    () => {
+        const path = externalFilePath()
+        const current = currentSource.value
+        if (!path || (current?.kind === 'external' && current.path === path)) return
+        routeSnapshotSuperseded = true
+        void openSource({ kind: 'external', path })
+    },
+)
+
 onMounted(async () => {
+    stopSchematicOpenRequests = onSchematicOpenRequest((path) => {
+        routeSnapshotSuperseded = true
+        void openSource({ kind: 'external', path })
+    })
     await loadInstances()
     if (disposed) return
     window.addEventListener('keydown', handleKeydown)
     document.addEventListener('fullscreenchange', onFullscreenChange)
     await setupNativeDrop().catch(() => undefined)
     if (disposed) return
+
+    const externalPath = externalFilePath()
+    if (externalPath) {
+        // A request that arrived while this function was awaiting is the file
+        // the user wants; the route still names the one the page was opened
+        // with, and loading it now would cancel the newer request.
+        if (!routeSnapshotSuperseded) {
+            await openSource({ kind: 'external', path: externalPath })
+        }
+        return
+    }
 
     if (
         isSchematicSource(route.query.source) &&
@@ -1647,6 +1693,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
     disposed = true
+    stopSchematicOpenRequests?.()
     resourceController?.abort()
     requestEpoch += 1
     resourceEpoch++

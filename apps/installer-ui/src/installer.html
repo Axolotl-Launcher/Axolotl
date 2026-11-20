@@ -1159,7 +1159,36 @@
                                                 <path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
                                             </svg>
                                         </div>
-                                        <span data-i18n="fileAssociation">Associate .mrpack modpacks</span>
+                                        <span data-i18n="fileAssociationModpack"
+                                            >Associate .mrpack modpacks</span
+                                        >
+                                    </label>
+
+                                    <label class="checkbox-label">
+                                        <input
+                                            id="schematic-file-association"
+                                            type="checkbox"
+                                            checked
+                                        />
+                                        <div class="checkbox-box">
+                                            <svg
+                                                class="check-icon"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="3"
+                                            >
+                                                <path
+                                                    d="M5 12l4 4L19 7"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                />
+                                            </svg>
+                                        </div>
+                                        <span data-i18n="fileAssociationSchematic"
+                                            >Associate .litematic, .schem and .schematic
+                                            schematics</span
+                                        >
                                     </label>
 
                                     <label class="checkbox-label">
@@ -1273,6 +1302,8 @@
                 installDir: 'C:\\Program Files\\Axolotl Launcher',
                 resourceDir: 'C:\\Users\\Admin\\AppData\\Roaming\\axolotl-launcher',
                 freshInstall: false,
+                fileAssociation: true,
+                schematicFileAssociation: true,
                 uninstall: false,
             }
             window.ipc = window.ipc || { postMessage: (msg) => console.log('IPC Mock:', msg) }
@@ -1310,7 +1341,9 @@
                     existingNotice:
                         'Your existing application directory will be preserved. You can change it later in Settings.',
                     desktopShortcut: 'Desktop shortcut',
-                    fileAssociation: 'Associate .mrpack modpacks',
+                    fileAssociationModpack: 'Associate .mrpack modpacks',
+                    fileAssociationSchematic:
+                        'Associate .litematic, .schem and .schematic schematics',
                     launchAfter: 'Launch when complete',
                     deleteAppData: 'Delete configuration and caches',
                     uninstallTitle: 'Uninstall Axolotl Launcher',
@@ -1394,7 +1427,8 @@
                     dataHint: '实例、Java、资源与缓存',
                     existingNotice: '现有应用目录会被保留，之后仍可在启动器设置中修改。',
                     desktopShortcut: '创建桌面快捷方式',
-                    fileAssociation: '关联 .mrpack 整合包文件',
+                    fileAssociationModpack: '关联 .mrpack 整合包',
+                    fileAssociationSchematic: '关联 .litematic、.schem、.schematic 投影文件',
                     launchAfter: '完成后启动',
                     deleteAppData: '删除配置与缓存',
                     uninstallTitle: '卸载 Axolotl Launcher',
@@ -1477,6 +1511,10 @@
             if ($('#package-version')) $('#package-version').textContent = boot.version
             $('#install-dir').value = boot.installDir
             $('#resource-dir').value = boot.resourceDir
+            // Start from what the installation recorded, so a user who turned
+            // associations off does not get them back by pressing Update.
+            $('#file-association').checked = boot.fileAssociation !== false
+            $('#schematic-file-association').checked = boot.schematicFileAssociation !== false
             if (boot.uninstall) {
                 document.body.classList.add('is-uninstalling')
                 $('#uninstall-directory').textContent = boot.installDir
@@ -1586,6 +1624,7 @@
                     resourceDir: $('#resource-dir').value.trim(),
                     desktopShortcut: $('#desktop-shortcut').checked,
                     fileAssociation: $('#file-association').checked,
+                    schematicFileAssociation: $('#schematic-file-association').checked,
                     launchAfter: state.launchAfter,
                 })
 

@@ -54,6 +54,11 @@ struct Bootstrap {
     install_dir: String,
     resource_dir: String,
     fresh_install: bool,
+    /// The association choices the existing installation recorded, so the
+    /// options page starts from what the user picked last time instead of
+    /// re-enabling something they turned off.
+    file_association: bool,
+    schematic_file_association: bool,
     language: Language,
     logo_data_url: String,
     uninstall: bool,
@@ -80,6 +85,8 @@ struct InstallRequest {
     desktop_shortcut: bool,
     #[serde(default = "default_file_association")]
     file_association: bool,
+    #[serde(default = "default_file_association")]
+    schematic_file_association: bool,
     launch_after: bool,
 }
 
@@ -451,12 +458,21 @@ pub fn run() -> Result<(), String> {
 }
 
 fn parse_arguments() -> Result<Arguments, String> {
-    let mut args = env::args_os().skip(1);
+    parse_arguments_from(env::args_os().skip(1))
+}
+
+fn parse_arguments_from<I>(arguments: I) -> Result<Arguments, String>
+where
+    I: IntoIterator<Item = std::ffi::OsString>,
+{
+    let mut args = arguments.into_iter();
     let mut installer = None;
     let mut version = None;
     let mut install_dir = None;
     let mut resource_dir = None;
     let mut fresh_install = true;
+    let mut file_association = true;
+    let mut schematic_file_association = true;
     let mut uninstall = false;
     let mut language = Language::En;
 
@@ -478,6 +494,10 @@ fn parse_arguments() -> Result<Arguments, String> {
                 resource_dir = Some(value.to_string_lossy().into_owned())
             }
             "--fresh-install" => fresh_install = value != "0",
+            "--file-association" => file_association = value != "0",
+            "--schematic-file-association" => {
+                schematic_file_association = value != "0";
+            }
             "--language" => {
                 language = if value == "2052" {
                     Language::ZhCn
@@ -508,6 +528,8 @@ fn parse_arguments() -> Result<Arguments, String> {
             install_dir: install_dir.unwrap_or_default(),
             resource_dir: resource_dir.unwrap_or_default(),
             fresh_install,
+            file_association,
+            schematic_file_association,
             language,
             logo_data_url: format!(
                 "data:image/png;base64,{}",
@@ -847,6 +869,14 @@ fn installer_arguments(
         }
         .to_string(),
     );
+    arguments.push(
+        if request.schematic_file_association {
+            "/SCHEMATIC_FILE_ASSOCIATION"
+        } else {
+            "/NO_SCHEMATIC_FILE_ASSOCIATION"
+        }
+        .to_string(),
+    );
     arguments
 }
 
@@ -1012,10 +1042,11 @@ mod tests {
         InstallRequest, MAIN_BINARY_NAME, UiCommand, UninstallRequest,
         dialog_initial_location, install_dir_requires_elevation,
         installer_arguments, launch_main_process, nsis_value_option,
-        remove_webview_data_directory, uninstall_result, uninstaller_arguments,
-        webview_data_directory, wide_null,
+        parse_arguments_from, remove_webview_data_directory, uninstall_result,
+        uninstaller_arguments, webview_data_directory, wide_null,
     };
     use std::{
+        ffi::OsString,
         fs,
         os::windows::fs::OpenOptionsExt,
         path::PathBuf,
@@ -1062,26 +1093,58 @@ mod tests {
 
         assert!(request.launch_after);
         assert!(request.file_association);
+        assert!(request.schematic_file_association);
+    }
+
+    #[test]
+    fn arguments_carry_the_recorded_association_choices() {
+        let installer =
+            std::env::current_exe().expect("the test binary has a path");
+        let arguments = parse_arguments_from([
+            OsString::from("--installer"),
+            installer.into_os_string(),
+            OsString::from("--fresh-install"),
+            OsString::from("0"),
+            OsString::from("--file-association"),
+            OsString::from("1"),
+            OsString::from("--schematic-file-association"),
+            OsString::from("0"),
+        ])
+        .expect("arguments should parse");
+
+        assert!(!arguments.bootstrap.fresh_install);
+        assert!(arguments.bootstrap.file_association);
+        assert!(!arguments.bootstrap.schematic_file_association);
     }
 
     #[test]
     fn installer_arguments_follow_the_file_association_choice() {
-        let request = |file_association| InstallRequest {
-            install_dir: r"C:\Axolotl".to_string(),
-            resource_dir: r"C:\AxolotlData".to_string(),
-            desktop_shortcut: true,
-            file_association,
-            launch_after: false,
-        };
+        let request =
+            |file_association, schematic_file_association| InstallRequest {
+                install_dir: r"C:\Axolotl".to_string(),
+                resource_dir: r"C:\AxolotlData".to_string(),
+                desktop_shortcut: true,
+                file_association,
+                schematic_file_association,
+                launch_after: false,
+            };
         let status = PathBuf::from(r"C:\Temp\install.status");
 
         assert!(
-            installer_arguments(&request(true), &status)
+            installer_arguments(&request(true, true), &status)
                 .contains(&"/FILE_ASSOCIATION".to_string())
         );
         assert!(
-            installer_arguments(&request(false), &status)
+            installer_arguments(&request(false, false), &status)
                 .contains(&"/NO_FILE_ASSOCIATION".to_string())
+        );
+        assert!(
+            installer_arguments(&request(true, true), &status)
+                .contains(&"/SCHEMATIC_FILE_ASSOCIATION".to_string())
+        );
+        assert!(
+            installer_arguments(&request(false, false), &status)
+                .contains(&"/NO_SCHEMATIC_FILE_ASSOCIATION".to_string())
         );
     }
 

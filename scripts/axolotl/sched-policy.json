@@ -22,7 +22,7 @@
     "Database lock diagnostics add an S8 ACTIVE registry: guards only update or clone in-memory operation metadata, never await, log or acquire another managed resource; snapshot sorting and warning output run after the guard is released.",
     "Standalone instance/favorite group FILE_ACCESS locks serialize bounded JSON writes and snapshot reads. Runtime writers acquire STORE before FILE_ACCESS; snapshots acquire FILE_ACCESS alone and never initialize or acquire STORE. Startup import uses atomic document publication before runtime writers exist. No FILE_ACCESS guard crosses an await or acquires a core/database lock."
   ],
-  "rankFingerprint": "c6bc6090b00ffc2c88488deb846e3627ab42ee42e6d1f9946ab9161989a68da8",
+  "rankFingerprint": "1a3d123419ea914c9c530098fbeedd25035c82bc8772d8a766d780a00dc90b28",
   "classes": {
     "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
     "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",

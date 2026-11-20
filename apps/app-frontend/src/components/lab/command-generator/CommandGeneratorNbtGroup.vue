@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PlusIcon, XIcon } from '@modrinth/assets'
-import { Button, Combobox, defineMessages, useVIntl } from '@modrinth/ui'
+import { Button, defineMessages, useVIntl } from '@modrinth/ui'
 import { computed } from 'vue'
 
 import effectsData from '@/lab/command-generator/data/effects.json'
@@ -10,10 +10,14 @@ import {
     type NbtGroupColumn,
     type NbtGroupRow,
     type NbtGroupSpec,
+    readGroupHeader,
     readGroupRows,
+    writeGroupHeader,
     writeGroupRows,
 } from '@/lab/command-generator/nbt/groups.ts'
 import type { NbtTagNode } from '@/lab/command-generator/nbt/model.ts'
+
+import CommandGeneratorNbtGroupCell from './CommandGeneratorNbtGroupCell.vue'
 
 const props = defineProps<{
     node: NbtTagNode
@@ -39,21 +43,18 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.nbt.group.empty',
         defaultMessage: 'No entries yet.',
     },
-    idPlaceholder: {
-        id: 'app.lab.command-generator.nbt.group.id-placeholder',
-        defaultMessage: 'minecraft:…',
-    },
 })
 
 const rows = computed(() => readGroupRows(props.node, props.spec))
+const header = computed(() =>
+    props.spec.header?.length ? readGroupHeader(props.node, props.spec) : undefined,
+)
 
-const enchantmentOptions = (
-    enchantmentsData.enchantments as Array<{
-        id: string
-        en?: string
-        zh?: string
-    }>
-).map((entry) => entry)
+const enchantmentOptions = enchantmentsData.enchantments as Array<{
+    id: string
+    en?: string
+    zh?: string
+}>
 
 const effectOptions = effectsData as Array<{ id: string; since: string }>
 
@@ -73,8 +74,23 @@ function setCell(rowIndex: number, column: NbtGroupColumn, value: string) {
     commit(next)
 }
 
+function setHeader(column: NbtGroupColumn, value: string) {
+    writeGroupHeader(props.node, props.spec, { ...header.value, [column.key]: value })
+    emit('change')
+}
+
 function addRow() {
-    commit([...rows.value, emptyGroupRow(props.spec)])
+    const next = emptyGroupRow(props.spec)
+    const slotKey = props.spec.slotKey
+    if (slotKey) {
+        // 槽位是有限集合：默认挑一个还空着的，省得用户每次都要改
+        const used = new Set(rows.value.map((row) => row[slotKey]))
+        const free = props.spec.columns
+            .find((column) => column.key === slotKey)
+            ?.enumValues?.find((value) => !used.has(value))
+        if (free) next[slotKey] = free
+    }
+    commit([...rows.value, next])
 }
 
 function removeRow(rowIndex: number) {
@@ -94,22 +110,23 @@ function datalistFor(column: NbtGroupColumn): string | undefined {
     if (column.kind === 'effect') return 'nbt-group-effects'
     return undefined
 }
-
-function booleanOptions(): Array<{ value: string; label: string }> {
-    return [
-        { value: '1', label: isChinese() ? '是' : 'Yes' },
-        { value: '0', label: isChinese() ? '否' : 'No' },
-    ]
-}
-
-function comboboxOptions(column: NbtGroupColumn): Array<{ value: string; label: string }> {
-    if (column.kind === 'boolean') return booleanOptions()
-    return (column.enumValues ?? []).map((value) => ({ value, label: value }))
-}
 </script>
 
 <template>
     <div class="flex min-w-0 flex-col gap-2">
+        <div
+            v-if="header"
+            class="flex min-w-0 flex-wrap items-end gap-2 rounded-lg bg-surface-4 p-2"
+        >
+            <CommandGeneratorNbtGroupCell
+                v-for="column in spec.header"
+                :key="column.key"
+                :column="column"
+                :model-value="header[column.key]"
+                @update:model-value="setHeader(column, $event)"
+            />
+        </div>
+
         <p
             v-if="!rows.length"
             class="m-0 rounded-lg bg-surface-4 px-3 py-2 text-xs text-[var(--color-text-tertiary)]"
@@ -122,45 +139,14 @@ function comboboxOptions(column: NbtGroupColumn): Array<{ value: string; label: 
             :key="rowIndex"
             class="flex min-w-0 flex-wrap items-center gap-2 rounded-lg bg-surface-4 p-2"
         >
-            <div
+            <CommandGeneratorNbtGroupCell
                 v-for="column in spec.columns"
                 :key="column.key"
-                class="flex min-w-0 flex-col gap-0.5"
-                :class="column.kind === 'number' ? 'w-20' : 'min-w-32 flex-1'"
-            >
-                <span class="text-[0.625rem] text-[var(--color-text-tertiary)]">{{
-                    column.zh
-                }}</span>
-
-                <Combobox
-                    v-if="column.kind === 'boolean' || column.kind === 'enum'"
-                    :model-value="row[column.key]"
-                    :options="comboboxOptions(column)"
-                    width="full"
-                    @update:model-value="setCell(rowIndex, column, String($event ?? ''))"
-                />
-                <input
-                    v-else-if="column.kind === 'number'"
-                    class="w-full rounded-md border-0 bg-surface-3 px-2 py-1 font-mono text-xs outline-none focus:ring-2 focus:ring-brand-shadow"
-                    :aria-label="column.zh"
-                    :min="column.min"
-                    :max="column.max"
-                    type="number"
-                    :value="row[column.key]"
-                    @change="setCell(rowIndex, column, ($event.target as HTMLInputElement).value)"
-                />
-                <input
-                    v-else
-                    class="w-full rounded-md border-0 bg-surface-3 px-2 py-1 font-mono text-xs outline-none focus:ring-2 focus:ring-brand-shadow"
-                    :aria-label="column.zh"
-                    :list="datalistFor(column)"
-                    :placeholder="
-                        column.kind === 'text' ? undefined : formatMessage(messages.idPlaceholder)
-                    "
-                    :value="row[column.key]"
-                    @change="setCell(rowIndex, column, ($event.target as HTMLInputElement).value)"
-                />
-            </div>
+                :column="column"
+                :datalist="datalistFor(column)"
+                :model-value="row[column.key]"
+                @update:model-value="setCell(rowIndex, column, $event)"
+            />
 
             <Button
                 v-tooltip="formatMessage(messages.removeRow)"

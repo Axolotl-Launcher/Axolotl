@@ -1,32 +1,139 @@
 /**
- * 结构化组：把「附魔」「状态效果」这类固定结构从标签树变成一行行可编辑的记录。
+ * 结构化组：把「附魔」「状态效果」「物品列表」这类固定结构从标签树变成一行行可编辑的记录。
  *
- * 落盘结构随版本变过：1.20.5 之前附魔是 `Enchantments=[{id,lvl}]`，之后是
- * `enchantments={id:等级}`。编辑器因此按节点当前的结构来读写，而不是按版本号
- * 猜——用户在原始标签里写成哪种，就在哪种上继续编辑。
+ * 结构随版本变过：1.20.5 之前附魔是 `Enchantments=[{id,lvl}]`（`lvl` 是 short），
+ * 之后是 `enchantments={id:等级}`；物品数量也从 `Count`(byte) 变成了 `count`(int)。
+ * 编辑器因此按节点当前的结构来读写，而不是按版本号猜——用户在原始标签里写成哪种，
+ * 就在哪种上继续编辑。
+ *
+ * 结构依据 Minecraft Wiki：`Data component format`（修订 3903955）、
+ * `Entity format`（修订 3865190），以及 `Template:Nbt inherit/*` 系列模板。
  */
 
-import { createNbtTag, type NbtTagNode } from './model.ts'
+import { groupColumnMessages } from './group-messages.ts'
+import { createNbtTag, type NbtTagNode, type NbtTagType } from './model.ts'
 
-export type NbtGroupColumnKind = 'enchantment' | 'effect' | 'text' | 'number' | 'boolean' | 'enum'
+export type NbtGroupColumnKind =
+    'enchantment' | 'effect' | 'text' | 'id' | 'number' | 'boolean' | 'enum' | 'int-list'
+
+/** 数字列写回时用的标签类型，默认 byte（游戏里绝大多数小整数都是 byte）。 */
+type NbtNumericType = Extract<NbtTagType, 'byte' | 'short' | 'int' | 'long' | 'float' | 'double'>
 
 export interface NbtGroupColumn {
     key: string
     kind: NbtGroupColumnKind
-    zh: string
+    /** 列名（i18n 描述符，见 `group-messages.ts`）。 */
+    label: { id: string; defaultMessage: string }
     default: string
     enumValues?: readonly string[]
     min?: number
     max?: number
-    /** 列表结构里这个字段的键名与 `key` 不同时填这里（附魔旧版叫 `lvl`）。 */
-    listKey?: string
+    /**
+     * 列表结构里这个字段的键名与 `key` 不同时的候选键名，第一个是新建时的默认。
+     * 附魔旧版叫 `lvl`，物品数量旧版叫 `Count`。
+     */
+    listKeys?: readonly string[]
+    numericType?: NbtNumericType
+    /** 值留空时整条键省略（`attribute_modifiers[].id` 这类可选键）。 */
+    omitWhenEmpty?: boolean
 }
 
 export interface NbtGroupSpec {
     id: string
-    /** 新建节点时优先用哪种结构。 */
-    shape: 'map' | 'list'
+    /**
+     * `map`：键名即 ID、值是单个数字（附魔）；
+     * `list`：复合标签的列表（状态效果、物品列表）；
+     * `slots`：键名是槽位、值是物品栈（实体装备）。
+     */
+    shape: 'map' | 'list' | 'slots'
+    /** 行放在父复合标签的哪个子键里（烟花、药水内容）。不填时行就是节点本身。 */
+    listKey?: string
+    /** `slots` 结构里记录槽位名的列。 */
+    slotKey?: string
+    /** 跟着行一起编辑的标量字段（烟花的飞行时长、药水的种类）。 */
+    header?: NbtGroupColumn[]
     columns: NbtGroupColumn[]
+}
+
+/** 实体装备槽位，见 `Entity format` 的 `equipment`。 */
+export const EQUIPMENT_SLOTS = [
+    'mainhand',
+    'offhand',
+    'head',
+    'chest',
+    'legs',
+    'feet',
+    'body',
+    'saddle',
+] as const
+
+/** 属性修饰符的生效槽位，见 `Data component format` 的 `attribute_modifiers`。 */
+export const ATTRIBUTE_SLOTS = [
+    'any',
+    'hand',
+    'armor',
+    'mainhand',
+    'offhand',
+    'head',
+    'chest',
+    'legs',
+    'feet',
+    'body',
+    'saddle',
+] as const
+
+/** 状态效果实例：`active_effects` 与药水的 `custom_effects` 结构相同。 */
+const EFFECT_COLUMNS: NbtGroupColumn[] = [
+    {
+        key: 'id',
+        kind: 'effect',
+        label: groupColumnMessages.effect,
+        default: 'minecraft:speed',
+    },
+    {
+        key: 'amplifier',
+        kind: 'number',
+        label: groupColumnMessages.amplifier,
+        default: '0',
+        min: 0,
+        max: 255,
+        numericType: 'byte',
+    },
+    {
+        key: 'duration',
+        kind: 'number',
+        label: groupColumnMessages.duration,
+        default: '200',
+        min: -1,
+        numericType: 'int',
+    },
+    { key: 'ambient', kind: 'boolean', label: groupColumnMessages.ambient, default: '0' },
+    {
+        key: 'show_particles',
+        kind: 'boolean',
+        label: groupColumnMessages.showParticles,
+        default: '1',
+    },
+    { key: 'show_icon', kind: 'boolean', label: groupColumnMessages.showIcon, default: '1' },
+]
+
+/** 物品栈里的数量列：1.20.5 之前叫 `Count` 且是 byte。 */
+const ITEM_COUNT_COLUMN: NbtGroupColumn = {
+    key: 'count',
+    kind: 'number',
+    label: groupColumnMessages.count,
+    default: '1',
+    min: 1,
+    max: 99,
+    listKeys: ['count', 'Count'],
+    numericType: 'int',
+}
+
+const ITEM_ID_COLUMN: NbtGroupColumn = {
+    key: 'id',
+    kind: 'id',
+    label: groupColumnMessages.item,
+    default: 'minecraft:stone',
 }
 
 export const NBT_GROUPS: Record<string, NbtGroupSpec> = {
@@ -34,34 +141,178 @@ export const NBT_GROUPS: Record<string, NbtGroupSpec> = {
         id: 'enchantments',
         shape: 'map',
         columns: [
-            { key: 'id', kind: 'enchantment', zh: '附魔', default: 'minecraft:sharpness' },
+            {
+                key: 'id',
+                kind: 'enchantment',
+                label: groupColumnMessages.enchantment,
+                default: 'minecraft:sharpness',
+            },
             {
                 key: 'level',
                 kind: 'number',
-                zh: '等级',
+                label: groupColumnMessages.level,
                 default: '1',
                 min: 1,
                 max: 255,
-                listKey: 'lvl',
+                listKeys: ['lvl'],
+                numericType: 'short',
             },
         ],
     },
     active_effects: {
         id: 'active_effects',
         shape: 'list',
-        columns: [
-            { key: 'id', kind: 'effect', zh: '效果', default: 'minecraft:speed' },
-            { key: 'amplifier', kind: 'number', zh: '等级', default: '0', min: 0, max: 255 },
-            { key: 'duration', kind: 'number', zh: '持续时间（刻）', default: '200', min: -1 },
-            { key: 'ambient', kind: 'boolean', zh: '信标粒子', default: '0' },
-            { key: 'show_particles', kind: 'boolean', zh: '显示粒子', default: '1' },
-            { key: 'show_icon', kind: 'boolean', zh: '显示图标', default: '1' },
-        ],
+        columns: EFFECT_COLUMNS,
     },
     lore: {
         id: 'lore',
         shape: 'list',
-        columns: [{ key: 'text', kind: 'text', zh: '一行文本', default: '' }],
+        columns: [{ key: 'text', kind: 'text', label: groupColumnMessages.text, default: '' }],
+    },
+    /** 容器里的物品列表：实体 `Items` / `Inventory`、方块实体的 `Items`。 */
+    item_list: {
+        id: 'item_list',
+        shape: 'list',
+        columns: [
+            {
+                key: 'Slot',
+                kind: 'number',
+                label: groupColumnMessages.slot,
+                default: '0',
+                min: 0,
+                max: 255,
+                numericType: 'byte',
+            },
+            ITEM_ID_COLUMN,
+            ITEM_COUNT_COLUMN,
+        ],
+    },
+    /** 实体的 `equipment`：键名是槽位，值是物品栈（1.21.5+）。 */
+    equipment: {
+        id: 'equipment',
+        shape: 'slots',
+        slotKey: 'slot',
+        columns: [
+            {
+                key: 'slot',
+                kind: 'enum',
+                label: groupColumnMessages.slot,
+                default: EQUIPMENT_SLOTS[0],
+                enumValues: EQUIPMENT_SLOTS,
+            },
+            ITEM_ID_COLUMN,
+            ITEM_COUNT_COLUMN,
+        ],
+    },
+    attribute_modifiers: {
+        id: 'attribute_modifiers',
+        shape: 'list',
+        columns: [
+            {
+                key: 'type',
+                kind: 'id',
+                label: groupColumnMessages.attribute,
+                default: 'minecraft:scale',
+            },
+            {
+                key: 'amount',
+                kind: 'number',
+                label: groupColumnMessages.amount,
+                default: '0',
+                numericType: 'double',
+            },
+            {
+                key: 'operation',
+                kind: 'enum',
+                label: groupColumnMessages.operation,
+                default: 'add_value',
+                enumValues: ['add_value', 'add_multiplied_base', 'add_multiplied_total'],
+            },
+            {
+                key: 'slot',
+                kind: 'enum',
+                label: groupColumnMessages.attributeSlot,
+                default: 'any',
+                enumValues: ATTRIBUTE_SLOTS,
+            },
+            {
+                key: 'id',
+                kind: 'id',
+                label: groupColumnMessages.modifierId,
+                default: '',
+                omitWhenEmpty: true,
+            },
+        ],
+    },
+    /** 烟花：飞行时长在父标签上，爆炸效果是一行行记录。 */
+    fireworks: {
+        id: 'fireworks',
+        shape: 'list',
+        listKey: 'explosions',
+        header: [
+            {
+                key: 'flight_duration',
+                kind: 'number',
+                label: groupColumnMessages.flightDuration,
+                default: '1',
+                min: -128,
+                max: 127,
+                numericType: 'byte',
+            },
+        ],
+        columns: [
+            {
+                key: 'shape',
+                kind: 'enum',
+                label: groupColumnMessages.shape,
+                default: 'small_ball',
+                enumValues: ['small_ball', 'large_ball', 'star', 'creeper', 'burst'],
+            },
+            { key: 'colors', kind: 'int-list', label: groupColumnMessages.colors, default: '' },
+            {
+                key: 'fade_colors',
+                kind: 'int-list',
+                label: groupColumnMessages.fadeColors,
+                default: '',
+            },
+            {
+                key: 'has_trail',
+                kind: 'boolean',
+                label: groupColumnMessages.hasTrail,
+                default: '0',
+            },
+            {
+                key: 'has_twinkle',
+                kind: 'boolean',
+                label: groupColumnMessages.hasTwinkle,
+                default: '0',
+            },
+        ],
+    },
+    /** 药水内容：种类与颜色在父标签上，自定义效果是一行行记录。 */
+    potion_contents: {
+        id: 'potion_contents',
+        shape: 'list',
+        listKey: 'custom_effects',
+        header: [
+            {
+                key: 'potion',
+                kind: 'id',
+                label: groupColumnMessages.potion,
+                default: 'minecraft:swiftness',
+                omitWhenEmpty: true,
+            },
+            {
+                key: 'custom_color',
+                kind: 'number',
+                label: groupColumnMessages.customColor,
+                default: '',
+                min: 0,
+                numericType: 'int',
+                omitWhenEmpty: true,
+            },
+        ],
+        columns: EFFECT_COLUMNS,
     },
 }
 
@@ -104,75 +355,253 @@ export function groupShapeOf(node: NbtTagNode): 'map' | 'list' | undefined {
     return undefined
 }
 
-/** 节点 → 行。结构与组不匹配时返回空数组，由调用方退回原始标签编辑。 */
+/** 按候选键名找子标签（`count` / `Count`、`level` / `lvl`）。 */
+function childField(node: NbtTagNode, column: NbtGroupColumn): NbtTagNode | undefined {
+    for (const name of column.listKeys ?? [column.key]) {
+        const found = node.children?.find((entry) => entry.name === name)
+        if (found) return found
+    }
+    return undefined
+}
+
+/** 单元格 → 文本。颜色这类整数列表读成 `255,0,0`。 */
+function readCell(column: NbtGroupColumn, field: NbtTagNode | undefined): string {
+    if (!field) return column.default
+    if (column.kind === 'int-list') {
+        if (field.type === 'list') {
+            return (field.children ?? []).map((child) => bare(child.value)).join(',')
+        }
+        return field.value
+    }
+    return bare(field.value)
+}
+
+/** 文本 → 单元格节点；`omitWhenEmpty` 的列留空时返回 `undefined`，表示不要这条键。 */
+function cellNode(
+    column: NbtGroupColumn,
+    name: string,
+    raw: string,
+    existingType?: NbtTagType,
+): NbtTagNode | undefined {
+    const text = raw.trim()
+    if (column.omitWhenEmpty && text === '') return undefined
+    if (column.kind === 'boolean') {
+        return createNbtTag(name, 'byte', text === '1' || text === 'true' ? '1' : '0')
+    }
+    if (column.kind === 'number') {
+        // 沿用节点上已有的数值类型：旧版的 `Count` 是 byte，不该被改成 int
+        const type = existingType && NUMERIC_TYPES.includes(existingType) ? existingType : undefined
+        return createNbtTag(name, type ?? column.numericType ?? 'byte', text === '' ? '0' : text)
+    }
+    if (column.kind === 'int-list') {
+        const values = text
+            .split(',')
+            .map((value) => value.trim())
+            .filter((value) => value !== '')
+        const node = createNbtTag(
+            name,
+            'list',
+            '',
+            values.map((value, index) => createNbtTag(String(index), 'int', value)),
+        )
+        node.elementType = 'int'
+        return node
+    }
+    return createNbtTag(name, 'string', raw)
+}
+
+/** 数字标签类型，用来判断已有字段能不能直接沿用。 */
+const NUMERIC_TYPES: readonly NbtTagType[] = ['byte', 'short', 'int', 'long', 'float', 'double']
+
+/**
+ * 写回时用哪个键名：优先沿用已有行里的写法（`Count` 不会悄悄变成 `count`）。
+ *
+ * `rows` 是写之前的行节点，所以要往它们的子标签里找键名，而不是看行自己的名字。
+ */
+function writeName(column: NbtGroupColumn, rows: NbtTagNode[]): string {
+    const names = column.listKeys ?? [column.key]
+    for (const name of names) {
+        if (existingFieldType(rows, name) !== undefined) return name
+    }
+    return names[0]
+}
+
+/** 已有行里同名字段的类型，用于沿用（`Count` 是 byte、`count` 是 int）。 */
+function existingFieldType(rows: NbtTagNode[], name: string): NbtTagType | undefined {
+    for (const row of rows) {
+        const found = row.children?.find((entry) => entry.name === name)
+        if (found) return found.type
+    }
+    return undefined
+}
+
+/** 行所在的容器：`listKey` 结构下是某个子标签，否则就是节点自己。 */
+function rowsNode(node: NbtTagNode, spec: NbtGroupSpec): NbtTagNode | undefined {
+    if (!spec.listKey) return node
+    return node.children?.find((child) => child.name === spec.listKey)
+}
+
+function ensureRowsNode(node: NbtTagNode, spec: NbtGroupSpec): NbtTagNode {
+    if (!spec.listKey) return node
+    node.type = 'compound'
+    node.value = ''
+    if (!node.children) node.children = []
+    let child = node.children.find((entry) => entry.name === spec.listKey)
+    if (!child) {
+        child = createNbtTag(spec.listKey, 'list', '', [])
+        child.elementType = 'compound'
+        node.children.push(child)
+    }
+    return child
+}
+
+/**
+ * 节点 → 行。结构与组不匹配时返回空数组，由调用方退回原始标签编辑。
+ *
+ * 实际形状以节点为准：附魔的定义是映射，但 1.20.5 之前是列表，两种都要能读。
+ */
 export function readGroupRows(node: NbtTagNode, spec: NbtGroupSpec): NbtGroupRow[] {
-    const shape = groupShapeOf(node)
-    if (shape === 'map') {
-        return (node.children ?? []).map((child) => {
+    const container = rowsNode(node, spec)
+    if (!container) return []
+
+    if (spec.shape === 'slots') {
+        if (container.type !== 'compound') return []
+        return (container.children ?? [])
+            .filter((child) => child.type === 'compound')
+            .map((child) => {
+                const row: NbtGroupRow = {}
+                for (const column of spec.columns) {
+                    row[column.key] =
+                        column.key === spec.slotKey
+                            ? child.name
+                            : readCell(column, childField(child, column))
+                }
+                return row
+            })
+    }
+
+    if (container.type === 'list') {
+        return (container.children ?? []).map((child) => {
+            if (spec.id === 'lore') return { text: textOf(child) }
             const row: NbtGroupRow = {}
             for (const column of spec.columns) {
-                row[column.key] = column.key === 'id' ? child.name : bare(child.value)
+                row[column.key] = readCell(column, childField(child, column))
             }
             return row
         })
     }
-    if (shape !== 'list') return []
 
-    return (node.children ?? []).map((child) => {
-        if (spec.id === 'lore') return { text: textOf(child) }
-        const row: NbtGroupRow = {}
-        for (const column of spec.columns) {
-            const field = child.children?.find(
-                (entry) => entry.name === (column.listKey ?? column.key),
-            )
-            row[column.key] = field ? bare(field.value) : column.default
-        }
-        return row
-    })
+    if (container.type === 'compound' && spec.shape === 'map') {
+        const [idColumn, ...rest] = spec.columns
+        return (container.children ?? []).map((child) => {
+            const row: NbtGroupRow = { [idColumn.key]: child.name }
+            for (const column of rest) row[column.key] = bare(child.value)
+            return row
+        })
+    }
+
+    return []
 }
 
 /** 行 → 节点。保留节点已有的结构，只有节点还空着时才用 `spec.shape`。 */
 export function writeGroupRows(node: NbtTagNode, spec: NbtGroupSpec, rows: NbtGroupRow[]) {
-    const shape = groupShapeOf(node) ?? spec.shape
+    const container = ensureRowsNode(node, spec)
+    const shape = spec.shape === 'slots' ? 'slots' : container.type === 'list' ? 'list' : spec.shape
+
+    if (shape === 'slots') {
+        const slotKey = spec.slotKey ?? spec.columns[0].key
+        container.type = 'compound'
+        container.value = ''
+        container.children = rows.map((row) => {
+            const child = createNbtTag(
+                row[slotKey]?.trim() || spec.columns[0].default,
+                'compound',
+                '',
+            )
+            child.children = spec.columns
+                .filter((column) => column.key !== slotKey)
+                .map((column) => cellNode(column, column.key, row[column.key] ?? column.default))
+                .filter((entry): entry is NbtTagNode => entry !== undefined)
+            return child
+        })
+        return
+    }
 
     if (shape === 'map') {
-        node.type = 'compound'
-        node.value = ''
-        node.children = rows.map((row) =>
+        const [idColumn, levelColumn] = spec.columns
+        container.type = 'compound'
+        container.value = ''
+        container.children = rows.map((row) =>
+            // 1.20.5+ 的附魔映射值统一是 int
             createNbtTag(
-                row.id?.trim() || spec.columns[0].default,
+                row[idColumn.key]?.trim() || idColumn.default,
                 'int',
-                row.level?.trim() || '1',
+                row[levelColumn?.key]?.trim() || levelColumn?.default || '1',
             ),
         )
         return
     }
 
-    node.type = 'list'
-    node.value = ''
+    const previous = container.children ?? []
+    container.type = 'list'
+    container.value = ''
+
     if (spec.id === 'lore') {
-        node.elementType = 'string'
-        node.children = rows.map((row, index) => textNode(String(index), row.text ?? ''))
+        container.elementType = 'string'
+        container.children = rows.map((row, index) => textNode(String(index), row.text ?? ''))
         return
     }
 
-    node.elementType = 'compound'
-    node.children = rows.map((row, index) => {
+    container.elementType = 'compound'
+    container.children = rows.map((row, index) => {
         const child = createNbtTag(String(index), 'compound', '')
-        child.children = spec.columns.map((column) => {
-            const raw = row[column.key] ?? column.default
-            const name = column.listKey ?? column.key
-            if (column.kind === 'boolean') {
-                return createNbtTag(name, 'byte', raw === '1' || raw === 'true' ? '1b' : '0b')
-            }
-            if (column.kind === 'number') {
-                // 附魔等级与状态效果等级在游戏里是 byte，持续时间是 int
-                return createNbtTag(name, column.key === 'duration' ? 'int' : 'byte', raw)
-            }
-            return createNbtTag(name, 'string', raw)
-        })
+        child.children = spec.columns
+            .map((column) => {
+                const name = writeName(column, previous)
+                return cellNode(
+                    column,
+                    name,
+                    row[column.key] ?? column.default,
+                    existingFieldType(previous, name),
+                )
+            })
+            .filter((entry): entry is NbtTagNode => entry !== undefined)
         return child
     })
+}
+
+/** 父标签上的标量字段（烟花的 `flight_duration`、药水的 `potion`）。 */
+export function readGroupHeader(node: NbtTagNode, spec: NbtGroupSpec): NbtGroupRow {
+    const row: NbtGroupRow = {}
+    for (const column of spec.header ?? []) {
+        row[column.key] = readCell(column, childField(node, column))
+    }
+    return row
+}
+
+export function writeGroupHeader(node: NbtTagNode, spec: NbtGroupSpec, row: NbtGroupRow) {
+    const header = spec.header ?? []
+    if (header.length === 0) return
+    node.type = 'compound'
+    node.value = ''
+    if (!node.children) node.children = []
+
+    for (const column of header) {
+        const names = column.listKeys ?? [column.key]
+        const index = node.children.findIndex((entry) => names.includes(entry.name))
+        const next = cellNode(
+            column,
+            index >= 0 ? node.children[index].name : names[0],
+            row[column.key] ?? column.default,
+        )
+        if (!next) {
+            if (index >= 0) node.children.splice(index, 1)
+            continue
+        }
+        if (index >= 0) node.children[index] = next
+        // 头部字段排在行容器前面，读起来和 wiki 的顺序一致
+        else node.children.unshift(next)
+    }
 }
 
 export function emptyGroupRow(spec: NbtGroupSpec): NbtGroupRow {

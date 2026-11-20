@@ -7982,14 +7982,98 @@
   "app.lab.command-generator.nbt.group.add-row": {
     "message": "添加一项"
   },
+  "app.lab.command-generator.nbt.group.color-placeholder": {
+    "message": "255,0,0"
+  },
+  "app.lab.command-generator.nbt.group.column.ambient": {
+    "message": "信标粒子"
+  },
+  "app.lab.command-generator.nbt.group.column.amount": {
+    "message": "数值"
+  },
+  "app.lab.command-generator.nbt.group.column.amplifier": {
+    "message": "倍率"
+  },
+  "app.lab.command-generator.nbt.group.column.attribute": {
+    "message": "属性"
+  },
+  "app.lab.command-generator.nbt.group.column.attribute-slot": {
+    "message": "生效槽位"
+  },
+  "app.lab.command-generator.nbt.group.column.colors": {
+    "message": "颜色"
+  },
+  "app.lab.command-generator.nbt.group.column.count": {
+    "message": "数量"
+  },
+  "app.lab.command-generator.nbt.group.column.custom-color": {
+    "message": "自定义颜色"
+  },
+  "app.lab.command-generator.nbt.group.column.duration": {
+    "message": "持续时间（刻）"
+  },
+  "app.lab.command-generator.nbt.group.column.effect": {
+    "message": "效果"
+  },
+  "app.lab.command-generator.nbt.group.column.enchantment": {
+    "message": "附魔"
+  },
+  "app.lab.command-generator.nbt.group.column.fade-colors": {
+    "message": "淡出颜色"
+  },
+  "app.lab.command-generator.nbt.group.column.flight-duration": {
+    "message": "飞行时长"
+  },
+  "app.lab.command-generator.nbt.group.column.has-trail": {
+    "message": "拖尾"
+  },
+  "app.lab.command-generator.nbt.group.column.has-twinkle": {
+    "message": "闪烁"
+  },
+  "app.lab.command-generator.nbt.group.column.item": {
+    "message": "物品"
+  },
+  "app.lab.command-generator.nbt.group.column.level": {
+    "message": "等级"
+  },
+  "app.lab.command-generator.nbt.group.column.modifier-id": {
+    "message": "标识（可选）"
+  },
+  "app.lab.command-generator.nbt.group.column.operation": {
+    "message": "运算"
+  },
+  "app.lab.command-generator.nbt.group.column.potion": {
+    "message": "药水"
+  },
+  "app.lab.command-generator.nbt.group.column.shape": {
+    "message": "形状"
+  },
+  "app.lab.command-generator.nbt.group.column.show-icon": {
+    "message": "显示图标"
+  },
+  "app.lab.command-generator.nbt.group.column.show-particles": {
+    "message": "显示粒子"
+  },
+  "app.lab.command-generator.nbt.group.column.slot": {
+    "message": "槽位"
+  },
+  "app.lab.command-generator.nbt.group.column.text": {
+    "message": "一行文本"
+  },
   "app.lab.command-generator.nbt.group.empty": {
     "message": "还没有内容。"
   },
   "app.lab.command-generator.nbt.group.id-placeholder": {
     "message": "minecraft:…"
   },
+  "app.lab.command-generator.nbt.group.no": {
+    "message": "否"
+  },
   "app.lab.command-generator.nbt.group.remove-row": {
     "message": "删除这一项"
+  },
+  "app.lab.command-generator.nbt.group.yes": {
+    "message": "是"
   },
   "app.lab.command-generator.nbt.move-down": {
     "message": "下移"

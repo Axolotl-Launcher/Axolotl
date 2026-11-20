@@ -1836,6 +1836,7 @@
       "appliesTo": {
         "ids": ["player"]
       },
+      "editor": "item_list",
       "zh": "末影箱物品",
       "desc": "Each compound tag in this list is an item in the player's 27-slot ender chest inventory."
     },
@@ -1891,6 +1892,7 @@
       "appliesTo": {
         "group": "mob"
       },
+      "editor": "equipment",
       "zh": "装备",
       "desc": "Map between equipment slot type and item stack.",
       "children": [
@@ -1960,6 +1962,7 @@
       "appliesTo": {
         "group": "spawn-data"
       },
+      "editor": "equipment",
       "zh": "装备",
       "desc": "Optional. Determines the equipment the entity will wear.",
       "children": [
@@ -2879,6 +2882,7 @@
       "appliesTo": {
         "ids": ["allay"]
       },
+      "editor": "item_list",
       "zh": "物品栏",
       "desc": "List of items the allay has picked up. This list can contain at most one compound tag. The item given by th…"
     },
@@ -2889,6 +2893,7 @@
       "appliesTo": {
         "ids": ["piglin"]
       },
+      "editor": "item_list",
       "zh": "物品栏",
       "desc": "Each compound tag in this list is an item in the piglin's inventory."
     },
@@ -2899,6 +2904,7 @@
       "appliesTo": {
         "ids": ["pillager"]
       },
+      "editor": "item_list",
       "zh": "物品栏",
       "desc": "Each compound tag in this list is an item in the pillager's inventory, up to a maximum of 5 slots."
     },
@@ -2909,6 +2915,7 @@
       "appliesTo": {
         "ids": ["player"]
       },
+      "editor": "item_list",
       "zh": "物品栏",
       "desc": "Each compound tag in this list is an item in the player's inventory."
     },
@@ -2919,6 +2926,7 @@
       "appliesTo": {
         "ids": ["villager"]
       },
+      "editor": "item_list",
       "zh": "物品栏",
       "desc": "Each compound tag in this list is an item in the villager's inventory, up to a maximum of 8 slots."
     },
@@ -2929,6 +2937,7 @@
       "appliesTo": {
         "ids": ["wandering_trader"]
       },
+      "editor": "item_list",
       "zh": "物品栏",
       "desc": "Each compound tag in this list is an item in the wandering trader's inventory, up to a maximum of 8 slots."
     },
@@ -2939,6 +2948,7 @@
       "appliesTo": {
         "ids": ["zombie_villager"]
       },
+      "editor": "item_list",
       "zh": "物品栏",
       "desc": "Each compound tag in this list is an item in the villager's inventory, up to a maximum of 8 slots."
     },
@@ -3521,6 +3531,7 @@
       "appliesTo": {
         "ids": ["donkey"]
       },
+      "editor": "item_list",
       "zh": "物品列表",
       "desc": "List of items. Exists only if ChestedHorse is true."
     },
@@ -3532,6 +3543,7 @@
       "appliesTo": {
         "ids": ["llama"]
       },
+      "editor": "item_list",
       "zh": "物品列表",
       "desc": "List of items. Exists only if ChestedHorse is true."
     },
@@ -3543,6 +3555,7 @@
       "appliesTo": {
         "ids": ["mule"]
       },
+      "editor": "item_list",
       "zh": "物品列表",
       "desc": "List of items. Exists only if ChestedHorse is true."
     },
@@ -3554,6 +3567,7 @@
       "appliesTo": {
         "ids": ["trader_llama"]
       },
+      "editor": "item_list",
       "zh": "物品列表",
       "desc": "List of items. Exists only if ChestedHorse is true."
     },
@@ -3565,6 +3579,7 @@
       "appliesTo": {
         "group": "container-entity"
       },
+      "editor": "item_list",
       "zh": "物品列表",
       "desc": "List of items."
     },

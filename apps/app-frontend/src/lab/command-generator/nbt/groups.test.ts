@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+    ATTRIBUTE_SLOTS,
     emptyGroupRow,
+    EQUIPMENT_SLOTS,
     groupShapeOf,
     groupSpec,
     NBT_GROUPS,
+    readGroupHeader,
     readGroupRows,
+    writeGroupHeader,
     writeGroupRows,
 } from './groups.ts'
 import { createNbtTag, type NbtTagNode } from './model.ts'
@@ -13,13 +17,26 @@ import { createNbtTag, type NbtTagNode } from './model.ts'
 const enchantments = NBT_GROUPS.enchantments
 const effects = NBT_GROUPS.active_effects
 const lore = NBT_GROUPS.lore
+const itemList = NBT_GROUPS.item_list
+const equipment = NBT_GROUPS.equipment
+const attributeModifiers = NBT_GROUPS.attribute_modifiers
+const fireworks = NBT_GROUPS.fireworks
+const potionContents = NBT_GROUPS.potion_contents
+
+/** 断言一组子标签的 `名字=值`，顺带固定字段顺序。 */
+function pairs(node: NbtTagNode | undefined): string[] {
+    return (node?.children ?? []).map((child) => `${child.name}=${child.value}`)
+}
 
 describe('结构化组定义', () => {
-    it('每列都有中文标签与默认值', () => {
+    it('每列都有 i18n 标签与默认值', () => {
         for (const spec of Object.values(NBT_GROUPS)) {
             expect(spec.columns.length).toBeGreaterThan(0)
-            for (const column of spec.columns) {
-                expect(column.zh.length).toBeGreaterThan(0)
+            for (const column of [...spec.columns, ...(spec.header ?? [])]) {
+                expect(
+                    column.label.id.startsWith('app.lab.command-generator.nbt.group.column.'),
+                ).toBe(true)
+                expect(column.label.defaultMessage.length).toBeGreaterThan(0)
                 expect(column.default).toBeTypeOf('string')
             }
         }
@@ -102,7 +119,8 @@ describe('状态效果组', () => {
             'show_icon',
         ])
         expect(first?.children?.find((child) => child.name === 'amplifier')?.value).toBe('1')
-        expect(first?.children?.find((child) => child.name === 'show_icon')?.value).toBe('1b')
+        // 布尔存裸值，后缀由 SNBT 序列化补，写成 `1b` 会输出 `1bb`
+        expect(first?.children?.find((child) => child.name === 'show_icon')?.value).toBe('1')
     })
 })
 
@@ -129,5 +147,180 @@ describe('结构判定', () => {
         expect(groupShapeOf(node)).toBe('map')
         writeGroupRows(node, enchantments, [emptyGroupRow(enchantments)])
         expect(node.children?.[0].name).toBe('minecraft:sharpness')
+    })
+
+    it('复合标签、列表以外的节点不算结构化', () => {
+        expect(groupShapeOf(createNbtTag('a', 'string', 'x'))).toBeUndefined()
+    })
+})
+
+describe('物品列表组', () => {
+    it('读出现代结构', () => {
+        const node = createNbtTag('Items', 'list', '', [
+            createNbtTag('0', 'compound', '', [
+                createNbtTag('Slot', 'byte', '0'),
+                createNbtTag('id', 'string', 'minecraft:diamond'),
+                createNbtTag('count', 'int', '3'),
+            ]),
+        ])
+        expect(readGroupRows(node, itemList)).toEqual([
+            { Slot: '0', id: 'minecraft:diamond', count: '3' },
+        ])
+    })
+
+    it('沿用旧版的 Count 键名与 byte 类型', () => {
+        const node = createNbtTag('Items', 'list', '', [
+            createNbtTag('0', 'compound', '', [
+                createNbtTag('Slot', 'byte', '1'),
+                createNbtTag('id', 'string', 'minecraft:stone'),
+                createNbtTag('Count', 'byte', '2'),
+            ]),
+        ])
+        expect(readGroupRows(node, itemList)[0].count).toBe('2')
+
+        writeGroupRows(node, itemList, [{ Slot: '1', id: 'minecraft:stone', count: '2' }])
+        expect(pairs(node.children?.[0])).toEqual(['Slot=1', 'id=minecraft:stone', 'Count=2'])
+        // 旧版 Count 是 byte，不能顺手改成 int
+        expect(node.children?.[0].children?.[2].type).toBe('byte')
+    })
+
+    it('新节点用现代键名', () => {
+        const node = createNbtTag('Items', 'list', '')
+        writeGroupRows(node, itemList, [emptyGroupRow(itemList)])
+        expect(pairs(node.children?.[0])).toEqual(['Slot=0', 'id=minecraft:stone', 'count=1'])
+    })
+})
+
+describe('装备组', () => {
+    it('槽位名是键，值是物品栈', () => {
+        const node = createNbtTag('equipment', 'compound', '', [
+            createNbtTag('mainhand', 'compound', '', [
+                createNbtTag('id', 'string', 'minecraft:iron_sword'),
+                createNbtTag('count', 'int', '1'),
+            ]),
+            createNbtTag('head', 'compound', '', [
+                createNbtTag('id', 'string', 'minecraft:iron_helmet'),
+            ]),
+        ])
+        expect(readGroupRows(node, equipment)).toEqual([
+            { slot: 'mainhand', id: 'minecraft:iron_sword', count: '1' },
+            { slot: 'head', id: 'minecraft:iron_helmet', count: '1' },
+        ])
+
+        writeGroupRows(node, equipment, [{ slot: 'feet', id: 'minecraft:gold_boots', count: '1' }])
+        expect(node.type).toBe('compound')
+        expect(node.children?.[0].name).toBe('feet')
+        expect(pairs(node.children?.[0])).toEqual(['id=minecraft:gold_boots', 'count=1'])
+    })
+
+    it('槽位集合与 wiki 一致', () => {
+        expect(EQUIPMENT_SLOTS).toEqual([
+            'mainhand',
+            'offhand',
+            'head',
+            'chest',
+            'legs',
+            'feet',
+            'body',
+            'saddle',
+        ])
+    })
+})
+
+describe('属性修饰符组', () => {
+    it('可选的 id 留空时不写这条键', () => {
+        const node = createNbtTag('attribute_modifiers', 'list', '')
+        writeGroupRows(node, attributeModifiers, [
+            {
+                type: 'minecraft:scale',
+                amount: '4',
+                operation: 'add_multiplied_base',
+                slot: 'hand',
+                id: '',
+            },
+        ])
+        expect(pairs(node.children?.[0])).toEqual([
+            'type=minecraft:scale',
+            'amount=4',
+            'operation=add_multiplied_base',
+            'slot=hand',
+        ])
+        expect(node.children?.[0].children?.[1].type).toBe('double')
+    })
+
+    it('写了 id 就带上', () => {
+        const node = createNbtTag('attribute_modifiers', 'list', '')
+        writeGroupRows(node, attributeModifiers, [
+            {
+                type: 'minecraft:scale',
+                amount: '2',
+                operation: 'add_value',
+                slot: 'any',
+                id: 'example:grow',
+            },
+        ])
+        expect(node.children?.[0].children?.at(-1)?.name).toBe('id')
+        expect(node.children?.[0].children?.at(-1)?.value).toBe('example:grow')
+        expect(ATTRIBUTE_SLOTS).toContain('saddle')
+    })
+})
+
+describe('烟花组', () => {
+    it('飞行时长在父标签上，爆炸效果逐行编辑', () => {
+        const node = createNbtTag('fireworks', 'compound', '')
+        writeGroupHeader(node, fireworks, { flight_duration: '2' })
+        writeGroupRows(node, fireworks, [
+            { shape: 'star', colors: '255,0,0', fade_colors: '', has_trail: '1', has_twinkle: '0' },
+        ])
+
+        expect(pairs(node)).toEqual(['flight_duration=2', 'explosions='])
+        const explosion = node.children?.[1].children?.[0]
+        expect(pairs(explosion)).toEqual([
+            'shape=star',
+            'colors=',
+            'fade_colors=',
+            'has_trail=1',
+            'has_twinkle=0',
+        ])
+        expect(explosion?.children?.[1].type).toBe('list')
+        expect(explosion?.children?.[1].elementType).toBe('int')
+
+        expect(readGroupHeader(node, fireworks)).toEqual({ flight_duration: '2' })
+        expect(readGroupRows(node, fireworks)[0]).toMatchObject({
+            shape: 'star',
+            colors: '255,0,0',
+            has_trail: '1',
+        })
+    })
+
+    it('没有 explosions 时读出空行', () => {
+        expect(readGroupRows(createNbtTag('fireworks', 'compound', ''), fireworks)).toEqual([])
+    })
+})
+
+describe('药水内容组', () => {
+    it('种类可省略，自定义效果复用状态效果的列', () => {
+        const node = createNbtTag('potion_contents', 'compound', '')
+        writeGroupHeader(node, potionContents, { potion: '', custom_color: '' })
+        writeGroupRows(node, potionContents, [
+            {
+                id: 'minecraft:poison',
+                amplifier: '0',
+                duration: '100',
+                ambient: '0',
+                show_particles: '1',
+                show_icon: '1',
+            },
+        ])
+
+        // 两个头部字段都是可选键，留空就整条省略
+        expect(node.children?.map((child) => child.name)).toEqual(['custom_effects'])
+        expect(readGroupRows(node, potionContents)[0].id).toBe('minecraft:poison')
+    })
+
+    it('写成字符串时不做结构化编辑', () => {
+        const node = createNbtTag('potion_contents', 'string', 'minecraft:swiftness')
+        expect(readGroupRows(node, potionContents)).toEqual([])
+        expect(groupShapeOf(node)).toBeUndefined()
     })
 })

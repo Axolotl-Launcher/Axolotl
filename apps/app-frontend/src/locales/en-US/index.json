@@ -7982,14 +7982,98 @@
   "app.lab.command-generator.nbt.group.add-row": {
     "message": "Add entry"
   },
+  "app.lab.command-generator.nbt.group.color-placeholder": {
+    "message": "255,0,0"
+  },
+  "app.lab.command-generator.nbt.group.column.ambient": {
+    "message": "Beacon particles"
+  },
+  "app.lab.command-generator.nbt.group.column.amount": {
+    "message": "Amount"
+  },
+  "app.lab.command-generator.nbt.group.column.amplifier": {
+    "message": "Amplifier"
+  },
+  "app.lab.command-generator.nbt.group.column.attribute": {
+    "message": "Attribute"
+  },
+  "app.lab.command-generator.nbt.group.column.attribute-slot": {
+    "message": "Applies to slot"
+  },
+  "app.lab.command-generator.nbt.group.column.colors": {
+    "message": "Colors"
+  },
+  "app.lab.command-generator.nbt.group.column.count": {
+    "message": "Count"
+  },
+  "app.lab.command-generator.nbt.group.column.custom-color": {
+    "message": "Custom color"
+  },
+  "app.lab.command-generator.nbt.group.column.duration": {
+    "message": "Duration (ticks)"
+  },
+  "app.lab.command-generator.nbt.group.column.effect": {
+    "message": "Effect"
+  },
+  "app.lab.command-generator.nbt.group.column.enchantment": {
+    "message": "Enchantment"
+  },
+  "app.lab.command-generator.nbt.group.column.fade-colors": {
+    "message": "Fade colors"
+  },
+  "app.lab.command-generator.nbt.group.column.flight-duration": {
+    "message": "Flight duration"
+  },
+  "app.lab.command-generator.nbt.group.column.has-trail": {
+    "message": "Trail"
+  },
+  "app.lab.command-generator.nbt.group.column.has-twinkle": {
+    "message": "Twinkle"
+  },
+  "app.lab.command-generator.nbt.group.column.item": {
+    "message": "Item"
+  },
+  "app.lab.command-generator.nbt.group.column.level": {
+    "message": "Level"
+  },
+  "app.lab.command-generator.nbt.group.column.modifier-id": {
+    "message": "ID (optional)"
+  },
+  "app.lab.command-generator.nbt.group.column.operation": {
+    "message": "Operation"
+  },
+  "app.lab.command-generator.nbt.group.column.potion": {
+    "message": "Potion"
+  },
+  "app.lab.command-generator.nbt.group.column.shape": {
+    "message": "Shape"
+  },
+  "app.lab.command-generator.nbt.group.column.show-icon": {
+    "message": "Show icon"
+  },
+  "app.lab.command-generator.nbt.group.column.show-particles": {
+    "message": "Show particles"
+  },
+  "app.lab.command-generator.nbt.group.column.slot": {
+    "message": "Slot"
+  },
+  "app.lab.command-generator.nbt.group.column.text": {
+    "message": "A line of text"
+  },
   "app.lab.command-generator.nbt.group.empty": {
     "message": "No entries yet."
   },
   "app.lab.command-generator.nbt.group.id-placeholder": {
     "message": "minecraft:…"
   },
+  "app.lab.command-generator.nbt.group.no": {
+    "message": "No"
+  },
   "app.lab.command-generator.nbt.group.remove-row": {
     "message": "Remove entry"
+  },
+  "app.lab.command-generator.nbt.group.yes": {
+    "message": "Yes"
   },
   "app.lab.command-generator.nbt.move-down": {
     "message": "Move down"

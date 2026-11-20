@@ -10,7 +10,7 @@ import {
 } from '@modrinth/ui'
 import { computed, ref } from 'vue'
 
-import { groupSpec } from '@/lab/command-generator/nbt/groups.ts'
+import { groupShapeOf, groupSpec } from '@/lab/command-generator/nbt/groups.ts'
 import { NBT_TYPE_SHORT } from '@/lab/command-generator/nbt/labels.ts'
 import {
     isNbtArray,
@@ -130,9 +130,15 @@ const expanded = ref(true)
 
 const container = computed(() => isNbtContainer(props.node))
 
-/** 目录里登记过结构化编辑器的标签（附魔、状态效果、描述）走表格，而不是标签树。 */
+/** 目录里登记过结构化编辑器的标签（附魔、状态效果、物品列表）走表格，而不是标签树。 */
 const spec = computed(() => groupSpec(props.node.group))
-const asGroup = computed(() => Boolean(spec.value) && !props.node.raw)
+/**
+ * 节点必须是复合标签或列表才谈得上「表格」：`potion_contents` 也可以直接写成字符串，
+ * 那种情况只能按原始标签编辑，硬套表格会把字符串改成复合标签、丢掉药水种类。
+ */
+const asGroup = computed(
+    () => Boolean(spec.value) && !props.node.raw && groupShapeOf(props.node) !== undefined,
+)
 const array = computed(() => isNbtArray(props.node))
 const booleanValue = computed(() => props.node.valueKind === 'boolean')
 
@@ -174,9 +180,9 @@ function onTypeChange(value: unknown) {
     emit('update', props.node.id, 'type', String(value) as NbtTagType)
 }
 
-/** byte 布尔在 SNBT 里就是 `1b` / `0b`，开关直接写这两个值。 */
+/** byte 布尔在 SNBT 里就是 `1b` / `0b`；节点存裸值，后缀由序列化补。 */
 function onBooleanChange(checked: boolean | undefined) {
-    emit('update', props.node.id, 'value', checked ? '1b' : '0b')
+    emit('update', props.node.id, 'value', checked ? '1' : '0')
 }
 
 const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
@@ -235,7 +241,7 @@ const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
             </span>
 
             <Button
-                v-if="spec"
+                v-if="spec && container"
                 v-tooltip="formatMessage(asGroup ? messages.editAsRaw : messages.editAsGroup)"
                 type="quiet"
                 size="sm"

@@ -103,15 +103,34 @@ test('both package variants use protected executable publication', () => {
     assert.doesNotMatch(template, /^\s*File "\$\{MAINBINARYSRCPATH\}"/m)
 })
 
-test('valid extraction replaces atomically and retains old bytes', { skip: !windows }, async () => {
+test('valid extraction retains only the latest executable backup', { skip: !windows }, async () => {
     const installer = fixture('complete')
     const target = installDirectory('complete')
+    const older = path.join(target, '.axolotl-previous-Old001.exe')
+    const oldest = path.join(target, '.axolotl-previous-Old002.exe')
+    const unrelated = path.join(target, '.axolotl-previous-manual-backup.exe')
+    const subdirectory = path.join(target, '.axolotl-previous-Sub001.exe')
+    fs.writeFileSync(older, 'older executable')
+    fs.writeFileSync(oldest, 'oldest executable')
+    fs.writeFileSync(unrelated, 'unrelated file')
+    fs.mkdirSync(subdirectory)
+    fs.writeFileSync(path.join(subdirectory, '.axolotl-previous-Old003.exe'), 'nested file')
     const old = fs.readFileSync(path.join(target, 'launcher.exe'))
     assert.equal(await completion(launch(installer, target)), 0)
     assert.deepEqual(fs.readFileSync(path.join(target, 'launcher.exe')), fs.readFileSync(helper))
-    const backup = fs.readdirSync(target).find((name) => name.startsWith('.axolotl-previous-'))
-    assert.ok(backup)
-    assert.deepEqual(fs.readFileSync(path.join(target, backup)), old)
+    const backups = fs
+        .readdirSync(target, { withFileTypes: true })
+        .filter(
+            (entry) =>
+                entry.isFile() && /^\.axolotl-previous-[0-9A-Za-z]{6}\.exe$/.test(entry.name),
+        )
+    assert.equal(backups.length, 1)
+    assert.deepEqual(fs.readFileSync(path.join(target, backups[0].name)), old)
+    assert.equal(fs.readFileSync(unrelated, 'utf8'), 'unrelated file')
+    assert.equal(
+        fs.readFileSync(path.join(subdirectory, '.axolotl-previous-Old003.exe'), 'utf8'),
+        'nested file',
+    )
 })
 
 test(
@@ -126,8 +145,11 @@ test(
         })
         const target = installDirectory('bad-hash')
         const original = fs.readFileSync(path.join(target, 'launcher.exe'))
+        const previous = path.join(target, '.axolotl-previous-Old001.exe')
+        fs.writeFileSync(previous, 'older executable')
         assert.notEqual(await completion(launch(installer, target)), 0)
         assert.deepEqual(fs.readFileSync(path.join(target, 'launcher.exe')), original)
+        assert.equal(fs.readFileSync(previous, 'utf8'), 'older executable')
     },
 )
 

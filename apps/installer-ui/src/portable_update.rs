@@ -489,8 +489,6 @@ fn recover_owned(root: &Path) -> Result<()> {
         }
     }
     fs::remove_file(marker).map_err(|error| error.to_string())?;
-    // Retain the previous resource files as well as the EXE backup. Cleanup of
-    // historical backups is deliberately separate from the activation transaction.
     Ok(())
 }
 
@@ -561,7 +559,7 @@ fn activate(root: &Path, stage: &Path, executable: &Path) -> Result<()> {
         .persist_noclobber(root.join(MARKER))
         .map_err(|error| error.to_string())?;
     checkpoint("journal");
-    let result = (|| {
+    let result = (|| -> Result<_> {
         for item in &journal.items {
             let target = root.join(&item.path);
             if item.previous.is_some() {
@@ -591,7 +589,7 @@ fn activate(root: &Path, stage: &Path, executable: &Path) -> Result<()> {
         // delete access to consume the staged path on Windows.
         let staged_main = staged_main.into_temp_path();
         checkpoint("before-main");
-        executable_install::install(
+        let previous = executable_install::install(
             &staged_main,
             executable,
             &executable_install::Executable {
@@ -600,10 +598,15 @@ fn activate(root: &Path, stage: &Path, executable: &Path) -> Result<()> {
             },
         )?;
         checkpoint("after-main");
-        Ok(())
+        Ok(previous)
     })();
     let recovery = recover_owned(root);
-    result.and(recovery)
+    let previous = result?;
+    recovery?;
+    if let Some(previous) = previous {
+        executable_install::prune_previous_executables(executable, &previous);
+    }
+    Ok(())
 }
 
 #[inline]
@@ -836,10 +839,25 @@ mod tests {
     fn activation_preserves_user_files_and_keeps_previous_program_bytes() {
         let root = installation();
         let target = root.path().join(MAIN);
+        let older_backup = root.path().join(".axolotl-previous-Old001.exe");
+        fs::write(&older_backup, pe(3)).unwrap();
         let prepared = prepare(&archive(&[]), target.clone()).unwrap();
         let _lock = ownership(root.path()).unwrap();
         activate(root.path(), prepared.stage.path(), &target).unwrap();
         assert_eq!(fs::read(&target).unwrap(), pe(2));
+        assert!(!older_backup.exists());
+        let backups = fs::read_dir(root.path())
+            .unwrap()
+            .map(|entry| entry.unwrap())
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".axolotl-previous-")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(fs::read(backups[0].path()).unwrap(), pe(1));
         assert_eq!(
             fs::read(root.path().join("resources/blockbench-skin/index.html"))
                 .unwrap(),
@@ -914,6 +932,8 @@ mod tests {
         ] {
             let root = installation();
             let target = root.path().join(MAIN);
+            let older_backup = root.path().join(".axolotl-previous-Old001.exe");
+            fs::write(&older_backup, pe(3)).unwrap();
             let prepared = prepare(&archive(&[]), target.clone()).unwrap();
             let status = Command::new(std::env::current_exe().unwrap())
                 .args(["--exact", "portable_update::tests::interrupted_activation_recovers_the_executable_resource_family", "--nocapture"])
@@ -947,6 +967,7 @@ mod tests {
                 committed
             );
             assert!(!root.path().join(MARKER).exists());
+            assert_eq!(fs::read(older_backup).unwrap(), pe(3), "{point}");
             assert_user_data(root.path());
         }
     }

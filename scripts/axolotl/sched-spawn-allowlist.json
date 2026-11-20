@@ -66,8 +66,8 @@
     {
       "file": "apps/installer-ui/src/executable_install.rs",
       "form": "std::fs import",
-      "count": 10,
-      "reason": "reviewed synchronous installer helper: headless metadata inspection, duplicated installation-ownership handle verification, same-volume staged executable verification and atomic publication before any GUI or async runtime; holds no launcher managed resources and retains NSIS directory ownership even after parent death (D17)",
+      "count": 13,
+      "reason": "reviewed synchronous installer helper: headless metadata inspection, duplicated installation-ownership handle verification, same-volume staged executable verification and atomic publication before any GUI or async runtime; prunes only older installer-named regular executable backups in the owned directory after verified replacement; holds no launcher managed resources and retains NSIS directory ownership even after parent death (D17)",
       "sites": [
         "dispatch: fs::write(",
         "inherit_ownership: let expected = fs::canonicalize(parent)",
@@ -78,6 +78,9 @@
         "install: let metadata = fs::symlink_metadata(target)",
         "install: let parent = fs::canonicalize(parent).map_err(|error| error.to_string())?;",
         "install: let stage_parent = fs::canonicalize(",
+        "prune_previous_executables: if let Err(error) = fs::remove_file(&path) {",
+        "prune_previous_executables: let entries = match fs::read_dir(parent) {",
+        "prune_previous_executables: let target = match fs::canonicalize(target) {",
         "record: if let Ok(mut file) = OpenOptions::new()"
       ]
     },

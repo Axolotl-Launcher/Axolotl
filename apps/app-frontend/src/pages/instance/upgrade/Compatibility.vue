@@ -290,6 +290,7 @@
                                         <div
                                             v-if="
                                                 requiresNoCompatibleResolution(group.item) ||
+                                                requiresIncompatibleResolution(group.item) ||
                                                 warningSupportsResolution(group)
                                             "
                                             class="flex flex-wrap gap-2"
@@ -982,6 +983,13 @@ function hasBlockingIssue(item: InstanceUpgradePlanItem, code: InstanceUpgradeIs
 function requiresNoCompatibleResolution(item: InstanceUpgradePlanItem): boolean {
     return (
         item.status === 'no_compatible_release' || hasBlockingIssue(item, 'no_compatible_release')
+    )
+}
+
+function requiresIncompatibleResolution(item: InstanceUpgradePlanItem): boolean {
+    return (
+        item.status === 'incompatible_dependency' ||
+        hasBlockingIssue(item, 'incompatible_dependency')
     )
 }
 

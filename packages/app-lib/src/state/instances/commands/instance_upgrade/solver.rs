@@ -191,6 +191,79 @@ pub(super) fn retain_best_failure(
     }
 }
 
+/// A recorded incompatibility only proves an unavoidable blocker when every
+/// candidate of both involved projects conflicts with every candidate of the
+/// other; otherwise an unexplored frontier combination could still be compatible.
+pub(super) fn incompatibility_is_candidate_invariant(
+    issue: &InstanceUpgradeIssue,
+    catalog: &UpgradeCatalog,
+    aliases: &InstalledAliasIndex,
+) -> bool {
+    let Some(provider) = issue.provider else {
+        return false;
+    };
+    let Some(project_id) = &issue.project_id else {
+        return false;
+    };
+    let Some(conflicting_project_id) = &issue.conflicting_project_id else {
+        return false;
+    };
+    let Some(conflicting_provider) = issue
+        .dependency_requirements
+        .iter()
+        .find(|requirement| {
+            requirement.dependency_project_id == *conflicting_project_id
+        })
+        .map(|requirement| requirement.dependency_provider)
+    else {
+        return false;
+    };
+    let left = NodeKey::new(provider, project_id);
+    let right = NodeKey::new(conflicting_provider, conflicting_project_id);
+    if left == right {
+        return false;
+    }
+    let Some(left_pool) = catalog.get(&left) else {
+        return false;
+    };
+    let Some(right_pool) = catalog.get(&right) else {
+        return false;
+    };
+    if left_pool.candidates.is_empty() || right_pool.candidates.is_empty() {
+        return false;
+    }
+    left_pool.candidates.iter().all(|left_candidate| {
+        right_pool.candidates.iter().all(|right_candidate| {
+            candidates_mutually_incompatible(
+                left_candidate,
+                right_candidate,
+                aliases,
+            ) || candidates_mutually_incompatible(
+                right_candidate,
+                left_candidate,
+                aliases,
+            )
+        })
+    })
+}
+
+fn candidates_mutually_incompatible(
+    candidate: &UpgradeCandidate,
+    other: &UpgradeCandidate,
+    aliases: &InstalledAliasIndex,
+) -> bool {
+    candidate.dependencies.iter().any(|dependency| {
+        dependency.kind == CandidateDependencyKind::Incompatible
+            && provider_constraint_matches_assignment(
+                &dependency.key,
+                dependency.version_id.as_deref(),
+                &other.key,
+                other,
+                aliases,
+            )
+    })
+}
+
 pub(super) struct StrategySolveOutcome {
     pub(super) solution: Option<SolverResult>,
     pub(super) issue: Option<InstanceUpgradeIssue>,
@@ -1336,7 +1409,7 @@ pub(super) fn select_upgrade_failure_issue(
                 .iter()
                 .flatten()
                 .find(|issue| {
-                    issue.code == InstanceUpgradeIssueCode::SearchLimitReached
+                    issue.code != InstanceUpgradeIssueCode::SearchLimitReached
                 })
                 .cloned()
         })
@@ -1565,6 +1638,7 @@ pub(super) fn solve_for_strategy_with_fixed_roots_and_limit(
     let mut queued = HashSet::from([initial]);
     let mut total_visited = 0;
     let mut best_failure: Option<ConflictFailure> = None;
+    let mut best_incompatibility: Option<ConflictFailure> = None;
 
     while let Some(FrontierState { selected, .. }) = frontier.pop() {
         if cancel.is_some_and(CancellationToken::is_cancelled) {
@@ -1642,10 +1716,32 @@ pub(super) fn solve_for_strategy_with_fixed_roots_and_limit(
                 visited_states: total_visited,
             };
         }
+        if let Some(concrete) = state.first_incompatibility.clone() {
+            let conflict = conflict_set_from_issue(&concrete, roots);
+            retain_best_failure(
+                &mut best_incompatibility,
+                ConflictFailure {
+                    issue: concrete,
+                    conflict,
+                },
+            );
+        }
         if state.limit_reached {
+            let issue = match best_incompatibility {
+                Some(failure)
+                    if incompatibility_is_candidate_invariant(
+                        &failure.issue,
+                        catalog,
+                        aliases,
+                    ) =>
+                {
+                    failure.issue
+                }
+                _ => search_limit_issue(true),
+            };
             return StrategySolveOutcome {
                 solution: None,
-                issue: Some(search_limit_issue(true)),
+                issue: Some(issue),
                 canceled: false,
                 #[cfg(test)]
                 visited_states: total_visited,
@@ -2544,6 +2640,11 @@ pub(super) fn record_issue(
     state: &mut SearchState,
     issue: InstanceUpgradeIssue,
 ) {
+    if issue.code == InstanceUpgradeIssueCode::IncompatibleDependency
+        && state.first_incompatibility.is_none()
+    {
+        state.first_incompatibility = Some(issue.clone());
+    }
     if state.first_issue.is_none() {
         state.first_issue = Some(issue);
     }

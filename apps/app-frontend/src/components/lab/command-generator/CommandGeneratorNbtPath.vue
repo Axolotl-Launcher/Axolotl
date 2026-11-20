@@ -2,7 +2,7 @@
 import { defineMessages, StyledInput, useVIntl } from '@modrinth/ui'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 
-import { availableFieldsFor, fieldsAtPath } from '@/lab/command-generator/nbt/catalog.ts'
+import { availableFieldsFor, childrenAtPath } from '@/lab/command-generator/nbt/catalog.ts'
 import { fieldLabel } from '@/lab/command-generator/nbt/labels.ts'
 import {
     appendPathKey,
@@ -68,7 +68,7 @@ const errors = computed(() => issues.value.filter((issue) => issue.level === 'er
 
 const completion = computed(() => pathCompletionPrefix(text.value))
 
-/** 走到第几层就列第几层的字段；断链时退回根字段。 */
+/** 走到第几层就列第几层的字段；断链时这一层没有建议，不拿根字段凑数。 */
 const candidateFields = computed<NbtFieldSpec[]>(() => {
     if (!props.domain) return []
     const { depth } = completion.value
@@ -85,14 +85,7 @@ const candidateFields = computed<NbtFieldSpec[]>(() => {
     }
     // 去掉最后一段（正在输入的那个），用剩下的去定位父级
     const parentKeys = keys.slice(0, Math.max(0, depth - 1))
-    return (
-        fieldsAtPath(props.domain, parentKeys) ??
-        availableFieldsFor({
-            domain: props.domain,
-            version: props.version ?? '1.21',
-            targetId: props.targetId,
-        })
-    )
+    return childrenAtPath(props.domain, parentKeys, props.targetId) ?? []
 })
 
 const suggestions = computed(() => {

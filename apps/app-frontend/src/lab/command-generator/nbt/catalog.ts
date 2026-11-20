@@ -10,6 +10,7 @@ import entityCatalog from '../data/nbt/entity.json' with { type: 'json' }
 import itemCatalog from '../data/nbt/item.json' with { type: 'json' }
 import {
     availableFields,
+    fieldAppliesTo,
     type NbtAppliesTo,
     type NbtCatalogFile,
     type NbtContext,
@@ -57,18 +58,29 @@ export function findFieldByPath(domain: NbtDomain, path: string): NbtFieldSpec |
 }
 
 /**
- * 路径编辑器用：给定已经走过的键名，返回这一层可选的字段。
+ * 走到某个复合标签，返回它这一层可选的子字段。
  *
- * 走到一半断了（键名不在目录里）就返回 `undefined`，由调用方决定退回什么。
+ * 按目标挑同名字段：`item` 在物品展示实体上是展示物品、在箭上是消耗掉的物品，
+ * 子字段并不相同，只看键名会拿到别的母项的结构。
+ * 这一层没有目录可用的子字段时返回 `undefined`，调用方不应该退回根字段——
+ * 根字段是母项那一层的东西，塞进子层只会误导。
  */
-export function fieldsAtPath(domain: NbtDomain, keys: string[]): NbtFieldSpec[] | undefined {
+export function childrenAtPath(
+    domain: NbtDomain,
+    keys: string[],
+    targetId?: string,
+): NbtFieldSpec[] | undefined {
     if (keys.length === 0) return fieldsFor(domain)
-    const [first, ...rest] = keys
-    let current = fieldsFor(domain).find((field) => field.key === first)
-    for (const key of rest) {
-        current = current?.children?.find((child) => child.key === key)
+    const groups = groupsFor(domain)
+    let level = fieldsFor(domain)
+    let current: NbtFieldSpec | undefined
+    for (const key of keys) {
+        current = level.find(
+            (field) =>
+                field.key === key && (!targetId || fieldAppliesTo(field, { targetId }, groups)),
+        )
+        if (!current) return undefined
+        level = current.children ?? []
     }
-    if (!current) return undefined
-    if (current.children?.length) return current.children
-    return undefined
+    return current?.children?.length ? current.children : undefined
 }

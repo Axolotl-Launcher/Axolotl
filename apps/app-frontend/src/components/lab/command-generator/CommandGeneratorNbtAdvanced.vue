@@ -4,8 +4,14 @@ import { defineMessages, useVIntl } from '@modrinth/ui'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 
 import { errorText } from '@/helpers/error-text'
+import { childrenAtPath } from '@/lab/command-generator/nbt/catalog.ts'
 import { nodeFromField } from '@/lab/command-generator/nbt/from-spec.ts'
-import { findNbtNode, moveNbtNode, removeNbtNode } from '@/lab/command-generator/nbt/model.ts'
+import {
+    findNbtNode,
+    moveNbtNode,
+    nbtKeyPathFor,
+    removeNbtNode,
+} from '@/lab/command-generator/nbt/model.ts'
 import type { NbtDomain, NbtFieldSpec } from '@/lab/command-generator/nbt/schema.ts'
 import {
     createNbtTag,
@@ -120,6 +126,25 @@ const domain = computed<NbtDomain>(
     () => props.domain ?? (props.kind === 'item' ? 'item' : 'entity'),
 )
 
+/**
+ * 面板里该列哪些字段：根层是这一域的全部字段，复合标签内部是**这个母项**的子字段。
+ *
+ * 不能退回根字段：`Items` 里面能填的是物品栈的 `id`/`count`/`Slot`，给它列实体字段
+ * 只会让人把 `Pos` 写进物品里。
+ */
+const paletteFields = computed<NbtFieldSpec[] | undefined>(() => {
+    if (paletteParentId.value === null) return undefined
+    const path = nbtKeyPathFor(nodes.value, paletteParentId.value)
+    if (!path) return []
+    return childrenAtPath(domain.value, path, props.targetId) ?? []
+})
+
+/** 面板标题里带上母项，明确「这些是它的子项」。 */
+const paletteParentKey = computed(() => {
+    if (paletteParentId.value === null) return undefined
+    return findNbtNode(nodes.value, paletteParentId.value)?.name
+})
+
 const paletteExistingKeys = computed(() => {
     const target =
         paletteParentId.value === null
@@ -216,6 +241,8 @@ function removeNodeById(list: NbtTagNode[], id: string): boolean {
             :version="version ?? '1.21'"
             :target-id="targetId"
             :existing-keys="paletteExistingKeys"
+            :fields="paletteFields"
+            :parent-key="paletteParentKey"
             @pick="onPalettePick"
             @manual="addRootNode"
         />

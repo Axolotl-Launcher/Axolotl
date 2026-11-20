@@ -136,6 +136,29 @@ export function findNbtNodePath(nodes: NbtTagNode[], id: string): number[] | und
     return undefined
 }
 
+/**
+ * 从根到目标节点的**键名**路径；列表元素不贡献键名。
+ *
+ * 目录里的路径是按键名走的（`Items[0].id` 的键名路径是 `Items.id`），
+ * 列表元素本身就是 `Items` 这一层的元素，所以往下走时不能把列表名丢掉。
+ * 找不到返回 `undefined`。
+ */
+export function nbtKeyPathFor(nodes: NbtTagNode[], id: string): string[] | undefined {
+    return keyPath(nodes, id, false)
+}
+
+/** `parentIsList`：这一层是列表元素，元素本身没有键名，不能把显示序号当成键。 */
+function keyPath(nodes: NbtTagNode[], id: string, parentIsList: boolean): string[] | undefined {
+    for (const node of nodes) {
+        const prefix = parentIsList ? [] : [node.name]
+        if (node.id === id) return prefix
+        if (!node.children) continue
+        const childPath = keyPath(node.children, id, node.type === 'list')
+        if (childPath) return [...prefix, ...childPath]
+    }
+    return undefined
+}
+
 /** 取出目标节点所在的同级数组，移动 / 排序用。 */
 export function nbtSiblings(nodes: NbtTagNode[], id: string): NbtTagNode[] | undefined {
     if (nodes.some((node) => node.id === id)) return nodes

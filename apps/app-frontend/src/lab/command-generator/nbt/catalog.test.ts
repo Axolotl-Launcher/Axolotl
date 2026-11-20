@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { availableFieldsFor, catalogFor, fieldsFor, findFieldByPath } from './catalog.ts'
+import {
+    availableFieldsFor,
+    catalogFor,
+    childrenAtPath,
+    fieldsFor,
+    findFieldByPath,
+} from './catalog.ts'
 import { groupSpec } from './groups.ts'
 import {
     CATEGORY_ORDER,
@@ -111,7 +117,8 @@ const EXPECTED_STRUCTURED_BY_DOMAIN: [NbtDomain, string[]][] = [
             'patterns',
             'bees',
             'cursors',
-            'lock',
+            // `lock` 的值是物品谓词，wiki 把它放在 `conditions/item` 模板里，
+            // 那份模板没抓进缓存；宁可空着，也不要把方块谓词的键名套上去。
             'loot_tables_to_eject',
             'spawn_data',
             'SpawnData',
@@ -233,6 +240,50 @@ describe('NBT 目录数据', () => {
                 expect(field.elementType, `${domain}:${path} 是列表但缺元素类型`).toBeDefined()
             })
         }
+    })
+
+    /**
+     * 子字段是「这个母项里面能填什么」。标量列表 / 数组没有键名可填，
+     * 给它挂 children 会让面板在 `Rotation` 里列出 `0`、`1` 这种不存在的标签。
+     */
+    it('只有元素是复合标签的列表才有子字段', () => {
+        for (const domain of DOMAINS) {
+            walk(catalogFor(domain).fields, (field, path) => {
+                if ((field.children ?? []).length === 0) return
+                if (field.type === 'compound') return
+                expect(
+                    field.type === 'list' && field.elementType === 'compound',
+                    `${domain}:${path} 是 ${field.type}，不该有子字段`,
+                ).toBe(true)
+            })
+        }
+    })
+
+    /**
+     * 同名不同义的子项必须跟着母项走：旗帜方块实体的 `patterns` 是 `{color, pattern}`，
+     * 不是物品组件那边 `banner_patterns` 用的图案定义对象（`asset_id` / `translation_key`）。
+     */
+    it.each([
+        ['block_entity', 'patterns', ['color', 'pattern']],
+        ['entity', 'stew_effects', ['id', 'duration']],
+        ['entity', 'SpawnPotentials', ['weight', 'data']],
+        ['block_entity', 'SpawnPotentials', ['weight', 'data']],
+    ] as const)('%s 的 %s 用自己母项的子项', (domain, key, expected) => {
+        const field = fieldsFor(domain).find((entry) => entry.key === key)
+        expect(field, `缺少字段 ${key}`).toBeDefined()
+        expect((field!.children ?? []).map((child) => child.key)).toEqual([...expected])
+    })
+
+    it('childrenAtPath 按母项取子字段', () => {
+        expect(childrenAtPath('block_entity', ['patterns'], 'banner')?.map((f) => f.key)).toEqual([
+            'color',
+            'pattern',
+        ])
+        // 根层给的是这一域的全部字段
+        expect(childrenAtPath('entity', [], 'zombie')?.length).toBeGreaterThan(100)
+        // 走到一半断链：不要退回根字段，否则等于把母项属性塞进子层
+        expect(childrenAtPath('entity', ['nope'])).toBeUndefined()
+        expect(childrenAtPath('entity', ['Pos', 'nope'])).toBeUndefined()
     })
 
     it('方块实体目录包含公共字段', () => {

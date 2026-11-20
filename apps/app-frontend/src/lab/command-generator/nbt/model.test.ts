@@ -10,6 +10,7 @@ import {
     isNbtArray,
     isNbtContainer,
     moveNbtNode,
+    nbtKeyPathFor,
     nbtSiblings,
     removeNbtNode,
     unquoteSnbtText,
@@ -30,6 +31,24 @@ describe('NBT 节点模型', () => {
         expect(findNbtNodePath(nodes, inner.id)).toEqual([0, 0])
         expect(findNbtNodePath(nodes, second.id)).toEqual([1])
         expect(findNbtNodePath(nodes, 'missing')).toBeUndefined()
+    })
+
+    /**
+     * 键名路径用来查目录：列表元素没有键名，`Items[0].id` 的键名路径是
+     * `Items.id`，元素的显示序号不能混进去。
+     */
+    it('键名路径跳过列表元素', () => {
+        const id = createNbtTag('id', 'string', 'stone')
+        const count = createNbtTag('count', 'int', '1')
+        const element = createNbtTag('0', 'compound', '', [id, count])
+        const items = createNbtTag('Items', 'list', '', [element])
+        items.elementType = 'compound'
+        const nodes = [items]
+
+        expect(nbtKeyPathFor(nodes, items.id)).toEqual(['Items'])
+        expect(nbtKeyPathFor(nodes, element.id)).toEqual(['Items'])
+        expect(nbtKeyPathFor(nodes, id.id)).toEqual(['Items', 'id'])
+        expect(nbtKeyPathFor(nodes, 'missing')).toBeUndefined()
     })
 
     it('在所属同级数组里移动与删除', () => {

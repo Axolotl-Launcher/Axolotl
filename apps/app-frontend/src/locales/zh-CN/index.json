@@ -8807,6 +8807,9 @@
   "app.lab.command-generator.nbt.palette.empty": {
     "message": "没有匹配的标签，可以手动添加一个。"
   },
+  "app.lab.command-generator.nbt.palette.empty-child": {
+    "message": "目录里没有记录这一层的子标签，可以手动添加一个。"
+  },
   "app.lab.command-generator.nbt.palette.manual": {
     "message": "手动添加自定义标签"
   },
@@ -8824,6 +8827,9 @@
   },
   "app.lab.command-generator.nbt.palette.title.block-entity": {
     "message": "添加方块实体标签"
+  },
+  "app.lab.command-generator.nbt.palette.title.child": {
+    "message": "向 {parent} 添加标签"
   },
   "app.lab.command-generator.nbt.palette.title.entity": {
     "message": "添加实体标签"

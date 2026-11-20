@@ -27,6 +27,8 @@ const props = defineProps<{
     existingKeys?: string[]
     /** 复合标签内部再用一次：直接给出这一层可选的子字段。 */
     fields?: NbtFieldSpec[]
+    /** 正在往哪个标签里加子项，只用于标题。 */
+    parentKey?: string
 }>()
 
 const emit = defineEmits<{
@@ -43,6 +45,10 @@ const messages = defineMessages({
     titleEntity: {
         id: 'app.lab.command-generator.nbt.palette.title.entity',
         defaultMessage: 'Add entity tag',
+    },
+    titleChild: {
+        id: 'app.lab.command-generator.nbt.palette.title.child',
+        defaultMessage: 'Add tag to {parent}',
     },
     titleItem: {
         id: 'app.lab.command-generator.nbt.palette.title.item',
@@ -71,6 +77,10 @@ const messages = defineMessages({
     empty: {
         id: 'app.lab.command-generator.nbt.palette.empty',
         defaultMessage: 'No tag matches. Add it by hand instead.',
+    },
+    emptyChild: {
+        id: 'app.lab.command-generator.nbt.palette.empty-child',
+        defaultMessage: 'The catalog documents no sub-tags here. Add one by hand.',
     },
     added: {
         id: 'app.lab.command-generator.nbt.palette.added',
@@ -138,6 +148,7 @@ const activeIndex = ref(0)
 const searchInput = useTemplateRef<InstanceType<typeof StyledInput>>('searchInput')
 
 const header = computed(() => {
+    if (props.parentKey) return formatMessage(messages.titleChild, { parent: props.parentKey })
     if (props.domain === 'item') return formatMessage(messages.titleItem)
     if (props.domain === 'block_entity') return formatMessage(messages.titleBlockEntity)
     return formatMessage(messages.titleEntity)
@@ -145,7 +156,7 @@ const header = computed(() => {
 
 const pool = computed(() => {
     // 复合标签内部：候选就是这一层的子字段，版本过滤已经在生成目录时做过
-    if (props.fields) return props.fields
+    if (props.fields !== undefined) return props.fields
     return availableFieldsFor(
         { domain: props.domain, version: props.version, targetId: props.targetId },
         { onlyApplicable: onlyApplicable.value && Boolean(props.targetId) },
@@ -168,6 +179,14 @@ const groups = computed(() => {
 
 /** 键盘上下移动时按展平后的顺序走，和视觉顺序一致。 */
 const flatResults = computed(() => groups.value.flatMap((group) => group.items))
+
+/** 子项面板里「一个子字段都没有」和「搜索没命中」是两件事，别用同一句话。 */
+const emptyText = computed(() => {
+    if (props.fields !== undefined && props.fields.length === 0) {
+        return formatMessage(messages.emptyChild)
+    }
+    return formatMessage(messages.empty)
+})
 
 const existing = computed(() => new Set(props.existingKeys ?? []))
 
@@ -300,7 +319,7 @@ defineExpose({ show, hide })
                     v-if="!flatResults.length"
                     class="px-1 py-6 text-center text-sm text-[var(--color-text-tertiary)]"
                 >
-                    {{ formatMessage(messages.empty) }}
+                    {{ emptyText }}
                 </p>
                 <section v-for="group in groups" :key="group.category" class="mb-3">
                     <h3

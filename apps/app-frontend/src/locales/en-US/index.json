@@ -8807,6 +8807,9 @@
   "app.lab.command-generator.nbt.palette.empty": {
     "message": "No tag matches. Add it by hand instead."
   },
+  "app.lab.command-generator.nbt.palette.empty-child": {
+    "message": "The catalog documents no sub-tags here. Add one by hand."
+  },
   "app.lab.command-generator.nbt.palette.manual": {
     "message": "Add a custom tag by hand"
   },
@@ -8824,6 +8827,9 @@
   },
   "app.lab.command-generator.nbt.palette.title.block-entity": {
     "message": "Add block entity tag"
+  },
+  "app.lab.command-generator.nbt.palette.title.child": {
+    "message": "Add tag to {parent}"
   },
   "app.lab.command-generator.nbt.palette.title.entity": {
     "message": "Add entity tag"

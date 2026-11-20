@@ -4953,7 +4953,7 @@
     "message": "还没有图案。添加图层即可在旗帜上绘制图案。"
   },
   "app.lab.banner-designer.layers.hint": {
-    "message": "列表自上而下对应最上层到最下层，后添加的图案会覆盖之前的图案。"
+    "message": "后添加的图案会覆盖之前的图案"
   },
   "app.lab.banner-designer.layers.limit": {
     "message": "一面旗帜最多容纳 {max} 个图案。"

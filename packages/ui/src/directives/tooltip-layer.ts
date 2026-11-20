@@ -3,6 +3,7 @@ import {
     autoUpdate,
     computePosition,
     flip,
+    hide,
     offset,
     type Placement,
     shift,
@@ -35,9 +36,13 @@ export function createTooltipLayer() {
     let hideTimer: ReturnType<typeof setTimeout> | undefined
     let removeTimer: ReturnType<typeof setTimeout> | undefined
     let revealFrame: number | undefined
+    let updateFrame: number | undefined
     let generation = 0
     let activation = 0
     let positioned = false
+    /** The owner and trigger box of the last applied position, to tell a move from a handoff. */
+    let tracked:
+        { owner: HTMLElement; left: number; top: number; width: number; height: number } | undefined
 
     function clearDescription() {
         if (!owner) return
@@ -57,6 +62,7 @@ export function createTooltipLayer() {
 
     function remove() {
         cancelExit()
+        cancelUpdate()
         if (revealFrame !== undefined) cancelAnimationFrame(revealFrame)
         revealFrame = undefined
         generation++
@@ -64,14 +70,17 @@ export function createTooltipLayer() {
         stopAutoUpdate = undefined
         clearDescription()
         owner = null
+        tracked = undefined
         positioner.remove()
         positioner.dataset.state = 'closed'
         positioner.dataset.positioned = 'false'
+        positioner.removeAttribute('data-hidden')
         positioned = false
     }
 
     function close() {
         generation++
+        cancelUpdate()
         if (revealFrame !== undefined) cancelAnimationFrame(revealFrame)
         revealFrame = undefined
         stopAutoUpdate?.()
@@ -87,6 +96,9 @@ export function createTooltipLayer() {
     async function updatePosition(trigger: HTMLElement, placement: Placement) {
         if (owner !== trigger) return
         const request = ++generation
+        // Read the trigger's own box before awaiting: `computePosition` resolves a
+        // frame later, and the movement test below has to compare like with like.
+        const box = trigger.getBoundingClientRect()
         const result = await computePosition(trigger, positioner, {
             placement,
             strategy: 'fixed',
@@ -95,6 +107,9 @@ export function createTooltipLayer() {
                 flip({ padding: 8 }),
                 shift({ padding: 8 }),
                 arrow({ element: arrowElement, padding: 7 }),
+                // `referenceHidden` measures the trigger against its own clipping
+                // ancestors, which is the scroll container it lives in.
+                hide(),
             ],
         })
         if (
@@ -105,11 +120,39 @@ export function createTooltipLayer() {
         )
             return
 
-        if (positioned) {
-            const box = positioner.getBoundingClientRect()
-            const safeX = Math.max(8, Math.min(box.left, innerWidth - box.width - 8))
-            const safeY = Math.max(8, Math.min(box.top, innerHeight - box.height - 8))
-            if (Math.abs(safeX - box.left) > 1 || Math.abs(safeY - box.top) > 1) {
+        // A surface follows a trigger that moved or resized under it -- by a scroll,
+        // a layout change, or a sub-pixel step -- exactly; only a handoff between
+        // grouped triggers is animated. Animating a follow would leave the tooltip
+        // trailing its trigger for the length of the transition, which reads as
+        // drift -- and, once the trigger nears an edge, as a tooltip outside the
+        // dialog it belongs to. The comparison is deliberately tight: a trigger that
+        // moved by a fraction of a pixel still moved, and a resize moves its anchor
+        // even when its top-left stays put.
+        const tracking =
+            tracked?.owner === trigger &&
+            (Math.abs(box.left - tracked.left) > 0.01 ||
+                Math.abs(box.top - tracked.top) > 0.01 ||
+                Math.abs(box.width - tracked.width) > 0.01 ||
+                Math.abs(box.height - tracked.height) > 0.01)
+        tracked = {
+            owner: trigger,
+            left: box.left,
+            top: box.top,
+            width: box.width,
+            height: box.height,
+        }
+        positioner.dataset.motion = tracking ? 'track' : 'move'
+
+        // A handoff animates from wherever the surface currently sits, and the new
+        // content can be far wider than the old one. If that starting point is now
+        // outside the viewport, snap it inside first so the glide never begins off
+        // screen. A tracking update needs none of this: it lands exactly, and the
+        // middleware already keeps its target inside the viewport.
+        if (!tracking && positioned) {
+            const current = positioner.getBoundingClientRect()
+            const safeX = Math.max(8, Math.min(current.left, innerWidth - current.width - 8))
+            const safeY = Math.max(8, Math.min(current.top, innerHeight - current.height - 8))
+            if (Math.abs(safeX - current.left) > 1 || Math.abs(safeY - current.top) > 1) {
                 positioner.dataset.positioned = 'false'
                 positioner.style.transform = `translate(${safeX}px, ${safeY}px)`
                 positioner.getBoundingClientRect()
@@ -117,6 +160,12 @@ export function createTooltipLayer() {
             }
         }
         positioner.style.transform = `translate(${Math.round(result.x)}px, ${Math.round(result.y)}px)`
+        // A trigger scrolled out of its container keeps a stale anchor. The
+        // surface must not be left floating where the trigger used to be.
+        positioner.toggleAttribute(
+            'data-hidden',
+            result.middlewareData.hide?.referenceHidden === true,
+        )
         const side = result.placement.split('-')[0] as 'top' | 'bottom' | 'left' | 'right'
         arrowElement.dataset.side = side
         const horizontal = side === 'top' || side === 'bottom'
@@ -150,6 +199,33 @@ export function createTooltipLayer() {
         }
     }
 
+    /**
+     * Coalesces every source `autoUpdate` reports -- scroll, resize, element
+     * resize, layout shift -- into one measurement per frame. A picker with
+     * hundreds of triggers fires several of them for a single scroll, and each
+     * one re-reads layout for a position that is already out of date.
+     *
+     * The first measurement of a fresh surface has nothing to coalesce with and
+     * is what makes the surface visible, so it runs immediately.
+     */
+    function scheduleUpdate(trigger: HTMLElement, placement: Placement) {
+        if (!positioned) {
+            void updatePosition(trigger, placement)
+            return
+        }
+        if (updateFrame !== undefined) return
+        updateFrame = requestAnimationFrame(() => {
+            updateFrame = undefined
+            void updatePosition(trigger, placement)
+        })
+    }
+
+    function cancelUpdate() {
+        if (updateFrame === undefined) return
+        cancelAnimationFrame(updateFrame)
+        updateFrame = undefined
+    }
+
     return {
         beginActivation: () => ++activation,
         isCurrentActivation: (request: number) => request === activation,
@@ -158,6 +234,12 @@ export function createTooltipLayer() {
         isVisible: () => positioner.isConnected,
         show(trigger: HTMLElement, resolved: Content, placement: Placement) {
             cancelExit()
+            // A frame queued for the previous owner would swallow this one's first
+            // measurement, so drop it before arming autoUpdate.
+            cancelUpdate()
+            // The content and placement below are new, so a measurement still in
+            // flight describes the old ones. Drop it rather than let it land.
+            generation++
             stopAutoUpdate?.()
             clearDescription()
             owner = trigger
@@ -175,10 +257,8 @@ export function createTooltipLayer() {
             )
             ids.add(popper.id)
             trigger.setAttribute('aria-describedby', [...ids].join(' '))
-            stopAutoUpdate = autoUpdate(
-                trigger,
-                positioner,
-                () => void updatePosition(trigger, placement),
+            stopAutoUpdate = autoUpdate(trigger, positioner, () =>
+                scheduleUpdate(trigger, placement),
             )
         },
         leave(trigger: HTMLElement, immediate = false) {

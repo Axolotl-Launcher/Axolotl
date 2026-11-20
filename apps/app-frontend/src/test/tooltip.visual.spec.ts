@@ -81,6 +81,35 @@ function mountGroup() {
 const enter = (trigger: HTMLElement) => trigger.dispatchEvent(new MouseEvent('mouseenter'))
 const leave = (trigger: HTMLElement) => trigger.dispatchEvent(new MouseEvent('mouseleave'))
 
+/**
+ * A trigger inside a scroll container, the shape every large picker uses: the
+ * banner designer's pattern list, the command generator's item grid, the recipe
+ * palette. The trigger sits far enough down the content to scroll a long way and
+ * stay visible at both ends.
+ */
+function mountScrollingTrigger(value: ReturnType<typeof ref<unknown>>) {
+    const scroller = document.createElement('div')
+    scroller.style.cssText =
+        'position:fixed;top:120px;left:120px;width:220px;height:300px;overflow-y:auto'
+    const content = document.createElement('div')
+    content.style.cssText = 'position:relative;height:1200px'
+    scroller.append(content)
+    document.body.append(scroller)
+    cleanup.push(() => scroller.remove())
+
+    const item = mountTrigger(value, {}, content)
+    item.trigger.style.cssText = 'position:absolute;top:200px;left:20px;width:80px;height:32px'
+    return { scroller, content, ...item }
+}
+
+/** Resolves after `count` rendered frames, so a transition has had time to show. */
+const nextFrames = (count: number) =>
+    new Promise<void>((resolve) => {
+        const step = (left: number) =>
+            left === 0 ? resolve() : requestAnimationFrame(() => step(left - 1))
+        step(count)
+    })
+
 it('does not let an older pending hover replace a newer focused target in the group', async () => {
     const { items } = mountGroup()
     enter(items[0].trigger)
@@ -135,6 +164,115 @@ it('delays first hover, then moves the same surface immediately to the latest gr
     await waitFor(() => positioner.dataset.state === 'closed')
     expect(positioner.isConnected).toBe(true)
     await waitFor(() => !positioner.isConnected)
+})
+
+it('lands a scrolled surface on its trigger instead of animating towards it', async () => {
+    applyTheme('dark')
+    const { scroller, trigger } = mountScrollingTrigger(ref<unknown>('Scrolls with its trigger'))
+
+    trigger.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    await waitFor(() => (popper() as HTMLElement).parentElement!.style.transform !== '', {
+        label: 'positioning to settle',
+    })
+    const positioner = popper()!.parentElement as HTMLElement
+    // The guard below is meaningless if the environment runs without transitions.
+    expect(getComputedStyle(positioner).transitionDuration).toBe('0.18s')
+    const settled = popper()!.getBoundingClientRect().bottom
+
+    scroller.scrollTop = 160
+    await nextFrames(3)
+
+    const surface = popper()!.getBoundingClientRect()
+    const triggerBox = trigger.getBoundingClientRect()
+    expect(surface.bottom, 'the surface must follow the scroll').toBeLessThan(settled - 100)
+    // A surface that animated its way to the new position would still be partway
+    // there after three frames: that lag is what read as drift while scrolling.
+    expect(Math.abs(surface.bottom - (triggerBox.top - 5))).toBeLessThanOrEqual(1)
+})
+
+it('hides the surface while its trigger is scrolled out of its container', async () => {
+    applyTheme('dark')
+    const { scroller, trigger } = mountScrollingTrigger(ref<unknown>('Scrolled away'))
+
+    trigger.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    const positioner = popper()!.parentElement as HTMLElement
+    expect(getComputedStyle(positioner).visibility).toBe('visible')
+
+    scroller.scrollTop = 400
+    await waitFor(() => getComputedStyle(positioner).visibility === 'hidden', {
+        label: 'the surface to hide with its clipped trigger',
+    })
+
+    scroller.scrollTop = 160
+    await waitFor(() => getComputedStyle(positioner).visibility === 'visible', {
+        label: 'the surface to return with its trigger',
+    })
+})
+
+it('keeps a handed-off surface hidden until the new owner has been measured', async () => {
+    applyTheme('dark')
+    const group = document.createElement('div')
+    group.dataset.tooltipGroup = 'handoff'
+    group.style.cssText = 'position:fixed;top:120px;left:120px;width:220px;height:400px'
+    const scroller = document.createElement('div')
+    scroller.style.cssText = 'height:200px;overflow-y:auto'
+    const content = document.createElement('div')
+    content.style.cssText = 'position:relative;height:900px'
+    scroller.append(content)
+    group.append(scroller)
+    document.body.append(group)
+    cleanup.push(() => group.remove())
+
+    const clipped = mountTrigger(ref<unknown>('Clipped away'), {}, content)
+    clipped.trigger.style.cssText = 'position:absolute;top:40px;left:20px;width:80px;height:32px'
+    const visible = mountTrigger(ref<unknown>('Visible again'), {}, group)
+    visible.trigger.style.cssText = 'position:absolute;top:240px;left:20px;width:80px;height:32px'
+
+    clipped.trigger.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    const positioner = popper()!.parentElement as HTMLElement
+
+    scroller.scrollTop = 300
+    await waitFor(() => positioner.hasAttribute('data-hidden'), {
+        label: 'the clipped trigger to hide its surface',
+    })
+
+    visible.trigger.focus()
+    expect(
+        positioner.hasAttribute('data-hidden'),
+        'the surface must not reappear at the clipped trigger before it is measured',
+    ).toBe(true)
+    await waitFor(() => !positioner.hasAttribute('data-hidden'), {
+        label: 'the measured handoff to reveal the surface',
+    })
+})
+
+it('lands on a resized trigger instead of animating towards it', async () => {
+    applyTheme('dark')
+    const { trigger } = mountTrigger(ref<unknown>('Grows with its label'))
+    trigger.style.cssText = 'position:absolute;top:200px;left:200px;width:80px;height:32px'
+
+    trigger.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    await waitFor(() => (popper() as HTMLElement).parentElement!.style.transform !== '', {
+        label: 'positioning to settle',
+    })
+    const positioner = popper()!.parentElement as HTMLElement
+    expect(getComputedStyle(positioner).transitionDuration).toBe('0.18s')
+
+    // The anchor keeps its top-left and grows, so only its centre moves.
+    trigger.style.width = '200px'
+    await nextFrames(4)
+
+    const surface = popper()!.getBoundingClientRect()
+    const anchor = trigger.getBoundingClientRect()
+    // The centre moved 60px; a surface still animating towards it would be tens of
+    // pixels away after four frames.
+    expect(
+        Math.abs(surface.left + surface.width / 2 - (anchor.left + anchor.width / 2)),
+    ).toBeLessThanOrEqual(1)
 })
 
 it('transfers descriptions on keyboard focus without deleting existing descriptions', async () => {

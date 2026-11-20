@@ -7,11 +7,7 @@ use super::types::{
     CanonicalServer, LocalServer, ProjectionEntry, ProjectionOwner,
     ServerRecord, ServerSource,
 };
-use crate::state::instances::adapters::sqlite::instance_servers::LocalServerRow;
-use crate::state::instances::adapters::sqlite::projection_entries::ProjectionEntryRow;
-use crate::state::instances::adapters::sqlite::{
-    instance_servers, projection_entries,
-};
+use crate::state::store::Atom;
 use crate::state::store::Collection as _;
 use crate::state::store::atom;
 use crate::state::store::instance_sync_checkpoints::{
@@ -22,8 +18,11 @@ use crate::state::store::synced_server_state::{
     Singleton as ServerStateSingleton, SyncedServerState,
 };
 use crate::state::store::synced_servers::{SyncedServerRecord, SyncedServers};
+use crate::state::sync_state::servers::{
+    LocalKey, LocalRecord, LocalServers, ProjectionKey, ProjectionRecord,
+    Projections,
+};
 use crate::{ErrorKind, State};
-use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -42,18 +41,50 @@ async fn canonical_initialized(state: &State) -> crate::Result<bool> {
 pub(super) async fn read_canonical(
     state: &State,
 ) -> crate::Result<Vec<CanonicalServer>> {
-    let (count, bytes) = SyncedServers::stored_size(&state.data).await?;
-    validate_size(count, bytes)?;
-    SyncedServers::get_all(&state.data)
-        .await?
+    let mut unit = atom(&state.data).await?;
+    let rows = SyncedServers::atom_get_all(&mut unit).await?;
+    validate_size(
+        rows.len(),
+        rows.iter().map(|(_, record)| record.nbt.len()).sum(),
+    )?;
+    let transaction = unit.sync().await?;
+    let Some(native) = transaction.head.native.get("servers") else {
+        if rows.is_empty() {
+            unit.commit().await?;
+            return Ok(Vec::new());
+        }
+        return Err(ErrorKind::FSError(
+            "Shared server native source missing".into(),
+        )
+        .into());
+    };
+    let bytes = crate::state::sync_state::manifest::read_native_ref(
+        &transaction.root,
+        native,
+    )
+    .await?;
+    let bodies = super::codec::servers_from_bytes(bytes)?;
+    if bodies.len() != rows.len() {
+        return Err(ErrorKind::FSError(
+            "Shared server identity/native count mismatch".into(),
+        )
+        .into());
+    }
+    let result = rows
         .into_iter()
-        .map(|(id, record)| {
-            Ok(CanonicalServer {
-                id,
-                data: nbt_from_bytes(record.nbt)?,
-            })
+        .zip(bodies)
+        .map(|((id, record), data)| {
+            if nbt_from_bytes(record.nbt)? != data {
+                return Err(ErrorKind::FSError(
+                    "Shared server native identity mismatch".into(),
+                )
+                .into());
+            }
+            Ok(CanonicalServer { id, data })
         })
-        .collect::<crate::Result<Vec<_>>>()
+        .collect::<crate::Result<Vec<_>>>()?;
+    unit.commit().await?;
+    Ok(result)
 }
 
 /// Reads canonical servers and instance overrides.
@@ -87,8 +118,8 @@ pub(super) async fn commit_captured_servers(
     state: &State,
 ) -> crate::Result<bool> {
     let changed =
-        write_canonical_rows(canonical, Some(instance_id), state).await?;
-    write_local(instance_id, local, state).await?;
+        write_canonical_rows(canonical, Some((instance_id, local)), state)
+            .await?;
     Ok(changed)
 }
 
@@ -114,7 +145,7 @@ async fn write_server_state(
 /// the pending checkpoint its projection waits on, in the same unit.
 async fn write_canonical_rows(
     servers: &[CanonicalServer],
-    checkpoint_for: Option<&str>,
+    checkpoint_for: Option<(&str, &[LocalServer])>,
     state: &State,
 ) -> crate::Result<bool> {
     validate_size(servers.len(), 0)?;
@@ -148,7 +179,8 @@ async fn write_canonical_rows(
     }
     if unchanged {
         SyncedServerState::ensure_in(&mut unit).await?;
-        if let Some(instance_id) = checkpoint_for {
+        if let Some((instance_id, local)) = checkpoint_for {
+            write_local_rows(&mut unit, instance_id, local).await?;
             write_pending_checkpoint(&mut unit, instance_id, "").await?;
         }
         unit.commit().await?;
@@ -183,7 +215,8 @@ async fn write_canonical_rows(
         .await?;
     }
     SyncedServerState::bump_in(&mut unit).await?;
-    if let Some(instance_id) = checkpoint_for {
+    if let Some((instance_id, local)) = checkpoint_for {
+        write_local_rows(&mut unit, instance_id, local).await?;
         write_pending_checkpoint(&mut unit, instance_id, "").await?;
     }
     unit.commit().await?;
@@ -201,27 +234,22 @@ pub(super) async fn load_local(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<Vec<LocalServer>> {
-    let (count, bytes) =
-        instance_servers::get_local_server_size(instance_id, &state.pool)
-            .await?;
-    validate_size(count, bytes)?;
-    instance_servers::get_local_servers(instance_id, &state.pool)
-        .await?
-        .into_iter()
-        .map(|row| {
+    let rows =
+        LocalServers::get_scoped(&state.data, &instance_id.to_owned()).await?;
+    validate_size(
+        rows.len(),
+        rows.iter().map(|(_, record)| record.nbt.len()).sum(),
+    )?;
+    rows.into_iter()
+        .map(|(key, record)| {
             Ok(LocalServer {
-                id: row.id,
-                source: ServerSource::from_str(&row.source).ok_or_else(
-                    || {
-                        ErrorKind::InputError(format!(
-                            "Unknown server source {}",
-                            row.source
-                        ))
-                    },
+                id: key.id,
+                source: ServerSource::from_str(&record.source).ok_or_else(
+                    || ErrorKind::InputError("Unknown server source".into()),
                 )?,
-                excluded_synced_server_id: row.excluded_synced_server_id,
-                data: nbt_from_bytes(row.nbt)?,
-                position: row.position,
+                excluded_synced_server_id: record.excluded_synced_server_id,
+                data: nbt_from_bytes(record.nbt)?,
+                position: record.position,
             })
         })
         .collect()
@@ -232,60 +260,60 @@ pub(super) async fn write_local(
     servers: &[LocalServer],
     state: &State,
 ) -> crate::Result<()> {
-    let mut tx = state.pool.begin().await?;
-    write_local_rows(&mut tx, instance_id, servers).await?;
-    tx.commit().await?;
-    Ok(())
+    let mut unit = atom(&state.data).await?;
+    write_local_rows(&mut unit, instance_id, servers).await?;
+    unit.commit().await
 }
 
 pub(super) async fn write_local_rows(
-    tx: &mut Transaction<'_, Sqlite>,
+    tx: &mut Atom,
     instance_id: &str,
     servers: &[LocalServer],
 ) -> crate::Result<()> {
     validate_size(servers.len(), 0)?;
     let mut bytes = 0;
-    let mut rows = Vec::with_capacity(servers.len());
+    let mut rows = Vec::new();
     for server in servers {
         let nbt = nbt_to_bytes(&server.data)?;
         bytes += nbt.len();
         validate_size(servers.len(), bytes)?;
-        rows.push(LocalServerRow {
-            id: server.id.clone(),
-            source: server.source.as_str().to_string(),
-            excluded_synced_server_id: server.excluded_synced_server_id.clone(),
-            nbt,
-            position: server.position,
-        });
+        rows.push((
+            LocalKey {
+                instance_id: instance_id.into(),
+                id: server.id.clone(),
+            },
+            LocalRecord {
+                source: server.source.as_str().into(),
+                excluded_synced_server_id: server
+                    .excluded_synced_server_id
+                    .clone(),
+                nbt,
+                position: server.position,
+            },
+        ));
     }
-    instance_servers::replace_local_servers(tx, instance_id, &rows).await?;
-    Ok(())
+    LocalServers::atom_set_scoped(tx, &instance_id.to_owned(), &rows).await
 }
 
 pub(super) async fn load_projection_entries(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<Vec<ProjectionEntry>> {
-    let (count, bytes) =
-        projection_entries::get_projection_size(instance_id, &state.pool)
-            .await?;
-    validate_size(count, bytes)?;
-    projection_entries::get_projection_entries(instance_id, &state.pool)
-        .await?
-        .into_iter()
-        .map(|row| {
+    let rows =
+        Projections::get_scoped(&state.data, &instance_id.to_owned()).await?;
+    validate_size(
+        rows.len(),
+        rows.iter().map(|(_, record)| record.nbt.len()).sum(),
+    )?;
+    rows.into_iter()
+        .map(|(key, record)| {
             Ok(ProjectionEntry {
-                id: row.server_id,
-                owner: ProjectionOwner::from_str(&row.owner).ok_or_else(
-                    || {
-                        ErrorKind::InputError(format!(
-                            "Unknown server projection owner {}",
-                            row.owner
-                        ))
-                    },
+                id: key.server_id,
+                owner: ProjectionOwner::from_str(&key.owner).ok_or_else(
+                    || ErrorKind::InputError("Unknown projection owner".into()),
                 )?,
-                data: nbt_from_bytes(row.nbt)?,
-                position: row.position,
+                data: nbt_from_bytes(record.nbt)?,
+                position: record.position,
             })
         })
         .collect()
@@ -297,7 +325,7 @@ pub(super) async fn begin_server_checkpoint(
     expected_sha1: &str,
     source_revision: i64,
     state: &State,
-) -> crate::Result<()> {
+) -> crate::Result<super::super::synced_options::CheckpointProof> {
     validate_size(servers.len(), 0)?;
     let mut bytes = 0;
     let mut entries = Vec::with_capacity(servers.len());
@@ -311,12 +339,17 @@ pub(super) async fn begin_server_checkpoint(
         let nbt = nbt_to_bytes(&server.data)?;
         bytes += nbt.len();
         validate_size(servers.len(), bytes)?;
-        entries.push(ProjectionEntryRow {
-            owner: owner.to_string(),
-            server_id: server.id.clone(),
-            nbt,
-            position: position as i64,
-        });
+        entries.push((
+            ProjectionKey {
+                instance_id: instance_id.into(),
+                owner: owner.into(),
+                server_id: server.id.clone(),
+            },
+            ProjectionRecord {
+                nbt,
+                position: position as i64,
+            },
+        ));
     }
     let mut unit = atom(&state.data).await?;
     let revision =
@@ -337,12 +370,13 @@ pub(super) async fn begin_server_checkpoint(
         link_mode: None,
     };
     InstanceSyncCheckpoints::atom_set(&mut unit, &key, Some(&record)).await?;
-    unit.commit().await?;
-    let mut tx = state.pool.begin().await?;
-    projection_entries::replace_projection(&mut tx, instance_id, &entries)
+    Projections::atom_set_scoped(&mut unit, &instance_id.to_owned(), &entries)
         .await?;
-    tx.commit().await?;
-    Ok(())
+    unit.commit().await?;
+    Ok(super::super::synced_options::CheckpointProof::new(
+        expected_sha1,
+        revision,
+    ))
 }
 
 pub(super) fn generated_path(state: &State, instance_id: &str) -> PathBuf {

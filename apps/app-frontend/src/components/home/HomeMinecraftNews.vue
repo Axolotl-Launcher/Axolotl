@@ -27,10 +27,6 @@ const messages = defineMessages({
     openArticle: { id: 'app.home.news.open-article', defaultMessage: 'Read on minecraft.net' },
     errorTitle: { id: 'app.home.news.error-title', defaultMessage: "Couldn't load the news" },
     emptyTitle: { id: 'app.home.news.empty-title', defaultMessage: 'No news right now' },
-    offlineTitle: {
-        id: 'app.home.news.offline-title',
-        defaultMessage: 'News shows up when you are online',
-    },
     openSite: { id: 'app.home.news.open-site', defaultMessage: 'Open minecraft.net' },
 })
 
@@ -59,24 +55,17 @@ const newsItems = computed(() =>
         title: decodeHtmlEntities(item.title),
     })),
 )
-const loading = computed(() => !offline.value && newsQuery.isPending.value)
+const loading = computed(() => newsQuery.isPending.value)
 const featured = computed(() => newsItems.value[0] ?? null)
 const rest = computed(() => newsItems.value.slice(1))
 
-/**
- * The card stays when there is nothing to show, and says why: offline, a
- * failed request (with a retry), or simply no articles.
- */
 const emptyState = computed(() => {
     if (loading.value || newsItems.value.length > 0) return null
-    if (offline.value) return 'offline'
     if (newsQuery.isError.value) return 'error'
     return 'empty'
 })
 const emptyText = computed(() => {
     switch (emptyState.value) {
-        case 'offline':
-            return formatMessage(messages.offlineTitle)
         case 'error':
             return formatMessage(messages.errorTitle)
         case 'empty':
@@ -116,6 +105,7 @@ async function openArticle(item: MinecraftNewsItem) {
 
 <template>
     <HomeWidgetFrame
+        v-if="!offline"
         class="home-news"
         variant="sidebar"
         :title="formatMessage(messages.news)"

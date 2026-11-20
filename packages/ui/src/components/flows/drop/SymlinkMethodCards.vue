@@ -5,6 +5,7 @@
         :closable="true"
         :close-on-click-outside="true"
         :on-hide="onModalHide"
+        :aria-label="formatMessage(messages.title)"
         hide-header
         scrollable
     >

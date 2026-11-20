@@ -189,7 +189,7 @@ pub(crate) async fn apply_mojang_auth_source(
     Ok(applied)
 }
 /// Gets entire settings
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get() -> crate::Result<Settings> {
     let state = State::get().await?;
     let settings = Settings::get(&state.data).await?;
@@ -532,7 +532,7 @@ pub async fn import(
     imported
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_privacy() -> crate::Result<PrivacySettings> {
     let state = State::get().await?;
     let settings = Settings::get(&state.data).await?;
@@ -543,7 +543,7 @@ pub async fn get_privacy() -> crate::Result<PrivacySettings> {
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn set_privacy(
     privacy: PrivacySettings,
 ) -> crate::Result<PrivacySettings> {
@@ -568,7 +568,7 @@ pub async fn set_privacy(
     get_privacy().await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn set_telemetry(enabled: bool) -> crate::Result<PrivacySettings> {
     let _guard = SETTINGS_WRITE.lock().await;
     let state = State::get().await?;
@@ -583,7 +583,7 @@ pub async fn set_telemetry(enabled: bool) -> crate::Result<PrivacySettings> {
     get_privacy().await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn set_discord_rpc(enabled: bool) -> crate::Result<PrivacySettings> {
     let _guard = SETTINGS_WRITE.lock().await;
     let state = State::get().await?;
@@ -598,7 +598,7 @@ pub async fn set_discord_rpc(enabled: bool) -> crate::Result<PrivacySettings> {
     get_privacy().await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn cancel_directory_change(
     app_identifier: &str,
 ) -> crate::Result<()> {

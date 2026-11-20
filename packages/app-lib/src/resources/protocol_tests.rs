@@ -23,6 +23,306 @@ fn project_protocol(id: &str) -> Value {
 }
 
 #[tokio::test]
+async fn installed_modrinth_recovery_requires_canonical_project_and_exact_bytes()
+ {
+    let transport = FixtureTransport::new(|_, request| {
+        let release: Value = serde_json::from_str(fixtures::MR_IRIS).unwrap();
+        match request.path.as_str() {
+            "/project/legacy-iris" => {
+                let mut project = project_protocol("YL57xq9U");
+                project["slug"] = json!("legacy-iris");
+                Ok(project)
+            }
+            "/versions" => Ok(json!([release])),
+            "/version_files" => Ok(json!({
+                "574992b5760f3bf2f9aa0b70984f19fb1952b748": release,
+            })),
+            _ => panic!("unexpected endpoint: {}", request.path),
+        }
+    });
+    let (_temp, cache) = cache().await;
+    let service = ResourceService::new(
+        cache.clone(),
+        vec![Arc::new(ModrinthProvider::new(transport.clone()))],
+    )
+    .unwrap();
+    let mut local = LocalArtifactIdentity {
+        integrity: ArtifactIntegrity {
+            size: Some(2684113),
+            hashes: vec![ContentHash {
+                algorithm: HashAlgorithm::Sha1,
+                value: "574992b5760f3bf2f9aa0b70984f19fb1952b748".into(),
+            }],
+        },
+        fingerprint: None,
+    };
+    let cancel = CancellationToken::new();
+    let legacy = |project, release| {
+        let refs = [crate::state::ContentProviderRef::from_database(
+            "modrinth",
+            project,
+            Some(release),
+            None,
+        )
+        .unwrap()];
+        installed::legacy_modrinth_identity(&service, None, &refs, None)
+            .unwrap()
+    };
+    let slug = legacy("legacy-iris", "G5dd9TM4");
+    let fingerprint = legacy("YL57xq9U", "legacy-version");
+    for recorded in [&slug, &fingerprint] {
+        let recovered = recorded
+            .verify(&service, &local, CachePolicy::UseFresh, &cancel)
+            .await
+            .unwrap();
+        assert_eq!(
+            recovered.reference.release.project.project_id.as_str(),
+            "YL57xq9U"
+        );
+        assert_eq!(recovered.reference.release.release_id.as_str(), "G5dd9TM4");
+    }
+    assert!(
+        legacy("Other001", "legacy-version")
+            .verify(&service, &local, CachePolicy::UseFresh, &cancel)
+            .await
+            .is_err()
+    );
+    assert!(
+        legacy("legacy-iris", "legacy-version")
+            .verify(&service, &local, CachePolicy::UseFresh, &cancel)
+            .await
+            .is_err()
+    );
+    let refs = ["legacy-iris", "Other001"].map(|project| {
+        crate::state::ContentProviderRef::from_database(
+            "modrinth",
+            project,
+            Some("G5dd9TM4"),
+            None,
+        )
+        .unwrap()
+    });
+    let ambiguous =
+        installed::legacy_modrinth_identity(&service, None, &refs, None)
+            .unwrap();
+    assert!(
+        ambiguous
+            .verify(&service, &local, CachePolicy::UseFresh, &cancel)
+            .await
+            .is_err()
+    );
+    local.integrity.size = Some(1);
+    assert!(
+        slug.verify(&service, &local, CachePolicy::UseFresh, &cancel)
+            .await
+            .is_err()
+    );
+    let queried = service
+        .query(
+            &SourceId::modrinth(),
+            ProviderQuery::Project {
+                id: SourceProjectId::new("legacy-iris").unwrap(),
+                slug: None,
+            },
+            CachePolicy::UseFresh,
+            &cancel,
+        )
+        .await;
+    assert!(matches!(queried, Err(ResourceError::InvalidRequest(_))));
+    cache.close().await;
+}
+
+#[tokio::test]
+async fn legacy_payload_isolated_in_installed_checks_and_live_refresh() {
+    let (_temp, state, original, mut artifact, root) =
+        execution::tests::fixture().await;
+    artifact.reference.release.project.project_id =
+        SourceProjectId::new("unproven-slug").unwrap();
+    sqlx::query("UPDATE instance_content_provider_refs SET provider_project_id = 'unproven-slug' WHERE content_entry_id = ?")
+        .bind(original.entry_id.as_str()).execute(&state.pool).await.unwrap();
+    sqlx::query("INSERT INTO instance_content_provider_refs(content_entry_id,provider,provider_project_id,provider_release_id,is_origin) VALUES (?,'modrinth','Other001','current0',0)")
+        .bind(original.entry_id.as_str()).execute(&state.pool).await.unwrap();
+    let saved_refs = content_entries::get_content_provider_refs_with_origin(
+        original.entry_id.as_str(),
+        &state.pool,
+    )
+    .await
+    .unwrap();
+    sqlx::query("UPDATE resource_installed_artifacts SET artifact = ? WHERE entry_id = ?")
+        .bind(serde_json::to_string(&artifact).unwrap()).bind(original.entry_id.as_str())
+        .execute(&state.pool).await.unwrap();
+    let healthy_path = "resourcepacks/healthy.zip";
+    let bytes = b"healthy installed bytes";
+    std::fs::write(root.join(healthy_path), bytes).unwrap();
+    let hash = sha1_smol::Sha1::from(bytes).hexdigest();
+    sqlx::query("INSERT INTO instance_files(id,instance_id,relative_path,file_name,enabled,sha1,size,missing,added_at,modified_at) VALUES ('healthy','instance',?,'healthy.zip',1,?,?,0,1,1)")
+        .bind(healthy_path).bind(&hash).bind(bytes.len() as i64).execute(&state.pool).await.unwrap();
+    sqlx::query("INSERT INTO instance_content_entries(id,instance_id,content_set_id,file_id,project_type,source_kind,server_requirement,client_requirement,enabled,added_at,modified_at) VALUES ('healthy','instance','set','healthy','resourcepack','local','optional','optional',1,1,1)")
+        .execute(&state.pool).await.unwrap();
+    let mut current: Value = serde_json::from_str(fixtures::MR_IRIS).unwrap();
+    current["project_id"] = json!("healthy0");
+    current["id"] = json!("current0");
+    current["version_number"] = json!("1.0.0");
+    current["loaders"] = json!(["minecraft"]);
+    current["files"][0]["hashes"] = json!({"sha1": hash});
+    current["files"][0]["size"] = json!(bytes.len());
+    current["files"][0]["filename"] = json!("healthy.zip");
+    let healthy = providers::legacy::release(current.clone()).unwrap().release;
+    sqlx::query("INSERT INTO resource_installed_artifacts(entry_id, artifact, scope) VALUES ('healthy', ?, '{\"kind\":\"instance\"}')")
+        .bind(serde_json::to_string(&healthy.artifacts[0]).unwrap()).execute(&state.pool).await.unwrap();
+    let mut next = current.clone();
+    next["id"] = json!("newest00");
+    next["version_number"] = json!("2.0.0");
+    next["date_published"] = json!("2025-01-01T00:00:00Z");
+    next["files"][0]["hashes"] = json!({"sha1": "b".repeat(40)});
+    let transport =
+        FixtureTransport::new(move |_, request| match request.path.as_str() {
+            "/version_files" => Ok(json!({})),
+            "/version_files/update" => Ok(json!({ (hash.as_str()): next })),
+            "/versions" => Ok(json!([current])),
+            "/projects" => {
+                let mut project = project_protocol("healthy0");
+                project["project_type"] = json!("resourcepack");
+                project["team"] = Value::Null;
+                Ok(json!([project]))
+            }
+            _ => panic!("unexpected endpoint: {}", request.path),
+        });
+    let (_cache_dir, cache) = cache().await;
+    let service = ResourceService::with_store(
+        cache.clone(),
+        vec![Arc::new(ModrinthProvider::new(transport))],
+        crate::state::resources::ResourceStore::new(state.pool.clone()),
+    )
+    .unwrap();
+    state.set_resource_service_for_test(service.clone());
+    let cancel = CancellationToken::new();
+    let mut snapshot =
+        crate::state::instances::commands::get_local_content_snapshot(
+            "instance", &state,
+        )
+        .await
+        .unwrap();
+    for item in &mut snapshot.items {
+        item.artifact_ref = None;
+        item.resource_id = None;
+    }
+    installed::attach_compatibility(
+        &state.pool,
+        "instance",
+        "1.20.1",
+        "fabric",
+        &mut snapshot.items,
+        None,
+    )
+    .await
+    .unwrap();
+    assert!(snapshot.items.iter().any(|item| {
+        item.expected_relative_path == healthy_path
+            && item.artifact_ref.as_ref()
+                == Some(&healthy.artifacts[0].reference)
+    }));
+    assert!(snapshot.items.iter().any(|item| {
+        item.expected_relative_path == original.relative_path
+            && item.artifact_ref.is_none()
+    }));
+    let ids = [
+        original.entry_id.clone(),
+        InstalledEntryId::new("healthy").unwrap(),
+    ];
+    let hydrated = installed::hydrate_update_batch_with_service(
+        &state, "instance", &cancel, &ids, &service,
+    )
+    .await
+    .unwrap();
+    assert_eq!(hydrated.entries.len(), 2);
+    assert!(hydrated.entries.iter().any(|entry| {
+        entry.entry_id == original.entry_id && entry.artifact.is_none()
+    }));
+    assert!(hydrated.entries.iter().any(|entry| {
+        entry.entry_id == ids[1]
+            && entry.artifact.as_ref() == Some(&healthy.artifacts[0].reference)
+    }));
+    assert_eq!(hydrated.failures.len(), 1);
+    assert_eq!(hydrated.failures[0].0, original.entry_id);
+    assert!(hydrated.failures[0].1.starts_with(&original.relative_path));
+
+    state
+        .content_refresh
+        .start(
+            state.clone(),
+            "instance".into(),
+            refresh::RefreshMode::ForceRemote,
+        )
+        .await
+        .unwrap();
+    let refreshed =
+        tokio::time::timeout(std::time::Duration::from_secs(15), async {
+            loop {
+                let snapshot = state
+                    .content_refresh
+                    .state(&state, "instance")
+                    .await
+                    .unwrap();
+                if snapshot.task.as_ref().is_some_and(|task| !task.running) {
+                    break snapshot;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+    let warning = refreshed
+        .snapshot
+        .warnings
+        .iter()
+        .find(|warning| warning.code == "resource_update_unavailable")
+        .unwrap();
+    assert_eq!(
+        warning.entry_id.as_deref(),
+        Some(original.entry_id.as_str())
+    );
+    assert!(warning.message.starts_with(&original.relative_path));
+    assert!(
+        refreshed.snapshot.items.iter().any(|item| {
+            item.expected_relative_path == healthy_path
+                && item.resource_update.as_ref().is_some_and(|release| {
+                    release.release_id.as_str() == "newest00"
+                })
+        }),
+        "warnings: {:?}",
+        refreshed.snapshot.warnings
+    );
+    let stored: String = sqlx::query_scalar(
+        "SELECT artifact FROM resource_installed_artifacts WHERE entry_id = ?",
+    )
+    .bind(original.entry_id.as_str())
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        serde_json::from_str::<ResourceArtifact>(&stored).unwrap(),
+        artifact
+    );
+    assert_eq!(
+        content_entries::get_content_provider_refs_with_origin(
+            original.entry_id.as_str(),
+            &state.pool
+        )
+        .await
+        .unwrap(),
+        saved_refs,
+    );
+    assert_eq!(
+        std::fs::read(root.join(&original.relative_path)).unwrap(),
+        b"old bytes"
+    );
+    state.content_refresh.shutdown().await;
+    cache.close().await;
+    state.pool.close().await;
+}
+
+#[tokio::test]
 async fn project_projection_accepts_nullable_fields_and_redacted_links_online_and_from_cache()
  {
     let transport =
@@ -675,9 +975,13 @@ async fn imported_pack_member_persists_exact_artifact_and_identity_after_cache_c
         release_id: document.release.reference.release_id.clone(),
         slug: None,
     };
-    let key =
-        CacheKey::new("modrinth-v2-dates".into(), SourceId::modrinth(), &query)
-            .unwrap();
+    let source = SourceId::modrinth();
+    let key = CacheKey::new(
+        service.source_namespace(&source).unwrap(),
+        source,
+        &query.cache_identity(),
+    )
+    .unwrap();
     service
         .cache()
         .put(
@@ -728,7 +1032,7 @@ async fn imported_pack_member_persists_exact_artifact_and_identity_after_cache_c
         serde_json::from_str::<ResourceArtifact>(&saved).unwrap(),
         *artifact
     );
-    let links: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM resource_entry_links WHERE entry_id = ? AND source = 'modrinth' AND project_id = 'YL57xq9U'").bind(&entries[0].id).fetch_one(&pool).await.unwrap();
+    let links: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instance_content_provider_refs WHERE content_entry_id = ? AND provider = 'modrinth' AND provider_project_id = 'YL57xq9U'").bind(&entries[0].id).fetch_one(&pool).await.unwrap();
     assert_eq!(links, 1);
     let members = pack_members::get_pack_members("set", &pool).await.unwrap();
     assert_eq!(members.len(), 1);

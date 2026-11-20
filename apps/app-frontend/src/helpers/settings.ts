@@ -4,9 +4,9 @@
  *  and deserialized into a usable JS object.
  */
 import { queryOptions } from '@tanstack/vue-query'
-import { invoke } from '@tauri-apps/api/core'
 
 import type { HomeDashboardConfig } from '@/components/home/home-dashboard'
+import { invoke } from '@/helpers/invoke'
 import type { Hooks, MemorySettings } from '@/helpers/types'
 import type { AccentColorSetting, ColorTheme, FeatureFlag, HomeLayout } from '@/store/theme.ts'
 import { DEFAULT_FEATURE_FLAGS } from '@/store/theme.ts'
@@ -73,25 +73,6 @@ export async function getUpdateChannel(): Promise<UpdateChannel> {
 
 export async function setUpdateChannel(channel: UpdateChannel): Promise<void> {
     await invoke('set_update_channel', { channel })
-}
-
-export async function copyReleaseDatabaseToBeta(): Promise<void> {
-    await invoke('copy_release_database_to_beta')
-}
-
-export async function betaDatabaseExists(): Promise<boolean> {
-    return await invoke('beta_database_exists')
-}
-
-export async function getCurrentAppDatabasePath(): Promise<string> {
-    return await invoke('get_current_app_database_path')
-}
-
-export async function copyDatabaseBetweenChannels(
-    sourceChannel: UpdateChannel,
-    targetChannel: UpdateChannel,
-): Promise<void> {
-    await invoke('copy_database_between_channels', { sourceChannel, targetChannel })
 }
 
 export async function getUpdatePreferences(): Promise<UpdatePreferences> {
@@ -325,6 +306,7 @@ export function appSettingsQueryOptions() {
     return queryOptions({
         queryKey: appSettingsKeys.all,
         queryFn: get,
+        networkMode: 'always',
         staleTime: 0,
     })
 }

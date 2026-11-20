@@ -10,7 +10,7 @@ use std::{
         fs::MetadataExt,
         io::{AsRawHandle, FromRawHandle, OwnedHandle},
     },
-    path::Path,
+    path::{Path, PathBuf},
 };
 use windows::{
     Win32::{
@@ -28,6 +28,10 @@ use windows::{
 };
 
 type Result<T> = std::result::Result<T, String>;
+
+const BACKUP_PREFIX: &str = ".axolotl-previous-";
+const BACKUP_SUFFIX: &str = ".exe";
+const BACKUP_RANDOM_LENGTH: usize = 6;
 
 pub(crate) fn check(path: &Path) -> Result<()> {
     inspect(path).map(|_| ())
@@ -102,7 +106,13 @@ pub(crate) fn dispatch(
                 {
                     return Err("Invalid executable integrity metadata".into());
                 }
-                install(Path::new(&values[0]), Path::new(&values[1]), &expected)
+                let target = Path::new(&values[1]);
+                if let Some(previous) =
+                    install(Path::new(&values[0]), target, &expected)?
+                {
+                    prune_previous_executables(target, &previous);
+                }
+                Ok(())
             }
             _ => Err("Invalid executable installation arguments".into()),
         }
@@ -255,7 +265,7 @@ pub(crate) fn install(
     stage: &Path,
     target: &Path,
     expected: &Executable,
-) -> Result<()> {
+) -> Result<Option<PathBuf>> {
     let parent = target
         .parent()
         .ok_or("Executable has no parent directory")?;
@@ -286,15 +296,16 @@ pub(crate) fn install(
             .map_err(|error| error.to_string())?;
         let target_exists =
             target.try_exists().map_err(|error| error.to_string())?;
-        if target_exists {
+        let previous = if target_exists {
             let metadata = fs::symlink_metadata(target)
                 .map_err(|error| error.to_string())?;
             if !metadata.is_file() || metadata.file_attributes() & 0x400 != 0 {
                 return Err("Installed executable is not a regular file".into());
             }
             let backup = tempfile::Builder::new()
-                .prefix(".axolotl-previous-")
-                .suffix(".exe")
+                .prefix(BACKUP_PREFIX)
+                .suffix(BACKUP_SUFFIX)
+                .rand_bytes(BACKUP_RANDOM_LENGTH)
                 .tempfile_in(&parent)
                 .map_err(|error| error.to_string())?;
             let backup_path = backup.path().to_path_buf();
@@ -338,6 +349,7 @@ pub(crate) fn install(
                 }
                 return Err(format!("Executable replacement failed: {error}"));
             }
+            Some(backup_path)
         } else {
             unsafe {
                 MoveFileExW(
@@ -349,18 +361,98 @@ pub(crate) fn install(
             .map_err(|error| {
                 format!("Could not publish executable: {error}")
             })?;
-        }
+            None
+        };
         let actual = inspect(target)?;
         if &actual != expected {
             return Err("Installed executable failed its final integrity check; previous file was retained".into());
         }
         record(&parent, "Executable replacement completed and verified");
-        Ok(())
+        Ok(previous)
     })();
     if let Err(error) = &result {
         record(&parent, error);
     }
     result
+}
+
+pub(crate) fn prune_previous_executables(target: &Path, previous: &Path) {
+    let Some(parent) = previous.parent() else {
+        return;
+    };
+    let target = match fs::canonicalize(target) {
+        Ok(target) => target,
+        Err(error) => {
+            record(
+                parent,
+                &format!("Skipping executable backup cleanup: {error}"),
+            );
+            return;
+        }
+    };
+    let entries = match fs::read_dir(parent) {
+        Ok(entries) => entries,
+        Err(error) => {
+            record(
+                parent,
+                &format!("Could not list executable backups: {error}"),
+            );
+            return;
+        }
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                record(
+                    parent,
+                    &format!("Could not list executable backup: {error}"),
+                );
+                continue;
+            }
+        };
+        let path = entry.path();
+        if path == previous || path == target {
+            continue;
+        }
+        let name = entry.file_name();
+        let is_backup = name
+            .to_str()
+            .and_then(|name| name.strip_prefix(BACKUP_PREFIX))
+            .and_then(|suffix| suffix.strip_suffix(BACKUP_SUFFIX))
+            .is_some_and(|token| {
+                token.len() == BACKUP_RANDOM_LENGTH
+                    && token.bytes().all(|byte| byte.is_ascii_alphanumeric())
+            });
+        if !is_backup {
+            continue;
+        }
+        match entry.metadata() {
+            Ok(metadata)
+                if metadata.is_file()
+                    && metadata.file_attributes() & 0x400 == 0 => {}
+            Ok(_) => continue,
+            Err(error) => {
+                record(
+                    parent,
+                    &format!(
+                        "Could not inspect executable backup {}: {error}",
+                        path.display()
+                    ),
+                );
+                continue;
+            }
+        }
+        if let Err(error) = fs::remove_file(&path) {
+            record(
+                parent,
+                &format!(
+                    "Could not remove executable backup {}: {error}",
+                    path.display()
+                ),
+            );
+        }
+    }
 }
 
 fn wide(path: &Path) -> Vec<u16> {

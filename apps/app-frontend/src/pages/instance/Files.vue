@@ -17,7 +17,7 @@ import {
     useDebugLogger,
     useVIntl,
 } from '@modrinth/ui'
-import { invoke } from '@tauri-apps/api/core'
+import { hashKey, replaceEqualDeep, useQueryClient } from '@tanstack/vue-query'
 import { join } from '@tauri-apps/api/path'
 import {
     mkdir,
@@ -27,16 +27,19 @@ import {
     rename,
     writeTextFile,
 } from '@tauri-apps/plugin-fs'
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
 import { instance_listener } from '@/helpers/events'
 import { get_full_path } from '@/helpers/instance'
+import { invoke } from '@/helpers/invoke'
 import { createRequestGeneration } from '@/helpers/request-generation'
 import type { GameInstance } from '@/helpers/types'
 import { highlightInFolder } from '@/helpers/utils'
 
 import { readInstanceDirectory, readInstanceDirectoryCounts } from './files-directory'
+import { instanceDirectoryScope, retainInstanceView } from './instance-view-cache'
 
 const props = defineProps<{
     instance: GameInstance
@@ -51,6 +54,7 @@ const { formatMessage } = useVIntl()
 const { addNotification } = injectNotificationManager()
 const debug = useDebugLogger('Files')
 const router = useRouter()
+const queryClient = useQueryClient()
 
 const messages = defineMessages({
     saveAs: {
@@ -71,37 +75,59 @@ const messages = defineMessages({
     },
 })
 
-const instanceRoot = ref('')
-const items = ref<FileItem[]>([])
-/** True until the first directory read for the current instance path finishes (initial load only). */
-const firstPaintPending = ref(true)
-const loading = ref(true)
+const rootKey = computed(
+    () => ['instance-file-root', instanceDirectoryScope(props.instance)] as const,
+)
+const rootScope = computed(() => hashKey(rootKey.value))
+const directoryKey = (root: string, path: string) =>
+    ['instance-directory', props.instance.id, root, path] as const
+const instanceRoot = ref(queryClient.getQueryData<string>(rootKey.value) ?? '')
+const initialItems = instanceRoot.value
+    ? queryClient.getQueryData<FileItem[]>(directoryKey(instanceRoot.value, ''))
+    : undefined
+const items = ref<FileItem[]>(initialItems?.map((item) => ({ ...item })) ?? [])
+const firstPaintPending = ref(!initialItems)
+const loading = ref(!initialItems)
 const error = ref<Error | null>(null)
 const currentPath = ref('')
 const editingFile = ref<EditingFile | null>(null)
 const refreshRequests = createRequestGeneration()
-let disposed = false
+const rootRequests = createRequestGeneration()
+const { subscribe, isDisposed } = useScopedEventListeners()
+retainInstanceView(rootKey)
+retainInstanceView(computed(() => directoryKey(instanceRoot.value, currentPath.value)))
 
-debug('setup: start, instance.id =', props.instance.id)
-
-instanceRoot.value = await get_full_path(props.instance.id)
-debug('setup: instanceRoot =', instanceRoot.value)
+let displayedDirectory = initialItems ? hashKey(directoryKey(instanceRoot.value, '')) : undefined
+let directorySubscription: Promise<void> | undefined
 
 async function resolvePath(relativePath: string): Promise<string> {
     return relativePath ? join(instanceRoot.value, ...relativePath.split('/')) : instanceRoot.value
 }
 
 async function refresh() {
-    const request = refreshRequests.begin(`${instanceRoot.value}\0${currentPath.value}`)
+    if (isDisposed()) return
+    if (!instanceRoot.value) {
+        await readRoot()
+        return
+    }
     const requestedRoot = instanceRoot.value
     const requestedPath = currentPath.value
+    const key = directoryKey(requestedRoot, requestedPath)
+    const scope = hashKey(key)
+    const request = refreshRequests.begin(scope)
     const isCurrent = () =>
-        !disposed &&
-        refreshRequests.isCurrent(request, `${instanceRoot.value}\0${currentPath.value}`) &&
-        requestedRoot === instanceRoot.value &&
-        requestedPath === currentPath.value
+        !isDisposed() &&
+        refreshRequests.isCurrent(
+            request,
+            hashKey(directoryKey(instanceRoot.value, currentPath.value)),
+        )
     debug('refresh: called, currentPath =', currentPath.value, 'instanceRoot =', instanceRoot.value)
-    loading.value = true
+    if (displayedDirectory !== scope) {
+        const cached = queryClient.getQueryData<FileItem[]>(key)
+        items.value = cached?.map((item) => ({ ...item })) ?? []
+        displayedDirectory = cached ? scope : undefined
+    }
+    loading.value = displayedDirectory !== scope
     error.value = null
     try {
         const absolutePath = requestedPath
@@ -110,14 +136,39 @@ async function refresh() {
         if (!isCurrent()) return
         const nextItems = await readInstanceDirectory(absolutePath, requestedPath, isCurrent)
         if (!isCurrent()) return
-        items.value = nextItems
+        const previousByPath = new Map(items.value.map((item) => [item.path, item]))
+        const reconciled = nextItems.map((item) => {
+            const previous = previousByPath.get(item.path)
+            return replaceEqualDeep(
+                previous,
+                previous?.count === undefined || item.type !== 'directory'
+                    ? item
+                    : { ...item, count: previous.count },
+            )
+        })
+        if (
+            reconciled.length !== items.value.length ||
+            reconciled.some((item, index) => item !== items.value[index])
+        ) {
+            items.value = reconciled
+        }
+        displayedDirectory = scope
+        queryClient.setQueryData(
+            key,
+            items.value.map((item) => ({ ...item })),
+        )
         debug('refresh: success, items =', items.value.length)
-        void loadDirectoryCounts(absolutePath, items.value, isCurrent)
+        void loadDirectoryCounts(absolutePath, items.value, isCurrent).then(() => {
+            if (isCurrent())
+                queryClient.setQueryData(
+                    key,
+                    items.value.map((item) => ({ ...item })),
+                )
+        })
     } catch (e) {
         debug('refresh: error =', e)
         if (!isCurrent()) return
         error.value = e instanceof Error ? e : new Error(String(e))
-        items.value = []
     } finally {
         if (isCurrent()) {
             loading.value = false
@@ -272,37 +323,48 @@ function getAdditionalMenuOptions(
     ]
 }
 
-debug('setup: registering instance_listener')
-const unlistenInstances = await instance_listener(
-    async (event: { event: string; instance_id: string }) => {
-        debug('instance_listener: event =', event.event, 'path =', event.instance_id)
-        if (event.instance_id === props.instance.id && event.event === 'synced') {
-            debug('instance_listener: synced event matched, calling refresh')
-            await refresh()
-        }
-    },
-)
-debug('setup: instance_listener registered')
-
-onUnmounted(() => {
-    disposed = true
-    refreshRequests.invalidate()
-    unlistenInstances()
-})
-
-watch(
-    () => props.instance.id,
-    async () => {
-        debug('watch instance.id: changed to', props.instance.id)
-        firstPaintPending.value = true
-        refreshRequests.invalidate()
-        const instanceId = props.instance.id
-        instanceRoot.value = await get_full_path(props.instance.id)
-        if (instanceId !== props.instance.id) return
-        currentPath.value = ''
+async function readRoot() {
+    const key = rootKey.value
+    const scope = rootScope.value
+    const request = rootRequests.begin(scope)
+    const valid = () => !isDisposed() && rootRequests.isCurrent(request, rootScope.value)
+    try {
+        const root = await get_full_path(props.instance.id)
+        if (!valid()) return
+        directorySubscription ??= subscribe(
+            instance_listener,
+            async (event: { event: string; instance_id: string }) => {
+                if (
+                    instanceRoot.value &&
+                    event.instance_id === props.instance.id &&
+                    event.event === 'synced'
+                )
+                    await refresh()
+            },
+        ).catch((cause) => debug('Could not listen for directory changes', cause))
+        await directorySubscription
+        if (!valid()) return
+        instanceRoot.value = root
+        queryClient.setQueryData(key, root)
         await refresh()
-    },
-)
+    } catch (cause) {
+        if (!valid()) return
+        error.value = cause instanceof Error ? cause : new Error(String(cause))
+        firstPaintPending.value = false
+        loading.value = false
+    }
+}
+
+watch(rootScope, () => {
+    firstPaintPending.value = true
+    loading.value = true
+    refreshRequests.invalidate()
+    instanceRoot.value = ''
+    currentPath.value = ''
+    items.value = []
+    displayedDirectory = undefined
+    void readRoot()
+})
 
 provideFileManager({
     items,
@@ -332,7 +394,7 @@ provideFileManager({
     symlinkTarget: computed(() => props.instance.symlink_target),
 })
 
-void refresh()
+void readRoot()
 </script>
 
 <template>

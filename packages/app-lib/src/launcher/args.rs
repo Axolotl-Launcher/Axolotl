@@ -4,12 +4,16 @@ use crate::launcher::direct_link::{
     DirectLinkedLaunch, is_native_only_library,
 };
 use crate::launcher::local_version::LinkedLibrary;
+use crate::launcher::pcl_ce_command;
 use crate::launcher::quick_play_version::QuickPlayServerVersion;
 use crate::launcher::{QuickPlayVersion, parse_rules};
 use crate::state::Credentials;
 use crate::{
     state::{MemorySettings, WindowSize},
-    util::{io::IOError, platform::classpath_separator},
+    util::{
+        io::IOError, mojang::add_fallen_discovery_java_arg,
+        platform::classpath_separator,
+    },
 };
 use daedalus::minecraft::LoggingConfiguration;
 use daedalus::{
@@ -165,6 +169,62 @@ pub fn get_linked_class_paths(
         })
 }
 
+pub(super) fn get_pcl_ce_class_paths<'a>(
+    direct: &DirectLinkedLaunch,
+    libraries: &[LinkedLibrary],
+    bridge: &Path,
+    client: &Path,
+    game_directory: &Path,
+    classpath_head: impl Iterator<Item = &'a str>,
+    java_arch: &str,
+) -> crate::Result<String> {
+    let mut ordered = classpath_head
+        .map(|entry| {
+            let path = game_directory.join(entry);
+            canonicalize(&path).unwrap_or(path)
+        })
+        .collect::<Vec<_>>();
+    ordered.reverse();
+    let mut optifine = None;
+    for library in libraries {
+        if !library.library.include_in_classpath
+            || is_native_only_library(&library.library)
+        {
+            continue;
+        }
+        let path = direct.library_path(library)?;
+        let path = canonicalize(&path).map_err(|error| {
+            crate::ErrorKind::LauncherError(format!(
+                "Could not resolve linked library {} at {}: {error}",
+                library.library.name,
+                path.display(),
+            ))
+        })?;
+        if library.library.name.starts_with("optifine:OptiFine:") {
+            optifine = Some(path);
+        } else {
+            ordered.push(path);
+        }
+    }
+    let launcher_path = |path: &Path| {
+        canonicalize(path).map_err(|error| {
+            crate::ErrorKind::LauncherError(format!(
+                "Specified class path {} does not exist: {error}",
+                path.display(),
+            ))
+        })
+    };
+    ordered.push(launcher_path(client)?);
+    if let Some(optifine) = optifine {
+        ordered.insert(ordered.len().saturating_sub(2), optifine);
+    }
+    let bridge = launcher_path(bridge)?;
+    Ok(std::iter::once(&bridge)
+        .chain(ordered.iter())
+        .map(|path| path.to_string_lossy())
+        .join(classpath_separator(java_arch)))
+}
+
 pub fn get_class_paths_jar<T: AsRef<str>>(
     libraries_path: &Path,
     libraries: &[T],
@@ -203,7 +263,7 @@ pub fn get_lib_path(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn get_jvm_arguments(
+pub(super) fn get_jvm_arguments(
     arguments: Option<&[Argument]>,
     natives_path: &Path,
     libraries_path: &Path,
@@ -218,26 +278,36 @@ pub fn get_jvm_arguments(
     quick_play_version: QuickPlayVersion,
     log_config: Option<&LoggingConfiguration>,
     ipc_addr: SocketAddr,
+    pcl_ce: Option<PclCeJvmOptions<'_>>,
 ) -> crate::Result<Vec<String>> {
     let mut parsed_arguments = Vec::new();
 
+    if let Some(options) = &pcl_ce {
+        parsed_arguments = pcl_ce_command::jvm_arguments(
+            arguments.unwrap_or_default(),
+            &custom_args,
+            options.replacements,
+        );
+    }
     if let Some(args) = arguments {
-        parse_arguments(
-            args,
-            &mut parsed_arguments,
-            |arg| {
-                parse_jvm_argument(
-                    arg.to_string(),
-                    natives_path,
-                    libraries_path,
-                    class_paths,
-                    version_name,
-                    java_arch,
-                )
-            },
-            java_arch,
-            quick_play_type,
-        )?;
+        if pcl_ce.is_none() {
+            parse_arguments(
+                args,
+                &mut parsed_arguments,
+                |arg| {
+                    parse_jvm_argument(
+                        arg.to_string(),
+                        natives_path,
+                        libraries_path,
+                        class_paths,
+                        version_name,
+                        java_arch,
+                    )
+                },
+                java_arch,
+                quick_play_type,
+            )?;
+        }
     } else {
         parsed_arguments.push(format!(
             "-Djava.library.path={}",
@@ -253,7 +323,16 @@ pub fn get_jvm_arguments(
         parsed_arguments.push(class_paths.to_string());
     }
 
-    parsed_arguments.push(format!("-Xmx{}M", memory.maximum));
+    if let Some(options) = &pcl_ce {
+        pcl_ce_command::jvm_runtime_options(
+            &mut parsed_arguments,
+            memory.maximum,
+            options.initial_heap_mb,
+            options.java_major,
+        );
+    } else {
+        parsed_arguments.push(format!("-Xmx{}M", memory.maximum));
+    }
 
     if let Some(LoggingConfiguration::Log4j2Xml { argument, file }) = log_config
     {
@@ -296,13 +375,141 @@ pub fn get_jvm_arguments(
         ]);
     }
 
-    for arg in custom_args {
-        if !arg.is_empty() {
-            parsed_arguments.push(arg);
-        }
+    if pcl_ce.is_none() {
+        parsed_arguments
+            .extend(custom_args.into_iter().filter(|arg| !arg.is_empty()));
     }
 
+    add_fallen_discovery_java_arg(&mut parsed_arguments);
     Ok(parsed_arguments)
+}
+
+pub(super) struct PclCeJvmOptions<'a> {
+    pub(super) replacements: &'a [(&'a str, &'a str)],
+    pub(super) initial_heap_mb: Option<u32>,
+    pub(super) java_major: u32,
+}
+
+pub(super) struct PclCeArgumentContext<'a> {
+    pub(super) version_name: &'a str,
+    pub(super) version_type: &'a str,
+    pub(super) natives: &'a Path,
+    pub(super) libraries: &'a Path,
+    pub(super) classpath: &'a str,
+    pub(super) game_directory: &'a Path,
+    pub(super) assets: &'a Path,
+    pub(super) game_assets: &'a Path,
+    pub(super) asset_index: &'a str,
+    pub(super) resolution: WindowSize,
+    pub(super) java_arch: &'a str,
+}
+
+impl PclCeArgumentContext<'_> {
+    pub(super) async fn replacements(
+        &self,
+        credentials: &Credentials,
+    ) -> Vec<(&'static str, String)> {
+        let profile = credentials.maybe_online_profile().await;
+        let directory = |path: &Path| {
+            canonicalize(path)
+                .unwrap_or_else(|_| path.to_path_buf())
+                .to_string_lossy()
+                .into_owned()
+        };
+        let libraries = directory(self.libraries);
+        vec![
+            (
+                "${classpath_separator}",
+                classpath_separator(self.java_arch).into(),
+            ),
+            ("${natives_directory}", directory(self.natives)),
+            ("${library_directory}", libraries.clone()),
+            ("${libraries_directory}", libraries),
+            ("${classpath}", self.classpath.into()),
+            ("${launcher_name}", "PCLCE".into()),
+            ("${launcher_version}", env!("CARGO_PKG_VERSION").into()),
+            ("${version_name}", self.version_name.into()),
+            ("${version_type}", self.version_type.trim().into()),
+            ("${game_directory}", directory(self.game_directory)),
+            ("${assets_root}", directory(self.assets)),
+            ("${game_assets}", directory(self.game_assets)),
+            ("${assets_index_name}", self.asset_index.into()),
+            ("${resolution_width}", self.resolution.0.to_string()),
+            ("${resolution_height}", self.resolution.1.to_string()),
+            ("${auth_player_name}", profile.name.clone()),
+            ("${auth_uuid}", profile.id.simple().to_string()),
+            ("${auth_access_token}", credentials.access_token.clone()),
+            ("${access_token}", credentials.access_token.clone()),
+            ("${auth_session}", credentials.access_token.clone()),
+            ("${user_type}", "msa".into()),
+            ("${user_properties}", "{}".into()),
+            ("${accessToken}", credentials.access_token.clone()),
+            ("${uuid}", profile.id.simple().to_string()),
+            ("${auth_xuid}", "0".into()),
+            ("${clientid}", "c4502edb-87c6-40cb-b595-64a280cf8906".into()),
+        ]
+    }
+}
+
+pub(super) fn append_pcl_ce_quick_play(
+    arguments: &mut Vec<String>,
+    target: &QuickPlayType,
+    release_time: chrono::DateTime<chrono::Utc>,
+) -> crate::Result<()> {
+    match target {
+        QuickPlayType::Singleplayer(world) => {
+            arguments.extend(["--quickPlaySingleplayer".into(), world.clone()]);
+        }
+        QuickPlayType::Server(server) => {
+            use crate::server_address::{ServerAddress, parse_server_address};
+            let modern = release_time.naive_local()
+                > chrono::NaiveDate::from_ymd_opt(2023, 4, 4)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap();
+            match server {
+                ServerAddress::Unresolved(address) if modern => {
+                    arguments.extend([
+                        "--quickPlayMultiplayer".into(),
+                        address.clone(),
+                    ]);
+                }
+                ServerAddress::Resolved {
+                    original_host,
+                    original_port,
+                    ..
+                } if modern => {
+                    let address = if original_host.contains(':') {
+                        format!("[{original_host}]:{original_port}")
+                    } else {
+                        format!("{original_host}:{original_port}")
+                    };
+                    arguments
+                        .extend(["--quickPlayMultiplayer".into(), address]);
+                }
+                _ => {
+                    let (host, port) = match server {
+                        ServerAddress::Unresolved(address) => {
+                            parse_server_address(address)?
+                        }
+                        ServerAddress::Resolved {
+                            original_host,
+                            original_port,
+                            ..
+                        } => (original_host.as_str(), *original_port),
+                    };
+                    arguments.extend([
+                        "--server".into(),
+                        host.into(),
+                        "--port".into(),
+                        port.to_string(),
+                    ]);
+                }
+            }
+        }
+        QuickPlayType::None => {}
+    }
+    Ok(())
 }
 
 fn parse_jvm_argument(
@@ -696,6 +903,159 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn pcl_ce_jvm_arguments_expand_before_axolotl_runtime_options() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path();
+        let manifest = [
+            Argument::Normal("-Dprofile=${version_name}".into()),
+            Argument::Normal("-Dprofile=${version_name}".into()),
+        ];
+        let parsed = get_jvm_arguments(
+            Some(&manifest),
+            path,
+            path,
+            path,
+            "",
+            path,
+            "linked",
+            MemorySettings {
+                maximum: 2048,
+                automatic: false,
+                optimize_before_launch: false,
+            },
+            vec!["-Dcustom=${libraries_directory}".into()],
+            "x86_64",
+            &QuickPlayType::None,
+            QuickPlayVersion::find_version(0, &[]),
+            None,
+            "127.0.0.1:12345".parse().unwrap(),
+            Some(PclCeJvmOptions {
+                replacements: &[
+                    ("${version_name}", "Test Profile"),
+                    ("${libraries_directory}", r"C:\PCL Files\libraries"),
+                ],
+                initial_heap_mb: Some(1024),
+                java_major: 18,
+            }),
+        )
+        .unwrap();
+        assert_eq!(
+            &parsed[..8],
+            &[
+                "-Dfile.encoding=COMPAT",
+                "-Dstderr.encoding=UTF-8",
+                "-Dstdout.encoding=UTF-8",
+                r"-Dcustom=C:\PCL Files\libraries",
+                "-Dprofile=Test Profile",
+                "-Xmn307m",
+                "-Xmx2048m",
+                "-Xms1024m",
+            ]
+        );
+        assert!(
+            parsed
+                .iter()
+                .any(|argument| argument.starts_with("-javaagent:"))
+        );
+    }
+
+    #[test]
+    fn pcl_ce_quick_play_is_appended_without_manifest_features() {
+        let server = QuickPlayType::Server(
+            crate::server_address::ServerAddress::Resolved {
+                original_host: "play.example.test".into(),
+                original_port: 25565,
+                resolved_host: "127.0.0.1".into(),
+                resolved_port: 25570,
+            },
+        );
+        let release_time = "2023-04-05T00:00:00Z".parse().unwrap();
+        let mut arguments = Vec::new();
+        append_pcl_ce_quick_play(&mut arguments, &server, release_time)
+            .unwrap();
+        assert_eq!(
+            arguments,
+            ["--quickPlayMultiplayer", "play.example.test:25565"]
+        );
+        arguments.clear();
+        append_pcl_ce_quick_play(
+            &mut arguments,
+            &QuickPlayType::Singleplayer("My World".into()),
+            release_time,
+        )
+        .unwrap();
+        assert_eq!(arguments, ["--quickPlaySingleplayer", "My World"]);
+        arguments.clear();
+        append_pcl_ce_quick_play(
+            &mut arguments,
+            &server,
+            "2023-04-03T00:00:00Z".parse().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            arguments,
+            ["--server", "play.example.test", "--port", "25565"]
+        );
+    }
+
+    #[test]
+    fn legacy_fallen_args_get_discovery_without_replacing_custom_hosts() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path();
+        let legacy = [
+            "-Dminecraft.api.auth.host=https://auth.msp.fallenbreath.me",
+            "-Dminecraft.api.account.host=https://account.msp.fallenbreath.me",
+            "-Dminecraft.api.session.host=https://session.msp.fallenbreath.me",
+            "-Dminecraft.api.services.host=https://services.msp.fallenbreath.me",
+            "-Dminecraft.api.profiles.host=https://profiles.msp.fallenbreath.me",
+        ];
+        let discovery = "-Dminecraft.api.discovery.host=https://discovery.msp.fallenbreath.me/minecraft/client";
+        let custom_discovery =
+            "-Dminecraft.api.discovery.host=https://example.test/client";
+        let custom_session =
+            "-Dminecraft.api.session.host=https://example.test";
+        let launch = |custom_args: &[&str]| {
+            get_jvm_arguments(
+                Some(&[]),
+                path,
+                path,
+                path,
+                "",
+                path,
+                "26.3",
+                MemorySettings {
+                    maximum: 2048,
+                    automatic: false,
+                    optimize_before_launch: false,
+                },
+                custom_args.iter().map(ToString::to_string).collect(),
+                "x86_64",
+                &QuickPlayType::None,
+                QuickPlayVersion::find_version(0, &[]),
+                None,
+                "127.0.0.1:12345".parse().unwrap(),
+                None,
+            )
+            .unwrap()
+            .into_iter()
+            .filter(|arg| arg.starts_with("-Dminecraft.api."))
+            .collect::<Vec<_>>()
+        };
+
+        assert_eq!(launch(&legacy), [legacy.as_slice(), &[discovery]].concat());
+        assert_eq!(launch(&[]), Vec::<String>::new());
+        for custom in [
+            discovery,
+            custom_discovery,
+            custom_session,
+            "-Dminecraft.api.session.host",
+        ] {
+            let overridden = [legacy.as_slice(), &[custom]].concat();
+            assert_eq!(launch(&overridden), overridden);
+        }
+    }
+
+    #[test]
     fn universal_os_arguments_still_require_the_declared_architecture() {
         let arguments: Vec<Argument> = serde_json::from_value(serde_json::json!([
             "-Dalways=true",
@@ -846,6 +1206,67 @@ mod tests {
             &canonicalize(local).unwrap().to_string_lossy().as_ref()
         ));
         assert_eq!(paths.len(), 4);
+    }
+
+    #[test]
+    fn pcl_ce_classpath_keeps_the_bridge_then_pcl_ce_library_and_jar_order() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path();
+        let names = [
+            "bridge.jar",
+            "client.jar",
+            "libraries/first.jar",
+            "libraries/last.jar",
+            "libraries/optifine.jar",
+        ];
+        std::fs::create_dir(path.join("libraries")).unwrap();
+        for name in names {
+            std::fs::write(path.join(name), b"test").unwrap();
+        }
+        let libraries: Vec<LinkedLibrary> = serde_json::from_value(json!([
+            {"name":"test:first:1", "downloads":{"artifact":{"path":"first.jar", "sha1":"", "size":0, "url":""}}},
+            {"name":"optifine:OptiFine:1", "downloads":{"artifact":{"path":"optifine.jar", "sha1":"", "size":0, "url":""}}},
+            {"name":"test:last:1", "downloads":{"artifact":{"path":"last.jar", "sha1":"", "size":0, "url":""}}},
+            {"name":"test:native:1", "natives":{"windows":"natives-windows"}}
+        ])).unwrap();
+        let direct = DirectLinkedLaunch {
+            dot_minecraft: path.to_path_buf(),
+            launcher_root: None,
+            version_id: "demo".into(),
+            version_json: None,
+            dialect: LinkedLauncherDialect::PclCe,
+            game_dir_mode: None,
+        };
+        let classpath = get_pcl_ce_class_paths(
+            &direct,
+            &libraries,
+            &path.join("bridge.jar"),
+            &path.join("client.jar"),
+            path,
+            ["first config.jar", "second config.jar"].into_iter(),
+            std::env::consts::ARCH,
+        )
+        .unwrap();
+        let expected = [
+            "bridge.jar",
+            "second config.jar",
+            "first config.jar",
+            "libraries/first.jar",
+            "libraries/optifine.jar",
+            "libraries/last.jar",
+            "client.jar",
+        ];
+        let expected = expected
+            .into_iter()
+            .map(|name| {
+                let path = path.join(name);
+                canonicalize(&path)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .join(classpath_separator(std::env::consts::ARCH));
+        assert_eq!(classpath, expected);
     }
 
     #[tokio::test]

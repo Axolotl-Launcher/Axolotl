@@ -1,5 +1,13 @@
 import { type ContentItem, defineMessage, useDebugLogger, useVIntl } from '@modrinth/ui'
-import { computed, ref } from 'vue'
+import {
+    hashKey,
+    type QueryKey,
+    replaceEqualDeep,
+    skipToken,
+    useQuery,
+    useQueryClient,
+} from '@tanstack/vue-query'
+import { computed, onScopeDispose, ref, toRaw, watch } from 'vue'
 
 import {
     deleteDatapack,
@@ -28,38 +36,58 @@ function datapackDescription(description: unknown): string | undefined {
     return undefined
 }
 
-export function useWorldDatapacks(getInstanceId: () => string) {
+export function useWorldDatapacks(
+    getInstanceId: () => string,
+    getKey: () => QueryKey = () => ['world-datapacks', getInstanceId()],
+) {
     const debugState = useDebugLogger('Mods:world-datapacks')
     const { formatMessage } = useVIntl()
     const worldDatapacks = ref<WorldWithDatapacks[]>([])
     const worldDatapackErrors = ref<string[]>([])
-    let loadedInstanceId: string | undefined
+    const queryClient = useQueryClient()
+    const key = computed(getKey)
+    const scope = computed(() => hashKey(key.value))
+    useQuery({ queryKey: key, queryFn: skipToken, gcTime: 30 * 60_000 })
     let worldDatapackRequest = 0
+    onScopeDispose(() => {
+        worldDatapackRequest++
+    })
+
+    watch(
+        scope,
+        () => {
+            worldDatapackRequest++
+            const cached = queryClient.getQueryData<WorldWithDatapacks[]>(key.value)
+            worldDatapacks.value = cached ? structuredClone(cached) : []
+            worldDatapackErrors.value = []
+        },
+        { immediate: true, flush: 'sync' },
+    )
 
     async function loadWorldDatapacks() {
         const instanceId = getInstanceId()
+        const queryKey = key.value
         const request = ++worldDatapackRequest
-        if (loadedInstanceId !== instanceId) {
-            worldDatapacks.value = []
-            worldDatapackErrors.value = []
-            loadedInstanceId = instanceId
-        }
         const isCurrent = () => request === worldDatapackRequest && instanceId === getInstanceId()
         try {
             const data = await listDatapacks(instanceId)
             if (!isCurrent()) return
-            const previous = new Map(worldDatapacks.value.map((world) => [world.path, world]))
+            const previous = new Map(
+                toRaw(worldDatapacks.value).map((world) => [world.path, world]),
+            )
             worldDatapackErrors.value = data.flatMap((world) =>
                 [world.read_error, world.state_error]
                     .filter(Boolean)
                     .map((error) => `${world.name}: ${error}`),
             )
-            worldDatapacks.value = data.map((world) => {
+            const worlds = data.map((world) => {
                 const old = previous.get(world.path)
                 return world.read_error && old
                     ? { ...old, read_error: world.read_error, state_error: world.state_error }
-                    : world
+                    : replaceEqualDeep(old, world)
             })
+            worldDatapacks.value = replaceEqualDeep(toRaw(worldDatapacks.value), worlds)
+            queryClient.setQueryData(queryKey, structuredClone(worlds))
             debugState('world datapacks loaded', {
                 worlds: worldDatapacks.value.length,
                 datapacks: worldDatapacks.value.reduce(

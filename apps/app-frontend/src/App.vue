@@ -47,7 +47,7 @@ import {
 } from '@modrinth/ui'
 import { useQueryClient } from '@tanstack/vue-query'
 import { getVersion } from '@tauri-apps/api/app'
-import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { Effect, getCurrentWindow } from '@tauri-apps/api/window'
 import { openUrl } from '@tauri-apps/plugin-opener'
@@ -108,6 +108,7 @@ import { themeSuiteMessages } from '@/components/ui/settings/theme-suite/message
 import SplashScreen from '@/components/ui/SplashScreen.vue'
 import UnsavedSelectionModal from '@/components/ui/UnsavedSelectionModal.vue'
 import WindowControls from '@/components/ui/WindowControls.vue'
+import { useInstanceListUpdates } from '@/composables/instances/use-instance-list'
 import { useCheckDisableMouseover } from '@/composables/macCssFix.js'
 import { isOfflineAccountRestrictedError } from '@/composables/useAntiPiracyStatus'
 import { useDropImport } from '@/composables/useDropImport'
@@ -145,8 +146,10 @@ import {
 } from '@/helpers/install'
 import { type DirectLinkSyncReport, get as getInstance, run } from '@/helpers/instance'
 import { type BackupOperation, cancelBackup, listBackupOperations } from '@/helpers/instance-backup'
+import { invoke } from '@/helpers/invoke'
 import { installNativeEditMenuBoundary } from '@/helpers/native-edit-menu'
 import { getNavShortcutEnabled } from '@/helpers/nav-shortcut-state'
+import { recordEvent } from '@/helpers/observability'
 import { runWhenIdle } from '@/helpers/page-transition'
 import { get_by_instance_id, kill as killProcess } from '@/helpers/process.js'
 import { getExternalLinkUrl, mergeUrlQuery, parseModrinthLink } from '@/helpers/project-links.ts'
@@ -175,6 +178,7 @@ import {
 } from '@/helpers/shortcut-actions'
 import { resolveAllBindings } from '@/helpers/shortcut-bindings'
 import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.ts'
+import { createStartupProgress } from '@/helpers/startup-progress'
 import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
 import { applyThemeRuntime, reapplyThemeRuntime } from '@/helpers/theme-pack-runtime'
 import {
@@ -402,7 +406,9 @@ provideModalBehavior({
     noblur: computed(() => !themeStore.advancedRendering),
 })
 
-const stateInitialization = initialize_state()
+const startupProgress = createStartupProgress()
+const stateInitialization = startupProgress.initialize(initialize_state)
+onUnmounted(startupProgress.dispose)
 const {
     instanceIconPickerModal,
     installationModal,
@@ -1546,6 +1552,7 @@ async function applyThemeFromSettings(s: Awaited<ReturnType<typeof getSettings>>
 }
 
 const queryClient = useQueryClient()
+useInstanceListUpdates(queryClient, handleError)
 
 async function setupApp() {
     const initialSettings = await getSettings()
@@ -1899,6 +1906,7 @@ stateInitialization
             console.warn('Failed to configure manual-download watcher', error)
         })
         setupApp().catch((err) => {
+            startupProgress.dispose()
             stateFailed.value = true
             console.error(err)
             showStateInitError(err)
@@ -2800,6 +2808,7 @@ async function performUpdateCheck() {
         console.log('No update available')
         return 'up-to-date'
     }
+    recordEvent('app_update', { source: 'check', 'update.channel': channel })
 
     const publishedAt = Date.parse(update.publishedAt ?? '')
     if (
@@ -2904,6 +2913,7 @@ async function downloadUpdate(versionToDownload: typeof availableUpdate.value) {
                 unlistenUpdateDownload?.()
                 unlistenUpdateDownload = null
                 console.log('Finished downloading!')
+                recordEvent('app_update', { source: 'enqueue' })
                 markAppUpdateActionable(versionToDownload.version, 'downloaded')
                 scheduleDelayedUpdatePopup()
             })
@@ -3026,7 +3036,13 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 </script>
 
 <template>
-    <SplashScreen v-if="!stateFailed" ref="splashScreen" data-tauri-drag-region />
+    <SplashScreen
+        v-if="!stateFailed"
+        ref="splashScreen"
+        :startup-progress="startupProgress.progress.value"
+        data-tauri-drag-region
+        @finished="startupProgress.dispose"
+    />
     <!--
         A failed initialization never renders the app shell, so this framed window
         ends up with no title bar and no controls at all. This strip keeps the
@@ -3708,6 +3724,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 .app-contents.studio-mode {
     top: var(--top-bar-height);
     height: calc(100vh - var(--top-bar-height));
+    height: calc(100dvh - var(--top-bar-height));
 }
 
 .app-grid-layout {
@@ -3719,6 +3736,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     //z-index: 0;
     background-color: var(--surface-3);
     height: 100vh;
+    height: 100dvh;
 }
 
 .quick-instance-scroll {
@@ -3807,6 +3825,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     right: 0;
     bottom: 0;
     height: calc(100vh - var(--top-bar-height));
+    height: calc(100dvh - var(--top-bar-height));
     background-color: var(--color-bg);
     border-top-left-radius: var(--radius-xl);
     overflow: hidden;
@@ -3911,6 +3930,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     position: relative;
     z-index: 11;
     height: calc(100vh - var(--top-bar-height));
+    height: calc(100dvh - var(--top-bar-height));
     background: var(--brand-gradient-bg);
 
     --sidebar-control-surface: var(--brand-gradient-button);

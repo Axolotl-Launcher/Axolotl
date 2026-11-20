@@ -1,7 +1,8 @@
 use super::COMMAND_HISTORY_FILE;
 use super::files::{
-    CheckpointStatus, begin_checkpoint, checkpoint, ensure_link,
-    finish_checkpoint, instance_game_dir, sha1_bytes, sha1_file,
+    CheckpointStatus, LinkMode, begin_checkpoint, checkpoint,
+    finish_checkpoint, instance_game_dir, instance_is_running,
+    publish_detached_copy, sha1_bytes, sha1_file, sync_files_are_protected,
 };
 use super::orchestration::{
     create_synced_directories, option_effective, synced_options_path,
@@ -16,11 +17,11 @@ const COMMAND_HISTORY_LIMIT: usize = 50;
 pub async fn get_command_history() -> crate::Result<String> {
     let state = State::get().await?;
     let _guard = state.lock_synced_options().await;
-    let path = command_history_path(&state);
-    if !path.exists() {
-        return Ok(String::new());
-    }
-    Ok(String::from_utf8_lossy(&io::read(path).await?).into_owned())
+    let bytes =
+        crate::state::sync_state::native_text_read(&state, "command_history")
+            .await?
+            .unwrap_or_default();
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 pub async fn set_command_history(contents: &str) -> crate::Result<String> {
@@ -28,7 +29,8 @@ pub async fn set_command_history(contents: &str) -> crate::Result<String> {
     let _guard = state.lock_synced_options().await;
     create_synced_directories(&state).await?;
     let normalized = normalize_command_history(contents);
-    io::write(command_history_path(&state), normalized.as_bytes()).await?;
+    write_shared_command_history(normalized.as_bytes().to_vec(), &state)
+        .await?;
     refresh_command_history_links(&state).await?;
     Ok(normalized)
 }
@@ -37,9 +39,19 @@ pub(super) async fn ensure_command_history(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<()> {
+    if sync_files_are_protected(metadata)
+        || instance_is_running(metadata, state).await?
+    {
+        return Ok(());
+    }
     create_synced_directories(state).await?;
     let canonical = command_history_path(state);
-    if !canonical.exists() {
+    let canonical_bytes = if let Some(bytes) =
+        crate::state::sync_state::native_text_read(state, "command_history")
+            .await?
+    {
+        bytes
+    } else {
         let local =
             instance_game_dir(metadata, state)?.join(COMMAND_HISTORY_FILE);
         let contents = if local.exists() {
@@ -47,12 +59,14 @@ pub(super) async fn ensure_command_history(
         } else {
             String::new()
         };
-        io::write(&canonical, normalize_command_history(&contents)).await?;
-    }
+        let bytes = normalize_command_history(&contents).into_bytes();
+        write_shared_command_history(bytes.clone(), state).await?;
+        bytes
+    };
+    publish_detached_copy(&canonical, canonical_bytes.clone()).await?;
     let target = instance_game_dir(metadata, state)?.join(COMMAND_HISTORY_FILE);
-    let canonical_bytes = io::read(&canonical).await?;
     let expected = sha1_bytes(&canonical_bytes);
-    begin_checkpoint(
+    let proof = begin_checkpoint(
         &metadata.instance.id,
         SyncedOption::CommandHistory,
         "default",
@@ -62,12 +76,23 @@ pub(super) async fn ensure_command_history(
         state,
     )
     .await?;
-    let mode = ensure_link(&canonical, &target).await?;
+    if sync_files_are_protected(metadata)
+        || instance_is_running(metadata, state).await?
+    {
+        return Ok(());
+    }
+    publish_detached_copy(&target, canonical_bytes).await?;
+    if sync_files_are_protected(metadata)
+        || instance_is_running(metadata, state).await?
+    {
+        return Ok(());
+    }
     finish_checkpoint(
         &metadata.instance.id,
         SyncedOption::CommandHistory,
         "default",
-        mode,
+        LinkMode::Copy,
+        &proof,
         state,
     )
     .await
@@ -77,6 +102,11 @@ pub(super) async fn reconcile_command_history(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<()> {
+    if sync_files_are_protected(metadata)
+        || instance_is_running(metadata, state).await?
+    {
+        return Ok(());
+    }
     if !option_effective(metadata, SyncedOption::CommandHistory, state).await? {
         return Ok(());
     }
@@ -106,9 +136,9 @@ pub(super) async fn reconcile_command_history(
     if !symlink && expected.as_deref() != Some(actual.as_str()) {
         let contents =
             String::from_utf8_lossy(&io::read(&local).await?).into_owned();
-        io::write(
-            command_history_path(state),
-            normalize_command_history(&contents),
+        write_shared_command_history(
+            normalize_command_history(&contents).into_bytes(),
+            state,
         )
         .await?;
         refresh_command_history_links(state).await?;
@@ -144,12 +174,11 @@ pub(super) async fn merge_command_history_from_instance(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<()> {
-    let canonical_path = command_history_path(state);
-    let canonical = if canonical_path.exists() {
-        String::from_utf8_lossy(&io::read(&canonical_path).await?).into_owned()
-    } else {
-        String::new()
-    };
+    let bytes =
+        crate::state::sync_state::native_text_read(state, "command_history")
+            .await?
+            .unwrap_or_default();
+    let canonical = String::from_utf8_lossy(&bytes).into_owned();
     let local_path =
         instance_game_dir(metadata, state)?.join(COMMAND_HISTORY_FILE);
     let local = if local_path.exists() {
@@ -176,10 +205,23 @@ pub(super) async fn merge_command_history_from_instance(
     imported.extend(canonical_lines);
     let merged = normalize_command_history(&imported.join("\n"));
     if merged != normalize_command_history(&canonical) {
-        io::write(&canonical_path, merged).await?;
+        write_shared_command_history(merged.into_bytes(), state).await?;
         refresh_command_history_links(state).await?;
     }
     Ok(())
+}
+
+pub(super) async fn write_shared_command_history(
+    bytes: Vec<u8>,
+    state: &State,
+) -> crate::Result<()> {
+    crate::state::sync_state::native_text(
+        state,
+        "command_history",
+        bytes.clone(),
+    )
+    .await?;
+    publish_detached_copy(&command_history_path(state), bytes).await
 }
 
 pub(super) fn command_history_path(state: &State) -> PathBuf {

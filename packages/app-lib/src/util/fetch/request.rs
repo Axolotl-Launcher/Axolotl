@@ -104,6 +104,11 @@ async fn fetch_validated_metadata_route(
         request = request.header(name, value);
     }
     let _permit = semaphore.0.acquire().await?;
+    tracing::debug!(
+        source = route.source.as_str(),
+        url = %sanitize_url_for_log(&route.url),
+        "Starting hedged metadata route"
+    );
     let request_started = Instant::now();
     let response = match request.send().await {
         Ok(response) => response,
@@ -274,7 +279,7 @@ pub(crate) async fn fetch_hedged_metadata_with_hedge_delay(
     .map_err(|secondary_error| vec![first_error, (1, secondary_error)])
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn fetch(
     url: &str,
     sha1: Option<&str>,
@@ -298,7 +303,7 @@ pub async fn fetch(
 
 /// Downloads a file from its official source without applying mirror routes.
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn fetch_official(
     url: &str,
     sha1: Option<&str>,
@@ -326,11 +331,12 @@ pub async fn fetch_official(
     .await
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 pub(crate) async fn fetch_metadata<T>(
     url: &str,
     parse: impl Fn(&Bytes) -> crate::Result<T> + Send + Sync,
     semaphore: &FetchSemaphore,
+    source_mode: Option<crate::state::DownloadSourceMode>,
 ) -> crate::Result<T> {
     let validate = |bytes: &Bytes| parse(bytes).map(|_| ());
     let client = configured_client().await?;
@@ -347,7 +353,7 @@ pub(crate) async fn fetch_metadata<T>(
             None,
             semaphore,
             &client,
-            None,
+            source_mode,
             None,
             Some(&validate),
             METADATA_ATTEMPT_BUDGET,
@@ -364,7 +370,7 @@ pub(crate) async fn fetch_metadata<T>(
     parse(&bytes)
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn fetch_json<T>(
     method: Method,
     url: &str,
@@ -409,7 +415,7 @@ where
 /// poison the cache with an empty collection, so collection fetches validate
 /// that the response actually contains data and fall back to the next source.
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn fetch_json_nonempty<T>(
     method: Method,
     url: &str,
@@ -457,7 +463,7 @@ where
 /// Downloads a file with retry and checksum functionality, and a specific
 /// [`reqwest::Client`].
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub async fn fetch_advanced(
     method: Method,
@@ -487,7 +493,7 @@ pub async fn fetch_advanced(
 
 /// Downloads a file with retry and checksum functionality
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub async fn fetch_advanced_with_client(
     method: Method,
@@ -520,7 +526,7 @@ pub async fn fetch_advanced_with_client(
     .await
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 async fn fetch_advanced_with_client_and_progress(
     method: Method,

@@ -191,6 +191,36 @@ test('requires BEGIN IMMEDIATE on the content write helpers', () => {
     assert.ok(deferred.every((entry) => entry.message.includes('BEGIN IMMEDIATE')))
 })
 
+test('accepts diagnosed immediate transactions and checks statement forwarding', () => {
+    const sources = Object.fromEntries(
+        Object.entries(transactionSources()).map(([file, source]) => [
+            file,
+            source.replaceAll(
+                'pool.begin_with("BEGIN IMMEDIATE")',
+                'crate::state::store::lock_diagnostics::begin(\n pool, "BEGIN IMMEDIATE",\n)',
+            ),
+        ]),
+    )
+    const diagnostics = 'packages/app-lib/src/state/store/lock_diagnostics.rs'
+    sources[diagnostics] = `pub(crate) fn begin<'a>(pool: &'a SqlitePool, statement: &'static str) {
+        async move { pool.begin_with(statement).await }
+    }`
+    assert.deepEqual(analyzeTransactionHelpers(sources), [])
+
+    for (const deferred of ['BEGIN', 'BEGIN DEFERRED']) {
+        const mutated = Object.fromEntries(
+            Object.entries(sources).map(([file, source]) => [
+                file,
+                source.replaceAll('"BEGIN IMMEDIATE"', `"${deferred}"`),
+            ]),
+        )
+        assert.equal(analyzeTransactionHelpers(mutated).length, 4)
+    }
+    assert.equal(analyzeTransactionHelpers({ ...sources, [diagnostics]: '' }).length, 4)
+    const mutatedWrapper = sources[diagnostics].replace('begin_with(statement)', 'begin()')
+    assert.equal(analyzeTransactionHelpers({ ...sources, [diagnostics]: mutatedWrapper }).length, 4)
+})
+
 test('accepts a temp-rooted State::init_for_test and rejects a fixed path', () => {
     const temp = `#[tokio::test]
 async fn t() {

@@ -1,11 +1,16 @@
 import type { FileManagerContext } from '@modrinth/ui'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, Suspense } from 'vue'
 
 import Files from './Files.vue'
 
+type InstanceEventCallback = (event: { event: string; instance_id: string }) => void
+
 const filesystem = vi.hoisted(() => ({
+    getFullPath: vi.fn(),
+    listen: vi.fn<(callback: InstanceEventCallback) => Promise<() => void>>(),
     readDir: vi.fn(),
     stat: vi.fn(),
     context: undefined as FileManagerContext | undefined,
@@ -29,8 +34,8 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
     rename: vi.fn(),
     writeTextFile: vi.fn(),
 }))
-vi.mock('@/helpers/instance', () => ({ get_full_path: async () => '/instance' }))
-vi.mock('@/helpers/events', () => ({ instance_listener: async () => filesystem.unlisten }))
+vi.mock('@/helpers/instance', () => ({ get_full_path: filesystem.getFullPath }))
+vi.mock('@/helpers/events', () => ({ instance_listener: filesystem.listen }))
 vi.mock('@/helpers/utils', () => ({ highlightInFolder: vi.fn() }))
 vi.mock('@modrinth/ui', () => {
     const passThrough = (name: string) =>
@@ -64,6 +69,8 @@ afterEach(() => {
 
 beforeEach(() => {
     vi.clearAllMocks()
+    filesystem.getFullPath.mockReset().mockResolvedValue('/instance')
+    filesystem.listen.mockReset().mockResolvedValue(filesystem.unlisten)
     filesystem.context = undefined
     filesystem.frames = []
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -74,7 +81,7 @@ beforeEach(() => {
     filesystem.stat.mockResolvedValue({ size: 0 })
 })
 
-async function mountFiles() {
+function mountPendingFiles(client = new QueryClient()) {
     const wrapper = mount(
         defineComponent({
             setup: () => () =>
@@ -94,11 +101,91 @@ async function mountFiles() {
                     },
                 ),
         }),
+        { global: { plugins: [[VueQueryPlugin, { queryClient: client }]] } },
     )
     wrappers.push(wrapper)
+    return wrapper
+}
+
+async function mountFiles() {
+    const wrapper = mountPendingFiles()
     await flushPromises()
     return wrapper
 }
+
+it('does not start listening when the instance path resolves after unmount', async () => {
+    let resolvePath!: (path: string) => void
+    filesystem.getFullPath.mockReturnValueOnce(
+        new Promise<string>((resolve) => {
+            resolvePath = resolve
+        }),
+    )
+    const wrapper = mountPendingFiles()
+    expect(filesystem.getFullPath).toHaveBeenCalledOnce()
+    wrapper.unmount()
+    wrappers.splice(wrappers.indexOf(wrapper), 1)
+
+    resolvePath('/instance')
+    await flushPromises()
+    expect(filesystem.listen).not.toHaveBeenCalled()
+    expect(filesystem.readDir).not.toHaveBeenCalled()
+})
+
+it('ignores a sync event and releases the late listener after unmount during setup', async () => {
+    let resolveListener!: (unlisten: () => void) => void
+    filesystem.listen.mockReturnValueOnce(
+        new Promise<() => void>((resolve) => {
+            resolveListener = resolve
+        }),
+    )
+    const wrapper = await mountFiles()
+    expect(filesystem.listen).toHaveBeenCalledOnce()
+    expect(filesystem.context?.loading.value).toBe(true)
+    wrapper.unmount()
+    wrappers.splice(wrappers.indexOf(wrapper), 1)
+
+    const [[receive]] = filesystem.listen.mock.calls
+    receive({ event: 'synced', instance_id: 'instance' })
+    resolveListener(filesystem.unlisten)
+    await flushPromises()
+    expect(filesystem.readDir).not.toHaveBeenCalled()
+    expect(filesystem.unlisten).toHaveBeenCalledOnce()
+})
+
+it('paints a cached directory before IPC resolves, then applies only changed entries', async () => {
+    const client = new QueryClient()
+    filesystem.readDir.mockResolvedValueOnce([
+        { name: 'removed.jar', isDirectory: false },
+        { name: 'unchanged.jar', isDirectory: false },
+    ])
+    const first = mountPendingFiles(client)
+    await flushPromises()
+    first.unmount()
+    wrappers.splice(wrappers.indexOf(first), 1)
+
+    let resolvePath!: (path: string) => void
+    filesystem.getFullPath.mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                resolvePath = resolve
+            }),
+    )
+    filesystem.readDir.mockResolvedValueOnce([
+        { name: 'unchanged.jar', isDirectory: false },
+        { name: 'added.jar', isDirectory: false },
+    ])
+    mountPendingFiles(client)
+    const context = filesystem.context!
+    const unchanged = context.items.value[1]
+    expect(context.loading.value).toBe(false)
+    expect(context.items.value.map((item) => item.path)).toEqual(['removed.jar', 'unchanged.jar'])
+
+    resolvePath('/instance')
+    await flushPromises()
+    expect(context.items.value.map((item) => item.path)).toEqual(['unchanged.jar', 'added.jar'])
+    expect(context.items.value[0]).toBe(unchanged)
+    expect(context.loading.value).toBe(false)
+})
 
 it('mounts the file page while directory metadata is still loading', async () => {
     let complete: (value: unknown) => void = () => {}

@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
-
+import { invoke } from '@/helpers/invoke'
 import type { TerracottaState } from '@/helpers/terracotta'
 
 import { errorText } from './error-text.ts'

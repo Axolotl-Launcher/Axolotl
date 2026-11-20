@@ -2,8 +2,7 @@ use crate::state::InstanceInstallStage;
 use crate::state::instances::{
     InstanceLaunchContext, LoaderComponent,
     adapters::sqlite::{
-        config_sync_rows, content_sets, instance_rows, loader_component_rows,
-        playtime,
+        content_sets, instance_rows, loader_component_rows, playtime,
     },
     config_sync,
 };
@@ -26,7 +25,9 @@ pub(crate) async fn replace_instance_loader_components(
 ) -> crate::Result<()> {
     let (loader, loader_version) =
         crate::state::project_loader_components(components)?;
-    let mut tx = pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     loader_component_rows::replace_loader_components(
         instance_id,
         components,
@@ -41,8 +42,8 @@ pub(crate) async fn replace_instance_loader_components(
         &mut tx,
     )
     .await?;
-    config_sync_rows::upsert_config_updated_at(instance_id, &mut *tx).await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     config_sync::mark_dirty(instance_id);
     Ok(())
 }
@@ -64,7 +65,9 @@ pub(crate) async fn set_applied_content_set_loader_version(
     pool: &SqlitePool,
 ) -> crate::Result<()> {
     let modified = Utc::now().timestamp();
-    let mut tx = pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
 
     content_sets::set_applied_loader_version_in_transaction(
         instance_id,
@@ -73,8 +76,8 @@ pub(crate) async fn set_applied_content_set_loader_version(
         &mut tx,
     )
     .await?;
-    config_sync_rows::upsert_config_updated_at(instance_id, &mut *tx).await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
 
     config_sync::mark_dirty(instance_id);
 
@@ -87,7 +90,9 @@ pub(crate) async fn set_applied_content_set_protocol_version(
     pool: &SqlitePool,
 ) -> crate::Result<()> {
     let modified = Utc::now().timestamp();
-    let mut tx = pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
 
     content_sets::set_applied_protocol_version_in_transaction(
         instance_id,
@@ -96,8 +101,8 @@ pub(crate) async fn set_applied_content_set_protocol_version(
         &mut tx,
     )
     .await?;
-    config_sync_rows::upsert_config_updated_at(instance_id, &mut *tx).await?;
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
 
     config_sync::mark_dirty(instance_id);
 
@@ -109,6 +114,9 @@ pub(crate) async fn set_instance_last_played(
     last_played: DateTime<Utc>,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    if crate::state::store::recovery_mode::root(pool).is_some() {
+        return Ok(());
+    }
     let modified = Utc::now().timestamp();
 
     instance_rows::set_last_played(instance_id, last_played, modified, pool)

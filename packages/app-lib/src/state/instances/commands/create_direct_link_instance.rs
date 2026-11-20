@@ -1,6 +1,5 @@
 use crate::api::pack::import::{
-    ImportLauncherType,
-    direct_link::{direct_link_group, resolve_direct_link},
+    ImportLauncherType, direct_link::resolve_direct_link,
 };
 use crate::launcher::ExternalGameDirMode;
 use crate::state::instances::{
@@ -41,6 +40,7 @@ pub(crate) async fn create_direct_link_instance(
     input: CreateDirectLinkInstance,
     state: &State,
 ) -> crate::Result<Instance> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _metadata_usage = crate::storage::usage::lease().await?;
     let resolved = resolve_direct_link(
         input.launcher_type,
@@ -128,11 +128,11 @@ pub(crate) async fn create_direct_link_instance(
     };
     let launch_overrides = InstanceLaunchOverrides::empty(instance_id.clone());
 
-    let mut tx = state.pool.begin().await?;
-    instance_rows::insert_instance(&instance, &mut tx).await?;
-    instance_rows::insert_default_sync_preferences_in_transaction(
+    let mut unit = crate::state::store::atom(&state.data).await?;
+    instance_rows::insert_instance(&instance, unit.transaction()).await?;
+    crate::state::store::instance_sync_preferences::seed_instance_defaults(
+        &mut unit,
         &instance_id,
-        &mut tx,
     )
     .await?;
     instance_rows::set_direct_link_fields(
@@ -145,10 +145,10 @@ pub(crate) async fn create_direct_link_instance(
             version_json_path: instance.linked_version_json_path.clone(),
             game_dir_mode: instance.linked_game_dir_mode.clone(),
         },
-        &mut tx,
+        unit.transaction(),
     )
     .await?;
-    content_sets::insert_content_set(&content_set, &mut tx).await?;
+    content_sets::insert_content_set(&content_set, unit.transaction()).await?;
     loader_component_rows::replace_loader_components(
         &instance_id,
         &LoaderComponent::from_legacy_projection(
@@ -156,23 +156,21 @@ pub(crate) async fn create_direct_link_instance(
             resolved.loader,
             None,
         ),
-        &mut tx,
+        unit.transaction(),
     )
     .await?;
     links::upsert_instance_link(
         &instance_id,
         &InstanceLink::Unmanaged,
-        &mut tx,
+        unit.transaction(),
     )
     .await?;
-    let groups = direct_link_group(&resolved.dot_minecraft)
-        .into_iter()
-        .collect::<Vec<_>>();
-    instance_rows::replace_instance_groups(&instance_id, &groups, &mut tx)
-        .await?;
-    instance_rows::upsert_instance_launch_overrides(&launch_overrides, &mut tx)
-        .await?;
-    tx.commit().await?;
+    instance_rows::upsert_instance_launch_overrides(
+        &launch_overrides,
+        unit.transaction(),
+    )
+    .await?;
+    unit.commit().await?;
 
     let content_root = super::sync_content_files::instance_content_root(
         &state.directories,
@@ -240,6 +238,71 @@ mod tests {
         sqlx::migrate!().run(&pool).await?;
 
         Ok((temp, crate::state::test_state(dirs, pool).await?))
+    }
+
+    #[tokio::test]
+    async fn scanning_the_same_root_only_reports_real_changes()
+    -> crate::Result<()> {
+        use crate::state::instances::{
+            ExternalMinecraftRoot, adapters::sqlite::manifest_rows,
+            sync_direct_link_instances,
+        };
+
+        let temp = TempDir::new()?;
+        let dirs = DirectoryInfo {
+            settings_dir: temp.path().join("settings"),
+            config_dir: temp.path().join("config"),
+            app_identifier: "test".to_string(),
+        };
+        let pool =
+            crate::state::store::databases::open(&dirs.settings_dir).await?;
+        let state = crate::state::test_state(dirs, pool).await?;
+        let minecraft = TempDir::new()?;
+        let manifest = |version: &str| json!({ "id": "linked", "inheritsFrom": version, "mainClass": "net.minecraft.client.main.Main" });
+        let source = write_version(
+            minecraft.path(),
+            "linked",
+            "linked",
+            manifest("1.20.1"),
+        )?;
+        let roots = vec![ExternalMinecraftRoot {
+            path: minecraft.path().to_path_buf(),
+            mode: ExternalGameDirMode::Isolated,
+        }];
+
+        let initial = sync_direct_link_instances(roots.clone(), &state).await?;
+        assert_eq!(initial.imported, 1);
+        assert!(initial.errors.is_empty(), "{:?}", initial.errors);
+        let first = crate::state::list_instances(&state.pool)
+            .await?
+            .pop()
+            .unwrap();
+        let pending = manifest_rows::pending(&state.pool).await?;
+
+        let unchanged =
+            sync_direct_link_instances(roots.clone(), &state).await?;
+        assert_eq!(
+            (unchanged.imported, unchanged.updated, unchanged.removed),
+            (0, 0, 0)
+        );
+        assert!(unchanged.errors.is_empty(), "{:?}", unchanged.errors);
+        assert_eq!(manifest_rows::pending(&state.pool).await?, pending);
+
+        let updated_json = serde_json::to_vec(&manifest("1.20.4"))?;
+        std::fs::write(&source, &updated_json)?;
+        let changed = sync_direct_link_instances(roots, &state).await?;
+        assert_eq!(
+            (changed.imported, changed.updated, changed.removed),
+            (0, 1, 0)
+        );
+        assert!(changed.errors.is_empty(), "{:?}", changed.errors);
+        let current =
+            crate::state::get_instance(&first.instance.id, &state.pool)
+                .await?
+                .unwrap();
+        assert_eq!(current.applied_content_set.game_version, "1.20.4");
+        assert_eq!(std::fs::read(&source)?, updated_json);
+        Ok(())
     }
 
     #[tokio::test]

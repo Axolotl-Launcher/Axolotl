@@ -132,7 +132,7 @@ onMounted(focusHeading)
         -->
         <header
             data-tauri-drag-region
-            class="relative z-[1] grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-stretch pl-4"
+            class="oobe-titlebar relative z-[1] grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-stretch pl-4"
         >
             <div data-tauri-drag-region class="flex items-center gap-2">
                 <span class="pointer-events-none flex h-6"><AxolotlLogo icon-only /></span>
@@ -261,6 +261,12 @@ onMounted(focusHeading)
 </template>
 
 <style scoped lang="scss">
+// The native traffic lights sit in the window's top-left corner; keep the same room
+// the app's own title bar leaves for them (`.mac .app-grid-statusbar` in App.vue).
+:global(.mac) .oobe-titlebar {
+    padding-left: 5rem;
+}
+
 .oobe-glow {
     position: absolute;
     width: 60vmax;

@@ -40,6 +40,19 @@ pub(crate) fn scan_content_files_from(
     instance_dir: &Path,
     cache_key_path: &str,
 ) -> crate::Result<Vec<ScannedContentFile>> {
+    let metadata = instance_dir
+        .metadata()
+        .map_err(|error| IOError::with_path(error, instance_dir))?;
+    if !metadata.is_dir() {
+        return Err(IOError::with_path(
+            std::io::Error::new(
+                std::io::ErrorKind::NotADirectory,
+                "Content root is not a directory",
+            ),
+            instance_dir,
+        )
+        .into());
+    }
     let mut files = Vec::new();
 
     for_each_content_folder(
@@ -123,7 +136,10 @@ fn for_each_content_folder(
         let folder = project_type.get_folder();
         let folder_path = instance_dir.join(folder);
 
-        if !folder_path.exists() {
+        if !folder_path
+            .try_exists()
+            .map_err(|error| IOError::with_path(error, &folder_path))?
+        {
             continue;
         }
 
@@ -131,7 +147,10 @@ fn for_each_content_folder(
     }
 
     let saves = instance_dir.join("saves");
-    if saves.is_dir() {
+    if saves
+        .try_exists()
+        .map_err(|error| IOError::with_path(error, &saves))?
+    {
         for world in std::fs::read_dir(&saves)
             .map_err(|error| IOError::with_path(error, &saves))?
         {
@@ -144,7 +163,10 @@ fn for_each_content_folder(
                 continue;
             };
             let datapacks = world.path().join("datapacks");
-            if datapacks.is_dir() {
+            if datapacks
+                .try_exists()
+                .map_err(|error| IOError::with_path(error, &datapacks))?
+            {
                 visit(
                     &datapacks,
                     &format!("saves/{name}/datapacks"),

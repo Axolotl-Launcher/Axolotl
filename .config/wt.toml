@@ -1,0 +1,5 @@
+# Worktrunk project config — docs: https://worktrunk.dev
+# Runs on `wt switch --create` in the new worktree, blocking until done.
+[pre-start]
+deps = "pnpm install"
+copy = "wt step copy-ignored"

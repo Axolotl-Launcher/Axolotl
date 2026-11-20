@@ -35,8 +35,11 @@ export interface BrowseProjectTabVisibilityInput {
 }
 
 export function supportsDataPacks(gameVersion: string | undefined): boolean {
-    const match = gameVersion?.match(/^1\.(\d+)/)
-    return match ? Number(match[1]) >= 13 : false
+    const match = gameVersion?.match(/^(\d+)\.(\d+)/)
+    if (!match) return false
+    const major = Number(match[1])
+    const minor = Number(match[2])
+    return major > 1 || (major === 1 && minor >= 13)
 }
 
 export function getBrowseProjectTabOptions({

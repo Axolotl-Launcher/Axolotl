@@ -3,7 +3,7 @@ use crate::state::{CacheBehaviour, CachedEntry};
 pub use daedalus::minecraft::VersionManifest;
 pub use daedalus::modded::Manifest;
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_minecraft_versions() -> crate::Result<VersionManifest> {
     match get_minecraft_versions_with_cache(Some(
         CacheBehaviour::MustRevalidate,
@@ -47,7 +47,6 @@ pub async fn get_minecraft_versions_with_cache(
     Ok(minecraft_versions)
 }
 
-// #[tracing::instrument]
 pub async fn get_loader_versions(loader: &str) -> crate::Result<Manifest> {
     match get_loader_versions_with_cache(
         loader,

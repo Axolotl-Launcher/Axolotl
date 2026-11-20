@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 
-import { modsContentRetryMode } from '../pages/instance/mods-content-state'
+import { modsContentRetryMode, needsContentRefresh } from '../pages/instance/mods-content-state'
 import {
     applyContentRefreshEvent,
     type ContentRefreshEvent,
@@ -172,6 +172,41 @@ it('reconciles only the matching entry warning as checks fail and recover', () =
     expect(applyContentRefreshEvent(recovered, stale).snapshot).toBe(recovered.snapshot)
 })
 
+it('keeps the failed installed path and a healthy update in the same snapshot', () => {
+    const initial = state()
+    initial.snapshot.items.push({
+        ...initial.snapshot.items[0],
+        entryId: 'healthy',
+        fileId: 'healthy-file',
+        expectedRelativePath: 'mods/b.jar',
+        content: {
+            ...initial.snapshot.items[0].content!,
+            id: 'healthy-hash',
+            file_path: 'mods/b.jar',
+        },
+    })
+    const failure = event(1)
+    const message = 'mods/a.jar: cannot verify the recorded Modrinth identity'
+    if (failure.patch.kind === 'entry') {
+        failure.patch.update = { candidate: null, failed: true, unresolved: false, error: message }
+    }
+    const success = event(2)
+    if (success.patch.kind === 'entry') {
+        success.patch.entryId = 'healthy'
+        success.patch.fileId = 'healthy-file'
+        success.patch.sha1 = 'healthy-hash'
+    }
+    const refreshed = applyContentRefreshEvent(applyContentRefreshEvent(initial, failure), success)
+    expect(refreshed.snapshot.warnings).toEqual([
+        { entryId: 'entry', code: 'resource_update_unavailable', message, provider: null },
+    ])
+    expect(modsContentRetryMode(refreshed.snapshot.warnings, 1)).toBe('retry_failed')
+    expect(refreshed.snapshot.items.map((item) => item.capabilities.canUpdate)).toEqual([
+        false,
+        true,
+    ])
+})
+
 it('recovers a cached warning after reopening with a failure-free task', async () => {
     const initial = state()
     initial.task = { ...event(1).task, running: false, failed: 0 }
@@ -234,6 +269,41 @@ it('sorts and deduplicates events in one frame and reloads local state for gaps'
     await test.flush()
     await vi.waitFor(() => expect(test.read).toHaveBeenCalledTimes(2))
     expect(test.transport.start).not.toHaveBeenCalled()
+    test.subscription.dispose()
+})
+
+it('reconnects to a cached list and applies external additions and removals without replacing unchanged rows', async () => {
+    const initial = state()
+    const original = initial.snapshot.items[0]
+    const removed = {
+        ...original,
+        entryId: 'removed',
+        fileId: 'removed-file',
+        expectedRelativePath: 'mods/removed.jar',
+    }
+    initial.snapshot.items.unshift(removed)
+    const test = fixture()
+    await test.subscription.connect(initial)
+    expect(test.read).not.toHaveBeenCalled()
+    test.read.mockResolvedValueOnce(structuredClone(initial))
+    const unchanged = (await test.subscription.reload())!
+    const cached = { state: initial, validatedAt: Date.now() }
+    expect(unchanged.snapshot).toBe(initial.snapshot)
+    expect(needsContentRefresh(cached, unchanged)).toBe(false)
+
+    const added = {
+        ...original,
+        entryId: 'added',
+        fileId: 'added-file',
+        expectedRelativePath: 'mods/z.jar',
+    }
+    const changed = structuredClone(initial)
+    changed.snapshot.items = [structuredClone(original), added]
+    test.read.mockResolvedValueOnce(changed)
+    const observed = (await test.subscription.reload())!
+    expect(needsContentRefresh(cached, observed)).toBe(true)
+    expect(observed.snapshot.items.map((item) => item.entryId)).toEqual(['entry', 'added'])
+    expect(observed.snapshot.items[0]).toBe(original)
     test.subscription.dispose()
 })
 

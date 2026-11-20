@@ -3131,9 +3131,6 @@
   "app.home.news.error-title": {
     "message": "Couldn't load the news"
   },
-  "app.home.news.offline-title": {
-    "message": "News shows up when you are online"
-  },
   "app.home.news.open-article": {
     "message": "Read on minecraft.net"
   },
@@ -4204,6 +4201,9 @@
   },
   "app.instance.never-played": {
     "message": "Never played"
+  },
+  "app.instance.not-found": {
+    "message": "This instance is no longer available."
   },
   "app.instance.offline-installed-only": {
     "message": "Offline mode can only launch fully downloaded instances."
@@ -13508,6 +13508,9 @@
   "app.resources.backups.confirm": {
     "message": "Delete these backups"
   },
+  "app.resources.backups.confirm-missing": {
+    "message": "Clear missing backups"
+  },
   "app.resources.backups.description": {
     "message": "Review old files before removing them. Verified backups can restore a previous installation."
   },
@@ -13547,8 +13550,17 @@
   "app.resources.backups.removed": {
     "message": "{count, number} files deleted."
   },
+  "app.resources.backups.removed-missing": {
+    "message": "{count, plural, one {Cleared # missing backup.} other {Cleared # missing backups.}}"
+  },
   "app.resources.backups.review": {
     "message": "Review selected cleanup"
+  },
+  "app.resources.backups.review-changed": {
+    "message": "A selected backup changed. Scan again before reviewing cleanup."
+  },
+  "app.resources.backups.review-missing": {
+    "message": "{count, plural, one {Clear # missing backup} other {Clear # missing backups}} from this list. No files are deleted for these entries, and update history is kept."
   },
   "app.resources.backups.review-size": {
     "message": "{count, plural, one {Delete # file} other {Delete # files}} · {size}"
@@ -13563,7 +13575,7 @@
     "message": "Search file names or paths…"
   },
   "app.resources.backups.select-visible": {
-    "message": "Select available files"
+    "message": "Select eligible items"
   },
   "app.resources.backups.selected-size": {
     "message": "{count, number} selected · {size}"
@@ -15196,6 +15208,9 @@
   },
   "app.settings.about.game.title": {
     "message": "Axolotl merge"
+  },
+  "app.settings.about.join-discord": {
+    "message": "Join Discord"
   },
   "app.settings.about.license-attribution": {
     "message": "License & attribution"
@@ -18146,15 +18161,6 @@
   "app.settings.updates.channel.beta-description": {
     "message": "New, less stable updates with the latest features. Updates arrive more often."
   },
-  "app.settings.updates.channel.copy-database": {
-    "message": "Copy database"
-  },
-  "app.settings.updates.channel.copy-database-description": {
-    "message": "Would you like to copy your Release database into the Beta channel? This cannot be undone automatically."
-  },
-  "app.settings.updates.channel.copy-database-title": {
-    "message": "Copy Release data to Beta?"
-  },
   "app.settings.updates.channel.description": {
     "message": "Choose which launcher versions Axolotl receives."
   },
@@ -18182,9 +18188,6 @@
   "app.settings.updates.channel.restart-title": {
     "message": "Restart required"
   },
-  "app.settings.updates.channel.start-empty": {
-    "message": "Start with empty database"
-  },
   "app.settings.updates.channel.title": {
     "message": "Update channel"
   },
@@ -18199,54 +18202,6 @@
   },
   "app.settings.updates.current-version": {
     "message": "Current version {version}"
-  },
-  "app.settings.updates.database-isolation.active": {
-    "message": "Active"
-  },
-  "app.settings.updates.database-isolation.beta": {
-    "message": "Beta database"
-  },
-  "app.settings.updates.database-isolation.current-database": {
-    "message": "Database currently in use"
-  },
-  "app.settings.updates.database-isolation.description": {
-    "message": "Release and Beta use separate databases, so testing Beta does not change your Release data."
-  },
-  "app.settings.updates.database-isolation.release": {
-    "message": "Release database"
-  },
-  "app.settings.updates.database-isolation.title": {
-    "message": "Database isolation"
-  },
-  "app.settings.updates.database-operation.active-target": {
-    "message": "Cannot overwrite the database currently in use. Restart Axolotl and switch channels first."
-  },
-  "app.settings.updates.database-operation.beta-to-release": {
-    "message": "Copy Beta to Release"
-  },
-  "app.settings.updates.database-operation.cancel": {
-    "message": "Cancel"
-  },
-  "app.settings.updates.database-operation.confirm": {
-    "message": "Overwrite database"
-  },
-  "app.settings.updates.database-operation.confirm-description": {
-    "message": "This will completely replace the inactive {target} database with the contents of the {source} database. This cannot be undone."
-  },
-  "app.settings.updates.database-operation.confirm-title": {
-    "message": "Overwrite database?"
-  },
-  "app.settings.updates.database-operation.failed": {
-    "message": "The database could not be copied. Please make sure Axolotl is not using the target database."
-  },
-  "app.settings.updates.database-operation.label": {
-    "message": "Database operation"
-  },
-  "app.settings.updates.database-operation.release-to-beta": {
-    "message": "Copy Release to Beta"
-  },
-  "app.settings.updates.database-operation.success": {
-    "message": "{source} database was copied to {target} successfully."
   },
   "app.settings.updates.disabled": {
     "message": "Updates are disabled in this build."
@@ -18634,6 +18589,21 @@
   },
   "app.splash.checking-for-updates": {
     "message": "Checking for updates..."
+  },
+  "app.splash.migrating-data": {
+    "message": "Migrating launcher data..."
+  },
+  "app.splash.migration.core": {
+    "message": "Migrating launcher records..."
+  },
+  "app.splash.migration.finishing": {
+    "message": "Finishing migration..."
+  },
+  "app.splash.migration.preparing": {
+    "message": "Preparing migration..."
+  },
+  "app.splash.migration.recovery": {
+    "message": "Migrating recovery records..."
   },
   "app.splash.updating-app-directory": {
     "message": "Updating app directory..."
@@ -21709,6 +21679,72 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "Unknown file warning"
+  },
+  "minecraft-account.session-only.title": {
+    "message": "Signed in for this session"
+  },
+  "minecraft-account.session-only.description": {
+    "message": "Your login could not be saved. Sign in again after restarting the launcher."
+  },
+  "app.observability-mcp.title": {
+    "message": "Observability MCP"
+  },
+  "app.observability-mcp.enabled": {
+    "message": "Enable the observability MCP"
+  },
+  "app.observability-mcp.enabled-description": {
+    "message": "Keep the most recent telemetry in memory so a local AI client can read it. Nothing is uploaded, and turning this off drops everything that was kept."
+  },
+  "app.observability-mcp.require-auth": {
+    "message": "Require authentication"
+  },
+  "app.observability-mcp.require-auth-description": {
+    "message": "Require clients to provide a connection token. Changing this setting restarts the listener."
+  },
+  "app.observability-mcp.running": {
+    "message": "Listening for connections"
+  },
+  "app.observability-mcp.not-running": {
+    "message": "The observability MCP could not start. Resolve the error below and retry."
+  },
+  "app.observability-mcp.disabled": {
+    "message": "The observability MCP is off and nothing is being kept."
+  },
+  "app.observability-mcp.token": {
+    "message": "Connection token"
+  },
+  "app.observability-mcp.copy-token": {
+    "message": "Copy token"
+  },
+  "app.observability-mcp.token-copied": {
+    "message": "Token copied"
+  },
+  "app.observability-mcp.copy-failed": {
+    "message": "Could not copy the token. Try again."
+  },
+  "app.observability-mcp.enable-first": {
+    "message": "Enable the observability MCP to see the connection address."
+  },
+  "app.observability-mcp.privacy-notice": {
+    "message": "Captured telemetry stays in this process: recent events, aggregated counters and histogram summaries, and span names with durations. Values the launcher marks sensitive are never recorded, and the lists are bounded."
+  },
+  "app.observability-mcp.claude-step": {
+    "message": "Run this command in a terminal. The tools only read telemetry, so no approval flow follows."
+  },
+  "app.observability-mcp.codex-step": {
+    "message": "Merge this into ~/.codex/config.toml, replacing any existing entry with the same name, then restart Codex."
+  },
+  "app.observability-mcp.debug-title": {
+    "message": "Read telemetry from an AI client"
+  },
+  "app.observability-mcp.debug-description": {
+    "message": "Start with observability_status, then list events, metrics or spans. These tools are read-only."
+  },
+  "app.observability-mcp.client-search": {
+    "message": "observability diagnostics telemetry traces spans metrics events OTLP MCP Codex Claude Code"
+  },
+  "app.observability-mcp.retry": {
+    "message": "Retry"
   },
   "app.lab.stronghold.manual": {
     "message": "Enter manually"

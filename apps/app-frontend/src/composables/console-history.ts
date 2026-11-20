@@ -4,19 +4,26 @@ function nonEmptyLines(content: string): string[] {
 
 function overlapLength(history: readonly string[], liveBuffer: readonly string[]): number {
     const maximum = Math.min(history.length, liveBuffer.length)
+    if (!maximum) return 0
 
-    for (let length = maximum; length > 0; length--) {
-        let overlaps = true
-        for (let index = 0; index < length; index++) {
-            if (history[history.length - length + index] !== liveBuffer[index]) {
-                overlaps = false
-                break
-            }
+    const prefixLengths = new Uint32Array(maximum)
+    for (let index = 1; index < maximum; index++) {
+        let matched = prefixLengths[index - 1]
+        while (matched && liveBuffer[index] !== liveBuffer[matched]) {
+            matched = prefixLengths[matched - 1]
         }
-        if (overlaps) return length
+        if (liveBuffer[index] === liveBuffer[matched]) matched++
+        prefixLengths[index] = matched
     }
 
-    return 0
+    let matched = 0
+    for (let index = history.length - maximum; index < history.length; index++) {
+        while (matched && history[index] !== liveBuffer[matched]) {
+            matched = prefixLengths[matched - 1]
+        }
+        if (history[index] === liveBuffer[matched]) matched++
+    }
+    return matched
 }
 
 /**

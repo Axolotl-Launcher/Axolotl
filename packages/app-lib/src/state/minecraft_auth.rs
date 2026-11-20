@@ -1,12 +1,9 @@
 use crate::ErrorKind;
 use crate::state::store::Handle;
-use crate::state::store::minecraft_device_tokens::{
-    MinecraftDeviceTokenRecord, MinecraftDeviceTokens, Singleton,
-};
+use crate::state::store::minecraft_device_tokens::MinecraftDeviceTokenRecord;
 use crate::state::store::minecraft_users::{
-    AccountType as StoredAccountType, MinecraftUserRecord, MinecraftUsers,
+    AccountType as StoredAccountType, MinecraftUserRecord,
 };
-use crate::state::store::{Collection as _, atom};
 use crate::util::fetch::authentication_client;
 use crate::util::mojang::{mojang_service_url, should_use_mojang_mirror};
 use base64::Engine;
@@ -113,12 +110,12 @@ pub enum MinecraftDeviceLoginPoll {
     Complete { credentials: Credentials },
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn login_begin() -> crate::Result<MinecraftLoginFlow> {
     login_begin_with_redirect(AUTH_REPLY_URL).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn login_begin_with_redirect(
     redirect_uri: &str,
 ) -> crate::Result<MinecraftLoginFlow> {
@@ -147,12 +144,12 @@ pub async fn login_begin_with_redirect(
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn browser_login_begin() -> crate::Result<MinecraftLoginFlow> {
     login_begin_with_redirect(BROWSER_AUTH_REPLY_URL).await
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn device_login_begin() -> crate::Result<MinecraftDeviceLoginFlow> {
     let mut query = HashMap::new();
     query.insert("client_id", MICROSOFT_CLIENT_ID);
@@ -189,7 +186,7 @@ pub async fn device_login_begin() -> crate::Result<MinecraftDeviceLoginFlow> {
     })
 }
 
-#[tracing::instrument(skip(handle))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn device_login_poll(
     device_code: &str,
     handle: &Handle,
@@ -249,7 +246,7 @@ pub async fn device_login_poll(
     Ok(MinecraftDeviceLoginPoll::Complete { credentials })
 }
 
-#[tracing::instrument(skip(handle))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn login_finish(
     code: &str,
     state: &str,
@@ -280,6 +277,7 @@ async fn finish_microsoft_login(
     minecraft_entitlements(&minecraft_token.access_token).await?;
 
     let mut credentials = Credentials {
+        credential_persistence: None,
         account_id: None,
         offline_profile: MinecraftProfile::default(),
         account_type: MinecraftAccountType::Microsoft,
@@ -305,7 +303,8 @@ async fn finish_microsoft_login(
         credentials.offline_profile.id.as_hyphenated()
     ));
 
-    credentials.upsert(handle).await?;
+    credentials.credential_persistence =
+        Some(credentials.upsert(handle).await?);
 
     crate::anti_piracy::mark_official_login().await.map_err(|error| {
         tracing::warn!(%error, "Could not persist official Minecraft login proof");
@@ -358,8 +357,19 @@ fn from_stored_account_type(
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CredentialPersistence {
+    Keyring,
+    SessionOnly,
+    RequiresLogin,
+    NotRequired,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Credentials {
+    #[serde(default)]
+    pub credential_persistence: Option<CredentialPersistence>,
     #[serde(default)]
     pub account_id: Option<String>,
     /// The offline profile of the user these credentials are for.
@@ -500,6 +510,7 @@ impl Credentials {
         let username = validate_offline_username(username)?;
 
         Ok(Self {
+            credential_persistence: None,
             account_id: Some(format!("offline:{}", uuid.as_hyphenated())),
             offline_profile: MinecraftProfile {
                 id: uuid,
@@ -527,7 +538,11 @@ impl Credentials {
         self.account_type == MinecraftAccountType::Yggdrasil
     }
 
-    fn from_stored(account_id: String, record: MinecraftUserRecord) -> Self {
+    fn from_stored(
+        account_id: String,
+        record: MinecraftUserRecord,
+        persistence: CredentialPersistence,
+    ) -> Self {
         let account_type = from_stored_account_type(record.account_type);
         let yggdrasil = (account_type == MinecraftAccountType::Yggdrasil)
             .then_some(YggdrasilAccount {
@@ -538,6 +553,7 @@ impl Credentials {
             });
 
         Self {
+            credential_persistence: Some(persistence),
             account_id: Some(account_id),
             offline_profile: MinecraftProfile {
                 id: Uuid::parse_str(&record.uuid).unwrap_or_default(),
@@ -561,6 +577,16 @@ impl Credentials {
     async fn refresh(&mut self, handle: &Handle) -> crate::Result<()> {
         if self.is_offline() {
             return Ok(());
+        }
+        if self.access_token.is_empty()
+            || (self.is_microsoft() && self.refresh_token.is_empty())
+        {
+            self.credential_persistence =
+                Some(CredentialPersistence::RequiresLogin);
+            return Err(crate::ErrorKind::OtherError(
+                "This account needs to sign in again".into(),
+            )
+            .into());
         }
         let refresh_margin = if self.is_yggdrasil() {
             Duration::zero()
@@ -648,13 +674,13 @@ impl Credentials {
         self.expires = oauth_token.date
             + Duration::seconds(oauth_token.value.expires_in as i64);
 
-        self.upsert(handle).await?;
+        self.credential_persistence = Some(self.upsert_existing(handle).await?);
 
         Ok(())
     }
 
     /// Returns online profile data when the cached copy is still recent enough.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn online_profile(&self) -> Option<Arc<MinecraftProfile>> {
         self.online_profile_with_cache_intent(
             OnlineProfileCacheIntent::NormalRead,
@@ -666,7 +692,7 @@ impl Credentials {
     ///
     /// Reuses a profile read from the last few seconds so opening the skins page
     /// does not send several identical Mojang requests.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn online_profile_fresh(&self) -> Option<Arc<MinecraftProfile>> {
         self.online_profile_with_cache_intent(
             OnlineProfileCacheIntent::LiveStateRead,
@@ -675,7 +701,7 @@ impl Credentials {
     }
 
     /// Fetches the online profile from Mojang after a skin or cape change.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn refresh_online_profile(
         &self,
     ) -> Option<Arc<MinecraftProfile>> {
@@ -689,7 +715,7 @@ impl Credentials {
         &self,
         cache_intent: OnlineProfileCacheIntent,
     ) -> Option<Arc<MinecraftProfile>> {
-        if self.is_offline() {
+        if self.is_offline() || self.access_token.is_empty() {
             return None;
         }
         if self.is_yggdrasil() {
@@ -859,7 +885,7 @@ impl Credentials {
 
     /// Like [`get_active`](Self::get_active), but enforces credentials to be
     /// successfully refreshed unless the network is unreachable or times out.
-    #[tracing::instrument(skip(handle))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn get_default_credential(
         handle: &Handle,
     ) -> crate::Result<Option<Credentials>> {
@@ -911,14 +937,17 @@ impl Credentials {
         handle: &Handle,
         refresh: bool,
     ) -> crate::Result<Option<Self>> {
-        let active = MinecraftUsers::get_all(handle)
+        let active = handle
+            .accounts()
+            .get_all()
             .await?
             .into_iter()
-            .find(|(_, record)| record.active);
+            .find(|(_, record, _)| record.active);
 
         Ok(match active {
-            Some((account_id, record)) => {
-                let mut credentials = Self::from_stored(account_id, record);
+            Some((account_id, record, persistence)) => {
+                let mut credentials =
+                    Self::from_stored(account_id, record, persistence);
                 if refresh {
                     credentials.refresh(handle).await.ok();
                 }
@@ -942,11 +971,11 @@ impl Credentials {
         handle: &Handle,
         refresh: bool,
     ) -> crate::Result<Vec<Self>> {
-        let stored = MinecraftUsers::get_all(handle).await?;
+        let stored = handle.accounts().get_all().await?;
         let mut credentials = Vec::with_capacity(stored.len());
 
-        for (account_id, record) in stored {
-            let mut user = Self::from_stored(account_id, record);
+        for (account_id, record, persistence) in stored {
+            let mut user = Self::from_stored(account_id, record, persistence);
             if refresh {
                 user.refresh(handle).await.ok();
             }
@@ -973,7 +1002,25 @@ impl Credentials {
             }))
     }
 
-    pub async fn upsert(&self, handle: &Handle) -> crate::Result<()> {
+    pub async fn upsert(
+        &self,
+        handle: &Handle,
+    ) -> crate::Result<CredentialPersistence> {
+        self.persist(handle, false).await
+    }
+
+    pub(super) async fn upsert_existing(
+        &self,
+        handle: &Handle,
+    ) -> crate::Result<CredentialPersistence> {
+        self.persist(handle, true).await
+    }
+
+    async fn persist(
+        &self,
+        handle: &Handle,
+        existing_only: bool,
+    ) -> crate::Result<CredentialPersistence> {
         let profile = self.maybe_online_profile().await;
         let account_id = self.account_id();
 
@@ -1007,16 +1054,20 @@ impl Credentials {
                 }),
         };
 
-        let mut unit = atom(handle).await?;
-        MinecraftUsers::atom_set(&mut unit, &account_id, Some(&record)).await?;
-        unit.commit().await
+        if existing_only {
+            handle.accounts().set_existing(&account_id, &record).await
+        } else {
+            handle.accounts().set(&account_id, &record).await
+        }
     }
 
     pub async fn remove(
         account_id: &str,
         handle: &Handle,
     ) -> crate::Result<()> {
-        MinecraftUsers::set(handle, &account_id.to_string(), None).await
+        handle.accounts().remove(account_id).await?;
+        CREDENTIAL_REFRESHES.remove(account_id);
+        Ok(())
     }
 }
 
@@ -1055,7 +1106,11 @@ impl Serialize for Credentials {
             }
         };
 
-        let mut ser = serializer.serialize_struct("Credentials", 8)?;
+        let mut ser = serializer.serialize_struct("Credentials", 9)?;
+        ser.serialize_field(
+            "credential_persistence",
+            &self.credential_persistence,
+        )?;
         ser.serialize_field("account_id", &self.account_id())?;
         ser.serialize_field("profile", &*profile)?;
         ser.serialize_field("account_type", &self.account_type)?;
@@ -1151,7 +1206,7 @@ impl DeviceTokenPair {
             display_claims,
         };
 
-        MinecraftDeviceTokens::set(handle, &Singleton, Some(&record)).await
+        handle.accounts().set_device_token(&record).await
     }
 }
 
@@ -1197,7 +1252,7 @@ struct MicrosoftOAuthError {
     error: String,
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 async fn oauth_token(
     code: &str,
     verifier: &str,
@@ -1248,7 +1303,7 @@ async fn oauth_token(
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 async fn oauth_refresh(
     refresh_token: &str,
 ) -> Result<RequestWithDate<OAuthToken>, MinecraftAuthenticationError> {
@@ -1301,7 +1356,7 @@ struct XboxLiveToken {
     token: String,
 }
 
-#[tracing::instrument(skip(access_token))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn xbox_live_authorize(
     access_token: &str,
 ) -> Result<RequestWithDate<XboxLiveToken>, MinecraftAuthenticationError> {
@@ -1321,7 +1376,7 @@ async fn xbox_live_authorize(
     .await
 }
 
-#[tracing::instrument(skip(xbl_token))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn xsts_authorize_xbl(
     xbl_token: &str,
 ) -> Result<RequestWithDate<DeviceToken>, MinecraftAuthenticationError> {
@@ -1380,7 +1435,7 @@ struct MinecraftToken {
     // pub expires_in: u64,
 }
 
-#[tracing::instrument(skip(token))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn minecraft_token(
     token: DeviceToken,
 ) -> Result<MinecraftToken, MinecraftAuthenticationError> {
@@ -1620,7 +1675,7 @@ impl Deref for MaybeOnlineMinecraftProfile<'_> {
     }
 }
 
-#[tracing::instrument(skip(token))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn minecraft_profile(
     token: &str,
 ) -> Result<MinecraftProfile, MinecraftAuthenticationError> {
@@ -1683,7 +1738,7 @@ struct MinecraftEntitlement {
     name: String,
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 async fn minecraft_entitlements(
     token: &str,
 ) -> Result<MinecraftEntitlements, MinecraftAuthenticationError> {
@@ -1810,7 +1865,7 @@ mod transport_tests {
 }
 
 // auth utils
-#[tracing::instrument(skip(reqwest_request))]
+#[tracing::instrument(skip_all, level = "info")]
 async fn auth_retry<F>(
     reqwest_request: impl Fn() -> F,
 ) -> Result<reqwest::Response, reqwest::Error>
@@ -1905,7 +1960,7 @@ mod token_tracing_tests {
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 fn get_date_header(headers: &HeaderMap) -> DateTime<Utc> {
     headers
         .get(reqwest::header::DATE)
@@ -1914,7 +1969,7 @@ fn get_date_header(headers: &HeaderMap) -> DateTime<Utc> {
         .map_or(Utc::now(), |x| x.with_timezone(&Utc))
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 fn generate_oauth_challenge() -> String {
     let mut rng = rand::thread_rng();
 

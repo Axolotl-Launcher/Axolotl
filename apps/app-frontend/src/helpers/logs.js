@@ -3,8 +3,9 @@
  * So, for example, addDefaultInstance creates a blank instance object, where the Rust struct is serialized,
  *  and deserialized into a usable JS object.
  */
-import { invoke } from '@tauri-apps/api/core'
 import { save } from '@tauri-apps/plugin-dialog'
+
+import { invoke } from '@/helpers/invoke'
 
 /*
 A log is a struct containing the filename string and optional output, as follows:

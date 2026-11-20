@@ -2388,6 +2388,9 @@ fn has_direct_version_json(path: &Path) -> bool {
 fn is_axolotl_folder(path: &Path) -> bool {
     path.join("axolotl_config.json").is_file()
         || has_direct_axolotl_config(path)
+        || has_direct_axolotl_config(
+            &path.join(crate::state::INSTANCES_FOLDER_NAME),
+        )
 }
 
 /// Whether a direct child folder of `path` has `axolotl_config.json`.

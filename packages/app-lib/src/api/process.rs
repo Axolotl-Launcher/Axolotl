@@ -8,7 +8,7 @@ pub use crate::{
 use uuid::Uuid;
 
 // Gets each running stored process in the state
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_all() -> crate::Result<Vec<ProcessMetadata>> {
     let state = State::get().await?;
     let processes = state.process_manager.get_all();
@@ -39,7 +39,7 @@ async fn resolve_instance_id_with_state(
 }
 
 // Gets the UUID of each stored process in the state by instance id
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_by_instance_id(
     instance_id: &str,
 ) -> crate::Result<Vec<ProcessMetadata>> {
@@ -54,7 +54,7 @@ pub async fn get_by_instance_id(
 }
 
 // Kill a child process stored in the state by UUID, as a string
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn kill(uuid: Uuid) -> crate::Result<()> {
     let state = State::get().await?;
     state.process_manager.kill(uuid).await?;
@@ -63,7 +63,7 @@ pub async fn kill(uuid: Uuid) -> crate::Result<()> {
 }
 
 // Wait for a child process stored in the state by UUID
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn wait_for(uuid: Uuid) -> crate::Result<()> {
     let state = State::get().await?;
     state.process_manager.wait_for(uuid).await?;

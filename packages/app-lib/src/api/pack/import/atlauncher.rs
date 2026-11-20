@@ -122,7 +122,7 @@ pub async fn is_valid_atlauncher(instance_folder: PathBuf) -> bool {
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 
 pub async fn import_atlauncher_dir(
     atlauncher_base_path: PathBuf,

@@ -1,7 +1,6 @@
 use super::create_direct_link_instance::create_direct_link_instance;
 use crate::api::pack::import::direct_link::{
-    detect_direct_link_source, direct_link_group,
-    has_minecraft_version_manifest, resolve_direct_link,
+    detect_direct_link_source, has_linked_version_manifest, resolve_direct_link,
 };
 use crate::event::{InstancePayloadType, emit::emit_instance};
 use crate::launcher::ExternalGameDirMode;
@@ -108,13 +107,13 @@ pub(crate) async fn sync_direct_link_instances(
             // left by an interrupted install. They have no version manifest,
             // so they are not Minecraft instances and should not surface a
             // warning on every root synchronization.
-            if !has_minecraft_version_manifest(&folder) {
+            let source = detect_direct_link_source(root, &folder);
+            if !has_linked_version_manifest(&folder, source.launcher) {
                 continue;
             }
             tracing::debug!(root = %root.display(), version_dir = %folder.display(), mode = %mode.key(), "attempting direct-link instance sync");
             let folder_name = entry.file_name().to_string_lossy().to_string();
             let instance_folder = Path::new("versions").join(&folder_name);
-            let source = detect_direct_link_source(root, &folder);
             let resolved = match resolve_direct_link(
                 source.launcher,
                 source.launcher_root.clone(),
@@ -180,36 +179,44 @@ pub(crate) async fn sync_direct_link_instances(
                         != Some(
                             resolved.dot_minecraft.to_string_lossy().as_ref(),
                         )
+                    || instance.linked_version_json_path.as_deref()
+                        != Some(
+                            resolved.version_json.to_string_lossy().as_ref(),
+                        )
                     || instance.linked_game_dir_mode.as_deref()
                         != Some(mode.key());
                 let content_changed = metadata.applied_content_set.game_version
                     != resolved.game_version
                     || metadata.applied_content_set.loader != resolved.loader;
-                let groups = direct_link_group(&resolved.dot_minecraft)
-                    .into_iter()
-                    .collect::<Vec<_>>();
-                let groups_changed = metadata.groups != groups;
-                if fields_changed || content_changed || groups_changed {
-                    if content_changed {
-                        crate::state::edit_instance(
-                            &instance.id,
-                            EditInstance {
-                                content_set_patch: Some(
-                                    AppliedContentSetPatch {
-                                        game_version: Some(
-                                            resolved.game_version.clone(),
-                                        ),
-                                        loader: Some(resolved.loader),
-                                        ..AppliedContentSetPatch::default()
-                                    },
+                // The library derives game-directory grouping from the link.
+                // Its path is not an ID in the user's group document.
+                if !fields_changed && !content_changed {
+                    continue;
+                }
+                if content_changed {
+                    crate::state::edit_instance(
+                        &instance.id,
+                        EditInstance {
+                            content_set_patch: Some(AppliedContentSetPatch {
+                                game_version: Some(
+                                    resolved.game_version.clone(),
                                 ),
-                                ..EditInstance::default()
-                            },
+                                loader: Some(resolved.loader),
+                                ..AppliedContentSetPatch::default()
+                            }),
+                            ..EditInstance::default()
+                        },
+                        &state.pool,
+                    )
+                    .await?;
+                }
+                if fields_changed {
+                    let (mut tx, tx_diagnostics) =
+                        crate::state::store::lock_diagnostics::begin(
                             &state.pool,
+                            "BEGIN IMMEDIATE",
                         )
                         .await?;
-                    }
-                    let mut tx = state.pool.begin().await?;
                     instance_rows::set_direct_link_fields(
                         &instance.id,
                         &instance_rows::DirectLinkFields {
@@ -238,20 +245,13 @@ pub(crate) async fn sync_direct_link_instances(
                         &mut tx,
                     )
                     .await?;
-                    instance_rows::replace_instance_groups(
-                        &instance.id,
-                        &groups,
-                        &mut tx,
-                    )
-                    .await?;
-                    tx.commit().await?;
-                    let _ = emit_instance(
-                        &instance.id,
-                        InstancePayloadType::Edited,
-                    )
-                    .await;
-                    report.updated += 1;
+                    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+                    tx_diagnostics.complete("committed");
                 }
+                let _ =
+                    emit_instance(&instance.id, InstancePayloadType::Edited)
+                        .await;
+                report.updated += 1;
             } else {
                 let instance = match create_direct_link_instance(
                     CreateDirectLinkInstance {

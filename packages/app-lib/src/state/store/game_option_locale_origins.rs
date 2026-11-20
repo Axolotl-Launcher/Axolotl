@@ -9,7 +9,7 @@ pub(crate) struct GameOptionLocaleOrigins;
 
 /// An origin is identified by the scope it is known in and the option it
 /// describes.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct LocaleOriginKey {
     pub scope: String,
     pub option_id: String,
@@ -19,7 +19,7 @@ pub(crate) struct LocaleOriginKey {
 ///
 /// The observation and the resolved origin are opaque text: what one says is
 /// the caller's business.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct LocaleOriginRecord {
     pub source_instance_id: Option<String>,
     pub source_game_version: Option<String>,
@@ -226,3 +226,21 @@ async fn write_row(
 
     Ok(())
 }
+
+impl crate::state::sync_state::collection::Collection
+    for GameOptionLocaleOrigins
+{
+    type Key = LocaleOriginKey;
+    type Scope = String;
+    type Record = LocaleOriginRecord;
+    const NAME: &'static str = "game_option_locale_origins";
+    fn in_scope(scope: &Self::Scope, key: &Self::Key) -> bool {
+        key.scope == *scope
+    }
+}
+crate::state::sync_state::collection::verbs!(
+    GameOptionLocaleOrigins,
+    LocaleOriginKey,
+    String,
+    LocaleOriginRecord
+);

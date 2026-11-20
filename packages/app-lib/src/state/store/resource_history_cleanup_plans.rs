@@ -1,5 +1,6 @@
 //! The reviewed plans that remove old backups.
 
+use sqlx::Connection as _;
 use sqlx::SqliteConnection;
 
 use super::{Collection, Handle};
@@ -14,7 +15,7 @@ pub(crate) type CleanupPlanKey = String;
 ///
 /// The plan and the progress made on it are kept as the text they are stored
 /// as: what the text says is the caller's business.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CleanupPlanRecord {
     pub instance_id: String,
     pub revision: u32,
@@ -35,6 +36,15 @@ impl Collection for ResourceHistoryCleanupPlans {
         conn: &mut SqliteConnection,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::read(
+                conn,
+                "resource_history_cleanup_plans",
+                key,
+            )
+            .await;
+        }
+
         let row: Option<(String, u32, String, bool)> = sqlx::query_as(
             "
             SELECT instance_id, revision, payload, consumed
@@ -63,6 +73,16 @@ impl Collection for ResourceHistoryCleanupPlans {
         key: &Self::Key,
         record: Option<&Self::Record>,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::write(
+                conn,
+                "resource_history_cleanup_plans",
+                key,
+                record,
+            )
+            .await;
+        }
+
         let Some(record) = record else {
             sqlx::query(
                 "DELETE FROM resource_history_cleanup_plans WHERE id = ?",
@@ -80,6 +100,14 @@ impl Collection for ResourceHistoryCleanupPlans {
     async fn read_all(
         conn: &mut SqliteConnection,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::all(
+                conn,
+                "resource_history_cleanup_plans",
+            )
+            .await;
+        }
+
         let rows: Vec<(String, String, u32, String, bool)> = sqlx::query_as(
             "
             SELECT id, instance_id, revision, payload, consumed
@@ -109,6 +137,24 @@ impl Collection for ResourceHistoryCleanupPlans {
         conn: &mut SqliteConnection,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, _) in
+                super::recovery_documents::strict_all::<Self::Record>(
+                    conn,
+                    "resource_history_cleanup_plans",
+                )
+                .await?
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         sqlx::query("DELETE FROM resource_history_cleanup_plans")
             .execute(&mut *conn)
             .await?;
@@ -122,6 +168,14 @@ impl Collection for ResourceHistoryCleanupPlans {
         conn: &mut SqliteConnection,
         scope: &Self::Scope,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return Ok(Self::read_all(conn)
+                .await?
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+                .collect());
+        }
+
         Ok(Self::read(conn, scope)
             .await?
             .map(|record| vec![(scope.clone(), record)])
@@ -133,6 +187,32 @@ impl Collection for ResourceHistoryCleanupPlans {
         scope: &Self::Scope,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, record) in records {
+                if !(key == scope) {
+                    return Err(crate::ErrorKind::InputError(
+                        "Operation record outside replacement scope".into(),
+                    )
+                    .into());
+                }
+            }
+            for (key, _) in Self::read(conn, scope)
+                .await?
+                .map(|record| vec![(scope.clone(), record)])
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         Self::write(conn, scope, records.first().map(|(_, record)| record))
             .await
     }
@@ -144,6 +224,29 @@ impl ResourceHistoryCleanupPlans {
         handle: &Handle,
         instance_id: &str,
     ) -> crate::Result<Vec<String>> {
+        if let Some(selected) = super::recovery_documents::snapshot_records(
+            handle.pool(),
+            "resource_history_cleanup_plans",
+            None,
+            Some(instance_id),
+        )
+        .await?
+        {
+            let mut payloads = Vec::new();
+            for row in selected {
+                match row.decode::<CleanupPlanRecord>().await {
+                    Ok(record) if record.instance_id == instance_id => {
+                        payloads.push(record.payload)
+                    }
+                    Ok(_) => {}
+                    Err(error) => {
+                        tracing::warn!(key=%row.key,%error,"Recovery record unavailable; original retained and other records continue")
+                    }
+                }
+            }
+            return Ok(payloads);
+        }
+
         let rows: Vec<String> = sqlx::query_scalar(
             "
             SELECT payload
@@ -166,6 +269,39 @@ impl ResourceHistoryCleanupPlans {
         revision: u32,
         payload: &str,
     ) -> crate::Result<()> {
+        {
+            let mut connection = handle.connection().await?;
+            if super::recovery_documents::active(&mut connection).await? {
+                let mut transaction =
+                    connection.begin_with("BEGIN IMMEDIATE").await?;
+                let result = async {
+                    let conn = &mut *transaction;
+                    if Self::read(conn, &key.to_owned()).await?.is_some() {
+                        return Err(crate::ErrorKind::InputError(
+                            "Cleanup plan exists".into(),
+                        )
+                        .into());
+                    }
+                    return Self::write(
+                        conn,
+                        &key.to_owned(),
+                        Some(&CleanupPlanRecord {
+                            instance_id: instance_id.into(),
+                            revision,
+                            payload: payload.into(),
+                            consumed: false,
+                        }),
+                    )
+                    .await;
+                }
+                .await;
+                if result.is_ok() {
+                    transaction.commit().await?;
+                }
+                return result;
+            }
+        }
+
         let mut connection = handle.connection().await?;
         sqlx::query(
             "
@@ -190,6 +326,22 @@ impl ResourceHistoryCleanupPlans {
         key: &str,
         revision: u32,
     ) -> crate::Result<Option<String>> {
+        if let Some(selected) = super::recovery_documents::snapshot_records(
+            handle.pool(),
+            "resource_history_cleanup_plans",
+            Some(key),
+            None,
+        )
+        .await?
+        {
+            return match selected.into_iter().next() {
+                Some(row) => Ok(Some(row.decode::<CleanupPlanRecord>().await?)
+                    .filter(|row| row.revision == revision && !row.consumed)
+                    .map(|row| row.payload)),
+                None => Ok(None),
+            };
+        }
+
         let payload: Option<String> = sqlx::query_scalar(
             "
             SELECT payload
@@ -210,6 +362,22 @@ impl ResourceHistoryCleanupPlans {
         handle: &Handle,
         key: &str,
     ) -> crate::Result<bool> {
+        if let Some(selected) = super::recovery_documents::snapshot_records(
+            handle.pool(),
+            "resource_history_cleanup_plans",
+            Some(key),
+            None,
+        )
+        .await?
+        {
+            let row = selected.into_iter().next().ok_or_else(|| {
+                crate::ErrorKind::InputError(
+                    "Operation record is missing or changed".into(),
+                )
+            })?;
+            return Ok(row.decode::<CleanupPlanRecord>().await?.consumed);
+        }
+
         let consumed: bool = sqlx::query_scalar(
             "
             SELECT consumed
@@ -230,6 +398,32 @@ impl ResourceHistoryCleanupPlans {
         key: &str,
         payload: &str,
     ) -> crate::Result<()> {
+        {
+            let mut connection = handle.connection().await?;
+            if super::recovery_documents::active(&mut connection).await? {
+                let mut transaction =
+                    connection.begin_with("BEGIN IMMEDIATE").await?;
+                let result = async {
+                    let conn = &mut *transaction;
+                    if let Some(mut row) =
+                        Self::read(conn, &key.to_owned()).await?
+                    {
+                        if row.consumed {
+                            return Ok(());
+                        }
+                        row.payload = payload.into();
+                        Self::write(conn, &key.to_owned(), Some(&row)).await?;
+                    }
+                    return Ok(());
+                }
+                .await;
+                if result.is_ok() {
+                    transaction.commit().await?;
+                }
+                return result;
+            }
+        }
+
         sqlx::query(
             "
             UPDATE resource_history_cleanup_plans
@@ -251,6 +445,29 @@ impl ResourceHistoryCleanupPlans {
         key: &str,
         payload: &str,
     ) -> crate::Result<()> {
+        {
+            let mut connection = handle.connection().await?;
+            if super::recovery_documents::active(&mut connection).await? {
+                let mut transaction =
+                    connection.begin_with("BEGIN IMMEDIATE").await?;
+                let result = async {
+                    let conn = &mut *transaction;
+                    if let Some(mut row) =
+                        Self::read(conn, &key.to_owned()).await?
+                    {
+                        row.payload = payload.into();
+                        Self::write(conn, &key.to_owned(), Some(&row)).await?;
+                    }
+                    return Ok(());
+                }
+                .await;
+                if result.is_ok() {
+                    transaction.commit().await?;
+                }
+                return result;
+            }
+        }
+
         sqlx::query(
             "
             UPDATE resource_history_cleanup_plans
@@ -272,6 +489,30 @@ impl ResourceHistoryCleanupPlans {
         key: &str,
         payload: &str,
     ) -> crate::Result<()> {
+        {
+            let mut connection = handle.connection().await?;
+            if super::recovery_documents::active(&mut connection).await? {
+                let mut transaction =
+                    connection.begin_with("BEGIN IMMEDIATE").await?;
+                let result = async {
+                    let conn = &mut *transaction;
+                    if let Some(mut row) =
+                        Self::read(conn, &key.to_owned()).await?
+                    {
+                        row.payload = payload.into();
+                        row.consumed = true;
+                        Self::write(conn, &key.to_owned(), Some(&row)).await?;
+                    }
+                    return Ok(());
+                }
+                .await;
+                if result.is_ok() {
+                    transaction.commit().await?;
+                }
+                return result;
+            }
+        }
+
         sqlx::query(
             "
             UPDATE resource_history_cleanup_plans
@@ -293,6 +534,15 @@ impl ResourceHistoryCleanupPlans {
         key: &str,
         payload: &str,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            if let Some(mut row) = Self::read(conn, &key.to_owned()).await? {
+                row.payload = payload.into();
+                row.consumed = true;
+                Self::write(conn, &key.to_owned(), Some(&row)).await?;
+            }
+            return Ok(());
+        }
+
         sqlx::query(
             "
             UPDATE resource_history_cleanup_plans

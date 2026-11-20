@@ -6,6 +6,7 @@
 
 mod atom;
 mod cache;
+mod content_evidence;
 mod content_refresh;
 mod content_snapshot;
 mod crash_analysis_mod_snapshots;
@@ -28,6 +29,7 @@ mod resource_cache;
 mod resource_favorites;
 mod resource_plans;
 mod resource_source_projects;
+mod scanned_evidence;
 mod scheduler;
 mod secrets;
 mod settings;
@@ -44,3 +46,5 @@ mod synced_game_option_state;
 mod synced_game_option_values;
 mod telemetry;
 mod translation_cache;
+
+mod user_state;

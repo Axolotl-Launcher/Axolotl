@@ -2,6 +2,9 @@
 
 use super::Handle;
 use crate::resources::{ResourceId, SourceId};
+use crate::state::instances::adapters::sqlite::resource_rows::{
+    EntryProject, ResourceStore, entry_identities, project_key,
+};
 use crate::state::instances::adapters::sqlite::{instance_rows, links};
 use crate::state::instances::{
     ContentEntry, ContentSet, Instance, InstanceFile, InstanceLink, PackMember,
@@ -9,7 +12,7 @@ use crate::state::instances::{
 };
 use crate::state::{ContentProvider, ContentProviderRef};
 use sqlx::Row;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub(crate) struct SnapshotRecords {
     pub pack_presentation: Option<super::content_refresh_pack::PackRecord>,
@@ -31,6 +34,7 @@ pub(crate) struct SnapshotRecords {
     pub dependencies:
         HashMap<String, crate::state::instances::ContentDependencyInfo>,
     pub references: HashMap<String, Vec<ContentProviderRef>>,
+    pub unreadable_modrinth_refs: HashSet<String>,
     pub origins: HashMap<String, ContentProvider>,
     pub artifacts:
         HashMap<String, crate::resources::installed::InstalledArtifactRecord>,
@@ -53,7 +57,21 @@ pub(crate) async fn get(
     use crate::state::instances::adapters::sqlite::{
         content_entries, content_sets, files, pack_members,
     };
-    let mut tx = handle.pool().begin().await?;
+    // Shared-memory configuration and rollback-journal domains must reserve
+    // their snapshot together. Otherwise a reader can hold instances.db while
+    // waiting for a configuration writer whose commit waits for that reader.
+    let stable = handle
+        .pool()
+        .connect_options()
+        .get_filename()
+        .file_name()
+        .is_some_and(|name| name == "system.db");
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            handle.pool(),
+            if stable { "BEGIN IMMEDIATE" } else { "BEGIN" },
+        )
+        .await?;
     let instance = get_instance(&mut tx, instance_id).await?;
     let content_set =
         content_sets::get_applied_content_set(instance_id, &mut *tx)
@@ -134,26 +152,36 @@ pub(crate) async fn get(
     let rows = sqlx::query("SELECT ref.content_entry_id, ref.provider, ref.provider_project_id, ref.provider_release_id, ref.provider_file_id, ref.is_origin FROM instance_content_provider_refs ref JOIN instance_content_entries entry ON entry.id = ref.content_entry_id WHERE entry.content_set_id = ? ORDER BY ref.content_entry_id, ref.is_origin DESC, ref.provider, ref.provider_project_id")
         .bind(&content_set.id).fetch_all(&mut *tx).await?;
     let mut references = HashMap::<String, Vec<ContentProviderRef>>::new();
+    let mut unreadable_modrinth_refs = HashSet::new();
     let mut origins = HashMap::new();
+    let mut entry_projects = Vec::<EntryProject>::new();
     for row in rows {
         let entry: String = row.try_get("content_entry_id")?;
+        let provider: String = row.try_get("provider")?;
+        let project_id: String = row.try_get("provider_project_id")?;
+        let origin: bool = row.try_get("is_origin")?;
+        let is_modrinth = provider == "modrinth";
         let reference = ContentProviderRef::from_database(
-            row.try_get("provider")?,
-            row.try_get("provider_project_id")?,
+            &provider,
+            &project_id,
             row.try_get::<Option<String>, _>("provider_release_id")?
                 .as_deref(),
             row.try_get::<Option<String>, _>("provider_file_id")?
                 .as_deref(),
         );
+        entry_projects.push((entry.clone(), provider, project_id, origin));
         match reference {
             Ok(reference) => {
-                if row.try_get::<bool, _>("is_origin")? {
+                if origin {
                     origins.insert(entry.clone(), reference.provider());
                 }
                 references.entry(entry).or_default().push(reference);
             }
             Err(error) => {
-                tracing::warn!(%entry, %error, "Skipping invalid content provider reference")
+                tracing::warn!(%entry, %error, "Skipping invalid content provider reference");
+                if is_modrinth {
+                    unreadable_modrinth_refs.insert(entry);
+                }
             }
         }
     }
@@ -165,64 +193,123 @@ pub(crate) async fn get(
             Err(error) => { tracing::warn!(%entry, %error, "Skipping invalid installed artifact"); None }
         }
     }).collect();
-    let rows: Vec<(String, String)> = sqlx::query_as("SELECT entry.id, COALESCE(MAX(CASE WHEN ref.is_origin = 1 THEN link.resource_id END), MIN(link.resource_id)) FROM instance_content_entries entry JOIN instance_content_provider_refs ref ON ref.content_entry_id = entry.id LEFT JOIN resource_entry_links link ON link.reference_id = ref.id WHERE entry.content_set_id = ? GROUP BY entry.id HAVING (MAX(ref.is_origin) = 0 AND COUNT(link.resource_id) = COUNT(*) AND COUNT(DISTINCT link.resource_id) = 1) OR (MAX(ref.is_origin) = 1 AND SUM(CASE WHEN ref.is_origin = 1 AND link.resource_id IS NOT NULL THEN 1 ELSE 0 END) = 1)")
-        .bind(&content_set.id).fetch_all(&mut *tx).await?;
-    let mut entry_resources = resource_ids(rows);
-    let mut projects = HashMap::new();
+    let pack_project: Option<(String, Option<String>)> = sqlx::query_as("SELECT source, project_id FROM resource_instance_pack_projects WHERE instance_id = ?")
+        .bind(instance_id).fetch_optional(&mut *tx).await?;
+    let pack_project = pack_project
+        .and_then(|(source, id)| project_key(&source, id.as_deref()?));
+    let preferred = if super::configuration_documents::runtime(handle.pool()) {
+        None
+    } else {
+        let preferred: String = sqlx::query_scalar(
+            "SELECT preferred_source FROM resource_preferences WHERE id = 1",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        Some(preferred)
+    };
+    let evidence_guards =
+        super::content_evidence::guards(&mut tx, instance_id).await?;
+    let evidence_entries =
+        super::content_evidence::entry_files(&mut tx, instance_id).await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
+    let member_projects = members
+        .iter()
+        .filter_map(|member: &PackMember| {
+            Some((
+                &member.id,
+                project_key(
+                    member.provider?.as_str(),
+                    member.provider_project_id.as_deref()?,
+                )?,
+            ))
+        })
+        .collect::<Vec<_>>();
+    let projects = entry_projects
+        .iter()
+        .filter_map(|(_, source, id, _)| project_key(source, id))
+        .chain(member_projects.iter().map(|(_, project)| project.clone()))
+        .chain(pack_project.iter().cloned())
+        .chain(artifacts.values().filter_map(|record| {
+            let project = &record.artifact.reference.release.project;
+            project_key(project.source.as_str(), project.project_id.as_str())
+        }))
+        .collect::<Vec<_>>();
+    let identities = ResourceStore::new(handle.pool().clone())
+        .enrich_many(&projects)
+        .await;
+    let mut entry_resources = entry_identities(&entry_projects, &identities);
     for (entry, record) in &artifacts {
-        if entry_resources.contains_key(entry) {
-            continue;
-        }
         let project = &record.artifact.reference.release.project;
-        if !projects.contains_key(project) {
-            let key =
-                super::resource_source_projects::ResourceSourceProjectKey {
-                    source: project.source.as_str().into(),
-                    project_id: project.project_id.as_str().into(),
-                };
-            let resource =
-                super::resource_source_projects::ResourceSourceProjects::read(
-                    &mut tx, &key,
-                )
-                .await?
-                .and_then(|record| ResourceId::new(record.resource_id).ok());
-            projects.insert(project.clone(), resource);
-        }
-        if let Some(Some(resource)) = projects.get(project) {
-            entry_resources.insert(entry.clone(), resource.clone());
+        if let Some(identity) = identities.get(project) {
+            entry_resources
+                .entry(entry.clone())
+                .or_insert_with(|| identity.clone());
         }
     }
-    let rows: Vec<(String, String)> = sqlx::query_as("SELECT link.member_id, link.resource_id FROM resource_pack_links link JOIN instance_pack_members member ON member.id = link.member_id WHERE member.content_set_id = ?")
-        .bind(&content_set.id).fetch_all(&mut *tx).await?;
-    let pack_resources = resource_ids(rows);
-    let pack_resource: Option<String> = sqlx::query_scalar("SELECT resource_id FROM resource_instance_pack_links WHERE instance_id = ?")
-        .bind(instance_id).fetch_optional(&mut *tx).await?;
-    let pack_resource = pack_resource.and_then(|id| ResourceId::new(id).ok());
-    let preferred: String = sqlx::query_scalar(
-        "SELECT preferred_source FROM resource_preferences WHERE id = 1",
-    )
-    .fetch_one(&mut *tx)
-    .await?;
+    let pack_resources = member_projects
+        .into_iter()
+        .filter_map(|(member, project)| {
+            Some((member.clone(), identities.get(&project)?.clone()))
+        })
+        .collect();
+    let pack_resource =
+        pack_project.and_then(|project| identities.get(&project).cloned());
+    // The routing preference is presentation state, outside the relationship
+    // snapshot. Reading its documents must not extend the core write reservation.
+    let preferred = match preferred {
+        Some(preferred) => preferred,
+        None => {
+            super::configuration_documents::preferred_source(handle).await?
+        }
+    };
     let preferred_source =
         SourceId::new(preferred).unwrap_or_else(|_| SourceId::modrinth());
-    let checks =
-        super::content_refresh_checks::ContentRefreshChecks::read_scoped(
-            &mut tx,
-            &instance_id.to_owned(),
+    let fingerprints = super::content_evidence::read_scoped(
+        handle,
+        "fingerprint",
+        instance_id,
+        &evidence_guards,
+        None,
+    )
+    .await;
+    let presentations = super::content_evidence::read_scoped(
+        handle,
+        "presentation",
+        instance_id,
+        &evidence_guards,
+        None,
+    )
+    .await;
+    let checks = super::content_evidence::read_scoped::<
+        super::content_refresh_checks::RefreshCheckRecord,
+    >(
+        handle,
+        "check",
+        instance_id,
+        &evidence_guards,
+        Some(&evidence_entries),
+    )
+    .await
+    .into_iter()
+    .map(|(entry_id, record)| {
+        (
+            super::content_refresh_checks::RefreshCheckKey {
+                instance_id: instance_id.into(),
+                entry_id,
+            },
+            record,
         )
-        .await?;
-    let fingerprints =
-        super::content_file_fingerprints::ContentFileFingerprints::read_scoped(
-            &mut tx,
-            &instance_id.to_owned(),
-        )
-        .await?
-        .into_iter()
-        .map(|(key, record)| (key.file_id, record))
-        .collect();
-    let presentations = super::content_refresh_presentations::ContentRefreshPresentations::read_scoped(&mut tx, &instance_id.to_owned()).await?
-        .into_iter().map(|(key, record)| (key.file_id, record)).collect();
-    tx.commit().await?;
+    })
+    .collect();
+    let mut files = files;
+    super::content_evidence::hydrate_with_guards(
+        handle,
+        instance_id,
+        &mut files,
+        &evidence_guards,
+    )
+    .await;
     Ok(SnapshotRecords {
         pack_presentation: None,
         fingerprints,
@@ -236,6 +323,7 @@ pub(crate) async fn get(
         pending,
         dependencies,
         references,
+        unreadable_modrinth_refs,
         origins,
         artifacts,
         entry_resources,
@@ -251,7 +339,7 @@ pub(crate) async fn get(
 /// that reads the rest instead of inside it.
 pub(crate) async fn get_with_saved_pack(
     handle: &Handle,
-    derived: &super::derived_db::DerivedDb,
+    derived: &crate::resources::cache::ResourceCache,
     instance_id: &str,
 ) -> crate::Result<SnapshotRecords> {
     let mut records = get(handle, instance_id).await?;
@@ -265,13 +353,6 @@ pub(crate) async fn get_with_saved_pack(
         )
         .await?;
     Ok(records)
-}
-
-fn resource_ids(rows: Vec<(String, String)>) -> HashMap<String, ResourceId> {
-    rows.into_iter().filter_map(|(key, value)| match ResourceId::new(value) {
-        Ok(id) => Some((key, id)),
-        Err(error) => { tracing::warn!(%key, %error, "Skipping invalid resource identity"); None }
-    }).collect()
 }
 
 pub(crate) async fn get_instance(

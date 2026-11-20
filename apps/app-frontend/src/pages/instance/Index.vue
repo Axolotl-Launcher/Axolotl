@@ -444,6 +444,7 @@ import {
     fetchCachedServerStatus,
     getFreshCachedServerStatus,
 } from '@/composables/instances/use-server-status-query'
+import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
 import { useInstanceConsole } from '@/composables/useInstanceConsole'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
@@ -476,6 +477,8 @@ import { injectServerInstall } from '@/providers/server-install'
 import { handleSevereError } from '@/store/error.js'
 import { useBreadcrumbs, useTheming } from '@/store/state'
 
+import { instanceContentKeys, retainInstanceView } from './instance-view-cache'
+import { instanceKeys } from './query-options'
 import { isActiveUpgradeJobForInstance, isUnmanagedUpgradeEligible } from './upgrade/entry'
 
 dayjs.extend(duration)
@@ -491,6 +494,10 @@ const props = defineProps<{
 const { formatMessage } = useVIntl()
 
 const messages = defineMessages({
+    instanceNotFound: {
+        id: 'app.instance.not-found',
+        defaultMessage: 'This instance is no longer available.',
+    },
     neverPlayed: { id: 'app.instance.never-played', defaultMessage: 'Never played' },
     upgradedTo: {
         id: 'app.instance.post-upgrade-status',
@@ -545,7 +552,18 @@ const handleMinecraftLaunchError = useMinecraftLaunchError()
 const showInstancePlayTime = computed(() => themeStore.getFeatureFlag('show_instance_play_time'))
 const { offline } = useNetworkStatus()
 
-const instance = ref<GameInstance>()
+function cachedInstance(instanceId: string) {
+    const detail = queryClient.getQueryState<GameInstance>(instanceKeys.detail(instanceId))
+    const list = queryClient.getQueryState<GameInstance[]>(instanceKeys.list())
+    const summary = list?.data?.find(({ id }) => id === instanceId)
+    return list?.data && list.dataUpdatedAt > (detail?.dataUpdatedAt ?? 0)
+        ? summary
+        : (detail?.data ?? summary)
+}
+
+retainInstanceView(computed(() => instanceKeys.detail(props.id)))
+const instance = ref<GameInstance>(cachedInstance(props.id))
+const instancePending = ref(!instance.value)
 const instanceId = computed(() => instance.value?.id)
 const postUpgradeNoticeQuery = usePostUpgradeNotice(() => instance.value?.id ?? props.id)
 const postUpgradeNotice = computed(() => postUpgradeNoticeQuery.data.value ?? null)
@@ -576,8 +594,9 @@ watch(
 )
 
 useLoadingBarToken(subpagePending)
+useLoadingBarToken(instancePending)
 
-const isServerInstance = ref(false)
+const isServerInstance = ref(instance.value?.link?.type === 'server_project_modpack')
 const linkedProjectV3 = ref<Labrinth.Projects.v3.Project>()
 const selected = ref<unknown[]>([])
 const canUpgradeInstance = computed(() =>
@@ -594,7 +613,7 @@ const recentPlays = computed(
 const playersOnline = ref<number | undefined>(undefined)
 const ping = ref<number | undefined>(undefined)
 const loadingServerPing = ref(false)
-const activeInstanceId = ref<string>()
+const activeInstanceId = ref(instance.value?.id)
 const loaderIcon = computed(() =>
     instance.value?.loader ? getLoaderIcon(instance.value.loader) : undefined,
 )
@@ -646,7 +665,16 @@ async function fetchInstance() {
         }
     })
     if (!isCurrent() || !instanceReads.isCurrent(read, props.id)) return
-    if (!nextInstance) return
+    instancePending.value = false
+    if (nextInstance === null) {
+        queryClient.removeQueries({ queryKey: instanceKeys.detail(requestedId), exact: true })
+        queryClient.removeQueries({ queryKey: instanceContentKeys(requestedId) })
+        instance.value = undefined
+        addNotification({ type: 'warning', title: formatMessage(messages.instanceNotFound) })
+        await router.replace({ name: 'Overview' })
+        return
+    }
+    if (nextInstance === undefined) return
     const linkChanged =
         instance.value?.id !== nextInstance?.id ||
         instance.value?.link?.type !== nextInstance?.link?.type ||
@@ -655,7 +683,10 @@ async function fetchInstance() {
         linkedProjectV3.value = undefined
         resetServerStatus()
     }
-    instance.value = nextInstance ?? undefined
+    instance.value = queryClient.setQueryData<GameInstance>(
+        instanceKeys.detail(requestedId),
+        nextInstance,
+    )
     activeInstanceId.value = nextInstance?.id
     isServerInstance.value =
         nextInstance?.link?.type === 'server_project_modpack' ||
@@ -758,16 +789,14 @@ async function updatePlayState() {
     playing.value = Array.isArray(runningProcesses) && runningProcesses.length > 0
 }
 
-await fetchInstance()
-watch(
-    () => props.id,
-    async () => {
-        if (route.path.startsWith('/instance')) {
-            await fetchInstance()
-        }
-    },
-)
-
+const { subscribe, isDisposed, addCleanup } = useScopedEventListeners()
+addCleanup(() => {
+    instanceReads.invalidate()
+    processReads.invalidate()
+    instancePageClosed = true
+    instanceGeneration++
+    clearInterval(launchElapsedTimer)
+})
 const basePath = computed(
     () => `/instance/${encodeURIComponent(displayedInstanceRoute.value.params.id as string)}`,
 )
@@ -1018,22 +1047,30 @@ const handleOptionsClick = async (args: { option: string; item: unknown }) => {
     }
 }
 
-const unlistenInstances = await instance_listener(
-    async (event: { instance_id: string; event: string }) => {
-        if (event.instance_id !== props.id) return
-        if (event.event === 'removed' || route.path === '/') {
-            if (route.path !== '/') {
-                await router.push({ path: '/' })
-            }
-            return
+void subscribe(instance_listener, async (event: { instance_id: string; event: string }) => {
+    if (event.instance_id !== props.id) return
+    if (event.event === 'removed' || route.path === '/') {
+        if (event.event === 'removed') {
+            queryClient.removeQueries({ queryKey: instanceKeys.detail(props.id), exact: true })
+            queryClient.removeQueries({ queryKey: instanceContentKeys(props.id) })
+            instanceReads.invalidate()
         }
-        const requestedId = props.id
-        await fetchInstance()
-        void queryClient.invalidateQueries({ queryKey: postUpgradeNoticeQueryKey(requestedId) })
-    },
-)
+        if (route.path !== '/') {
+            await router.push({ path: '/' })
+        }
+        return
+    }
+    if (event.event !== 'edited') return
+    const requestedId = props.id
+    await fetchInstance()
+    if (!isDisposed()) {
+        void queryClient.invalidateQueries({
+            queryKey: postUpgradeNoticeQueryKey(requestedId),
+        })
+    }
+}).catch(handleError)
 
-const unlistenProcesses = await process_listener((e: { event: string; instance_id: string }) => {
+void subscribe(process_listener, (e: { event: string; instance_id: string }) => {
     if (e.event === 'launched' && e.instance_id === props.id) {
         processReads.invalidate()
         playing.value = true
@@ -1042,7 +1079,7 @@ const unlistenProcesses = await process_listener((e: { event: string; instance_i
         playing.value = false
         void queryClient.invalidateQueries({ queryKey: postUpgradeNoticeQueryKey(props.id) })
     }
-})
+}).catch(handleError)
 
 const settingsModal = ref<InstanceType<typeof InstanceSettingsModal>>()
 
@@ -1068,14 +1105,20 @@ const timePlayedHumanized = computed(() => {
     return seconds + ' second' + (seconds > 1 ? 's' : '')
 })
 
+watch(
+    () => props.id,
+    (id, previousId) => {
+        if (previousId !== undefined) {
+            instance.value = cachedInstance(id)
+            instancePending.value = !instance.value
+            playing.value = false
+        }
+        if (route.path.startsWith('/instance')) void fetchInstance()
+    },
+    { immediate: true },
+)
+
 onUnmounted(() => {
-    instanceReads.invalidate()
-    processReads.invalidate()
-    instancePageClosed = true
-    instanceGeneration++
-    clearInterval(launchElapsedTimer)
-    unlistenProcesses()
-    unlistenInstances()
     const instanceId = displayedInstanceRoute.value.params.id
     if (typeof instanceId === 'string' && instanceId) {
         const { destroy } = useInstanceConsole(instanceId)

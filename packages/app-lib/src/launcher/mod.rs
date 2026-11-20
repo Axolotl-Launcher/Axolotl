@@ -1,5 +1,4 @@
 //! Logic for launching Minecraft
-use crate::api::pack::import::direct_link::direct_link_group;
 use crate::data::ModLoader;
 use crate::event::emit::{emit_instance, emit_loading, init_loading};
 use crate::event::{InstancePayloadType, LoadingBarType};
@@ -23,7 +22,7 @@ use crate::launcher::quick_play_version::{
 };
 use crate::server_address::{ServerAddress, parse_server_address};
 use crate::state::store::Collection as _;
-use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
+use crate::state::user_state::joins::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::state::{
     CacheBehaviour, Credentials, Instance, InstanceInstallStage,
     InstanceLaunchContext, InstanceLink, JavaVersion, MemorySettings,
@@ -69,6 +68,7 @@ pub(crate) mod external_version;
 pub(crate) mod instance_runtime;
 mod local_artifact;
 mod natives;
+mod version_json;
 
 pub mod download;
 pub mod jvm_args;
@@ -76,6 +76,10 @@ pub mod language;
 pub mod local_version;
 pub(crate) mod multimc;
 pub mod optifine;
+mod pcl_ce_arguments;
+mod pcl_ce_command;
+pub(crate) mod pcl_ce_json;
+mod pcl_ce_libraries;
 pub mod quick_play_version;
 
 const UTF8_GAME_ARGUMENT_PREFIX: &str = "__THESEUS_UTF8__:";
@@ -201,7 +205,7 @@ async fn switcheroo_gpu_environment() -> crate::Result<Vec<(String, String)>> {
 
 /// Mojang/HMCL ordered rule semantics: an empty list allows, a non-empty list
 /// starts disallowed, and each matching rule replaces the previous decision.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn parse_rules(
     rules: &[d::minecraft::Rule],
     java_version: &str,
@@ -220,7 +224,7 @@ pub fn parse_rules(
 
 /// Returns this rule's action only when every declared OS and feature
 /// restriction matches. OS and features on the same rule are conjunctive.
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub fn parse_rule(
     rule: &d::minecraft::Rule,
     java_version: &str,
@@ -1055,18 +1059,32 @@ async fn promote_external_instance_link(
         )
     })?;
     let root = direct.dot_minecraft.to_string_lossy().to_string();
+    let launcher = if direct.dialect == LinkedLauncherDialect::PclCe {
+        "pcl2_ce"
+    } else {
+        "generic"
+    };
+    let launcher_root = direct.launcher_root.as_deref().map_or_else(
+        || root.clone(),
+        |path| path.to_string_lossy().into_owned(),
+    );
     let version_json = direct
         .version_json
         .as_deref()
         .map(io::canonicalize)
         .transpose()?
         .map(|path| path.to_string_lossy().to_string());
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     crate::state::instances::adapters::sqlite::instance_rows::set_direct_link_fields(
         &instance.id,
         &crate::state::instances::adapters::sqlite::instance_rows::DirectLinkFields {
-            launcher: Some("generic".to_string()),
-            launcher_root: Some(root.clone()),
+            launcher: Some(launcher.into()),
+            launcher_root: Some(launcher_root),
             dot_minecraft: Some(root.clone()),
             version_id: Some(direct.version_id.clone()),
             version_json_path: version_json,
@@ -1075,15 +1093,8 @@ async fn promote_external_instance_link(
         &mut tx,
     )
     .await?;
-    if let Some(group) = direct_link_group(&direct.dot_minecraft) {
-        crate::state::instances::adapters::sqlite::instance_rows::replace_instance_groups(
-            &instance.id,
-            &[group],
-            &mut tx,
-        )
-        .await?;
-    }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     emit_instance(&instance.id, InstancePayloadType::Edited).await?;
     Ok(())
 }
@@ -2064,7 +2075,7 @@ fn link_project_and_version(
     }
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub async fn launch_minecraft(
     java_args: &[String],
@@ -2088,8 +2099,10 @@ pub async fn launch_minecraft(
     let instance = &context.instance;
     let content_set = &context.applied_content_set;
 
-    if instance.install_stage == InstanceInstallStage::PackInstalling
-        || instance.install_stage == InstanceInstallStage::MinecraftInstalling
+    if !crate::state::recovery::coordinator::fail_ok(&instance.id)
+        && (instance.install_stage == InstanceInstallStage::PackInstalling
+            || instance.install_stage
+                == InstanceInstallStage::MinecraftInstalling)
     {
         return Err(crate::ErrorKind::LauncherError(
             "Instance is still installing".to_string(),
@@ -2097,7 +2110,9 @@ pub async fn launch_minecraft(
         .into());
     }
 
-    if instance.install_stage != InstanceInstallStage::Installed {
+    if instance.install_stage != InstanceInstallStage::Installed
+        && !crate::state::recovery::coordinator::fail_ok(&instance.id)
+    {
         return Err(crate::ErrorKind::LauncherError(
             "Instance is not installed; start an install job first".to_string(),
         )
@@ -2105,11 +2120,17 @@ pub async fn launch_minecraft(
     }
 
     let state = State::get().await?;
+    let recovery_mode =
+        crate::state::store::recovery_mode::root(&state.pool).is_some();
+    // Storage recovery restricts repair/downloads; authentication keeps the
+    // caller's chosen online/offline mode.
+    let local_runtime_only = offline_mode || recovery_mode;
 
     let runtime =
         InstanceRuntimeAdapter::for_instance(instance, &state.directories)?;
     let direct_launch = runtime.direct_link().cloned();
-    if direct_launch.is_some() && !instance.is_direct_linked() {
+    if !recovery_mode && direct_launch.is_some() && !instance.is_direct_linked()
+    {
         // Instances created before direct-link metadata was introduced retain
         // their external `game_dir_override`. Their adapter above already
         // launches them in place; persist the resolved identity now so future
@@ -2142,8 +2163,10 @@ pub async fn launch_minecraft(
         .await?
     };
 
-    let cache_behaviour = offline_mode.then_some(CacheBehaviour::CacheOnly);
+    let cache_behaviour =
+        local_runtime_only.then_some(CacheBehaviour::CacheOnly);
     let mut linked_libraries = None;
+    let mut pcl_ce_client = None;
     let mut mmc_profile = None;
 
     // PCL/PCL-CE expose per-instance launch preferences (Java, memory, custom
@@ -2157,6 +2180,20 @@ pub async fn launch_minecraft(
             )
         })
         .map(DirectLinkedLaunch::pcl_launch_settings);
+    let pcl_ce = direct_launch
+        .as_ref()
+        .zip(pcl_launch.as_ref())
+        .filter(|(direct, _)| direct.dialect == LinkedLauncherDialect::PclCe);
+    if matches!(quick_play_type, QuickPlayType::None)
+        && let Some((_, settings)) = pcl_ce
+        && let Some(server) =
+            settings.pcl_ce_instance_value("VersionServerEnter")
+        && !server.trim().is_empty()
+    {
+        quick_play_type = QuickPlayType::Server(ServerAddress::Unresolved(
+            server.trim().to_owned(),
+        ));
+    }
 
     let (
         version_info,
@@ -2174,6 +2211,11 @@ pub async fn launch_minecraft(
             .take()
             .expect("direct launch resolution accompanies direct metadata")
             .merged;
+        pcl_ce_client = direct.pcl_ce_client_jar(
+            &mut merged,
+            content_set.loader,
+            &content_set.game_version,
+        )?;
         // Same loader normalization the managed install path applies. The
         // merged list drives the ensure pass, native extraction, the launch
         // classpath, and the VersionInfo projection below, so dropping the
@@ -2260,7 +2302,7 @@ pub async fn launch_minecraft(
         .await;
         let (minecraft, version_index) = match cached_minecraft {
             Ok(value) => value,
-            Err(error) if offline_mode => return Err(error),
+            Err(error) if local_runtime_only => return Err(error),
             Err(_) => {
                 resolve_minecraft_manifest_with_cache(
                     &content_set.game_version,
@@ -2294,7 +2336,7 @@ pub async fn launch_minecraft(
             version,
             metadata_loader,
             content_set.loader_version.as_deref(),
-            offline_mode,
+            local_runtime_only,
         )
         .await?;
 
@@ -2310,7 +2352,7 @@ pub async fn launch_minecraft(
                     .iter()
                     .position(|x| x.id == "13w39a")
                     .unwrap_or(0);
-            if requires_logging_info && !offline_mode {
+            if requires_logging_info && !local_runtime_only {
                 // Logging belongs to the base game; recovering it must not
                 // reintroduce an online loader catalog dependency.
                 let (_, vanilla) = load_managed_launch_profile(
@@ -2329,7 +2371,7 @@ pub async fn launch_minecraft(
             let vanilla = if profile.replaces_minecraft()
                 && metadata_loader != ModLoader::Vanilla
             {
-                Some(if offline_mode {
+                Some(if local_runtime_only {
                     download::load_local_version_info(
                         &state,
                         version,
@@ -2383,7 +2425,7 @@ pub async fn launch_minecraft(
     };
 
     if direct_launch.is_none() {
-        if offline_mode {
+        if local_runtime_only {
             download::ensure_local_log_config(&state, &version_info)?;
         } else {
             let _ = download_log_config(
@@ -2457,12 +2499,18 @@ pub async fn launch_minecraft(
     // that will run Minecraft. The frontend supplies an ordered candidate
     // chain; we keep the preferred strategy only if this JVM understands it,
     // pruning unsupported tuning flags and falling back down the chain as
-    // needed. A `None` keeps the args passed in untouched.
+    // needed. Without an intent, keep the user's arguments but do not pass
+    // the launcher's automatic-preset marker to Java.
     let mut resolved_java_args = java_args.to_vec();
     // Custom JVM arguments from the linked launcher enter the same GC
     // compatibility pipeline below: unsupported tuning flags are pruned
     // against the actual JVM instead of reaching it unvalidated.
-    if let Some(pcl) = &pcl_launch {
+    if let Some((_, pcl_ce_settings)) = pcl_ce {
+        if let Some(custom) = pcl_ce_settings.extra_jvm_arguments_text() {
+            resolved_java_args
+                .extend(pcl_ce_command::split_windows_arguments(custom));
+        }
+    } else if let Some(pcl) = &pcl_launch {
         resolved_java_args.extend(pcl.extra_jvm_args());
     }
     if let Some(gc_intent) = gc_intent {
@@ -2531,8 +2579,35 @@ pub async fn launch_minecraft(
             );
             effective_memory.maximum = maximum;
         }
-        extra_game_args.extend(pcl.extra_game_args());
+        if pcl_ce.is_none() {
+            extra_game_args.extend(pcl.extra_game_args());
+        }
     }
+    if let Some((_, settings)) = pcl_ce
+        && let Some(window_mode) =
+            settings.pcl_ce_global_value("LaunchArgumentWindowType")
+    {
+        if window_mode == "3" || window_mode.eq_ignore_ascii_case("custom") {
+            let dimension = |key, default| {
+                settings
+                    .pcl_ce_global_value(key)
+                    .and_then(|value| value.parse::<u16>().ok())
+                    .unwrap_or(default)
+                    .max(100)
+            };
+            effective_resolution = WindowSize(
+                dimension("LaunchArgumentWindowWidth", 854),
+                dimension("LaunchArgumentWindowHeight", 480),
+            );
+        } else if matches!(window_mode, "0" | "1" | "4")
+            || ["fullscreen", "default", "maximized"]
+                .iter()
+                .any(|mode| window_mode.eq_ignore_ascii_case(mode))
+        {
+            effective_resolution = WindowSize(854, 480);
+        }
+    }
+    jvm_args::remove_unresolved_auto_gc_marker(&mut resolved_java_args);
 
     let settings = crate::state::Settings::get(&state.data).await?;
     let minecraft_java = java_environment::minecraft_java_executable(
@@ -2571,7 +2646,10 @@ pub async fn launch_minecraft(
 
     let client_path = if let Some(direct) = &direct_launch {
         // The game jar lives inside the linked installation.
-        direct.client_jar(&version_jar)
+        pcl_ce_client.as_ref().map_or_else(
+            || direct.client_jar(&version_jar),
+            |client| client.path.clone(),
+        )
     } else {
         let mut vanilla_client_path = state
             .directories
@@ -2584,7 +2662,7 @@ pub async fn launch_minecraft(
                     &vanilla_client_path,
                     &java_version.architecture,
                     minecraft_updated,
-                    offline_mode,
+                    local_runtime_only,
                 )
                 .await?
                 .assemble(&vanilla_client_path, &instance_path)
@@ -2642,19 +2720,32 @@ pub async fn launch_minecraft(
     // config in the standard shared locations. Version JSONs, launcher
     // private configuration, and game data are never written. Offline mode
     // forbids network fetches, so it keeps the previous strict behavior.
-    if !offline_mode
+    if !local_runtime_only
         && let (Some(direct), Some(libraries)) =
             (&direct_launch, linked_libraries.as_deref())
     {
-        direct_ensure::ensure_direct_launch_dependencies(
-            &state,
-            direct,
-            libraries,
-            &version_info,
-            &java_version.architecture,
-            minecraft_updated,
-        )
-        .await?;
+        if let Some(client) = &pcl_ce_client {
+            direct_ensure::ensure_pcl_ce_launch_dependencies(
+                &state,
+                direct,
+                libraries,
+                &version_info,
+                &java_version.architecture,
+                minecraft_updated,
+                client,
+            )
+            .await?;
+        } else {
+            direct_ensure::ensure_direct_launch_dependencies(
+                &state,
+                direct,
+                libraries,
+                &version_info,
+                &java_version.architecture,
+                minecraft_updated,
+            )
+            .await?;
+        }
     }
 
     let natives_dir = if let Some(direct) = &direct_launch {
@@ -2690,7 +2781,7 @@ pub async fn launch_minecraft(
         })
         .await??;
     } else if direct_launch.is_none() {
-        if offline_mode {
+        if local_runtime_only {
             natives::prepare_native_libraries(
                 &state.directories.natives_dir(),
                 &state.directories.libraries_dir(),
@@ -2723,7 +2814,9 @@ pub async fn launch_minecraft(
         content_set.game_version
     );
     if let QuickPlayType::Server(address) = &mut quick_play_type
-        && quick_play_version.server >= QuickPlayServerVersion::BuiltinLegacy
+        && (pcl_ce.is_some()
+            || quick_play_version.server
+                >= QuickPlayServerVersion::BuiltinLegacy)
     {
         // Record last-played for the original server address immediately so
         // recent-worlds can match without DNS/SRV resolution.
@@ -2754,7 +2847,9 @@ pub async fn launch_minecraft(
             tracing::warn!("Failed to write server join log entry: {e}");
         }
 
-        address.resolve().await?;
+        if pcl_ce.is_none() {
+            address.resolve().await?;
+        }
     }
 
     let (main_class_keep_alive, main_class_path) =
@@ -2794,13 +2889,25 @@ pub async fn launch_minecraft(
     let class_paths = if let (Some(direct), Some(libraries)) =
         (&direct_launch, linked_libraries.as_deref())
     {
-        args::get_linked_class_paths(
-            direct,
-            libraries,
-            &[&main_class_path, &client_path],
-            &java_version.architecture,
-            minecraft_updated,
-        )?
+        if let Some((_, settings)) = pcl_ce {
+            args::get_pcl_ce_class_paths(
+                direct,
+                libraries,
+                &main_class_path,
+                &client_path,
+                &instance_path,
+                settings.pcl_ce_classpath_head(),
+                &java_version.architecture,
+            )?
+        } else {
+            args::get_linked_class_paths(
+                direct,
+                libraries,
+                &[&main_class_path, &client_path],
+                &java_version.architecture,
+                minecraft_updated,
+            )?
+        }
     } else {
         args::get_class_paths(
             &launch_libraries_dir,
@@ -2810,6 +2917,59 @@ pub async fn launch_minecraft(
             minecraft_updated,
         )?
     };
+
+    let launch_assets_dir = runtime.assets_dir(&state.directories);
+    let game_assets_dir = runtime.game_assets_dir(
+        &state.directories,
+        pcl_ce.is_some() || version_info.assets == "legacy",
+    );
+    let pcl_ce_values = if let Some((direct, pcl_ce_settings)) = pcl_ce {
+        let version_dir = direct.version_dir();
+        let context = args::PclCeArgumentContext {
+            version_name: version_dir
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or(&direct.version_id),
+            version_type: pcl_ce_settings.pcl_ce_version_type(),
+            natives: &natives_dir,
+            libraries: &launch_libraries_dir,
+            classpath: &class_paths,
+            game_directory: &instance_path,
+            assets: &launch_assets_dir,
+            game_assets: &game_assets_dir,
+            asset_index: &version_info.asset_index.id,
+            resolution: effective_resolution,
+            java_arch: &java_version.architecture,
+        };
+        Some(context.replacements(credentials).await)
+    } else {
+        None
+    };
+    let pcl_ce_replacements = pcl_ce_values.as_ref().map(|values| {
+        values
+            .iter()
+            .map(|(key, value)| (*key, value.as_str()))
+            .collect::<Vec<_>>()
+    });
+
+    let pcl_ce_jvm = pcl_ce.zip(pcl_ce_replacements.as_deref()).map(
+        |((_, settings), replacements)| args::PclCeJvmOptions {
+            replacements,
+            initial_heap_mb: pcl_ce_command::initial_heap_mb(
+                effective_memory.maximum,
+                settings
+                    .pcl_ce_global_value("LaunchAdvanceLockMemory")
+                    .is_some_and(|value| {
+                        value.eq_ignore_ascii_case("true") || value == "1"
+                    }),
+                settings.pcl_ce_instance_value("VersionRamType"),
+                settings.pcl_ce_global_value("LaunchRamType"),
+                settings.pcl_ce_instance_value("VersionRamCustomInitial"),
+                settings.pcl_ce_global_value("LaunchRamCustomInitial"),
+            ),
+            java_major: java_version.parsed_version,
+        },
+    );
 
     command.args(
         args::get_jvm_arguments(
@@ -2825,12 +2985,20 @@ pub async fn launch_minecraft(
             resolved_java_args.clone(),
             &java_version.architecture,
             &quick_play_type,
-            quick_play_version,
+            if pcl_ce.is_some() {
+                QuickPlayVersion {
+                    server: QuickPlayServerVersion::Unsupported,
+                    ..quick_play_version
+                }
+            } else {
+                quick_play_version
+            },
             version_info
                 .logging
                 .as_ref()
                 .and_then(|x| x.get(&LoggingSide::Client)),
             rpc_server.address(),
+            pcl_ce_jvm,
         )?
         .into_iter(),
     );
@@ -2878,18 +3046,53 @@ pub async fn launch_minecraft(
             ));
     }
 
-    let launch_assets_dir = runtime.assets_dir(&state.directories);
-    let game_assets_dir = runtime
-        .game_assets_dir(&state.directories, version_info.assets == "legacy");
-
-    command
-        .arg("com.modrinth.theseus.MinecraftLaunch")
-        .arg(version_info.main_class.clone())
-        .args(
+    let manifest_game_arguments = args
+        .get(&d::minecraft::ArgumentType::Game)
+        .map(Vec::as_slice);
+    let legacy_game_arguments = version_info.minecraft_arguments.as_deref();
+    let game_arguments =
+        if let (Some((_, pcl_ce_settings)), Some(replacements)) =
+            (pcl_ce, pcl_ce_replacements.as_deref())
+        {
+            let has_library = |prefix: &str| {
+                version_info.libraries.iter().any(|library| {
+                    library.name.to_ascii_lowercase().starts_with(prefix)
+                })
+            };
+            let game_options = pcl_ce_command::GameOptions {
+                legacy_window_size: version_info.release_time.date_naive()
+                    >= chrono::NaiveDate::from_ymd_opt(2013, 6, 17).unwrap(),
+                optifine_with_forge_or_liteloader: (content_set.loader
+                    == ModLoader::OptiFine
+                    || has_library("optifine:optifine:"))
+                    && (matches!(
+                        content_set.loader,
+                        ModLoader::Forge | ModLoader::LiteLoader
+                    ) || has_library("net.minecraftforge:forge:")
+                        || has_library("com.mumfrey:liteloader:")),
+                fullscreen: pcl_ce_settings
+                    .pcl_ce_global_value("LaunchArgumentWindowType")
+                    .is_some_and(|value| {
+                        value == "0" || value.eq_ignore_ascii_case("fullscreen")
+                    }),
+            };
+            let mut arguments = pcl_ce_command::game_arguments_with_options(
+                legacy_game_arguments,
+                manifest_game_arguments,
+                pcl_ce_settings.extra_game_arguments_text(),
+                replacements,
+                &game_options,
+            );
+            args::append_pcl_ce_quick_play(
+                &mut arguments,
+                &quick_play_type,
+                version_info.release_time,
+            )?;
+            arguments
+        } else {
             args::get_minecraft_arguments(
-                args.get(&d::minecraft::ArgumentType::Game)
-                    .map(|x| x.as_slice()),
-                version_info.minecraft_arguments.as_deref(),
+                manifest_game_arguments,
+                legacy_game_arguments,
                 credentials,
                 &launch_version_id,
                 &version_info.asset_index.id,
@@ -2903,9 +3106,11 @@ pub async fn launch_minecraft(
                 quick_play_version,
             )
             .await?
-            .into_iter()
-            .map(encode_game_argument),
-        )
+        };
+    command
+        .arg("com.modrinth.theseus.MinecraftLaunch")
+        .arg(version_info.main_class.clone())
+        .args(game_arguments.into_iter().map(encode_game_argument))
         // Linked-launcher game arguments (PCL VersionAdvanceGame, HMCL
         // auto-connect server) ride at the tail of the vanilla arguments.
         .args(extra_game_args)

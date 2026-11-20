@@ -1,20 +1,21 @@
 use super::HOTBAR_FILE;
 use super::files::{
-    CheckpointStatus, begin_checkpoint, checkpoint, ensure_link,
-    finish_checkpoint, instance_game_dir, nbt_from_bytes, nbt_to_bytes,
-    read_nbt_file, safe_instance_id, sha1_bytes, sha1_file,
+    CheckpointStatus, LinkMode, begin_checkpoint, checkpoint,
+    finish_checkpoint, instance_game_dir, instance_is_running, nbt_from_bytes,
+    nbt_to_bytes, publish_detached_copy, read_nbt_file, safe_instance_id,
+    sha1_bytes, sha1_file, sync_files_are_protected,
 };
 use super::orchestration::{
     backup_bytes, create_synced_directories, option_effective,
     seed_from_instance, synced_options_path,
 };
-use crate::state::store::Collection as _;
 use crate::state::store::instance_sync_checkpoints::{
     CheckpointScope, InstanceSyncCheckpoints,
 };
 use crate::state::store::synced_hotbar_state::{
     HotbarStateRecord, Singleton as HotbarSingleton, SyncedHotbarState,
 };
+use crate::state::sync_state::collection::Collection as _;
 use crate::state::{InstanceMetadata, SyncedOption};
 use crate::util::io;
 use crate::{ErrorKind, State};
@@ -126,6 +127,11 @@ pub(super) async fn reconcile_hotbar(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<()> {
+    if sync_files_are_protected(metadata)
+        || instance_is_running(metadata, state).await?
+    {
+        return Ok(());
+    }
     if !option_effective(metadata, SyncedOption::CreativeHotbars, state).await?
     {
         return Ok(());
@@ -322,6 +328,19 @@ pub(super) fn merge_hotbar_family(
         other_root.insert("DataVersion", writer_data_version);
     }
 
+    // Unknown native fields are still authored data. Preserve observed changes
+    // without mapping them through the slot DTO or across incompatible families.
+    for (key, value) in changed.inner() {
+        if key == "DataVersion"
+            || key.parse::<usize>().is_ok_and(|index| index < 9)
+        {
+            continue;
+        }
+        if merge_base.inner().get(key) != Some(value) {
+            current.insert(key.clone(), value.clone());
+            changed_any = true;
+        }
+    }
     state.insert(family_key, current);
     state.insert(other_key, other_root);
     state.insert("Revisions", revisions);
@@ -441,13 +460,18 @@ async fn write_hotbar_projection(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<()> {
+    if sync_files_are_protected(metadata)
+        || instance_is_running(metadata, state).await?
+    {
+        return Ok(());
+    }
     let sync_state = read_hotbar_state(state).await?;
     let family = hotbar_family(metadata, state).await?;
     let root = hotbar_family_root(&sync_state.nbt, family);
     let bytes = nbt_to_bytes(&root)?;
     let expected = sha1_bytes(&bytes);
     let generated = generated_hotbar_path(state, family, &metadata.instance.id);
-    begin_checkpoint(
+    let proof = begin_checkpoint(
         &metadata.instance.id,
         SyncedOption::CreativeHotbars,
         family.as_str(),
@@ -460,14 +484,25 @@ async fn write_hotbar_projection(
     if let Some(parent) = generated.parent() {
         io::create_dir_all(parent).await?;
     }
-    io::write(&generated, &bytes).await?;
+    publish_detached_copy(&generated, bytes.clone()).await?;
     let local = instance_game_dir(metadata, state)?.join(HOTBAR_FILE);
-    let mode = ensure_link(&generated, &local).await?;
+    if sync_files_are_protected(metadata)
+        || instance_is_running(metadata, state).await?
+    {
+        return Ok(());
+    }
+    publish_detached_copy(&local, bytes).await?;
+    if sync_files_are_protected(metadata)
+        || instance_is_running(metadata, state).await?
+    {
+        return Ok(());
+    }
     finish_checkpoint(
         &metadata.instance.id,
         SyncedOption::CreativeHotbars,
         family.as_str(),
-        mode,
+        LinkMode::Copy,
+        &proof,
         state,
     )
     .await?;
@@ -487,7 +522,7 @@ async fn remove_other_hotbar_checkpoint(
     let kept = InstanceSyncCheckpoints::get_scoped(&state.data, &scope)
         .await?
         .into_iter()
-        .filter(|(key, _)| key.variant != variant)
+        .filter(|(key, _)| key.variant == variant)
         .collect::<Vec<_>>();
     InstanceSyncCheckpoints::set_scoped(&state.data, &scope, &kept).await?;
     Ok(())
@@ -524,7 +559,9 @@ pub(super) async fn read_hotbar_state(
 }
 
 pub(super) async fn hotbar_state_exists(state: &State) -> crate::Result<bool> {
-    SyncedHotbarState::exists(&state.data).await
+    Ok(SyncedHotbarState::get(&state.data, &HotbarSingleton)
+        .await?
+        .is_some())
 }
 
 pub(super) fn hotbar_family_root(
@@ -586,4 +623,30 @@ pub(super) fn generated_hotbar_path(
         .join(family.as_str())
         .join(safe_instance_id(instance_id))
         .join(HOTBAR_FILE)
+}
+
+#[cfg(test)]
+mod native_preservation_tests {
+    use super::*;
+    #[test]
+    fn family_merge_preserves_unknown_authored_tags_and_opposite_family() {
+        let base = empty_hotbar_root();
+        let mut changed = base.clone();
+        changed.insert("FutureTag", "authored");
+        let mut other = empty_hotbar_root();
+        other.insert("OtherFuture", 7_i32);
+        let mut state = NbtCompound::new();
+        state.insert("Legacy", base.clone());
+        state.insert("Components", other);
+        assert!(merge_hotbar_family(
+            &mut state,
+            HotbarFamily::Legacy,
+            &base,
+            &changed
+        ));
+        let legacy = state.get::<_, &NbtCompound>("Legacy").unwrap();
+        assert_eq!(legacy.get::<_, &str>("FutureTag").unwrap(), "authored");
+        let components = state.get::<_, &NbtCompound>("Components").unwrap();
+        assert_eq!(components.get::<_, i32>("OtherFuture").unwrap(), 7);
+    }
 }

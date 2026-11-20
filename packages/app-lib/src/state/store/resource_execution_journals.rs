@@ -3,6 +3,7 @@
 //! A journal names every file an interrupted execution had already moved, so a
 //! retry can put them back before it starts again.
 
+use sqlx::Connection as _;
 use sqlx::SqliteConnection;
 
 use super::{Collection, Handle};
@@ -17,7 +18,7 @@ pub(crate) type ExecutionJournalKey = String;
 ///
 /// The journal is kept as the text it is stored as: what the text says is the
 /// caller's business.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ExecutionJournalRecord {
     pub payload: String,
 }
@@ -35,6 +36,15 @@ impl Collection for ResourceExecutionJournals {
         conn: &mut SqliteConnection,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::read(
+                conn,
+                "resource_execution_journals",
+                key,
+            )
+            .await;
+        }
+
         let payload: Option<String> = sqlx::query_scalar(
             "
             SELECT payload
@@ -54,6 +64,16 @@ impl Collection for ResourceExecutionJournals {
         key: &Self::Key,
         record: Option<&Self::Record>,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::write(
+                conn,
+                "resource_execution_journals",
+                key,
+                record,
+            )
+            .await;
+        }
+
         let Some(record) = record else {
             sqlx::query(
                 "DELETE FROM resource_execution_journals WHERE plan_id = ?",
@@ -71,6 +91,14 @@ impl Collection for ResourceExecutionJournals {
     async fn read_all(
         conn: &mut SqliteConnection,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return super::recovery_documents::all(
+                conn,
+                "resource_execution_journals",
+            )
+            .await;
+        }
+
         let rows: Vec<(String, String)> = sqlx::query_as(
             "
             SELECT plan_id, payload
@@ -90,6 +118,22 @@ impl Collection for ResourceExecutionJournals {
         conn: &mut SqliteConnection,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, _) in super::recovery_documents::strict_all::<
+                ExecutionJournalRecord,
+            >(conn, "resource_execution_journals")
+            .await?
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         sqlx::query("DELETE FROM resource_execution_journals")
             .execute(&mut *conn)
             .await?;
@@ -103,6 +147,14 @@ impl Collection for ResourceExecutionJournals {
         conn: &mut SqliteConnection,
         scope: &Self::Scope,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
+        if super::recovery_documents::active(conn).await? {
+            return Ok(Self::read_all(conn)
+                .await?
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+                .collect());
+        }
+
         Ok(Self::read(conn, scope)
             .await?
             .map(|record| vec![(scope.clone(), record)])
@@ -114,6 +166,32 @@ impl Collection for ResourceExecutionJournals {
         scope: &Self::Scope,
         records: &[(Self::Key, Self::Record)],
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            for (key, record) in records {
+                if !(key == scope) {
+                    return Err(crate::ErrorKind::InputError(
+                        "Operation record outside replacement scope".into(),
+                    )
+                    .into());
+                }
+            }
+            for (key, _) in Self::read(conn, scope)
+                .await?
+                .map(|record| vec![(scope.clone(), record)])
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|(key, record)| key == scope)
+            {
+                if !records.iter().any(|(candidate, _)| candidate == &key) {
+                    Self::write(conn, &key, None).await?;
+                }
+            }
+            for (key, record) in records {
+                Self::write(conn, key, Some(record)).await?;
+            }
+            return Ok(());
+        }
+
         Self::write(conn, scope, records.first().map(|(_, record)| record))
             .await
     }
@@ -125,6 +203,21 @@ impl ResourceExecutionJournals {
         handle: &Handle,
         key: &str,
     ) -> crate::Result<Option<String>> {
+        if let Some(selected) = super::recovery_documents::snapshot_records(
+            handle.pool(),
+            "resource_execution_journals",
+            Some(key),
+            None,
+        )
+        .await?
+        {
+            return match selected.into_iter().next() {
+                Some(row) => Ok(Some(
+                    row.decode::<ExecutionJournalRecord>().await?.payload,
+                )),
+                None => Ok(None),
+            };
+        }
         let key = key.to_owned();
         Ok(Self::get(handle, &key).await?.map(|record| record.payload))
     }
@@ -135,6 +228,39 @@ impl ResourceExecutionJournals {
         handle: &Handle,
         key: &str,
     ) -> crate::Result<Option<String>> {
+        if let Some(selected) =
+            super::recovery_documents::snapshot_resource_pairs(
+                handle.pool(),
+                Some(key),
+                None,
+            )
+            .await?
+        {
+            let plan = selected
+                .iter()
+                .find(|row| row.kind() == "resource_operation_plans");
+            let plan = match plan {
+                Some(plan) => Some(plan.decode::<super::resource_operation_plans::ResourceOperationPlanRecord>().await?),
+                None => None,
+            };
+            return if plan.is_some_and(|row| !row.completed) {
+                match selected
+                    .iter()
+                    .find(|row| row.kind() == "resource_execution_journals")
+                {
+                    Some(journal) => Ok(Some(
+                        journal
+                            .decode::<ExecutionJournalRecord>()
+                            .await?
+                            .payload,
+                    )),
+                    None => Ok(None),
+                }
+            } else {
+                Ok(None)
+            };
+        }
+
         let payload: Option<String> = sqlx::query_scalar(
             "
             SELECT journal.payload
@@ -155,6 +281,36 @@ impl ResourceExecutionJournals {
         handle: &Handle,
         instance_id: &str,
     ) -> crate::Result<bool> {
+        if let Some(selected) =
+            super::recovery_documents::snapshot_resource_pairs(
+                handle.pool(),
+                None,
+                Some(instance_id),
+            )
+            .await?
+        {
+            // Decode every selected journal strictly before answering. Missing
+            // or opaque recovery evidence must never authorize cleanup.
+            let mut journals = Vec::new();
+            for row in selected
+                .iter()
+                .filter(|row| row.kind() == "resource_execution_journals")
+            {
+                row.decode::<ExecutionJournalRecord>().await?;
+                journals.push(row.key.as_str());
+            }
+            for key in journals {
+                if let Some(plan) = selected.iter().find(|row| {
+                    row.kind() == "resource_operation_plans" && row.key == key
+                }) {
+                    if plan.decode::<super::resource_operation_plans::ResourceOperationPlanRecord>().await?.instance_id == instance_id {
+                        return Ok(true);
+                    }
+                }
+            }
+            return Ok(false);
+        }
+
         let pending: i64 = sqlx::query_scalar(
             "
             SELECT EXISTS(
@@ -178,6 +334,30 @@ impl ResourceExecutionJournals {
         key: &str,
         payload: &str,
     ) -> crate::Result<()> {
+        {
+            let mut connection = handle.connection().await?;
+            if super::recovery_documents::active(&mut connection).await? {
+                let mut transaction =
+                    connection.begin_with("BEGIN IMMEDIATE").await?;
+                let result = async {
+                    let conn = &mut *transaction;
+                    return Self::write(
+                        conn,
+                        &key.to_owned(),
+                        Some(&ExecutionJournalRecord {
+                            payload: payload.into(),
+                        }),
+                    )
+                    .await;
+                }
+                .await;
+                if result.is_ok() {
+                    transaction.commit().await?;
+                }
+                return result;
+            }
+        }
+
         let mut connection = handle.connection().await?;
         write_row(
             &mut connection,
@@ -203,6 +383,10 @@ impl ResourceExecutionJournals {
         conn: &mut SqliteConnection,
         key: &str,
     ) -> crate::Result<()> {
+        if super::recovery_documents::active(conn).await? {
+            return Self::write(conn, &key.to_owned(), None).await;
+        }
+
         let key = key.to_owned();
         Self::write(conn, &key, None).await
     }

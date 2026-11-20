@@ -1,6 +1,5 @@
-import { invoke } from '@tauri-apps/api/core'
-
 import { check_mojang_services, check_reachable } from '@/helpers/auth.js'
+import { invoke } from '@/helpers/invoke'
 import { get, getProxyConfig } from '@/helpers/settings'
 
 import type { MojangAuthConfiguration, MojangAuthSource, MojangServiceStatus } from './monitor'

@@ -56,7 +56,7 @@ fn start_plan_cleanup() {
 
 /// Creates an upgrade plan. `progress` follows the work while it runs and
 /// `cancel` stops it at the next checkpoint; a canceled plan is never stored.
-#[tracing::instrument(skip(cancel, progress))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn plan_instance_upgrade(
     instance_id: &str,
     target_environment: crate::state::InstanceUpgradeEnvironment,
@@ -104,7 +104,7 @@ pub async fn plan_instance_upgrade(
     Ok(plan)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_instance_upgrade_plan(
     plan_id: &str,
 ) -> crate::Result<InstanceUpgradePlan> {
@@ -119,7 +119,7 @@ pub async fn get_instance_upgrade_plan(
     Ok(stored.plan.clone())
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn update_instance_upgrade_resolution(
     plan_id: &str,
     resolution: InstanceUpgradeResolution,
@@ -162,7 +162,7 @@ pub async fn update_instance_upgrade_resolution(
     Ok(plan)
 }
 
-#[tracing::instrument(skip(resolutions))]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn update_instance_upgrade_resolutions(
     plan_id: &str,
     resolutions: Vec<InstanceUpgradeResolution>,
@@ -248,7 +248,7 @@ pub async fn update_instance_upgrade_resolutions(
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn reset_instance_upgrade_resolution(
     plan_id: &str,
     content_id: &str,
@@ -358,7 +358,7 @@ fn automatic_resolution(
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn select_instance_upgrade_solution(
     plan_id: &str,
     choice: InstanceUpgradeSolutionChoice,
@@ -396,7 +396,7 @@ pub async fn select_instance_upgrade_solution(
     Ok(plan)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn resolve_custom_instance_upgrade_solution(
     plan_id: &str,
     fixed_constraints: Vec<InstanceUpgradeFixedConstraint>,
@@ -420,7 +420,7 @@ pub async fn resolve_custom_instance_upgrade_solution(
     Ok(plan)
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn execute_instance_upgrade(
     plan_id: &str,
     create_full_backup: bool,

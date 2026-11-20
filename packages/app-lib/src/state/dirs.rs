@@ -61,7 +61,7 @@ async fn prepare_directory_move(
 
 impl DirectoryInfo {
     pub(crate) fn synced_options_dir(&self) -> std::path::PathBuf {
-        self.config_dir.join("synced-options")
+        self.settings_dir.join(super::layout::SYNC_ROOT)
     }
     pub fn global_handle_if_ready() -> Option<&'static Self> {
         LAUNCHER_STATE.get().map(|x| &x.directories)
@@ -84,7 +84,7 @@ impl DirectoryInfo {
     }
 
     /// Get all paths needed for Theseus to operate properly
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn init(
         config_dir: Option<String>,
         app_identifier: &str,
@@ -328,18 +328,16 @@ impl DirectoryInfo {
         self.config_dir.join(CACHES_FOLDER_NAME)
     }
 
-    pub fn resource_cache_db(&self, channel: &str) -> crate::Result<PathBuf> {
-        if !matches!(channel, "release" | "beta") {
-            return Err(crate::ErrorKind::InputError(
-                "Invalid resource cache channel".into(),
-            )
-            .into());
-        }
-        Ok(self
-            .caches_dir()
-            .join("resources")
-            .join(channel)
-            .join("resource-cache.db"))
+    pub fn databases_dir(&self) -> PathBuf {
+        super::layout::data(&self.settings_dir)
+    }
+
+    pub fn cache_db_dir(&self) -> PathBuf {
+        super::layout::cache(&self.settings_dir)
+    }
+
+    pub fn resource_cache_db(&self) -> PathBuf {
+        self.cache_db_dir().join(crate::resources::cache::FILE_NAME)
     }
 
     pub fn content_store_dir(&self) -> PathBuf {
@@ -352,7 +350,7 @@ impl DirectoryInfo {
         std::env::var_os(name).map(PathBuf::from)
     }
 
-    #[tracing::instrument(skip(settings, handle, pool, io_semaphore))]
+    #[tracing::instrument(skip_all, level = "info")]
     pub async fn move_launcher_directory(
         settings: &mut Settings,
         handle: &Handle,
@@ -409,6 +407,14 @@ impl DirectoryInfo {
             let new_dir = move_dir.to_string_lossy().to_string();
 
             if prev_dir != move_dir {
+                crate::state::store::recovery_documents::import_legacy(
+                    pool, &app_dir,
+                )
+                .await?;
+                crate::state::store::recovery_documents::ensure_directory_move_supported(
+                    pool, &prev_dir,
+                )
+                .await?;
                 let loader_bar_id = init_loading(
                     LoadingBarType::DirectoryMove {
                         old: prev_dir.clone(),
@@ -612,6 +618,10 @@ impl DirectoryInfo {
                     }))
                     .await?;
 
+                    crate::state::store::recovery_documents::move_authority(
+                        pool, &app_dir, &prev_dir, &move_dir,
+                    )
+                    .await?;
                     futures::future::join_all(paths.iter().map(|x| {
                         let loader_bar_id = loader_bar_id.clone();
 
@@ -643,10 +653,14 @@ impl DirectoryInfo {
 
                 let new_root =
                     new_dir.trim_end_matches('/').trim_end_matches('\\');
-                // The runtimes live in the derived database, which the move has
-                // just carried to its new directory.
+                crate::state::store::recovery_documents::move_authority(
+                    pool, &app_dir, &prev_dir, &move_dir,
+                )
+                .await?;
+                // Derived records stay under the original settings directory;
+                // only their Java executable paths follow the content move.
                 let derived = DerivedDb::open(
-                    move_dir.join(CACHES_FOLDER_NAME).join(FILE_NAME),
+                    super::layout::cache(&app_dir).join(FILE_NAME),
                 )
                 .await;
                 derived
@@ -731,7 +745,7 @@ impl DirectoryInfo {
             settings.custom_dir = Some(app_dir.to_string_lossy().to_string());
         }
 
-        settings.update(handle).await?;
+        settings.update_launcher_directory(handle).await?;
 
         Ok(())
     }

@@ -78,6 +78,7 @@ pub async fn move_core_component(
         .into());
     }
     let (state, instance_path) = instance_context(instance_id).await?;
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _lock = state.lock_instance_content(instance_id).await;
     let mut manifest = load_manifest(&instance_path).await?;
     manifest.components.sort_by_key(|component| component.order);
@@ -118,6 +119,7 @@ pub async fn set_core_component_enabled(
     enabled: bool,
 ) -> crate::Result<CoreComponent> {
     let (state, instance_path) = instance_context(instance_id).await?;
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _lock = state.lock_instance_content(instance_id).await;
     let mut manifest = load_manifest(&instance_path).await?;
     let index = manifest
@@ -156,6 +158,7 @@ pub async fn remove_core_component(
     component_id: &str,
 ) -> crate::Result<()> {
     let (state, instance_path) = instance_context(instance_id).await?;
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _lock = state.lock_instance_content(instance_id).await;
     let mut manifest = load_manifest(&instance_path).await?;
     let component = manifest
@@ -189,6 +192,7 @@ pub async fn restore_core_component(
     component_id: &str,
 ) -> crate::Result<CoreComponent> {
     let (state, instance_path) = instance_context(instance_id).await?;
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _lock = state.lock_instance_content(instance_id).await;
     let mut manifest = load_manifest(&instance_path).await?;
     let component = manifest
@@ -227,6 +231,7 @@ pub async fn preview_core_jar(
     instance_id: &str,
 ) -> crate::Result<Option<CoreJarPreview>> {
     let (state, instance_path) = instance_context(instance_id).await?;
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let instance = crate::state::get_instance(instance_id, &state.pool)
         .await?
         .ok_or_else(|| {
@@ -536,6 +541,7 @@ async fn add_component(
     display_file_name: Option<String>,
 ) -> crate::Result<CoreComponent> {
     let (state, instance_path) = instance_context(instance_id).await?;
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     if target_game_version.is_empty() {
         return Err(crate::ErrorKind::InputError(
             "Core component target Minecraft version is required".to_string(),

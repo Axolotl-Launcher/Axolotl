@@ -279,7 +279,13 @@ async fn unlink_pool() -> SqlitePool {
             content_set_id TEXT NOT NULL,
             unlinked_at INTEGER NOT NULL
         );
-        CREATE TABLE install_jobs (instance_id TEXT NOT NULL, status TEXT NOT NULL);
+        CREATE TABLE install_jobs (
+            instance_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'install_existing_instance',
+            state TEXT NOT NULL DEFAULT '{}',
+            finished INTEGER
+        );
         CREATE TABLE instance_links (
             instance_id TEXT NOT NULL,
             link_kind TEXT NOT NULL

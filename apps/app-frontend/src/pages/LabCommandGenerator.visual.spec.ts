@@ -254,6 +254,18 @@ it.each([
     },
 )
 
+it('disables browser form history for execute commands while preserving manual input', async () => {
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.findAll('select')[3].setValue('execute')
+    const input = wrapper.get<HTMLInputElement>('#execute-final-command')
+    expect(input.element.autocomplete).toBe('off')
+    await input.setValue('say manual command')
+    await wrapper.get('.action-bar button').trigger('click')
+    expect(wrapper.get('.result-code').text()).toBe('/execute run say manual command')
+})
+
 it.each(['give', 'execute'])(
     'opens a %s preset from another version and generates the restored command',
     async (commandId) => {
@@ -277,6 +289,11 @@ it.each(['give', 'execute'])(
         await flushPromises()
         expect((wrapper.findAll('select')[0].element as HTMLSelectElement).value).toBe('1.16')
         expect((wrapper.findAll('select')[3].element as HTMLSelectElement).value).toBe(commandId)
+        if (commandId === 'execute') {
+            const input = wrapper.get<HTMLInputElement>('#execute-final-command')
+            expect(input.element.autocomplete).toBe('off')
+            expect(input.element.value).toBe('say hello')
+        }
         await wrapper.get('.action-bar button').trigger('click')
         expect(wrapper.get('.result-code').text()).toBe(
             commandId === 'give' ? '/give @s minecraft:stone 3' : '/execute as @a run say hello',

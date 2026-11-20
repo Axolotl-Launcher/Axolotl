@@ -3,9 +3,12 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use super::{ImportLauncherType, generic, hmcl, instance_json, pcl};
+use crate::launcher::pcl_ce_json;
 use crate::state::ModLoader;
 
 const TEMP_IMPORT_DIR: &str = "axolotl-launcher-import";
+const PCL_PRODUCT: &str = "Plain Craft Launcher";
+const PCL_CE_PRODUCT: &str = "Plain Craft Launcher Community Edition";
 
 #[derive(Clone, Debug)]
 pub(crate) struct ResolvedDirectLink {
@@ -51,6 +54,13 @@ pub(crate) fn detect_direct_link_source(
     dot_minecraft: &Path,
     version_dir: &Path,
 ) -> DirectLinkSource {
+    if let Some(launcher_root) = detect_pcl_ce_root(dot_minecraft, version_dir)
+    {
+        return DirectLinkSource {
+            launcher: ImportLauncherType::PCL2CE,
+            launcher_root,
+        };
+    }
     for launcher_root in [
         dot_minecraft.parent().map(Path::to_path_buf),
         Some(dot_minecraft.to_path_buf()),
@@ -58,18 +68,9 @@ pub(crate) fn detect_direct_link_source(
     .into_iter()
     .flatten()
     {
-        if super::pe_info::folder_has_product(
-            &launcher_root,
-            "Plain Craft Launcher",
-        ) {
-            let launcher =
-                if launcher_root.join("PCL").join("config.v1.yml").is_file() {
-                    ImportLauncherType::PCL2CE
-                } else {
-                    ImportLauncherType::PCL2
-                };
+        if super::pe_info::folder_has_product(&launcher_root, PCL_PRODUCT) {
             return DirectLinkSource {
-                launcher,
+                launcher: ImportLauncherType::PCL2,
                 launcher_root,
             };
         }
@@ -95,12 +96,73 @@ pub(crate) fn detect_direct_link_source(
     }
 }
 
-/// Returns the stable user-facing group for a directly linked `.minecraft`
-/// root. The complete normalized path is used as the group name so two roots
-/// with the same display folder name remain distinct.
-pub(crate) fn direct_link_group(dot_minecraft: &Path) -> Option<String> {
-    let path = dot_minecraft.to_string_lossy().trim().to_string();
-    (!path.is_empty()).then_some(path)
+pub(crate) fn detect_pcl_ce_root(
+    dot_minecraft: &Path,
+    version_dir: &Path,
+) -> Option<PathBuf> {
+    detect_pcl_ce_root_with(
+        dot_minecraft,
+        version_dir,
+        super::pe_info::folder_has_product,
+        || {
+            let matches_root = |sources: Vec<(String, String)>| {
+                sources.iter().any(|(_, path)| {
+                    paths_match(Path::new(path), dot_minecraft)
+                })
+            };
+            matches_root(pcl::get_pclce_instances())
+                && !matches_root(pcl::get_pcl_instances())
+        },
+    )
+}
+
+fn detect_pcl_ce_root_with(
+    dot_minecraft: &Path,
+    version_dir: &Path,
+    has_product: impl Fn(&Path, &str) -> bool,
+    exclusively_registered: impl FnOnce() -> bool,
+) -> Option<PathBuf> {
+    let parent_root = dot_minecraft.parent();
+    let candidates = [parent_root, Some(dot_minecraft)];
+    if let Some(root) = candidates.into_iter().flatten().find(|root| {
+        has_product(root, PCL_CE_PRODUCT)
+            && (root == &dot_minecraft
+                || dot_minecraft.file_name().is_some_and(|name| {
+                    name.eq_ignore_ascii_case(".minecraft")
+                })
+                || has_pcl_ce_local_config(root))
+    }) {
+        return Some(root.to_path_buf());
+    }
+    let classic_instance = version_dir.join("PCL").join("Setup.ini").is_file();
+    let nearby_classic = candidates.into_iter().flatten().any(|root| {
+        has_product(root, PCL_PRODUCT) && !has_product(root, PCL_CE_PRODUCT)
+    });
+    if classic_instance || nearby_classic {
+        return None;
+    }
+    if has_pcl_ce_local_config(dot_minecraft) {
+        return Some(dot_minecraft.to_path_buf());
+    }
+    let adjacent_ce = parent_root.filter(|root| {
+        has_pcl_ce_local_config(root)
+            && dot_minecraft
+                .file_name()
+                .is_some_and(|name| name.eq_ignore_ascii_case(".minecraft"))
+    });
+    if let Some(root) = adjacent_ce {
+        return Some(root.to_path_buf());
+    }
+    if has_pcl_ce_local_config(version_dir) || exclusively_registered() {
+        return Some(dot_minecraft.to_path_buf());
+    }
+    None
+}
+
+pub(super) fn has_pcl_ce_local_config(launcher_root: &Path) -> bool {
+    let config = launcher_root.join("PCL");
+    config.join("config.v1.yml").is_file()
+        || config.join("config.v1.json").is_file()
 }
 
 impl ResolvedDirectLink {
@@ -161,6 +223,20 @@ async fn resolve_unknown(
     instance_folder: String,
     instance_path: Option<&str>,
 ) -> crate::Result<ResolvedDirectLink> {
+    let selected = instance_path.map(Path::new).unwrap_or(&base_path);
+    if let Ok((dot_minecraft, version_dir)) =
+        resolve_repository_paths(selected, &instance_folder)
+        && let Some(launcher_root) =
+            detect_pcl_ce_root(&dot_minecraft, &version_dir)
+    {
+        return resolve_known(
+            ImportLauncherType::PCL2CE,
+            launcher_root,
+            &instance_folder,
+            version_dir.to_str(),
+        );
+    }
+
     // Match the selected scan result before assigning a dialect. Merely having
     // HMCL/PCL configuration beside a Generic version must not relabel that
     // version and route it through the wrong launch merger.
@@ -190,7 +266,19 @@ async fn resolve_unknown(
     .await
         && selection_matches(&instances, &instance_folder, instance_path)
     {
-        let launcher_type = pcl_dialect(&instance_folder, instance_path);
+        let launcher_type = if (has_pcl_ce_local_config(&base_path)
+            || super::pe_info::folder_has_product(&base_path, PCL_CE_PRODUCT))
+            && (split_config_name(&instance_folder).0 == ".minecraft"
+                || instance_path.is_some_and(|path| {
+                    path_contains(
+                        &base_path.join(".minecraft"),
+                        Path::new(path),
+                    )
+                })) {
+            ImportLauncherType::PCL2CE
+        } else {
+            pcl_dialect(&instance_folder, instance_path)
+        };
         if let Ok(resolved) = resolve_known(
             launcher_type,
             base_path.clone(),
@@ -303,7 +391,12 @@ fn resolve_known(
     reject_temporary_import_path(&dot_minecraft)?;
     reject_temporary_import_path(&version_dir)?;
 
-    let version_json = discover_version_json(&version_dir)?;
+    let is_pcl_ce = launcher_type == ImportLauncherType::PCL2CE;
+    let version_json = if is_pcl_ce {
+        pcl_ce_json::discover(&version_dir)?
+    } else {
+        discover_version_json(&version_dir)?
+    };
     let version_json = canonicalize_checked(&version_json)?;
     let version_id = version_json
         .file_stem()
@@ -317,7 +410,12 @@ fn resolve_known(
             .as_error()
         })?
         .to_string();
-    let info = instance_json::detect(&version_dir).ok_or_else(|| {
+    let info = if is_pcl_ce {
+        instance_json::detect_pcl_ce_manifest(&version_json)?
+    } else {
+        instance_json::detect(&version_dir)
+    };
+    let info = info.ok_or_else(|| {
         crate::ErrorKind::InputError(format!(
             "Could not detect Minecraft version from {}",
             version_json.display()
@@ -365,7 +463,7 @@ fn resolve_source_path(
                 })
                 .unwrap_or_else(|| base_path.to_path_buf())
         }
-        ImportLauncherType::PCL2 | ImportLauncherType::PCL2CE => {
+        ImportLauncherType::PCL2 => {
             find_pcl_source(config_name, &pcl::get_pcl_instances())
                 .or_else(|| {
                     find_pcl_source(config_name, &pcl::get_pclce_instances())
@@ -374,6 +472,18 @@ fn resolve_source_path(
                     (config_name == ".minecraft")
                         .then(|| base_path.join(".minecraft"))
                         .filter(|path| path.is_dir())
+                })
+                .unwrap_or_else(|| base_path.to_path_buf())
+        }
+        ImportLauncherType::PCL2CE => {
+            find_pcl_source(config_name, &pcl::get_pclce_instances())
+                .or_else(|| {
+                    (config_name == ".minecraft")
+                        .then(|| base_path.join(".minecraft"))
+                        .filter(|path| path.is_dir())
+                })
+                .or_else(|| {
+                    find_pcl_source(config_name, &pcl::get_pcl_instances())
                 })
                 .unwrap_or_else(|| base_path.to_path_buf())
         }
@@ -489,6 +599,17 @@ pub(crate) fn has_minecraft_version_manifest(version_dir: &Path) -> bool {
                 && is_minecraft_version_manifest(&path)
         })
     })
+}
+
+pub(crate) fn has_linked_version_manifest(
+    version_dir: &Path,
+    launcher_type: ImportLauncherType,
+) -> bool {
+    if launcher_type == ImportLauncherType::PCL2CE {
+        instance_json::detect_pcl_ce(version_dir).is_some()
+    } else {
+        has_minecraft_version_manifest(version_dir)
+    }
 }
 
 /// Finds the actual manifest selected by upstream launchers: a valid
@@ -714,6 +835,123 @@ mod tests {
         assert_eq!(source.launcher_root, root.path());
     }
 
+    #[test]
+    fn recognizes_pcl_ce_by_owned_config_games_or_specific_product() {
+        let root = TempDir::new().unwrap();
+        let game_dir = root.path().join(".minecraft");
+        let version_dir = game_dir.join("versions/demo");
+        std::fs::create_dir_all(&version_dir).unwrap();
+        let no_products = |_: &Path, _: &str| false;
+        assert_eq!(
+            detect_pcl_ce_root_with(
+                &game_dir,
+                &version_dir,
+                no_products,
+                || false
+            ),
+            None
+        );
+        assert_eq!(
+            detect_pcl_ce_root_with(
+                &game_dir,
+                &version_dir,
+                no_products,
+                || true
+            ),
+            Some(game_dir.clone())
+        );
+        let ce_product = |path: &Path, product: &str| {
+            path == root.path() && product == PCL_CE_PRODUCT
+        };
+        assert_eq!(
+            detect_pcl_ce_root_with(
+                &game_dir,
+                &version_dir,
+                ce_product,
+                || false
+            ),
+            Some(root.path().to_path_buf())
+        );
+
+        std::fs::create_dir_all(root.path().join("PCL")).unwrap();
+        std::fs::write(root.path().join("PCL/config.v1.json"), "{}").unwrap();
+        assert_eq!(
+            detect_pcl_ce_root_with(
+                &game_dir,
+                &version_dir,
+                no_products,
+                || false
+            ),
+            Some(root.path().to_path_buf())
+        );
+        let unrelated = root.path().join("unrelated");
+        assert_eq!(
+            detect_pcl_ce_root_with(
+                &unrelated,
+                &unrelated.join("versions/demo"),
+                no_products,
+                || false
+            ),
+            None
+        );
+        let classic_product = |path: &Path, product: &str| {
+            path == root.path() && product == PCL_PRODUCT
+        };
+        assert_eq!(
+            detect_pcl_ce_root_with(
+                &game_dir,
+                &version_dir,
+                classic_product,
+                || true
+            ),
+            None
+        );
+        std::fs::create_dir_all(version_dir.join("PCL")).unwrap();
+        std::fs::write(version_dir.join("PCL/Setup.ini"), "").unwrap();
+        assert_eq!(
+            detect_pcl_ce_root_with(
+                &game_dir,
+                &version_dir,
+                no_products,
+                || true
+            ),
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn unknown_direct_link_uses_pcl_ce_reader_without_executable() {
+        let root = TempDir::new().unwrap();
+        std::fs::create_dir_all(root.path().join("PCL")).unwrap();
+        std::fs::write(
+            root.path().join("PCL/config.v1.yml"),
+            "LaunchArgumentInfo: CE\n",
+        )
+        .unwrap();
+        let game_dir = root.path().join(".minecraft");
+        let version_dir = game_dir.join("versions/1.21.1");
+        std::fs::create_dir_all(&version_dir).unwrap();
+        std::fs::write(
+            version_dir.join("1.21.1.json"),
+            r#"{/* CE */"id":"1.21.1","mainClass":"game.Main",}"#,
+        )
+        .unwrap();
+
+        let resolved = resolve_direct_link(
+            ImportLauncherType::Unknown,
+            game_dir,
+            "versions/1.21.1".into(),
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(resolved.launcher, ImportLauncherType::PCL2CE);
+        assert_eq!(
+            resolved.launcher_root,
+            crate::util::io::canonicalize(root.path()).unwrap()
+        );
+    }
+
     #[tokio::test]
     async fn resolves_compatible_mode_from_game_dir_and_version_path() {
         let root = TempDir::new().unwrap();
@@ -786,6 +1024,44 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn pcl_ce_direct_link_reads_the_selected_lenient_manifest() {
+        let root = TempDir::new().unwrap();
+        let version_dir = root.path().join("versions/custom-profile");
+        std::fs::create_dir_all(&version_dir).unwrap();
+        std::fs::write(
+            version_dir.join("custom-profile.json"),
+            r#"{
+                // PCL-CE accepts mixed field casing and comments.
+                "ClientVersion":"1.21.1", "MAINCLASS":"game.Main",
+                "Arguments":{"Game":[{"Rules":null,"Value":"--demo"}],},
+            }"#,
+        )
+        .unwrap();
+        std::fs::write(version_dir.join("usercache.json"), "[]").unwrap();
+        let resolved = resolve_direct_link(
+            ImportLauncherType::PCL2CE,
+            root.path().to_path_buf(),
+            "versions/custom-profile".to_string(),
+            Some(version_dir.to_string_lossy().to_string()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(resolved.launcher, ImportLauncherType::PCL2CE);
+        assert!(resolved.version_json.ends_with("custom-profile.json"));
+        assert_eq!(resolved.game_version, "1.21.1");
+        assert!(
+            resolve_direct_link(
+                ImportLauncherType::Generic,
+                root.path().to_path_buf(),
+                "versions/custom-profile".to_string(),
+                Some(version_dir.to_string_lossy().to_string()),
+            )
+            .await
+            .is_err()
+        );
+    }
+
     #[test]
     fn rejects_a_pcl_bookkeeping_directory_without_a_version_manifest() {
         let root = TempDir::new().unwrap();
@@ -833,23 +1109,6 @@ mod tests {
         assert_eq!(launcher_key(ImportLauncherType::HMCL), Some("hmcl"));
         assert_eq!(launcher_key(ImportLauncherType::PCL2), Some("pcl2"));
         assert_eq!(launcher_key(ImportLauncherType::PCL2CE), Some("pcl2_ce"));
-    }
-
-    #[test]
-    fn groups_direct_links_by_their_complete_path() {
-        assert_eq!(
-            direct_link_group(&Path::new("A").join(".minecraft")),
-            Some(
-                Path::new("A")
-                    .join(".minecraft")
-                    .to_string_lossy()
-                    .to_string()
-            )
-        );
-        assert_eq!(
-            direct_link_group(Path::new(".minecraft")),
-            Some(".minecraft".to_string())
-        );
     }
 
     #[test]

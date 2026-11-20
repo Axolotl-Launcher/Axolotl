@@ -68,3 +68,10 @@ it('browse project tab visibility follows the selected instance capabilities', (
         }),
     ).toEqual({ modpacks: false, mods: true, datapacks: false, servers: false, schematics: false })
 })
+
+it.each(['26.1', '26.1.2', '26.1-pre-1', '26.1-rc-2', '26.2-snapshot-1'])(
+    'recognizes data pack support in year-based Minecraft version %s',
+    (version) => {
+        expect(supportsDataPacks(version)).toBe(true)
+    },
+)

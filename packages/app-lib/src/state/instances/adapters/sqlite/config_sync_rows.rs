@@ -1,6 +1,10 @@
+#[cfg(test)]
 use chrono::Utc;
-use sqlx::{Executor, Sqlite, SqlitePool};
+#[cfg(test)]
+use sqlx::SqlitePool;
+use sqlx::{Executor, Sqlite};
 
+#[cfg(test)]
 #[derive(Debug, sqlx::FromRow)]
 pub(crate) struct InstanceConfigSyncRow {
     pub instance_id: String,
@@ -9,6 +13,7 @@ pub(crate) struct InstanceConfigSyncRow {
     pub generated_at: Option<i64>,
 }
 
+#[cfg(test)]
 pub(crate) async fn upsert_config_updated_at<'e, E>(
     instance_id: &str,
     exec: E,
@@ -41,21 +46,15 @@ pub(crate) async fn mark_all_config_dirty<'e, E>(exec: E) -> crate::Result<()>
 where
     E: Executor<'e, Database = Sqlite>,
 {
-    let now = Utc::now().timestamp();
-
     sqlx::query(
-        "
-        UPDATE instance_config_sync_state
-        SET config_updated_at = ?
-        ",
+        "UPDATE instance_recovery_publications SET published_revision=0",
     )
-    .bind(now)
     .execute(exec)
     .await?;
-
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) async fn get_config_sync_generated_at<'e, E>(
     instance_id: &str,
     exec: E,
@@ -77,14 +76,13 @@ where
     Ok(generated_at.flatten())
 }
 
-pub(crate) async fn update_config_sync_generated_at<'e, E>(
+#[cfg(test)]
+pub(crate) async fn update_config_sync_generated_at(
     instance_id: &str,
     generated_at: i64,
-    exec: E,
-) -> crate::Result<()>
-where
-    E: Executor<'e, Database = Sqlite>,
-{
+    pool: &SqlitePool,
+) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query(
         "
         INSERT INTO instance_config_sync_state (
@@ -100,12 +98,13 @@ where
     .bind(instance_id)
     .bind(generated_at)
     .bind(generated_at)
-    .execute(exec)
+    .execute(&mut *transaction)
     .await?;
-
+    transaction.commit().await?;
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) async fn list_instance_config_sync_rows(
     pool: &SqlitePool,
 ) -> crate::Result<Vec<InstanceConfigSyncRow>> {

@@ -1,5 +1,7 @@
 pub(crate) mod config_sync;
 mod content;
+pub(crate) mod content_facts;
+pub(crate) mod manifest;
 pub use self::content::*;
 
 mod model;

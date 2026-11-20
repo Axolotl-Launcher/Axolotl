@@ -6,6 +6,7 @@ export const AxolotlBrandConfig = Object.freeze({
     website: 'https://www.axlmc.org/',
     repositoryUrl: 'https://github.com/Mystic-Stars/Axolotl',
     supportUrl: 'https://github.com/Mystic-Stars/Axolotl/issues',
+    discordInviteUrl: 'https://discord.gg/jKRY6tgcgy',
     qqGroupNumber: '830619067',
     qqChannelUrl: 'https://pd.qq.com/s/9nfp5rlz0',
     sponsorUrl: 'https://afdian.com/a/Mystic-Stars',

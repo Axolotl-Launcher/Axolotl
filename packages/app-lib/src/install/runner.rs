@@ -46,7 +46,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 mod adjunct;
-mod admission;
+pub(super) mod admission;
 mod content_change;
 mod export;
 mod init;
@@ -99,6 +99,7 @@ pub(crate) async fn interactive_content_guard(
     state: &State,
     instance_id: &str,
 ) -> crate::Result<Option<tokio::sync::OwnedMutexGuard<()>>> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     if EXECUTING_JOB.try_with(|_| ()).is_ok() {
         return Ok(None);
     }
@@ -370,7 +371,12 @@ pub async fn queue_resource_plan(
     .await?;
     let _admission = admission::lock(&state, Some(&instance)).await?;
     let _writer = state.acquire_install_db_permit().await?;
-    let mut tx = state.pool.begin().await?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await?;
     let existing =
         ResourceOperationPlans::job_at_in(&mut tx, plan_id.as_str(), revision)
             .await?;
@@ -489,7 +495,8 @@ pub async fn queue_resource_plan(
         )
         .into());
     }
-    tx.commit().await?;
+    tx_diagnostics.observe("commit_wait", tx.commit()).await?;
+    tx_diagnostics.complete("committed");
     drop(_lock);
     drop(_writer);
     let record = store::get(id, &state).await?.ok_or_else(|| {
@@ -1384,6 +1391,7 @@ async fn enqueue_with_content_plan(
     content_plan: Option<(&str, u64)>,
     state: &State,
 ) -> crate::Result<InstallJobSnapshot> {
+    crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let instance = admission::request_instance(&request);
     let _admission = admission::lock(state, instance.as_deref()).await?;
     if let Some((plan_id, _)) = content_plan
@@ -1394,7 +1402,7 @@ async fn enqueue_with_content_plan(
     if let Some(existing) = admission::existing(state, &request, None).await? {
         if let Some((plan_id, _)) = content_plan {
             ContentUpdateJobs::insert_in(
-                &state.pool,
+                &mut *state.pool.acquire().await?,
                 &plan_id.to_string(),
                 &ContentUpdateJobRecord {
                     job_id: Some(existing.job_id.to_string()),

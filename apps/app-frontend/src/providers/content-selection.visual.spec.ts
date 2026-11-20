@@ -745,6 +745,53 @@ it('preserves successful identities on a failed refresh and retries on the next 
     }
 })
 
+it('clears selected projects without clearing the target instance’s installed identities', async () => {
+    const scope = effectScope()
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs: ref([]) } as never,
+        }),
+    )!
+    const readSnapshot = vi.mocked(get_content_snapshot)
+    readSnapshot.mockResolvedValue(identitySnapshot())
+    vi.mocked(get_project_many).mockResolvedValue([])
+    vi.mocked(getCurseForgeProjects).mockResolvedValue([])
+    vi.mocked(contentIdentityInputsFromSnapshot).mockReturnValue([
+        {
+            provider: 'curseforge',
+            projectId: 'installed',
+            slug: 'installed-mod',
+            contentType: 'mod',
+        },
+    ])
+    vi.mocked(resolveContentIdentities).mockImplementation(async (inputs) => inputs as never)
+    selection.setTarget(instance)
+    try {
+        await selection.refreshInstalledIdentities()
+        expect(await selection.add(selectedMod('version'))).toBe(true)
+        const reads = readSnapshot.mock.calls.length
+
+        selection.clear()
+
+        expect(selection.selectedCount.value).toBe(0)
+        expect(selection.targetInstance.value?.id).toBe(instance.id)
+        expect(selection.isInstalledIdentity('curseforge', 'installed')).toBe(true)
+        expect(selection.isInstalledIdentity('curseforge', 'unknown', 'installed-mod')).toBe(true)
+        expect(await selection.add(selectedMod('version'))).toBe(true)
+        expect(readSnapshot).toHaveBeenCalledTimes(reads)
+
+        selection.setTarget({ ...instance, id: 'other-instance' })
+        expect(selection.isInstalledIdentity('curseforge', 'installed')).toBe(false)
+    } finally {
+        scope.stop()
+        readSnapshot.mockResolvedValue(null as never)
+        vi.mocked(contentIdentityInputsFromSnapshot).mockReturnValue([])
+        vi.mocked(resolveContentIdentities).mockReturnValue([] as never)
+    }
+})
+
 it('does not reuse a retired identity request after switching away and back to the same instance', async () => {
     const scope = effectScope()
     const selection = scope.run(() =>

@@ -1,4 +1,6 @@
-import { Channel, invoke } from '@tauri-apps/api/core'
+import { Channel } from '@tauri-apps/api/core'
+
+import { invoke } from '@/helpers/invoke'
 
 export type StorageNodeType =
     | 'instances'

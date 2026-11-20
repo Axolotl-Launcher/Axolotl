@@ -63,7 +63,7 @@ async fn channel_references_keep_installed_retained_and_incomplete_store_objects
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    sqlx::raw_sql("CREATE TABLE install_jobs(status TEXT, state TEXT); CREATE TABLE store_blobs(digest TEXT); CREATE TABLE store_instance_files(digest TEXT); CREATE TABLE store_retained_refs(digest TEXT); CREATE TABLE store_operations(digest TEXT, state TEXT); INSERT INTO store_instance_files VALUES ('INSTALLED'); INSERT INTO store_retained_refs VALUES ('HISTORY'); INSERT INTO store_operations VALUES ('PENDING','published'), ('DONE','materialized');").execute(&pool).await.unwrap();
+    sqlx::raw_sql("CREATE TABLE install_jobs(status TEXT, state TEXT, kind TEXT NOT NULL DEFAULT 'install_existing_instance', finished INTEGER); CREATE TABLE store_blobs(digest TEXT); CREATE TABLE store_instance_files(digest TEXT); CREATE TABLE store_retained_refs(digest TEXT); CREATE TABLE store_operations(digest TEXT, state TEXT); INSERT INTO store_instance_files VALUES ('INSTALLED'); INSERT INTO store_retained_refs VALUES ('HISTORY'); INSERT INTO store_operations VALUES ('PENDING','published'), ('DONE','materialized');").execute(&pool).await.unwrap();
     let retained: HashSet<_> = retained_in_channel(&pool)
         .await
         .unwrap()
@@ -73,7 +73,7 @@ async fn channel_references_keep_installed_retained_and_incomplete_store_objects
         retained,
         HashSet::from(["installed".into(), "history".into(), "pending".into()])
     );
-    sqlx::query("INSERT INTO install_jobs VALUES ('waiting_for_user', '{}')")
+    sqlx::query("INSERT INTO install_jobs(status,state) VALUES ('waiting_for_user', '{}')")
         .execute(&pool)
         .await
         .unwrap();
@@ -91,7 +91,7 @@ async fn old_channels_without_a_content_store_are_supported_but_partial_schemas_
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    sqlx::query("CREATE TABLE install_jobs(status TEXT, state TEXT)")
+    sqlx::query("CREATE TABLE install_jobs(status TEXT, state TEXT, kind TEXT NOT NULL DEFAULT 'install_existing_instance', finished INTEGER)")
         .execute(&pool)
         .await
         .unwrap();
@@ -116,4 +116,37 @@ fn cleanup_does_not_follow_links_outside_cache() {
         .unwrap();
     walk(&root, "", Some(&HashSet::new()), &mut vec![]).unwrap();
     assert!(outside.path().join("keep.jar").exists());
+}
+
+#[tokio::test]
+async fn cleanup_uses_attached_retention_and_preserves_future_references() {
+    let temporary = tempfile::tempdir().unwrap();
+    let directories = DirectoryInfo {
+        settings_dir: temporary.path().into(),
+        config_dir: temporary.path().join("content"),
+        app_identifier: "test".into(),
+    };
+    let pool = crate::state::store::databases::open(temporary.path())
+        .await
+        .unwrap();
+    let digest = "a".repeat(128);
+    sqlx::query("INSERT INTO store_blobs VALUES(?,1,'ready',0,0)")
+        .bind(&digest)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO store_retained_refs VALUES(?,'future-owner',0)")
+        .bind(&digest)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let references = retained_content(&directories, Some(&pool)).await.unwrap();
+    assert!(references.contains(&digest));
+    sqlx::query("INSERT INTO storage.extension_records VALUES('future','reference','v9',x'00')").execute(&pool).await.unwrap();
+    assert!(retained_content(&directories, Some(&pool)).await.is_err());
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM store_blobs")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
 }

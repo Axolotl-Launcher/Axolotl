@@ -1,8 +1,10 @@
 import type { ContentItem } from '@modrinth/ui'
-import { invoke } from '@tauri-apps/api/core'
+import { replaceEqualDeep } from '@tanstack/vue-query'
 import { listen } from '@tauri-apps/api/event'
 
-import type { InstanceContentSnapshot } from './instance'
+import { invoke } from '@/helpers/invoke'
+
+import type { InstanceContentSnapshot, InstanceContentSnapshotItem } from './instance'
 import type { ResourceArtifact, SourceReleaseRef } from './resources'
 
 export type ContentRefreshMode = 'normal' | 'force_remote' | 'retry_failed'
@@ -91,7 +93,7 @@ const nativeTransport: ContentRefreshTransport = {
 /** A subscription owns presentation only; disposing never cancels the backend task. */
 export function createContentRefreshSubscription(
     instanceId: string,
-    onChange: (state: ContentRefreshState) => void,
+    onChange: (state: ContentRefreshState, source: 'read' | 'stream') => void,
     onError: (error: unknown) => void,
     transport: ContentRefreshTransport = nativeTransport,
 ) {
@@ -101,7 +103,7 @@ export function createContentRefreshSubscription(
     let unlisten: (() => void) | undefined
     let cancelFrame: (() => void) | undefined
     let pending: ContentRefreshEvent[] = []
-    let reading: Promise<void> | undefined
+    let reading: Promise<ContentRefreshState | undefined> | undefined
     let flushing = false
 
     async function reload() {
@@ -109,8 +111,9 @@ export function createContentRefreshSubscription(
         reading = (async () => {
             const next = await transport.read(instanceId)
             if (!disposed) {
-                state = next
-                onChange(next)
+                state = { ...next, snapshot: shareContentSnapshot(state?.snapshot, next.snapshot) }
+                onChange(state, 'read')
+                return state
             }
         })().finally(() => {
             reading = undefined
@@ -167,11 +170,12 @@ export function createContentRefreshSubscription(
             state = applyContentRefreshEvent(state, event)
             changed = true
         }
-        if (!disposed && state && changed) onChange(state)
+        if (!disposed && state && changed) onChange(state, 'stream')
         schedule()
     }
 
-    async function connect() {
+    async function connect(initialState?: ContentRefreshState) {
+        state = initialState
         unlisten = await transport.listen((event) => {
             if ('instanceId' in event && event.instanceId !== instanceId) return
             pending.push(event)
@@ -181,7 +185,7 @@ export function createContentRefreshSubscription(
             unlisten()
             return
         }
-        await reload()
+        if (!state) await reload()
         initializing = false
         schedule()
     }
@@ -190,7 +194,7 @@ export function createContentRefreshSubscription(
         const task = await transport.start(instanceId, mode)
         if (!disposed && state && state.task?.id !== task.id) {
             state = { ...state, task }
-            onChange(state)
+            onChange(state, 'stream')
         }
         return task
     }
@@ -205,6 +209,35 @@ export function createContentRefreshSubscription(
     return { connect, start, reload, dispose }
 }
 
+function contentSnapshotItemKey(item: InstanceContentSnapshotItem) {
+    if (item.memberId) return `member:${item.memberId}`
+    if (item.entryId) return `entry:${item.entryId}`
+    if (item.fileId) return `file:${item.fileId}`
+    return `path:${item.expectedRelativePath}`
+}
+
+export function shareContentSnapshot(
+    previous: InstanceContentSnapshot | undefined,
+    incoming: InstanceContentSnapshot,
+): InstanceContentSnapshot {
+    if (!previous || previous.instanceId !== incoming.instanceId || previous === incoming)
+        return incoming
+
+    const { items: previousItems, ...previousMetadata } = previous
+    const { items: incomingItems, ...incomingMetadata } = incoming
+    const byId = new Map(previousItems.map((item) => [contentSnapshotItemKey(item), item]))
+    const items = incomingItems.map((item) =>
+        replaceEqualDeep(byId.get(contentSnapshotItemKey(item)), item),
+    )
+    const sameItems =
+        items.length === previousItems.length &&
+        items.every((item, index) => item === previousItems[index])
+    const metadata = replaceEqualDeep(previousMetadata, incomingMetadata)
+    return sameItems && metadata === previousMetadata
+        ? previous
+        : { ...metadata, items: sameItems ? previousItems : items }
+}
+
 export function applyContentRefreshEvent(
     state: ContentRefreshState,
     event: Exclude<ContentRefreshEvent, { kind: 'resync' }>,
@@ -214,7 +247,9 @@ export function applyContentRefreshEvent(
     if (patch.kind === 'pack') {
         snapshot = { ...snapshot, pack: patch.pack }
     } else if (patch.kind === 'content') {
-        if (patch.snapshot.revision >= snapshot.revision) snapshot = patch.snapshot
+        if (patch.snapshot.revision >= snapshot.revision) {
+            snapshot = shareContentSnapshot(snapshot, patch.snapshot)
+        }
     } else if (patch.kind === 'entry') {
         const matches = snapshot.items.some(
             (item) =>
@@ -270,7 +305,7 @@ export function applyContentRefreshEvent(
                     next.capabilities.canUpdate =
                         !!patch.update.candidate && next.materializationState === 'present'
                 }
-                return next
+                return replaceEqualDeep(item, next)
             }),
         }
     }

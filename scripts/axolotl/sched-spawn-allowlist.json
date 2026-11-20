@@ -1,6 +1,51 @@
 {
   "entries": [
     {
+      "file": "packages/app-lib/src/state/store/recovery_mode.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "reviewed recovery write guard: canonicalizes the authority path or its nearest existing ancestor to reject symlink aliases and Windows verbatim-path bypasses. Probes are bounded by path depth, read metadata only, execute after releasing the recovery registry mutex, and acquire no scheduler managed resource; normal sessions with no recovery roots skip these probes (D17)",
+      "sites": [
+        "normalized: if let Ok(mut resolved) = std::fs::canonicalize(ancestor) {",
+        "normalized: if let Ok(path) = std::fs::canonicalize(path) {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/persistence/document.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed awaited document worker: bounded JSON reads, cross-process file locking and durable same-directory publication; owns its file locks through completion even if its caller is canceled, and acquires no scheduler managed resource (D17)",
+      "sites": [
+        "blocking: tokio::task::spawn_blocking(operation)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/persistence/document.rs",
+      "form": "std::fs",
+      "count": 9,
+      "reason": "reviewed document worker I/O for locking and atomic publication; absent_pair inspects authority/receipt presence under those same worker-owned locks. snapshot_json performs a bounded 16 MiB regular JSON read for standalone maintenance snapshots under the owner's file lock, or for an immutable completed backup manifest; it acquires no additional managed resource (D17)",
+      "sites": [
+        "absent_pair: match std::fs::symlink_metadata(candidate) {",
+        "acquire: let file = std::fs::OpenOptions::new()",
+        "acquire: let parent = std::fs::canonicalize(parent)?;",
+        "acquire: std::fs::create_dir_all(parent)?;",
+        "read_bytes: let metadata = match std::fs::metadata(path) {",
+        "read_bytes: std::fs::File::open(path)?",
+        "replace_bytes: std::fs::File::open(parent)?.sync_all()?;",
+        "snapshot_json: let metadata = match std::fs::symlink_metadata(path) {",
+        "snapshot_json: std::fs::File::open(path)?"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/persistence/document.rs",
+      "form": "std::thread::sleep",
+      "count": 1,
+      "reason": "reviewed 5ms OS file-lock contention backoff inside the owned blocking document worker; does not block the async executor, release an in-flight publication lock or acquire scheduler resources (D17)",
+      "sites": [
+        "acquire: std::thread::sleep(std::time::Duration::from_millis(5));"
+      ]
+    },
+    {
       "file": "packages/app-lib/src/api/logs/logshare.rs",
       "form": "spawn_blocking",
       "count": 1,
@@ -21,8 +66,8 @@
     {
       "file": "apps/installer-ui/src/executable_install.rs",
       "form": "std::fs import",
-      "count": 10,
-      "reason": "reviewed synchronous installer helper: headless metadata inspection, duplicated installation-ownership handle verification, same-volume staged executable verification and atomic publication before any GUI or async runtime; holds no launcher managed resources and retains NSIS directory ownership even after parent death (D17)",
+      "count": 13,
+      "reason": "reviewed synchronous installer helper: headless metadata inspection, duplicated installation-ownership handle verification, same-volume staged executable verification and atomic publication before any GUI or async runtime; prunes only older installer-named regular executable backups in the owned directory after verified replacement; holds no launcher managed resources and retains NSIS directory ownership even after parent death (D17)",
       "sites": [
         "dispatch: fs::write(",
         "inherit_ownership: let expected = fs::canonicalize(parent)",
@@ -33,6 +78,9 @@
         "install: let metadata = fs::symlink_metadata(target)",
         "install: let parent = fs::canonicalize(parent).map_err(|error| error.to_string())?;",
         "install: let stage_parent = fs::canonicalize(",
+        "prune_previous_executables: if let Err(error) = fs::remove_file(&path) {",
+        "prune_previous_executables: let entries = match fs::read_dir(parent) {",
+        "prune_previous_executables: let target = match fs::canonicalize(target) {",
         "record: if let Ok(mut file) = OpenOptions::new()"
       ]
     },
@@ -681,8 +729,8 @@
       "count": 2,
       "reason": "Reviewed package staging exclusively creates a mode-0600 file inside a private temporary directory in the awaited blocking worker, outside L0 and critical sections. probe_linux_host reads one small dpkg file list once at startup (D17).",
       "sites": [
-        "write_package_exclusively: let mut options = std::fs::OpenOptions::new();",
-        "probe_linux_host: std::fs::read_to_string(format!("
+        "probe_linux_host: std::fs::read_to_string(format!(",
+        "write_package_exclusively: let mut options = std::fs::OpenOptions::new();"
       ]
     },
     {
@@ -1150,8 +1198,8 @@
       "count": 2,
       "reason": "Inspection and streaming export perform file operations on the blocking pool without resource locks; export pins directory handles, decompresses and censors fixed chunks, and atomically publishes a temporary entry",
       "sites": [
-        "load_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {",
-        "export_log_file: tokio::task::spawn_blocking(move || {"
+        "export_log_file: tokio::task::spawn_blocking(move || {",
+        "load_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {"
       ]
     },
     {
@@ -1381,10 +1429,11 @@
     {
       "file": "packages/app-lib/src/api/pack/install_mrpack.rs",
       "form": "std::fs",
-      "count": 1,
-      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "count": 2,
+      "reason": "Synchronous cleanup and a single same-directory create-new for MRPack staging, bounded by the extraction I/O semaphore outside L0. Standard creation avoids publishing Windows temporary file attributes after rename.",
       "sites": [
-        "drop: let _ = std::fs::remove_file(&self.download_path);"
+        "drop: let _ = std::fs::remove_file(&self.download_path);",
+        "extract_zip_entry: .make_in(parent, |path| std::fs::File::create_new(path))"
       ]
     },
     {
@@ -1751,8 +1800,8 @@
     {
       "file": "packages/app-lib/src/launcher/direct_link.rs",
       "form": "std::fs",
-      "count": 12,
-      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "count": 13,
+      "reason": "Phase-0 synchronous file I/O plus one reviewed read-only PCL-CE configuration read beside the existing local config reader, outside L0 and managed critical sections (D17)",
       "sites": [
         "<module>: predicate: impl Fn(&std::fs::DirEntry) -> bool,",
         "directory_has: match std::fs::read_dir(path) {",
@@ -1765,7 +1814,8 @@
         "hmcl_global_game_settings: let presets_raw = std::fs::read_to_string(",
         "pcl_bundled_java_candidates: let Ok(entries) = std::fs::read_dir(&directory) else {",
         "pcl_mod_count: std::fs::read_dir(game_dir.join(\"mods\"))",
-        "read_flat_config: let content = match std::fs::read_to_string(path) {"
+        "read_flat_config: let content = match std::fs::read_to_string(path) {",
+        "read_pcl_ce_config_bytes: match std::fs::read(path) {"
       ]
     },
     {
@@ -1781,13 +1831,22 @@
     {
       "file": "packages/app-lib/src/launcher/local_version.rs",
       "form": "std::fs",
-      "count": 4,
+      "count": 3,
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "discover_version_json: let mut json_files = std::fs::read_dir(&version_dir)",
         "is_minecraft_version_document: std::fs::read_to_string(path)",
-        "read_document_path: let content = std::fs::read_to_string(path).map_err(|error| {",
-        "resolve_pcl_json: &std::fs::read_to_string(&path).map_err(|error| {"
+        "read_document_path: let content = std::fs::read_to_string(path).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/pcl_ce_json.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "Reviewed PCL-CE version file discovery and decoding, shared with the existing synchronous local instance import and launch resolver; no file writes or nested managed resource acquisition, outside L0 (D17)",
+      "sites": [
+        "discover: let entries = std::fs::read_dir(version_dir).map_err(|error| {",
+        "read: let bytes = std::fs::read(path).map_err(|error| {"
       ]
     },
     {
@@ -2207,26 +2266,6 @@
       ]
     },
     {
-      "file": "packages/app-lib/src/state/instance_groups.rs",
-      "form": "std::fs import",
-      "count": 2,
-      "reason": "phase-0 baseline: synchronous file I/O through an imported std::fs name; must not appear in L0 or inside a critical section (D17)",
-      "sites": [
-        "read_from_disk: match fs::read_to_string(&path)",
-        "write_to_disk: fs::write(path, serde_json::to_string_pretty(file)?)?;"
-      ]
-    },
-    {
-      "file": "packages/app-lib/src/state/favorite_groups.rs",
-      "form": "std::fs import",
-      "count": 2,
-      "reason": "favorite group store mirrors the instance group JSON store: synchronous file I/O through an imported std::fs name; it is not held in L0 or inside a critical section",
-      "sites": [
-        "read_from_disk: match fs::read_to_string(&path)",
-        "write_to_disk: fs::write(path, serde_json::to_string_pretty(file)?)?;"
-      ]
-    },
-    {
       "file": "packages/app-lib/src/state/instances/adapters/filesystem.rs",
       "form": "std::fs",
       "count": 4,
@@ -2366,7 +2405,7 @@
     {
       "file": "packages/app-lib/src/state/instances/watcher.rs",
       "form": "tokio::spawn",
-      "count": 8,
+      "count": 7,
       "reason": "reviewed watcher-scoped tasks: screenshot reconciliation is now owned and coalesced by the watcher pump rather than spawned per filesystem event; remaining event delivery, configuration/manual-download reconciliation and crash notification tasks retain their existing operation scopes",
       "sites": [
         "configure_manual_import_directory: tokio::spawn(async move {",
@@ -2375,8 +2414,7 @@
         "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
-        "init_watcher: tokio::task::spawn(async move {",
-        "watch_instances_init: tokio::spawn(async move {"
+        "init_watcher: tokio::task::spawn(async move {"
       ]
     },
     {
@@ -2654,20 +2692,22 @@
     {
       "file": "packages/app-lib/src/util/io.rs",
       "form": "std::fs",
-      "count": 11,
-      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "count": 13,
+      "reason": "phase-0 synchronous file I/O remains outside L0; native_path and sync_write resolve Windows parent directories without following the moved leaf. sync_write runs in the existing file-write blocking worker before creating its temporary file, and neither site acquires a scheduler managed resource (D17)",
       "sites": [
         "atomically_replace_file: std::fs::rename(source, destination)",
         "is_same_disk: let new_meta = std::fs::symlink_metadata(new_dir)",
         "is_same_disk: let old_meta = std::fs::symlink_metadata(old_dir)",
         "is_symlink_or_reparse: pub(crate) fn is_symlink_or_reparse(meta: &std::fs::Metadata) -> bool {",
         "metadata: ) -> Result<std::fs::Metadata, IOError> {",
+        "native_path: Ok(std::fs::canonicalize(parent)?.join(name))",
         "remove_safe: .or_else(|_| std::fs::remove_dir(path))",
         "remove_safe: let meta = match std::fs::symlink_metadata(path) {",
         "remove_safe: let rd = match std::fs::read_dir(path) {",
         "remove_safe: return std::fs::remove_file(path)",
         "remove_safe: return std::fs::remove_file(path)",
-        "remove_safe: std::fs::remove_dir(path)"
+        "remove_safe: std::fs::remove_dir(path)",
+        "sync_write: std::fs::canonicalize(parent)?.join(name)"
       ]
     },
     {
@@ -2964,6 +3004,94 @@
         "install: let _ = std::fs::remove_dir_all(&staging_for_task);",
         "install: let _ = std::fs::remove_dir_all(&staging_for_task);",
         "list: let entries = std::fs::read_dir(&themes_dir).map_err(io)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/content_facts.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed awaited native metadata-only content scan for local display; no hashing, decoding or database access inside worker and no scheduler managed resource acquisition (D17)",
+      "sites": [
+        "overlay: let scanned = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/manifest.rs",
+      "form": "std::fs",
+      "count": 6,
+      "reason": "reviewed bounded recovery backup I/O inside the awaited Document::inspect blocking worker; validates authority containment and checksums, syncs temporary files, and publishes the head last without acquiring scheduler resources (D17)",
+      "sites": [
+        "backup: if !std::fs::canonicalize(&path)?.starts_with(&canonical) {",
+        "backup: let canonical = std::fs::canonicalize(&base)?;",
+        "backup: let file = std::fs::File::open(base.join(\"recovery.json\"))?;",
+        "backup: let file = std::fs::File::open(path)?;",
+        "durable_copy: std::fs::File::open(parent)?.sync_all()?;",
+        "durable_copy: std::fs::create_dir_all(parent)?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/observability.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed observability flush: the blocking OTLP force-flush is bounded by a 2 s caller budget and runs on a dedicated blocking worker; it holds only provider handles and never blocks the async runtime",
+      "sites": [
+        "observability_flush: tauri::async_runtime::spawn_blocking(|| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/observability/runtime.rs",
+      "form": "thread::Builder",
+      "count": 2,
+      "reason": "reviewed OTLP flush/shutdown: dedicated short-lived threads isolate exporter I/O from the async runtime and are bounded by the caller exit budget; they hold only cloned provider handles",
+      "sites": [
+        "flush: std::thread::Builder::new()",
+        "shutdown: std::thread::Builder::new()"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/observability/runtime.rs",
+      "form": "thread::Builder spawn",
+      "count": 2,
+      "reason": "reviewed OTLP flush/shutdown: both helper threads are detached and only perform SDK force_flush/shutdown with cloned providers, so a slow collector cannot block the process past the caller budget",
+      "sites": [
+        "flush: .spawn(move || {",
+        "shutdown: .spawn(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/observability_mcp/config.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP preferences: atomic rename of one small JSON document next to the existing mcp.json, the same bounded synchronous write the launcher tools MCP performs; it holds no managed resource",
+      "sites": [
+        "save_preferences: std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/observability_mcp/service.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP startup: reads observability-mcp.json once under the controller lock before any listener starts; a missing file leaves capture off and touches no managed resource",
+      "sites": [
+        "initialize: let result = (|| match std::fs::read(config_path(app)?) {"
+      ]
+    },
+    {
+      "file": "packages/launcher-observability-mcp/src/protocol.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP flush: one blocking worker waits on the synchronous provider flush, so an unreachable collector cannot pin a runtime thread that unrelated Tauri commands share",
+      "sites": [
+        "handle: let flushed = tokio::task::spawn_blocking(move || source.flush())"
+      ]
+    },
+    {
+      "file": "packages/launcher-observability-mcp/src/server.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "reviewed diagnostics MCP listener: one axum server task owned by the Server guard, cancelled through its token and awaited on stop so it cannot outlive the plugin; it holds no launcher resource and only reads the in-process capture",
+      "sites": [
+        "start: let task = tokio::spawn(async move {"
       ]
     }
   ]

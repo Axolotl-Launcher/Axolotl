@@ -18,6 +18,7 @@ vi.mock('@modrinth/assets', () => ({
 vi.mock('@modrinth/ui', () => ({
     defineMessages: (messages: unknown) => messages,
     useFormatBytes: () => (size: number) => `${size} bytes`,
+    useFormatDateTime: () => (date: Date | number | string) => new Date(date).toISOString(),
     useVIntl: () => ({
         formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
     }),

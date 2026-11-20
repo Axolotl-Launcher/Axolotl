@@ -1,5 +1,6 @@
 import type { NormalizedCropRect } from '@modrinth/ui'
-import { invoke } from '@tauri-apps/api/core'
+
+import { invoke } from '@/helpers/invoke'
 
 export type BackgroundConversionBackend = 'auto' | 'native' | 'ffmpeg'
 

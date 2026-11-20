@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RefreshCwIcon } from '@modrinth/assets'
-import { Button, ProgressBar, useFormatBytes, useVIntl } from '@modrinth/ui'
+import { Button, ProgressBar, useFormatBytes, useFormatDateTime, useVIntl } from '@modrinth/ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -22,6 +22,7 @@ import StorageUsageChart from './storage/StorageUsageChart.vue'
 
 const { formatMessage } = useVIntl()
 const formatBytes = useFormatBytes()
+const formatDateTime = useFormatDateTime({ dateStyle: 'medium', timeStyle: 'short' })
 const router = useRouter()
 
 const tree = ref<StorageTree | null>(null)
@@ -176,13 +177,6 @@ async function handleAction(node: StorageNode) {
     if (route && (await tryNavigate(route))) return
 
     await openNodePaths(node)
-}
-
-function formatDateTime(date: Date) {
-    return new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(date)
 }
 </script>
 

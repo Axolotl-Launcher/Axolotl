@@ -1,11 +1,31 @@
+import { onlineManager, QueryClient } from '@tanstack/vue-query'
 import { invoke } from '@tauri-apps/api/core'
 import { expect, it, vi } from 'vitest'
 
-import { get } from './settings'
+import { appSettingsQueryOptions, get } from './settings'
 
 vi.mock('@tauri-apps/api/core', () => ({
     invoke: vi.fn(),
 }))
+
+it('reads local launcher settings on a cold offline load', async () => {
+    const client = new QueryClient()
+    const wasOnline = onlineManager.isOnline()
+    onlineManager.setOnline(false)
+    vi.mocked(invoke).mockResolvedValueOnce({ locale: 'zh-CN', feature_flags: {} })
+    const options = appSettingsQueryOptions()
+    const pending = client.fetchQuery(options)
+    try {
+        expect(client.getQueryState(options.queryKey)?.fetchStatus).not.toBe('paused')
+        await expect(pending).resolves.toMatchObject({ locale: 'zh-CN' })
+    } finally {
+        await client.cancelQueries({ queryKey: options.queryKey })
+        await pending.catch(() => {})
+        client.clear()
+        vi.mocked(invoke).mockReset()
+        onlineManager.setOnline(wasOnline)
+    }
+})
 
 it('normalizes missing settings to empty defaults where the launcher expects them', async () => {
     vi.mocked(invoke).mockResolvedValueOnce({ locale: 'en-US', feature_flags: {} })

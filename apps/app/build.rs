@@ -1271,6 +1271,29 @@ fn main() {
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
                     ),
+            )
+            .plugin(
+                "observability",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "observability_status",
+                        "observability_record",
+                        "observability_flush",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
+                "observability-mcp",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "observability_mcp_get_state",
+                        "observability_mcp_configure",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
             ),
     )
     .expect("Failed to run tauri-build");

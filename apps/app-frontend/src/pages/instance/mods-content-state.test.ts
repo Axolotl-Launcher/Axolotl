@@ -1,5 +1,7 @@
 import { expect, it } from 'vitest'
 
+import type { ContentRefreshState } from '@/helpers/content-refresh'
+
 import modsSource from './Mods.vue?raw'
 import {
     createContentRefreshSettlement,
@@ -7,6 +9,7 @@ import {
     modsContentPending,
     modsContentRetryMode,
     modsContentScopeTransition,
+    needsContentRefresh,
 } from './mods-content-state'
 
 const ready = { id: 'test-instance', install_stage: 'installed' } as const
@@ -140,10 +143,10 @@ it('keeps an empty list pending only until the first refresh round settles', () 
     expect(modsContentLoading({ hasSnapshot: true, hasItems: false, settled: true })).toBe(false)
     expect(modsContentLoading({ hasSnapshot: true, hasItems: true, settled: false })).toBe(false)
     const subscribe = modsSource.slice(
-        modsSource.indexOf('async function connectContentRefresh()'),
+        modsSource.indexOf('async function connectContentRefresh('),
         modsSource.indexOf('async function retryFailedContent()'),
     )
-    expect(subscribe).toContain('contentRefreshSettlement.reset()')
+    expect(subscribe).toContain('contentRefreshSettlement.reset(initialState !== undefined)')
     expect(subscribe).toContain('settled: contentRefreshSettlement.observe(state.task)')
     const invalidate = modsSource.slice(
         modsSource.indexOf('function invalidateContentRequests('),
@@ -172,4 +175,34 @@ it('settles a round that finished before start answered', () => {
     const settlement = createContentRefreshSettlement()
     expect(settlement.observe({ id: 'fast', running: false })).toBe(false)
     expect(settlement.started('fast')).toBe(true)
+})
+
+it('can immediately display an already confirmed empty snapshot on return', () => {
+    const settlement = createContentRefreshSettlement()
+    settlement.reset(true)
+    expect(
+        modsContentLoading({ hasSnapshot: true, hasItems: false, settled: settlement.settled }),
+    ).toBe(false)
+    expect(settlement.observe({ id: 'refreshing', running: true })).toBe(true)
+})
+
+it('distinguishes an unchanged background read from an unverified or expired snapshot', () => {
+    const state: ContentRefreshState = {
+        snapshot: {
+            instanceId: 'test',
+            revision: 1,
+            items: [],
+            pack: null,
+            pendingManualDownloads: [],
+            warnings: [],
+        },
+        task: null,
+        sequence: 2,
+    }
+    const cached = { state, validatedAt: 1000 }
+    const unchanged = { ...structuredClone(state), sequence: 3 }
+    expect(needsContentRefresh(cached, unchanged, 2000)).toBe(false)
+    expect(needsContentRefresh({ ...cached, validatedAt: 0 }, unchanged, 2000)).toBe(true)
+    expect(needsContentRefresh(cached, unchanged, 301_000)).toBe(true)
+    expect(needsContentRefresh(undefined, unchanged, 2000)).toBe(true)
 })

@@ -11,6 +11,8 @@ use std::{
     env, fs,
     io::Read,
     path::{Component, Path, PathBuf},
+    sync::OnceLock,
+    time::Instant,
 };
 use tauri::{
     Emitter, Listener, Manager,
@@ -52,6 +54,31 @@ mod updater_impl;
 mod updater_impl_noop;
 
 const BLOCKBENCH_SKIN_RESOURCE_DIR: &str = "resources/blockbench-skin";
+
+static PROCESS_STARTED: OnceLock<Instant> = OnceLock::new();
+
+fn startup_phase(phase: &'static str) {
+    if let Some(started) = PROCESS_STARTED.get() {
+        tracing::info!(
+            phase,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Startup timing"
+        );
+    }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FrontendStartupTiming {
+    navigation_start_unix_ms: u64,
+    document_response_start_ms: Option<u64>,
+    document_response_end_ms: Option<u64>,
+    dom_interactive_ms: Option<u64>,
+    entry_evaluated_ms: Option<u64>,
+    mount_started_ms: Option<u64>,
+    mount_finished_ms: Option<u64>,
+    initialize_sent_ms: u64,
+}
 
 /// A toast trigger writes settings through the pool, whose SQLite
 /// `busy_timeout` is 30 s — longer than the exit hard cap. Bound the write so
@@ -214,9 +241,26 @@ fn is_skin_editor_referer(
 }
 
 // Should be called in launcher initialization
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
-async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
+async fn initialize_state(
+    app: tauri::AppHandle,
+    frontend_timing: Option<FrontendStartupTiming>,
+) -> api::Result<()> {
+    startup_phase("initialize_received");
+    if let Some(timing) = frontend_timing {
+        tracing::info!(
+            navigation_start_unix_ms = timing.navigation_start_unix_ms,
+            document_response_start_ms = ?timing.document_response_start_ms,
+            document_response_end_ms = ?timing.document_response_end_ms,
+            dom_interactive_ms = ?timing.dom_interactive_ms,
+            entry_evaluated_ms = ?timing.entry_evaluated_ms,
+            mount_started_ms = ?timing.mount_started_ms,
+            mount_finished_ms = ?timing.mount_finished_ms,
+            initialize_sent_ms = timing.initialize_sent_ms,
+            "Webview startup timing (offsets from navigation start)"
+        );
+    }
     tracing::info!("Initializing app event state...");
     theseus::EventState::init(app.clone()).await?;
 
@@ -224,6 +268,7 @@ async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
     State::init(app.config().identifier.clone()).await?;
     api::resources::initialize_content_refresh_events(&app).await?;
     api::mcp::initialize(&app).await;
+    api::observability_mcp::initialize(&app).await;
     let anti_piracy_app = app.clone();
     tauri::async_runtime::spawn(async move {
         let status = theseus::anti_piracy::check_region().await;
@@ -316,9 +361,11 @@ async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
     app.fs_scope()
         .allow_directory(state.directories.servers_dir(), true)?;
 
+    startup_phase("initialize_completed");
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn get_update_channel(app: tauri::AppHandle) -> api::Result<String> {
     resolve_update_channel(&app).await
@@ -342,16 +389,7 @@ async fn resolve_update_channel<R: tauri::Runtime>(
     }
 }
 
-#[tauri::command]
-async fn get_current_app_database_path(
-    app: tauri::AppHandle,
-) -> api::Result<String> {
-    Ok(theseus::current_app_database_path(&app.config().identifier)
-        .await?
-        .to_string_lossy()
-        .into_owned())
-}
-
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn set_update_channel(
     app: tauri::AppHandle,
@@ -370,6 +408,7 @@ async fn set_update_channel(
     write_update_channel_state(&app, &state)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn get_update_preferences(
     app: tauri::AppHandle,
@@ -388,6 +427,7 @@ async fn get_update_preferences(
     })
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn set_update_preferences(
     app: tauri::AppHandle,
@@ -429,34 +469,7 @@ fn write_update_channel_state(
     Ok(())
 }
 
-#[tauri::command]
-async fn copy_release_database_to_beta(
-    app: tauri::AppHandle,
-) -> api::Result<()> {
-    theseus::copy_release_database_to_beta(&app.config().identifier).await?;
-    Ok(())
-}
-
-#[tauri::command]
-async fn copy_database_between_channels(
-    app: tauri::AppHandle,
-    source_channel: String,
-    target_channel: String,
-) -> api::Result<()> {
-    theseus::copy_database_between_channels(
-        &app.config().identifier,
-        &source_channel,
-        &target_channel,
-    )
-    .await?;
-    Ok(())
-}
-
-#[tauri::command]
-async fn beta_database_exists(app: tauri::AppHandle) -> api::Result<bool> {
-    Ok(theseus::beta_database_exists(&app.config().identifier).await?)
-}
-
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn backup_app_db_for_update(
     app: tauri::AppHandle,
@@ -470,6 +483,7 @@ async fn backup_app_db_for_update(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn set_discord_activity(activity: String) -> api::Result<()> {
     let state = State::get().await?;
@@ -481,11 +495,11 @@ async fn set_discord_activity(activity: String) -> api::Result<()> {
 }
 
 // Should be call once Vue has mounted the app
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn show_window(app: tauri::AppHandle) {
     let win = app.get_window("main").unwrap();
-    if let Err(e) = win.show() {
+    if let Err(e) = window_frame::present_main_window(&win, true) {
         DialogBuilder::message()
             .set_level(MessageLevel::Error)
             .set_title("Initialization error")
@@ -496,20 +510,20 @@ fn show_window(app: tauri::AppHandle) {
             .show()
             .unwrap();
         panic!("cannot display application window")
-    } else {
-        let _ = win.set_focus();
     }
 }
 
 /// Records that the launcher shell has rendered its first initialized frame.
 /// Startup work that is not needed for first paint waits for this signal, so
 /// it must not be sent while only the splash screen is mounted.
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn frontend_ready() {
+    startup_phase("frontend_first_initialized_frame_reported");
     State::mark_frontend_ready();
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn set_transparent_window_frame(
     enabled: bool,
@@ -518,11 +532,13 @@ async fn set_transparent_window_frame(
     window_frame::apply_frame(enabled, &window).await
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn is_dev() -> bool {
     cfg!(debug_assertions)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn are_updates_enabled() -> bool {
     true
@@ -535,6 +551,7 @@ pub use updater_impl::*;
 pub use updater_impl_noop::*;
 
 // Toggles decorations
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn toggle_decorations(b: bool, window: tauri::Window) -> api::Result<()> {
     window.set_decorations(b).map_err(|e| {
@@ -545,6 +562,7 @@ async fn toggle_decorations(b: bool, window: tauri::Window) -> api::Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn restart_app(app: tauri::AppHandle) -> api::Result<()> {
     if theseus::State::initialized()
@@ -562,6 +580,7 @@ async fn restart_app(app: tauri::AppHandle) -> api::Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn exit_app(app: tauri::AppHandle, force: bool) -> api::Result<()> {
     if theseus::State::initialized()
@@ -660,7 +679,7 @@ fn run_exit_steps(app: &tauri::AppHandle) {
     theseus::minecraft_skins::begin_shutdown_flush();
     let flush = exit_barrier::block_on_with_timeout(
         exit_barrier::SKIN_FLUSH_TIMEOUT,
-        theseus::minecraft_skins::flush_pending_skin_change(),
+        theseus::minecraft_skins::flush_pending_skin_change,
     );
     match flush {
         Ok(Ok(())) => {}
@@ -685,6 +704,7 @@ fn run_exit_steps(app: &tauri::AppHandle) {
                 );
             }
             api::mcp::shutdown(app).await;
+            api::observability_mcp::shutdown(app).await;
         };
         if tokio::time::timeout(exit_barrier::SOFT_WINDOW, services)
             .await
@@ -704,8 +724,14 @@ fn run_exit_steps(app: &tauri::AppHandle) {
     });
     theseus::scheduler::l0::wait_exit(l0_exit_by);
     exit_barrier::record(&exit_losses());
+    if theseus::observability::is_enabled()
+        && !theseus::observability::flush(std::time::Duration::from_secs(3))
+    {
+        tracing::warn!("OTLP telemetry did not flush within the exit budget");
+    }
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn check_symlink_capability() -> api::Result<String> {
     let capability = theseus::symlink::check_symlink_capability().await?;
@@ -717,17 +743,20 @@ async fn check_symlink_capability() -> api::Result<String> {
     .to_string())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn is_elevated() -> bool {
     theseus::is_process_elevated()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 fn allow_symlink_target(app: tauri::AppHandle, path: String) {
     use tauri_plugin_fs::FsExt;
     let _ = app.fs_scope().allow_directory(&path, true);
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn set_restart_after_pending_update(
     should_restart: bool,
@@ -785,6 +814,7 @@ fn raise_file_descriptor_limit() {
 // if Tauri app is called with arguments, then those arguments will be treated as commands
 // ie: deep links or filepaths for .mrpacks
 fn main() {
+    let _ = PROCESS_STARTED.set(Instant::now());
     #[cfg(windows)]
     if let Err(error) = std::env::current_exe()
         .map_err(|error| error.to_string())
@@ -978,6 +1008,12 @@ fn main() {
                             | tauri_plugin_window_state::StateFlags::MAXIMIZED,
                     );
 
+            #[cfg(windows)]
+            {
+                window_state_builder =
+                    window_state_builder.skip_initial_state("main");
+            }
+
             // Use THESEUS_CONFIG_DIR for window state if set (portable mode)
             if let Some(config_dir) = std::env::var_os("THESEUS_CONFIG_DIR") {
                 window_state_builder =
@@ -986,7 +1022,21 @@ fn main() {
 
             window_state_builder.build()
         })
+        .on_page_load(|webview, payload| {
+            if webview.label() == "main" {
+                startup_phase(match payload.event() {
+                    tauri::webview::PageLoadEvent::Started => {
+                        "webview_page_load_started"
+                    }
+                    tauri::webview::PageLoadEvent::Finished => {
+                        "webview_page_load_finished"
+                    }
+                });
+            }
+        })
         .setup(|app| {
+            // Tauri creates the configured windows before calling setup.
+            startup_phase("configured_windows_created");
             lightweight_mode::init(app.handle());
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
@@ -997,9 +1047,10 @@ fn main() {
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(std::time::Duration::from_secs(4)).await;
                 if let Some(window) = app_handle.get_window("main")
-                    && !window.is_visible().unwrap_or(true)
+                    && let Err(error) =
+                        window_frame::present_main_window(&window, false)
                 {
-                    let _ = window.show();
+                    tracing::warn!(%error, "Could not schedule the fallback main window presentation");
                 }
             });
 
@@ -1067,10 +1118,12 @@ fn main() {
         .plugin(api::mcarchive::init())
         .plugin(api::minecraft_skins::init())
         .plugin(api::mod_translation::init())
+        .plugin(api::observability::init())
         .plugin(api::process::init())
         .plugin(api::planet_minecraft::init())
         .plugin(api::settings::init())
         .plugin(api::mcp::init())
+        .plugin(api::observability_mcp::init())
         .plugin(api::storage::init())
         .plugin(api::system_accent::init())
         .plugin(api::seed_map::init())
@@ -1099,13 +1152,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             initialize_state,
             get_update_channel,
-            get_current_app_database_path,
             set_update_channel,
             get_update_preferences,
             set_update_preferences,
-            copy_release_database_to_beta,
-            copy_database_between_channels,
-            beta_database_exists,
             backup_app_db_for_update,
             set_discord_activity,
             is_dev,
@@ -1134,11 +1183,16 @@ fn main() {
         ]);
 
     tracing::info!("Initializing app...");
+    startup_phase("tauri_build_started");
     let app = builder.build(tauri_context);
 
     match app {
         Ok(app) => {
+            startup_phase("tauri_build_completed");
             app.run(|app, event| {
+                if matches!(&event, tauri::RunEvent::Ready) {
+                    startup_phase("tauri_event_loop_ready");
+                }
                 #[cfg(not(any(feature = "updater", target_os = "macos")))]
                 let _ = app;
 
@@ -1221,7 +1275,7 @@ fn main() {
                             let toast_result =
                                 exit_barrier::block_on_with_timeout(
                                     CHANGELOG_TOAST_TIMEOUT,
-                                    settings::patch(serde_json::json!({
+                                    || settings::patch(serde_json::json!({
                                         "pending_update_toast_for_version": version,
                                         "pending_update_failure": failure
                                     })),

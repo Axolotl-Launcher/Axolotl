@@ -176,7 +176,7 @@ pub(crate) async fn move_screenshot(
     target_file_name: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query!(
         "DELETE FROM screenshots WHERE instance_id = ? AND file_name = ?",
         target_instance_id,
@@ -209,13 +209,15 @@ pub(crate) async fn delete_screenshot_by_key(
     file_name: &str,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query!(
         "DELETE FROM screenshots WHERE instance_id = ? AND file_name = ?",
         instance_id,
         file_name,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+    crate::state::store::configuration::commit(transaction, pool).await?;
 
     Ok(())
 }
@@ -235,31 +237,5 @@ pub(crate) async fn list_groups(
     .await?)
 }
 
-#[derive(Clone, Debug, sqlx::FromRow)]
-pub(crate) struct InstanceScreenshotSource {
-    pub id: String,
-    pub name: String,
-    pub path: String,
-}
-
-pub(crate) async fn get_instance_screenshot_source(
-    instance_id: &str,
-    pool: &SqlitePool,
-) -> crate::Result<Option<InstanceScreenshotSource>> {
-    Ok(sqlx::query_as::<_, InstanceScreenshotSource>(
-        "SELECT id, name, path FROM instances WHERE id = ?",
-    )
-    .bind(instance_id)
-    .fetch_optional(pool)
-    .await?)
-}
-
-pub(crate) async fn list_screenshot_sources(
-    pool: &SqlitePool,
-) -> crate::Result<Vec<InstanceScreenshotSource>> {
-    Ok(sqlx::query_as::<_, InstanceScreenshotSource>(
-        "SELECT id, name, path FROM instances ORDER BY name, id",
-    )
-    .fetch_all(pool)
-    .await?)
-}
+#[cfg(test)]
+pub(crate) use super::screenshot_sources::*;

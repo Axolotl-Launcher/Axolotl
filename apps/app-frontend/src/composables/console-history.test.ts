@@ -21,3 +21,16 @@ it('keeps live output when it is not present in latest.log', () => {
 it('accepts an unavailable latest.log while the instance is starting', () => {
     expect(mergeLiveLogHistory('', 'launcher output')).toBe('launcher output')
 })
+
+it('retains the longest overlap when repeated prefixes fall back more than once', () => {
+    expect(mergeLiveLogHistory('before\na\nb\na\nb\na\na\nb\na', 'a\nb\na\nb\na\nc')).toBe(
+        'before\na\nb\na\nb\na\na\nb\na\nb\na\nc',
+    )
+})
+
+it('keeps all live lines after a long repeated prefix does not overlap', () => {
+    const repeated = 'repeated\n'.repeat(9_999)
+    const latest = `${repeated}latest-only`
+    const live = `${repeated}repeated`
+    expect(mergeLiveLogHistory(latest, live)).toBe(`${latest}\n${live}`)
+})

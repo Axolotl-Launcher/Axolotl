@@ -313,6 +313,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppUpdateButton from '@/components/ui/app-update-button/index.vue'
 import DownloadCenterButton from '@/components/ui/DownloadCenterButton.vue'
 import { useInstallJobNotifications } from '@/composables/browse/install-job-notifications'
+import { useScopedEventListeners } from '@/composables/use-scoped-event-listeners'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { trackEvent } from '@/helpers/analytics'
 import { loading_listener, process_listener } from '@/helpers/events'
@@ -843,15 +844,14 @@ const refresh = async () => {
     }
 }
 
-const unlistenBackup = await listenBackupProgress(applyBackupProgress)
+const { subscribe, addCleanup, isDisposed } = useScopedEventListeners()
+await subscribe(listenBackupProgress, applyBackupProgress)
 await refresh()
 await refreshBackupOperations()
 
 const { offline } = useNetworkStatus()
 
-const unlistenProcess = await process_listener(async () => {
-    await refresh()
-})
+await subscribe(process_listener, refresh)
 
 const stop = async (process: RunningProcess) => {
     try {
@@ -1006,6 +1006,7 @@ function buildDownloadSignature(items: PopupNotificationProgressItem[]): string 
 }
 
 function updateNotification(resummon = false): void {
+    if (isDisposed()) return
     const shouldResummon = resummon && !isDownloadsPage.value
     if (shouldResummon) {
         dismissed.value = false
@@ -1215,6 +1216,7 @@ const installJobNotifications = await useInstallJobNotifications({
     handleError,
     onChange: updateNotification,
     onFinishedJobExpired: () => {
+        if (isDisposed()) return
         // The signature changes, but a popup the user closed should stay closed.
         if (dismissed.value) {
             dismissedDownloadSignature.value = buildDownloadSignature(buildDownloadItems())
@@ -1223,13 +1225,23 @@ const installJobNotifications = await useInstallJobNotifications({
         updateNotification()
     },
 })
-
-await refreshLoadingBars()
+addCleanup(installJobNotifications.dispose)
 
 let newBarDuringWindow = false
 let loadingNotificationTimer: ReturnType<typeof setTimeout> | null = null
+addCleanup(() => {
+    if (loadingNotificationTimer !== null) {
+        clearTimeout(loadingNotificationTimer)
+        loadingNotificationTimer = null
+    }
+    removeNotification(false)
+    dismissed.value = false
+    dismissedDownloadSignature.value = null
+})
 
-const unlistenLoading = await loading_listener((payload: LoadingEventPayload) => {
+if (!isDisposed()) await refreshLoadingBars()
+
+await subscribe(loading_listener, (payload: LoadingEventPayload) => {
     const isNewBar = applyLoadingEvent(payload)
     if (isNewBar) {
         newBarDuringWindow = true
@@ -1257,15 +1269,17 @@ function goToDownloads() {
     router.push('/downloads')
 }
 
-watch(
-    () => route.path,
-    () => {
-        if (isDownloadsPage.value) {
-            collapseNotification()
-        }
-        updateNotification()
-    },
-)
+if (!isDisposed()) {
+    watch(
+        () => route.path,
+        () => {
+            if (isDownloadsPage.value) {
+                collapseNotification()
+            }
+            updateNotification()
+        },
+    )
+}
 
 function runPopoutAction(hide: () => void, action: () => void) {
     action()
@@ -1275,18 +1289,4 @@ function runPopoutAction(hide: () => void, action: () => void) {
 function selectProcess(process: RunningProcess) {
     selectedProcess.value = process
 }
-
-onBeforeUnmount(() => {
-    if (loadingNotificationTimer !== null) {
-        clearTimeout(loadingNotificationTimer)
-        loadingNotificationTimer = null
-    }
-    removeNotification(false)
-    dismissed.value = false
-    dismissedDownloadSignature.value = null
-    unlistenProcess()
-    unlistenLoading()
-    unlistenBackup()
-    installJobNotifications.dispose()
-})
 </script>

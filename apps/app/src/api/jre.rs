@@ -30,6 +30,7 @@ pub fn init<R: tauri::Runtime>() -> TauriPlugin<R> {
         .build()
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_java_selection_info(
     path: PathBuf,
@@ -37,6 +38,7 @@ pub async fn get_java_selection_info(
     Ok(jre::get_java_selection_info(path).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn approve_java_selection(
     path: PathBuf,
@@ -45,22 +47,26 @@ pub async fn approve_java_selection(
     Ok(jre::approve_java_selection(path, volume_id).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_java_versions() -> Result<Vec<JavaVersion>> {
     Ok(jre::get_java_versions().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn get_java_default_versions() -> Result<Vec<JavaVersion>> {
     Ok(jre::get_java_default_versions().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn set_java_version(java_version: JavaVersion) -> Result<()> {
     jre::set_java_version(java_version).await?;
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn set_java_default_version(
     major_version: u32,
@@ -69,12 +75,14 @@ pub async fn set_java_default_version(
     Ok(jre::set_java_default_version(major_version, path).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn remove_java_default_version(major_version: u32) -> Result<()> {
     jre::remove_java_default_version(major_version).await?;
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn remove_java_version(path: String) -> Result<()> {
     jre::remove_java_version(path).await?;
@@ -82,6 +90,7 @@ pub async fn remove_java_version(path: String) -> Result<()> {
 }
 
 // Finds the installation of Java 8, if it exists
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn jre_find_filtered_jres(
     version: Option<u32>,
@@ -97,18 +106,21 @@ pub async fn jre_find_filtered_jres(
 
 // Validates JRE at a given path
 // Returns None if the path is not a valid JRE
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn jre_get_jre(path: PathBuf) -> Result<JavaVersion> {
     Ok(jre::check_jre(path).await?)
 }
 
 // Tests JRE of a certain version
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn jre_test_jre(path: PathBuf, major_version: u32) -> Result<bool> {
     Ok(jre::test_jre(path, major_version).await?)
 }
 
 // Auto installs java for the given java version
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn jre_auto_install_java(
     java_version: u32,
@@ -116,6 +128,7 @@ pub async fn jre_auto_install_java(
     Ok(jre::auto_install_java(java_version).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn list_java_distribution_versions(
     distribution: String,
@@ -124,11 +137,13 @@ pub async fn list_java_distribution_versions(
 }
 
 // Gets the maximum memory a system has available.
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn jre_get_max_memory() -> Result<u64> {
     Ok(jre::get_max_memory().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn jre_get_memory_status(
     instance_id: Option<String>,
@@ -143,17 +158,20 @@ pub async fn jre_get_memory_status(
     .await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn jre_optimize_memory()
 -> Result<theseus::memory::MemoryOptimizationResult> {
     Ok(theseus::memory::optimize().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn list_java_feed_vendors() -> Result<Vec<String>> {
     Ok(jre::list_java_feed_vendors().await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn list_java_feed_versions(
     vendor: String,
@@ -161,6 +179,7 @@ pub async fn list_java_feed_versions(
     Ok(jre::list_java_feed_versions(&vendor).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_java_from_feed(
     vendor: String,
@@ -169,6 +188,7 @@ pub async fn download_java_from_feed(
     Ok(jre::download_java_from_feed(&vendor, jdk_version_major).await?)
 }
 
+#[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 pub async fn download_java(
     vendor: String,

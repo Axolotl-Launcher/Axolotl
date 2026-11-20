@@ -137,3 +137,52 @@ it('applies numeric constraints and exposes select on the actual field', async (
     expect(field.element.selectionStart).toBe(0)
     expect(field.element.selectionEnd).toBe(9)
 })
+
+for (const multiline of [false, true]) {
+    it(`exposes ${multiline ? 'textarea' : 'input'} error state through aria-invalid`, async () => {
+        const wrapper = await mountThemed(
+            StyledInput,
+            { modelValue: '', multiline, error: true },
+            'dark',
+        )
+        cleanup.push(() => wrapper.unmount())
+        const field = wrapper.get(multiline ? 'textarea' : 'input')
+        expect(field.attributes('aria-invalid')).toBe('true')
+        await wrapper.setProps({ error: false })
+        expect(field.attributes('aria-invalid')).toBeUndefined()
+    })
+}
+
+it('updates a caller-supplied aria-invalid passed as a dynamic attribute', async () => {
+    const wrapper = await mountThemed(
+        StyledInput,
+        {
+            modelValue: '',
+            'aria-invalid': 'grammar',
+        },
+        'dark',
+    )
+    cleanup.push(() => wrapper.unmount())
+    const field = wrapper.get<HTMLInputElement>('input')
+    expect(field.attributes('aria-invalid')).toBe('grammar')
+
+    await wrapper.setProps({ 'aria-invalid': 'spelling' })
+    expect(field.attributes('aria-invalid')).toBe('spelling')
+})
+
+it('keeps a caller-supplied aria-invalid unless the field is in error', async () => {
+    const wrapper = await mountThemed(
+        StyledInput,
+        {
+            modelValue: '',
+            inputAttrs: { 'aria-invalid': 'grammar' },
+        },
+        'dark',
+    )
+    cleanup.push(() => wrapper.unmount())
+    const field = wrapper.get<HTMLInputElement>('input')
+    expect(field.attributes('aria-invalid')).toBe('grammar')
+
+    await wrapper.setProps({ error: true })
+    expect(field.attributes('aria-invalid')).toBe('true')
+})

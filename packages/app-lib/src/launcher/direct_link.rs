@@ -7,13 +7,14 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use daedalus::minecraft::{
-    AssetIndex, Library, LibraryDownload, Os, VersionInfo, VersionType,
+    AssetIndex, Download, Library, LibraryDownload, Os, VersionInfo,
+    VersionType,
 };
 use daedalus::modded::normalize_loader_libraries;
 
 use super::local_version::{
-    HmclVersionSettings, LinkedLibrary, MergedVersion, discover_version_json,
-    load_version_for_dialect,
+    HmclVersionSettings, LinkedLibrary, MergedVersion, PclCeJarProfile,
+    discover_version_json, is_pcl_ce_version_id, load_version_for_dialect,
 };
 use crate::state::{Instance, MemorySettings, ModLoader, WindowSize};
 
@@ -120,8 +121,13 @@ pub(crate) struct ResolvedLinkedLaunch {
     pub game_dir: PathBuf,
 }
 
+pub(super) struct PclCeClientJar {
+    pub(super) path: PathBuf,
+    pub(super) download: Option<Download>,
+}
+
 impl DirectLinkedLaunch {
-    /// Builds a generic direct link for an instance created in
+    /// Builds a direct link for an instance created in
     /// .minecraft/versions/<id>. This is intentionally derived at runtime
     /// instead of persisted in the database, preserving compatibility for
     /// instances created before external direct management was added.
@@ -151,7 +157,22 @@ impl DirectLinkedLaunch {
         // the actual JSON is named after the version ID. Resolving the exact
         // manifest here keeps those rows on the external runtime adapter,
         // instead of later falling back to Axolotl's managed libraries.
-        let version_json = discover_version_json(dot_minecraft, folder_name)?;
+        let launcher_root =
+            crate::api::pack::import::direct_link::detect_pcl_ce_root(
+                dot_minecraft,
+                version_dir,
+            );
+        let (version_json, dialect) = if launcher_root.is_some() {
+            (
+                super::pcl_ce_json::discover(version_dir)?,
+                LinkedLauncherDialect::PclCe,
+            )
+        } else {
+            (
+                discover_version_json(dot_minecraft, folder_name)?,
+                LinkedLauncherDialect::Generic,
+            )
+        };
         let version_id = version_json
             .file_stem()
             .and_then(|stem| stem.to_str())
@@ -164,10 +185,10 @@ impl DirectLinkedLaunch {
             })?;
         Ok(Some(Self {
             dot_minecraft: crate::util::io::canonicalize(dot_minecraft)?,
-            launcher_root: None,
+            launcher_root,
             version_id: version_id.to_string(),
             version_json: Some(crate::util::io::canonicalize(version_json)?),
-            dialect: LinkedLauncherDialect::Generic,
+            dialect,
             game_dir_mode: Some(ExternalGameDirMode::Isolated),
         }))
     }
@@ -190,8 +211,10 @@ impl DirectLinkedLaunch {
             .flatten()
             .filter_map(Result::ok)
             .any(|entry| {
-                entry.path().extension().and_then(|ext| ext.to_str())
-                    == Some("json")
+                entry
+                    .path()
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
             });
         let mut direct = match Self::from_external_version_dir(&version_dir) {
             Ok(Some(direct)) => direct,
@@ -208,14 +231,24 @@ impl DirectLinkedLaunch {
                 else {
                     return Ok(None);
                 };
+                let launcher_root =
+                    crate::api::pack::import::direct_link::detect_pcl_ce_root(
+                        dot_minecraft,
+                        &version_dir,
+                    );
+                let dialect = if launcher_root.is_some() {
+                    LinkedLauncherDialect::PclCe
+                } else {
+                    LinkedLauncherDialect::Generic
+                };
                 Self {
                     dot_minecraft: crate::util::io::canonicalize(
                         dot_minecraft,
                     )?,
-                    launcher_root: None,
+                    launcher_root,
                     version_id: version_id.to_string(),
                     version_json: None,
-                    dialect: LinkedLauncherDialect::Generic,
+                    dialect,
                     game_dir_mode: Some(game_dir_mode),
                 }
             }
@@ -371,6 +404,100 @@ impl DirectLinkedLaunch {
         }
     }
 
+    pub(super) fn pcl_ce_client_jar(
+        &self,
+        merged: &mut MergedVersion,
+        loader: ModLoader,
+        game_version: &str,
+    ) -> crate::Result<Option<PclCeClientJar>> {
+        let Some(mut jar) = merged.pcl_ce_jar.take() else {
+            return Ok(None);
+        };
+        let Some(leaf) = jar.profiles.first() else {
+            return Ok(None);
+        };
+        let version_dir = self.version_dir();
+        let leaf_path = version_dir.join(format!("{}.jar", leaf.version_id));
+        let modern_fml =
+            matches!(loader, ModLoader::Forge | ModLoader::NeoForge)
+                && is_modern_fml(game_version);
+        let result = if let Some(explicit) =
+            jar.explicit.as_deref().filter(|_| !jar.hmcl_format)
+        {
+            if !is_pcl_ce_version_id(explicit) {
+                return Err(crate::ErrorKind::InputError(
+                    "Invalid explicit PCL-CE JAR version ID".into(),
+                )
+                .into());
+            }
+            let directory = self.dot_minecraft.join("versions").join(explicit);
+            let manifest = directory.join(format!("{explicit}.json"));
+            if manifest.is_file() {
+                let download = if modern_fml
+                    && same_pcl_ce_version_id(&leaf.version_id, explicit)
+                {
+                    pcl_ce_leaf_download(
+                        &self.dot_minecraft,
+                        game_version,
+                        &mut jar.profiles,
+                    )
+                } else if let Some(profile) =
+                    jar.profiles.iter_mut().find(|profile| {
+                        same_pcl_ce_version_id(&profile.version_id, explicit)
+                    })
+                {
+                    profile.download.take()
+                } else {
+                    pcl_ce_explicit_download(&self.dot_minecraft, &manifest)
+                };
+                PclCeClientJar {
+                    path: directory.join(format!("{explicit}.jar")),
+                    download,
+                }
+            } else {
+                PclCeClientJar {
+                    path: leaf_path,
+                    download: if modern_fml {
+                        pcl_ce_leaf_download(
+                            &self.dot_minecraft,
+                            game_version,
+                            &mut jar.profiles,
+                        )
+                    } else {
+                        None
+                    },
+                }
+            }
+        } else if modern_fml {
+            PclCeClientJar {
+                path: leaf_path,
+                download: pcl_ce_leaf_download(
+                    &self.dot_minecraft,
+                    game_version,
+                    &mut jar.profiles,
+                ),
+            }
+        } else if jar.profiles.len() > 1
+            && let Some(base) =
+                jar.profiles.last_mut().filter(|base| base.named_manifest)
+        {
+            PclCeClientJar {
+                path: self
+                    .dot_minecraft
+                    .join("versions")
+                    .join(&base.version_id)
+                    .join(format!("{}.jar", base.version_id)),
+                download: base.download.take(),
+            }
+        } else {
+            PclCeClientJar {
+                path: leaf_path,
+                download: jar.profiles[0].download.take(),
+            }
+        };
+        Ok(Some(result))
+    }
+
     pub(crate) fn natives_cache_key(&self) -> String {
         let identity = format!(
             "{}\0{}\0{}",
@@ -402,6 +529,105 @@ impl DirectLinkedLaunch {
                 .libraries_dir()
                 .join(library.classpath_relative_path()?))
         }
+    }
+}
+
+fn same_pcl_ce_version_id(left: &str, right: &str) -> bool {
+    left == right || (cfg!(windows) && left.eq_ignore_ascii_case(right))
+}
+
+fn pcl_ce_explicit_download(root: &Path, manifest: &Path) -> Option<Download> {
+    let directory = crate::util::io::canonicalize(manifest.parent()?).ok()?;
+    let named_manifest = crate::util::io::canonicalize(manifest).ok()?;
+    let expected_name = manifest.file_name()?.to_str()?;
+    let actual_name = named_manifest.file_name()?.to_str()?;
+    if !directory.starts_with(crate::util::io::canonicalize(root).ok()?)
+        || named_manifest.parent() != Some(directory.as_path())
+        || !same_pcl_ce_version_id(actual_name, expected_name)
+    {
+        return None;
+    }
+
+    let mut document = super::pcl_ce_json::read(&named_manifest).ok()?;
+    let client = document.get_mut("downloads")?.get_mut("client")?;
+    verified_pcl_ce_download(serde_json::from_value(client.take()).ok()?)
+}
+
+fn pcl_ce_leaf_download(
+    root: &Path,
+    game_version: &str,
+    profiles: &mut [PclCeJarProfile],
+) -> Option<Download> {
+    let (leaf, ancestors) = profiles.split_first_mut()?;
+    let declared = verified_pcl_ce_download(leaf.download.take()?)?;
+    let same_download = |download: &Download| {
+        download.sha1.trim().eq_ignore_ascii_case(&declared.sha1)
+            || download.url.trim() == declared.url
+    };
+    let declared_url = url::Url::parse(&declared.url).ok()?;
+    let mut tail = declared_url.path().rsplit('/');
+    let is_vanilla_object = tail.next() == Some("client.jar")
+        && tail
+            .next()
+            .is_some_and(|hash| hash.eq_ignore_ascii_case(&declared.sha1))
+        && tail.next() == Some("objects");
+    if matches!(
+        declared_url.host_str(),
+        Some("piston-data.mojang.com" | "launcher.mojang.com")
+    ) || is_vanilla_object
+        || ancestors
+            .iter()
+            .filter_map(|profile| profile.download.as_ref())
+            .any(same_download)
+    {
+        return None;
+    }
+    if is_pcl_ce_version_id(game_version)
+        && !same_pcl_ce_version_id(&leaf.version_id, game_version)
+        && let Some(vanilla) = pcl_ce_explicit_download(
+            root,
+            &root
+                .join("versions")
+                .join(game_version)
+                .join(format!("{game_version}.json")),
+        )
+        && same_download(&vanilla)
+    {
+        return None;
+    }
+    Some(declared)
+}
+
+fn verified_pcl_ce_download(mut download: Download) -> Option<Download> {
+    let sha1 = download.sha1.trim();
+    let url = url::Url::parse(download.url.trim()).ok()?;
+    if download.size == 0
+        || sha1.len() != 40
+        || !sha1.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return None;
+    }
+    download.sha1 = sha1.to_ascii_lowercase();
+    download.url = download.url.trim().to_owned();
+    Some(download)
+}
+
+fn is_modern_fml(game_version: &str) -> bool {
+    let mut components = game_version.split(['.', '-']);
+    match components
+        .next()
+        .and_then(|major| major.parse::<u32>().ok())
+    {
+        Some(1) => components
+            .next()
+            .and_then(|minor| minor.parse::<u32>().ok())
+            .is_none_or(|minor| minor >= 17),
+        Some(major) => major >= 17,
+        None => true,
     }
 }
 
@@ -814,24 +1040,13 @@ impl DirectLinkedLaunch {
     /// yield empty maps; unreadable files are logged and treated as missing so
     /// a broken launcher config can never block a launch.
     pub(crate) fn pcl_launch_settings(&self) -> PclLaunchSettings {
-        let file_name = match self.dialect {
-            LinkedLauncherDialect::Pcl => "Setup.ini",
-            LinkedLauncherDialect::PclCe => "config.v1.yml",
-            LinkedLauncherDialect::Hmcl | LinkedLauncherDialect::Generic => {
-                return PclLaunchSettings {
-                    dialect: self.dialect,
-                    instance_values: std::collections::HashMap::default(),
-                    global_values: std::collections::HashMap::default(),
-                };
-            }
-        };
         // PCL keeps instance-scope settings under <version>/PCL/ and
         // launcher-global settings under <launcher>/PCL/.
-        let read = |path: PathBuf| {
-            read_flat_config(&path).unwrap_or_else(|error| {
+        let read = |root: &Path| {
+            read_pcl_launch_config(root, self.dialect).unwrap_or_else(|error| {
                 tracing::debug!(
                     %error,
-                    path = %path.display(),
+                    root = %root.display(),
                     "Ignoring unreadable linked PCL configuration"
                 );
                 std::collections::HashMap::default()
@@ -839,15 +1054,11 @@ impl DirectLinkedLaunch {
         };
         PclLaunchSettings {
             dialect: self.dialect,
-            instance_values: read(
-                self.version_dir().join("PCL").join(file_name),
-            ),
+            instance_values: read(&self.version_dir()),
             global_values: self
                 .launcher_root
-                .as_ref()
-                .map_or(std::collections::HashMap::default(), |root| {
-                    read(root.join("PCL").join(file_name))
-                }),
+                .as_deref()
+                .map_or_else(std::collections::HashMap::default, read),
         }
     }
 }
@@ -1083,30 +1294,76 @@ impl PclLaunchSettings {
     /// LaunchAdvanceJvm when the instance leaves it empty — ModLaunch.vb
     /// line ~1255 / PCL-CE equivalent).
     pub(crate) fn extra_jvm_args(&self) -> Vec<String> {
-        let custom = config_string(&self.instance_values, "VersionAdvanceJvm")
-            .filter(|value| !value.trim().is_empty())
-            .or_else(|| {
-                config_string(&self.global_values, "LaunchAdvanceJvm")
-                    .filter(|value| !value.trim().is_empty())
-            });
-        custom
-            .map(|value| pcl_split_arguments(&value))
+        self.extra_jvm_arguments_text()
+            .map(pcl_split_arguments)
             .unwrap_or_default()
+    }
+
+    pub(super) fn extra_jvm_arguments_text(&self) -> Option<&str> {
+        self.argument_text("versionadvancejvm", "launchadvancejvm")
     }
 
     /// Custom game arguments (VersionAdvanceGame with the same global
     /// fallback; appended after the vanilla game arguments like PCL's
     /// `Arg &= " " & CustomArg`).
     pub(crate) fn extra_game_args(&self) -> Vec<String> {
-        let custom = config_string(&self.instance_values, "VersionAdvanceGame")
+        self.extra_game_arguments_text()
+            .map(pcl_split_arguments)
+            .unwrap_or_default()
+    }
+
+    pub(super) fn extra_game_arguments_text(&self) -> Option<&str> {
+        self.argument_text("versionadvancegame", "launchadvancegame")
+    }
+
+    fn argument_text(
+        &self,
+        instance_key: &str,
+        global_key: &str,
+    ) -> Option<&str> {
+        self.instance_values
+            .get(instance_key)
+            .map(String::as_str)
             .filter(|value| !value.trim().is_empty())
             .or_else(|| {
-                config_string(&self.global_values, "LaunchAdvanceGame")
+                self.global_values
+                    .get(global_key)
+                    .map(String::as_str)
                     .filter(|value| !value.trim().is_empty())
-            });
-        custom
-            .map(|value| pcl_split_arguments(&value))
-            .unwrap_or_default()
+            })
+    }
+
+    pub(super) fn pcl_ce_version_type(&self) -> &str {
+        self.instance_values
+            .get("versionargumentinfo")
+            .map(String::as_str)
+            .filter(|value| !value.is_empty())
+            .or_else(|| {
+                self.global_values
+                    .get("launchargumentinfo")
+                    .map(String::as_str)
+            })
+            .unwrap_or("PCLCE")
+    }
+
+    pub(super) fn pcl_ce_classpath_head(&self) -> impl Iterator<Item = &str> {
+        self.instance_values
+            .get("versionadvanceclasspathhead")
+            .into_iter()
+            .flat_map(|value| value.split(';'))
+            .filter(|entry| !entry.trim().is_empty())
+    }
+
+    pub(super) fn pcl_ce_instance_value(&self, key: &str) -> Option<&str> {
+        self.instance_values
+            .get(&key.to_ascii_lowercase())
+            .map(String::as_str)
+    }
+
+    pub(super) fn pcl_ce_global_value(&self, key: &str) -> Option<&str> {
+        self.global_values
+            .get(&key.to_ascii_lowercase())
+            .map(String::as_str)
     }
 }
 
@@ -1252,7 +1509,7 @@ pub(crate) fn pcl_auto_ram_gb(
 }
 
 /// Maps PCL's manual slider value (VersionRamCustom/LaunchRamCustom) to GB.
-fn pcl_slider_ram_gb(value: i64) -> f64 {
+pub(super) fn pcl_slider_ram_gb(value: i64) -> f64 {
     // Upstream slider steps: 0-12 → 0.1 GiB increments from 0.3, then coarser
     // bands up to (value-33)*2+16.
     if value <= 12 {
@@ -1434,16 +1691,13 @@ pub(crate) fn resolve_pcl_game_dir(
     launcher_root: Option<&Path>,
 ) -> crate::Result<PathBuf> {
     let version_dir = version_dir.to_path_buf();
-    let pcl_dir = version_dir.join("PCL");
-    let instance_values = match dialect {
-        LinkedLauncherDialect::Pcl => {
-            read_flat_config(&pcl_dir.join("Setup.ini"))?
-        }
-        LinkedLauncherDialect::PclCe => {
-            read_flat_config(&pcl_dir.join("config.v1.yml"))?
-        }
-        _ => return Ok(dot_minecraft.to_path_buf()),
-    };
+    if !matches!(
+        dialect,
+        LinkedLauncherDialect::Pcl | LinkedLauncherDialect::PclCe
+    ) {
+        return Ok(dot_minecraft.to_path_buf());
+    }
+    let instance_values = read_pcl_launch_config(&version_dir, dialect)?;
 
     if let Some(value) = config_bool(&instance_values, "VersionArgumentIndieV2")
     {
@@ -1469,19 +1723,10 @@ pub(crate) fn resolve_pcl_game_dir(
         return Ok(version_dir);
     }
 
-    let global_values = if let Some(launcher_root) = launcher_root {
-        match dialect {
-            LinkedLauncherDialect::Pcl => {
-                read_flat_config(&launcher_root.join("PCL").join("Setup.ini"))?
-            }
-            LinkedLauncherDialect::PclCe => read_flat_config(
-                &launcher_root.join("PCL").join("config.v1.yml"),
-            )?,
-            _ => Default::default(),
-        }
-    } else {
-        Default::default()
-    };
+    let global_values = launcher_root
+        .map(|root| read_pcl_launch_config(root, dialect))
+        .transpose()?
+        .unwrap_or_default();
     // TODO(direct-link): PCL/PCL-CE fullscreen and other unmapped per-version
     // settings remain P1 follow-up; Java selection, RAM, and custom JVM/game
     // arguments are consumed via pcl_launch_settings() at launch time.
@@ -1623,6 +1868,72 @@ fn read_flat_config(
         }
     }
     Ok(values)
+}
+
+fn read_pcl_launch_config(
+    root: &Path,
+    dialect: LinkedLauncherDialect,
+) -> crate::Result<std::collections::HashMap<String, String>> {
+    let directory = root.join("PCL");
+    match dialect {
+        LinkedLauncherDialect::Pcl => {
+            read_flat_config(&directory.join("Setup.ini"))
+        }
+        LinkedLauncherDialect::PclCe => read_pcl_ce_config(&directory),
+        _ => Ok(Default::default()),
+    }
+}
+
+fn read_pcl_ce_config(
+    directory: &Path,
+) -> crate::Result<std::collections::HashMap<String, String>> {
+    use serde_json::{Map, Value};
+
+    let yaml = directory.join("config.v1.yml");
+    let json = directory.join("config.v1.json");
+    let contents = if let Some(bytes) = read_pcl_ce_config_bytes(&yaml)? {
+        serde_saphyr::from_slice::<Option<Map<String, Value>>>(&bytes)
+            .map_err(|_| invalid_pcl_ce_config(&yaml, "YAML"))?
+            .unwrap_or_default()
+    } else if let Some(bytes) = read_pcl_ce_config_bytes(&json)? {
+        let bytes = bytes.strip_prefix(b"\xef\xbb\xbf").unwrap_or(&bytes);
+        serde_json_lenient::from_slice::<Map<String, Value>>(bytes)
+            .map_err(|_| invalid_pcl_ce_config(&json, "JSON"))?
+    } else {
+        return Ok(Default::default());
+    };
+    Ok(contents
+        .into_iter()
+        .filter_map(|(key, value)| {
+            let value = match value {
+                Value::String(value) => value,
+                Value::Number(value) => value.to_string(),
+                Value::Bool(value) => value.to_string(),
+                _ => return None,
+            };
+            Some((key.to_ascii_lowercase(), value))
+        })
+        .collect())
+}
+
+fn read_pcl_ce_config_bytes(path: &Path) -> crate::Result<Option<Vec<u8>>> {
+    match std::fs::read(path) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(crate::ErrorKind::FSError(format!(
+            "Failed to read PCL-CE configuration {}: {error}",
+            path.display()
+        ))
+        .into()),
+    }
+}
+
+fn invalid_pcl_ce_config(path: &Path, format: &str) -> crate::Error {
+    crate::ErrorKind::InputError(format!(
+        "Invalid {format} in PCL-CE configuration {}",
+        path.display(),
+    ))
+    .into()
 }
 
 fn config_bool(
@@ -2000,6 +2311,106 @@ mod tests {
             direct.dot_minecraft,
             crate::util::io::canonicalize(root.path()).unwrap()
         );
+    }
+
+    #[test]
+    fn legacy_external_version_override_recovers_pcl_ce_with_local_evidence() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(root.path().join("PCL")).unwrap();
+        std::fs::write(
+            root.path().join("PCL/config.v1.yml"),
+            "LaunchArgumentInfo: Custom CE\n",
+        )
+        .unwrap();
+        let version_dir = root.path().join(".minecraft/versions/profile");
+        std::fs::create_dir_all(&version_dir).unwrap();
+        std::fs::write(
+            version_dir.join("profile.json"),
+            r#"{/* CE */"mainClass":"game.Main",}"#,
+        )
+        .unwrap();
+        let direct =
+            DirectLinkedLaunch::from_external_version_dir(&version_dir)
+                .unwrap()
+                .unwrap();
+        assert_eq!(direct.dialect, LinkedLauncherDialect::PclCe);
+        assert_eq!(direct.launcher_root.as_deref(), Some(root.path()));
+        assert_eq!(
+            direct.pcl_launch_settings().pcl_ce_version_type(),
+            "Custom CE"
+        );
+        assert_eq!(
+            direct.resolve().unwrap().merged.main_class.as_deref(),
+            Some("game.Main")
+        );
+    }
+
+    #[test]
+    fn pcl_ce_launch_config_reads_real_yaml_and_legacy_json_without_writing() {
+        let root = tempfile::tempdir().unwrap();
+        let global = root.path().join("PCL");
+        let version_dir = root.path().join("versions/demo");
+        let local = version_dir.join("PCL");
+        std::fs::create_dir_all(&global).unwrap();
+        std::fs::create_dir_all(&local).unwrap();
+        let yaml = "VersionAdvanceJvm: >-\n  -Dmessage=\"a # b\"\n  -Dother=42\nVersionArgumentIndieV2: false\nVersionAdvanceClasspathHead: \"one.jar;two.jar\"\nVersionServerEnter: 'example.org:25565'\n";
+        let json = r#"{"LaunchAdvanceJvm":"-Xms512M","LaunchAdvanceLockMemory":true,"LaunchRamCustomInitial":6}"#;
+        std::fs::write(local.join("config.v1.yml"), yaml).unwrap();
+        std::fs::write(
+            local.join("config.v1.json"),
+            r#"{"VersionAdvanceJvm":"discarded"}"#,
+        )
+        .unwrap();
+        std::fs::write(global.join("config.v1.json"), json).unwrap();
+        let direct = DirectLinkedLaunch {
+            dot_minecraft: root.path().to_path_buf(),
+            launcher_root: Some(root.path().to_path_buf()),
+            version_id: "demo".into(),
+            version_json: None,
+            dialect: LinkedLauncherDialect::PclCe,
+            game_dir_mode: None,
+        };
+        let settings = direct.pcl_launch_settings();
+        assert_eq!(
+            settings.extra_jvm_arguments_text(),
+            Some("-Dmessage=\"a # b\" -Dother=42")
+        );
+        assert_eq!(
+            settings.pcl_ce_instance_value("VersionServerEnter"),
+            Some("example.org:25565")
+        );
+        assert_eq!(
+            settings.pcl_ce_global_value("LaunchAdvanceLockMemory"),
+            Some("true")
+        );
+        assert_eq!(
+            settings.pcl_ce_global_value("LaunchRamCustomInitial"),
+            Some("6")
+        );
+        assert_eq!(
+            settings.pcl_ce_classpath_head().collect::<Vec<_>>(),
+            ["one.jar", "two.jar"]
+        );
+        assert_eq!(
+            resolve_pcl_game_dir(
+                root.path(),
+                &version_dir,
+                direct.dialect,
+                &minimal_merged(),
+                direct.launcher_root.as_deref()
+            )
+            .unwrap(),
+            root.path()
+        );
+        assert_eq!(
+            std::fs::read_to_string(local.join("config.v1.yml")).unwrap(),
+            yaml
+        );
+        assert_eq!(
+            std::fs::read_to_string(global.join("config.v1.json")).unwrap(),
+            json
+        );
+        assert!(!global.join("config.v1.yml").exists());
     }
 
     #[test]

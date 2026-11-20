@@ -2,6 +2,7 @@ import type { GameVersion } from '@modrinth/ui'
 import type { InjectionKey, Ref } from 'vue'
 import { inject, onUnmounted, provide, reactive, ref } from 'vue'
 
+import { createCoalescedRefresh } from '@/helpers/coalesced-refresh'
 import { instance_listener, process_listener } from '@/helpers/events'
 import { get_all } from '@/helpers/process'
 import { serverEventListener, type ServerInfoData, servers as serversApi } from '@/helpers/servers'
@@ -18,7 +19,7 @@ import {
     type WorldWithInstance,
 } from '@/helpers/worlds'
 
-import { createHomeRefresh, homeWorldsChanged } from './home-refresh'
+import { homeWorldsChanged } from './home-refresh'
 
 type ErrorHandler = (error: unknown) => void
 
@@ -71,7 +72,7 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
     const unlisteners: Array<() => void> = []
     let disposed = false
 
-    const refreshRunningInstances = createHomeRefresh(
+    const refreshRunningInstances = createCoalescedRefresh(
         async () => {
             try {
                 const processes = await get_all()
@@ -127,7 +128,7 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
         }
     }
 
-    const refreshFavorites = createHomeRefresh(
+    const refreshFavorites = createCoalescedRefresh(
         async () => {
             try {
                 const worlds = await get_favorite_worlds()
@@ -143,7 +144,7 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
         () => disposed,
     )
 
-    const refreshRecentWorlds = createHomeRefresh(
+    const refreshRecentWorlds = createCoalescedRefresh(
         async () => {
             try {
                 const worlds = await get_recent_worlds(8, ['normal', 'favorite'])
@@ -159,7 +160,7 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
         () => disposed,
     )
 
-    const refreshPinnedLocalServers = createHomeRefresh(
+    const refreshPinnedLocalServers = createCoalescedRefresh(
         async () => {
             try {
                 const all = await serversApi.list()

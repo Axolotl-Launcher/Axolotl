@@ -79,6 +79,8 @@
                             @click="selectedIconId = icon.id"
                         >
                             <img
+                                loading="lazy"
+                                decoding="async"
                                 :src="icon.url"
                                 alt=""
                                 class="aspect-square w-full object-contain"

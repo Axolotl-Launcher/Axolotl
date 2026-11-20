@@ -202,7 +202,13 @@ pub(crate) async fn update(
         Stored::Newer { .. } => return Ok(()),
         Stored::Ready { document, .. } => document,
         Stored::Missing | Stored::Unreadable => {
-            let draft = from_database(documents.pool()).await?;
+            let draft = if crate::state::store::configuration_documents::runtime(
+                documents.pool(),
+            ) {
+                TranslationDocument::default()
+            } else {
+                from_database(documents.pool()).await?
+            };
             let Some(draft) =
                 without_shipped(documents, DOCUMENT, SCHEMA_VERSION, draft)
                     .await

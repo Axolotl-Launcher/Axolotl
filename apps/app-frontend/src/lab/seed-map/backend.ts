@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@/helpers/invoke'
 
 import { abortable } from '../../helpers/abortable.ts'
 import type { SeedMapDimension } from './biomes.ts'

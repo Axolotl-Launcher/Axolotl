@@ -439,6 +439,48 @@ vi.mock('@modrinth/ui', async () => {
     }
 })
 
+it('updates the data pack category when switching between vanilla and modded instance versions', async () => {
+    const { useRoute } = await import('vue-router')
+    const route = useRoute()
+    route.params.projectType = 'resourcepack'
+    route.query = { source: 'modrinth' }
+    api.capability.mockResolvedValue({ configured: true })
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    const selection = reactive(api.selection as { targetInstance: unknown })
+    try {
+        await flushPromises()
+        const context = api.context as BrowseManagerContext
+        for (const [gameVersion, loader, expected] of [
+            ['26.1.2', 'vanilla', true],
+            ['1.21.11', 'vanilla', true],
+            ['1.12.2', 'vanilla', false],
+            ['26.1.2', 'fabric', true],
+        ] as const) {
+            selection.targetInstance = {
+                id: 'target',
+                name: 'Target',
+                game_version: gameVersion,
+                loader,
+            }
+            await flushPromises()
+            expect(
+                context.selectableProjectTypes.value.find((tab) =>
+                    tab.href.startsWith('/browse/datapack'),
+                )?.shown,
+                `${gameVersion} ${loader}`,
+            ).toBe(expected)
+        }
+    } finally {
+        wrapper.unmount()
+        route.params.projectType = 'mod'
+        route.query = {}
+        api.selection = null
+        api.refresh.mockClear()
+    }
+})
+
 it('mounts the browse shell before capabilities resolve and preserves type-specific filters while categories load', async () => {
     api.saveMemory.mockClear()
     let resolveCapability!: (value: unknown) => void

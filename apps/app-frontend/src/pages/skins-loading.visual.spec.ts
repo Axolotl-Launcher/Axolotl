@@ -5,11 +5,11 @@ import { ref } from 'vue'
 import SkinListSkeleton from '@/components/ui/skin/SkinListSkeleton.vue'
 import VirtualSkinSectionList from '@/components/ui/skin/VirtualSkinSectionList.vue'
 import { notifyAccountSelectionChanged } from '@/helpers/account-state'
-import type { Skin } from '@/helpers/skins'
+import type { Cape, Skin } from '@/helpers/skins'
 
 import Skins from './Skins.vue'
 
-const api = vi.hoisted(() => ({ invoke: vi.fn(), handleError: vi.fn() }))
+const api = vi.hoisted(() => ({ invoke: vi.fn(), handleError: vi.fn(), generatePreviews: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: api.invoke }))
 vi.mock('@tauri-apps/api/webview', () => ({
     getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }),
@@ -67,7 +67,7 @@ vi.mock('@/composables/useMojangAuth', async () => {
     return { useMojangAuthStatus: () => ({ reachable: ref(true) }) }
 })
 vi.mock('@/helpers/rendering/skin-preview-renderer', () => ({
-    generateSkinPreviews: async () => {},
+    generateSkinPreviews: api.generatePreviews,
     cancelSkinPreviews: vi.fn(),
 }))
 vi.mock('@/components/ui/skin/EditSkinModal.vue', () => ({ default: { render: () => null } }))
@@ -183,6 +183,30 @@ it('renders the page shell immediately and saved skins while online reads are pe
     expect(api.invoke).not.toHaveBeenCalledWith('plugin:minecraft-skins|get_available_skins', {
         cachedOnly: false,
     })
+})
+
+it('generates cached previews once the cached capes and skins are both available', async () => {
+    const cachedCapes = deferred<Cape[]>()
+    const invoke = api.invoke.getMockImplementation()!
+    api.invoke.mockImplementation((command, args) => {
+        if (command === 'plugin:minecraft-skins|get_available_capes' && args?.cachedOnly) {
+            return cachedCapes.promise
+        }
+        return invoke(command, args)
+    })
+    openSkins()
+    await flushPromises()
+    expect(api.generatePreviews).not.toHaveBeenCalled()
+
+    const cape = {
+        id: 'cape',
+        name: 'Cape',
+        texture: 'data:image/png;base64,cape',
+        is_equipped: true,
+    }
+    cachedCapes.resolve([cape])
+    await vi.waitFor(() => expect(api.generatePreviews).toHaveBeenCalledTimes(1))
+    expect(api.generatePreviews).toHaveBeenCalledWith([savedSkin, otherSkin], [cape])
 })
 
 it('keeps a new preview selection when the background profile arrives', async () => {

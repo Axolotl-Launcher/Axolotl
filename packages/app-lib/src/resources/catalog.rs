@@ -202,7 +202,11 @@ impl ResourceService {
             ResourceRef::Resource { id } => Some(id.clone()),
             ResourceRef::Source { project } => {
                 if let Some(store) = self.store() {
-                    store.lookup(project).await?
+                    crate::state::instances::adapters::sqlite::resource_rows::validate_project(project)?;
+                    store
+                        .enrich_many(std::slice::from_ref(project))
+                        .await
+                        .remove(project)
                 } else {
                     None
                 }

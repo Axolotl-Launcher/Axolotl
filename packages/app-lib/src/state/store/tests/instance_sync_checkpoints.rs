@@ -1,7 +1,6 @@
 //! What the sync checkpoints collection promises.
 
 use super::support;
-use crate::state::store::Collection as _;
 use crate::state::store::Handle;
 use crate::state::store::atom;
 use crate::state::store::instance_sync_checkpoints::{
@@ -10,7 +9,7 @@ use crate::state::store::instance_sync_checkpoints::{
 };
 
 async fn handle(instance: &str) -> Handle {
-    let pool = support::pool().await;
+    let pool = support::sync_pool().await;
     support::add_instance(&pool, instance).await;
     support::enable_feature(&pool, instance, "game_options").await;
     Handle::new(pool)
@@ -90,16 +89,21 @@ async fn a_checkpoint_with_a_link_mode_this_build_cannot_read_is_no_record() {
         .unwrap();
 
     assert_eq!(
-        InstanceSyncCheckpoints::get(&handle, &key("default"))
-            .await
-            .unwrap(),
+        <InstanceSyncCheckpoints as crate::state::store::Collection>::get(
+            &handle,
+            &key("default")
+        )
+        .await
+        .unwrap(),
         None
     );
     assert!(
-        InstanceSyncCheckpoints::get_all(&handle)
-            .await
-            .unwrap()
-            .is_empty()
+        <InstanceSyncCheckpoints as crate::state::store::Collection>::get_all(
+            &handle
+        )
+        .await
+        .unwrap()
+        .is_empty()
     );
 }
 

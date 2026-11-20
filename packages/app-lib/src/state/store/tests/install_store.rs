@@ -404,14 +404,20 @@ async fn only_one_waiting_job_resume_can_claim_the_status() {
     };
     let state = crate::state::test_state(directories, pool).await.unwrap();
 
+    let persisted =
+        InstallJobState::new(InstallRequest::InstallExistingInstance {
+            instance_id: "instance".into(),
+            force: false,
+        });
     let job_id = Uuid::new_v4();
     let now = chrono::Utc::now().timestamp();
     sqlx::query(
         "INSERT INTO install_jobs
          (id, kind, status, state, created, modified, dismissed)
-         VALUES (?, 'pack', 'waiting_for_user', '{}', ?, ?, 0)",
+         VALUES (?, 'install_existing_instance', 'waiting_for_user', ?, ?, ?, 0)",
     )
     .bind(job_id.to_string())
+    .bind(serde_json::to_string(&persisted).unwrap())
     .bind(now)
     .bind(now)
     .execute(&state.pool)
@@ -447,4 +453,86 @@ async fn only_one_waiting_job_resume_can_claim_the_status() {
             .await
             .unwrap();
     assert_eq!(status, "queued");
+}
+
+#[cfg(not(feature = "tauri"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn actual_instance_creation_is_safe_on_one_shared_multithread_runtime() {
+    crate::event::EventState::init().await.unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let pool = crate::state::store::databases::open(root.path())
+        .await
+        .unwrap();
+    let state = crate::state::test_state(
+        crate::state::DirectoryInfo {
+            settings_dir: root.path().to_path_buf(),
+            config_dir: root.path().to_path_buf(),
+            app_identifier: "database-concurrency-test".into(),
+        },
+        pool,
+    )
+    .await
+    .unwrap();
+    let prefix = Uuid::new_v4();
+    let work = (0..4).map(|index| {
+        let state = state.clone();
+        async move {
+            let created = crate::state::create_instance(
+                crate::state::CreateInstance {
+                    name: format!("Concurrent database test {prefix} {index}"),
+                    path: None,
+                    game_version: "1.20.1".into(),
+                    loader: crate::state::ModLoader::Vanilla,
+                    loader_version: None,
+                    icon_path: None,
+                    link: crate::state::InstanceLink::Unmanaged,
+                    symlink_target: None,
+                    game_dir_override: None,
+                },
+                &state,
+            )
+            .await?;
+            crate::state::instances::commands::set_instance_install_stage(
+                &created.id,
+                InstanceInstallStage::Installed,
+                &state.pool,
+            )
+            .await?;
+            crate::state::list_instances(&state.pool).await?;
+            let created = crate::state::get_instance(&created.id, &state.pool)
+                .await?
+                .ok_or_else(|| {
+                    crate::ErrorKind::OtherError(
+                        "Concurrent instance disappeared".into(),
+                    )
+                })?;
+            Ok::<_, crate::Error>(created)
+        }
+    });
+    let results = tokio::time::timeout(std::time::Duration::from_secs(45), futures::future::join_all(work)).await.expect("concurrent instance creation must finish without database lock inversion");
+    let failures = results
+        .iter()
+        .filter_map(|result| {
+            result.as_ref().err().map(|error| format!("{error:?}"))
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        failures.is_empty(),
+        "all concurrent create failures: {failures:#?}"
+    );
+    let mut ids = std::collections::HashSet::new();
+    for result in results {
+        let created = result.unwrap();
+        assert!(ids.insert(created.instance.id.clone()));
+        assert!(
+            crate::state::instances::commands::get_instance(
+                &created.instance.id,
+                &state.pool
+            )
+            .await
+            .unwrap()
+            .is_some()
+        );
+    }
+    assert_eq!(ids.len(), 4);
 }

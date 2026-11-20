@@ -54,6 +54,7 @@ impl FileFingerprints {
         modified: Option<FileModifiedTime>,
     ) -> ResourceResult<()> {
         use crate::state::store::content_file_fingerprints::ContentFileFingerprints;
+        let generation = state.resource_cache().generation().await;
         let Some(modified) = modified else {
             return Ok(());
         };
@@ -80,7 +81,7 @@ impl FileFingerprints {
         }) {
             return Ok(());
         }
-        ContentFileFingerprints::set_current(
+        ContentFileFingerprints::set_current_at(
             &state.data,
             instance_id,
             &FileFingerprintRecord {
@@ -91,6 +92,7 @@ impl FileFingerprints {
                 hashes: integrity.hashes,
                 curseforge_fingerprint: None,
             },
+            generation,
         )
         .await?;
         Ok(())

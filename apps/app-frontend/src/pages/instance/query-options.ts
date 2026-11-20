@@ -11,12 +11,16 @@ import {
 export const instanceKeys = {
     all: ['instances'] as const,
     list: () => ['instances', 'list'] as const,
+    detail: (instanceId: string) => ['instances', 'detail', instanceId] as const,
 }
 
 export function instanceListQueryOptions() {
     return queryOptions({
         queryKey: instanceKeys.list(),
         queryFn: list,
+        networkMode: 'always',
+        staleTime: 5_000,
+        retry: false,
     })
 }
 

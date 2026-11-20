@@ -16,6 +16,160 @@ pub(crate) struct InstalledArtifactRecord {
     pub declared_compatibility: Option<ReleaseCompatibility>,
 }
 
+pub(super) fn legacy_modrinth_project(project: &SourceProjectRef) -> bool {
+    project.source == SourceId::modrinth()
+        && !providers::stable_modrinth_id(project.project_id.as_str())
+}
+
+pub(super) enum LegacyModrinthIdentity {
+    Recorded {
+        project: String,
+        release: Option<String>,
+    },
+    Ambiguous,
+}
+
+pub(super) fn legacy_modrinth_artifact(
+    service: &ResourceService,
+    artifact: &SourceArtifactRef,
+) -> bool {
+    let release = &artifact.release;
+    release.project.source == SourceId::modrinth()
+        && service.rejects_modrinth_identity(
+            release.project.project_id.as_str(),
+            Some(release.release_id.as_str()),
+        )
+}
+
+pub(super) fn legacy_modrinth_identity(
+    service: &ResourceService,
+    existing: Option<&SourceArtifactRef>,
+    refs: &[crate::state::ContentProviderRef],
+    origin: Option<&SourceId>,
+) -> Option<LegacyModrinthIdentity> {
+    if let Some(existing) = existing {
+        return legacy_modrinth_artifact(service, existing).then(|| {
+            LegacyModrinthIdentity::Recorded {
+                project: existing
+                    .release
+                    .project
+                    .project_id
+                    .as_str()
+                    .to_owned(),
+                release: Some(existing.release.release_id.as_str().to_owned()),
+            }
+        });
+    }
+    let refs = refs.iter().filter(|reference| {
+        origin.is_none_or(|source| {
+            source.as_str() == reference.provider().as_str()
+        })
+    });
+    let (project, release) = refs.clone().find_map(|reference| {
+        if reference.provider() != crate::state::ContentProvider::Modrinth {
+            return None;
+        }
+        let project = reference.database_project_id();
+        let release = reference.database_release_id();
+        service
+            .rejects_modrinth_identity(&project, release.as_deref())
+            .then_some((project, release))
+    })?;
+    Some(if refs.count() == 1 {
+        LegacyModrinthIdentity::Recorded { project, release }
+    } else {
+        LegacyModrinthIdentity::Ambiguous
+    })
+}
+
+impl LegacyModrinthIdentity {
+    pub(super) async fn verify(
+        &self,
+        service: &std::sync::Arc<ResourceService>,
+        local: &LocalArtifactIdentity,
+        policy: CachePolicy,
+        cancel: &CancellationToken,
+    ) -> ResourceResult<ResourceArtifact> {
+        let unverifiable = || {
+            ResourceError::InvalidResponse(
+                "cannot verify the recorded Modrinth identity against the installed file".into(),
+            )
+        };
+        let Self::Recorded { project, release } = self else {
+            return Err(unverifiable());
+        };
+        let source = SourceId::modrinth();
+        let release_id = release
+            .as_deref()
+            .filter(|id| providers::stable_modrinth_id(id));
+        let project = if providers::stable_modrinth_id(project) {
+            providers::source_project(source.clone(), project.as_str())?
+        } else {
+            if release_id.is_none()
+                || project.is_empty()
+                || !project.bytes().all(|byte| {
+                    byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_')
+                })
+            {
+                return Err(unverifiable());
+            }
+            let document = service
+                .locate_with_policy(&source, project.clone(), cancel, policy)
+                .await?;
+            if document.metadata.project.source != source
+                || !document
+                    .metadata
+                    .slug
+                    .as_ref()
+                    .is_some_and(|slug| slug.eq_ignore_ascii_case(project))
+                || legacy_modrinth_project(&document.metadata.project)
+            {
+                return Err(unverifiable());
+            }
+            document.metadata.project
+        };
+        let artifacts = if let Some(release_id) = release_id {
+            let reference =
+                providers::release_ref(project.clone(), release_id)?;
+            service
+                .release_with_policy(&reference, None, cancel, policy)
+                .await?
+                .artifacts
+        } else {
+            let mut recognized = service
+                .identify_many(
+                    &[source],
+                    std::slice::from_ref(local),
+                    policy,
+                    cancel,
+                )
+                .await;
+            let recognition = recognized.pop().ok_or_else(unverifiable)?;
+            if let Some((_, error)) = recognition.failures.into_iter().next() {
+                return Err(error);
+            }
+            recognition.matches
+        };
+        let mut exact = artifacts.into_iter().filter(|artifact| {
+            artifact.role == ArtifactRole::Primary
+                && artifact.reference.release.project == project
+                && providers::stable_modrinth_id(
+                    artifact.reference.release.release_id.as_str(),
+                )
+                && super::valid_artifact(artifact)
+                && identity::exact_integrity(
+                    &local.integrity,
+                    &artifact.integrity,
+                )
+        });
+        let artifact = exact.next().ok_or_else(unverifiable)?;
+        if exact.any(|other| other.reference != artifact.reference) {
+            return Err(unverifiable());
+        }
+        Ok(artifact)
+    }
+}
+
 /// The artifact payload stored for an entry, as written, so a caller can
 /// compare integrity before replacing it.
 pub(crate) async fn installed_artifact_payload(
@@ -38,13 +192,80 @@ pub(crate) async fn set_installed_artifact<T>(
 where
     T: serde::Serialize + ?Sized,
 {
+    let key = entry_id.to_owned();
+    let previous = ResourceInstalledArtifacts::read(conn, &key).await?;
+    let mut artifact = serde_json::to_value(payload)?;
+    let mut scope_value = serde_json::to_value(scope)?;
+    if let Some(previous) = previous {
+        let old: InstalledArtifactRecord =
+            crate::state::store::compatibility::decode_payload(
+                &previous.artifact,
+            )?;
+        let current: InstalledArtifactRecord =
+            serde_json::from_value(artifact.clone())?;
+        if old.artifact.reference == current.artifact.reference
+            && identity::exact_integrity(
+                &old.artifact.integrity,
+                &current.artifact.integrity,
+            )
+        {
+            let mut raw: serde_json::Value =
+                serde_json::from_str(&previous.artifact)?;
+            patch_known_fields(
+                &mut raw,
+                &serde_json::to_value(&old)?,
+                &artifact,
+            );
+            artifact = raw;
+            let old_scope: InstallScope =
+                crate::state::store::compatibility::decode_payload(
+                    &previous.scope,
+                )?;
+            let mut raw_scope: serde_json::Value =
+                serde_json::from_str(&previous.scope)?;
+            patch_known_fields(
+                &mut raw_scope,
+                &serde_json::to_value(old_scope)?,
+                &scope_value,
+            );
+            scope_value = raw_scope;
+        }
+    }
     let record = ResourceInstalledArtifactRecord {
-        artifact: serde_json::to_string(payload)?,
-        scope: serde_json::to_string(scope)?,
+        artifact: serde_json::to_string(&artifact)?,
+        scope: serde_json::to_string(&scope_value)?,
     };
 
     let key = entry_id.to_owned();
     ResourceInstalledArtifacts::write(conn, &key, Some(&record)).await
+}
+
+/// Leave raw values untouched when their known interpretation did not change.
+/// This also retains unknown fields inside arrays and nested records.
+fn patch_known_fields(
+    raw: &mut serde_json::Value,
+    before: &serde_json::Value,
+    after: &serde_json::Value,
+) {
+    if before == after {
+        return;
+    }
+    if let (Some(raw), Some(before), Some(after)) =
+        (raw.as_object_mut(), before.as_object(), after.as_object())
+    {
+        for (key, value) in after {
+            match (raw.get_mut(key), before.get(key)) {
+                (Some(raw), Some(before)) => {
+                    patch_known_fields(raw, before, value)
+                }
+                _ => {
+                    raw.insert(key.clone(), value.clone());
+                }
+            }
+        }
+    } else {
+        *raw = after.clone();
+    }
 }
 
 /// Drops the artifact an entry no longer installs.
@@ -79,6 +300,13 @@ pub(crate) async fn attach_compatibility(
         instance_id,
     )
     .await?;
+    let mut parsed = crate::state::store::content_evidence::parsed_for_entries(
+        pool,
+        instance_id,
+    )
+    .await?
+    .into_iter()
+    .collect::<std::collections::HashMap<_, _>>();
     let target = ipc::ResourceTarget {
         game_versions: vec![game_version.into()],
         loaders: vec![loader.into()],
@@ -91,10 +319,18 @@ pub(crate) async fn attach_compatibility(
         .collect();
     let rows: Vec<_> = rows
         .into_iter()
-        .map(|(id, sha1, size, local, artifact)| {
-            let record = artifact.and_then(|payload| {
-                serde_json::from_str::<InstalledArtifactRecord>(&payload).ok()
-            });
+        .map(|(id, sha1, size, _legacy_local, artifact)| {
+            let record = artifact
+                .and_then(|payload| {
+                    serde_json::from_str::<InstalledArtifactRecord>(&payload)
+                        .ok()
+                })
+                .filter(|record| {
+                    !legacy_modrinth_project(
+                        &record.artifact.reference.release.project,
+                    )
+                });
+            let local = parsed.remove(&id);
             (id, sha1, size, local, record)
         })
         .collect();
@@ -203,9 +439,8 @@ pub(crate) async fn attach_compatibility(
         })
         .collect::<Vec<_>>();
     let identities = crate::state::resources::ResourceStore::new(pool.clone())
-        .lookup_many(&projects)
-        .await
-        .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
+        .enrich_many(&projects)
+        .await;
     for ((id, sha1, size, local, artifact), cached) in
         rows.into_iter().zip(cached)
     {
@@ -559,6 +794,13 @@ pub(super) async fn installed_file_identity(
 ) -> ResourceResult<LocalArtifactIdentity> {
     use crate::state::store::content_file_fingerprints::ContentFileFingerprints;
 
+    let generation = cache.generation().await;
+    let content_generation =
+        if std::ptr::eq(cache, state.resource_cache().as_ref()) {
+            generation
+        } else {
+            state.resource_cache().generation().await
+        };
     let previous = ContentFileFingerprints::get_current(
         &state.data,
         instance_id,
@@ -577,16 +819,19 @@ pub(super) async fn installed_file_identity(
         .await?;
     if !identity::exact_integrity(&entry.integrity, &result.identity.integrity)
     {
-        return Err(ResourceError::InvalidRequest(format!(
-            "{}: installed files changed; refresh content first",
-            entry.relative_path
-        )));
+        return Err(ResourceError::InvalidRequest(
+            "installed files changed; refresh content first".into(),
+        ));
     }
     if let Some(record) = &result.record {
-        ContentFileFingerprints::set_current(&state.data, instance_id, record)
-            .await?;
+        ContentFileFingerprints::set_current_at(
+            &state.data,
+            instance_id,
+            record,
+            content_generation,
+        )
+        .await?;
     }
-    let generation = cache.generation().await;
     cache
         .store_local_identity(&result.identity, generation)
         .await;
@@ -601,6 +846,8 @@ async fn hydrate_entries_with_service(
     only_selected: bool,
     service: &std::sync::Arc<ResourceService>,
 ) -> ResourceResult<HydratedInstalled> {
+    use crate::state::instances::adapters::sqlite::content_entries;
+
     let revision = plans::instance_revision(&state.pool, instance_id).await?;
     let scope = crate::state::instances::commands::resolve_content_scope(
         instance_id,
@@ -649,6 +896,10 @@ async fn hydrate_entries_with_service(
                 })
                 .is_some_and(|artifact| {
                     super::valid_artifact(&artifact)
+                        && !legacy_modrinth_artifact(
+                            service,
+                            &artifact.reference,
+                        )
                         && identity::exact_integrity(
                             &entry.integrity,
                             &artifact.integrity,
@@ -677,7 +928,10 @@ async fn hydrate_entries_with_service(
                 return Err(ResourceError::Canceled);
             }
             Err(error) => {
-                failures.push((entry.entry_id.clone(), error.to_string()));
+                failures.push((
+                    entry.entry_id.clone(),
+                    format!("{}: {error}", entry.relative_path),
+                ));
                 continue;
             }
         };
@@ -688,6 +942,7 @@ async fn hydrate_entries_with_service(
             })
             .filter(|artifact| {
                 super::valid_artifact(artifact)
+                    && !legacy_modrinth_artifact(service, &artifact.reference)
                     && identity::exact_integrity(
                         &local.integrity,
                         &artifact.integrity,
@@ -743,28 +998,85 @@ async fn hydrate_entries_with_service(
         indices.into_iter().zip(identities).zip(recognized)
     {
         let entry = &mut entries[index];
-        let refs = crate::state::instances::adapters::sqlite::content_entries::get_content_provider_refs(entry.entry_id.as_str(), &state.pool).await?;
-        let origin = crate::state::instances::adapters::sqlite::content_entries::get_content_origin_provider(entry.entry_id.as_str(), &state.pool).await?;
+        let refs = match content_entries::get_content_provider_refs(
+            entry.entry_id.as_str(),
+            &state.pool,
+        )
+        .await
+        .map_err(ResourceError::from)
+        {
+            Ok(refs) => refs,
+            Err(error @ ResourceError::InvalidRequest(_)) => {
+                failures.push((
+                    entry.entry_id.clone(),
+                    format!("{}: {error}", entry.relative_path),
+                ));
+                continue;
+            }
+            Err(error) => return Err(error),
+        };
+        let origin = content_entries::get_content_origin_provider(
+            entry.entry_id.as_str(),
+            &state.pool,
+        )
+        .await?;
+        let origin = origin
+            .as_ref()
+            .map(|origin| SourceId::new(origin.as_str()))
+            .transpose()?;
+        let legacy = legacy_modrinth_identity(
+            service,
+            entry.artifact.as_ref(),
+            &refs,
+            origin.as_ref(),
+        );
+        let mut pinned = entry.artifact.clone();
+        let mut ambiguous = recognition.ambiguous;
         let mut matches = recognition.matches;
-        if let Some(artifact) = verified.remove(&index)
+        if let Some(legacy) = &legacy {
+            match legacy
+                .verify(service, &local, CachePolicy::UseFresh, cancel)
+                .await
+            {
+                Ok(artifact) => {
+                    pinned = Some(artifact.reference.clone());
+                    matches = vec![artifact];
+                    ambiguous = false;
+                }
+                Err(
+                    error @ (ResourceError::Canceled
+                    | ResourceError::Database(_)),
+                ) => return Err(error),
+                Err(error) => {
+                    failures.push((
+                        entry.entry_id.clone(),
+                        format!("{}: {error}", entry.relative_path),
+                    ));
+                    continue;
+                }
+            }
+        }
+        if legacy.is_none()
+            && let Some(artifact) = verified.remove(&index)
             && !matches
                 .iter()
                 .any(|other| other.reference == artifact.reference)
         {
             matches.push(artifact);
         }
+        let failure_count = failures.len();
         // Exact legacy release references can corroborate files absent from a
         // hash index. They must agree with current local bytes.
-        for reference in &refs {
+        for reference in refs.iter().filter(|_| legacy.is_none()) {
             if let Some(release_id) = reference.database_release_id() {
-                let release_ref = SourceReleaseRef {
-                    project: SourceProjectRef {
-                        source: SourceId::new(reference.provider().as_str())?,
-                        project_id: SourceProjectId::new(
-                            reference.database_project_id(),
-                        )?,
-                    },
-                    release_id: SourceReleaseId::new(release_id)?,
+                let Ok(release_ref) = providers::source_project(
+                    SourceId::new(reference.provider().as_str())?,
+                    reference.database_project_id(),
+                )
+                .and_then(|project| {
+                    providers::release_ref(project, release_id)
+                }) else {
+                    continue;
                 };
                 if matches
                     .iter()
@@ -797,18 +1109,14 @@ async fn hydrate_entries_with_service(
         if cancel.is_cancelled() {
             return Err(ResourceError::Canceled);
         }
-        let origin = origin
-            .as_ref()
-            .map(|origin| SourceId::new(origin.as_str()))
-            .transpose()?;
         let selected = match service
             .select_recognized_artifact(
                 &matches,
-                entry.artifact.as_ref(),
+                pinned.as_ref(),
                 origin.as_ref(),
                 &preferred,
                 entry.resource_type,
-                recognition.ambiguous,
+                ambiguous,
                 CachePolicy::UseFresh,
                 cancel,
             )
@@ -827,6 +1135,15 @@ async fn hydrate_entries_with_service(
         if selected.is_none() {
             entry.artifact = None;
             entry.known_artifacts.clear();
+            if legacy.is_some() {
+                if failures.len() == failure_count {
+                    failures.push((
+                        entry.entry_id.clone(),
+                        format!("{}: cannot verify the recorded Modrinth project for this content type", entry.relative_path),
+                    ));
+                }
+                continue;
+            }
             for (source, error) in recognition.failures {
                 failures.push((
                     entry.entry_id.clone(),
@@ -860,7 +1177,7 @@ async fn hydrate_entries_with_service(
                 .ensure_project(&metadata.project, &metadata.types)
                 .await?;
             entry.resource_id = Some(id);
-            for matched in matches.iter().filter(|_| !recognition.ambiguous) {
+            for matched in matches.iter().filter(|_| !ambiguous) {
                 if matched.reference.release.project != metadata.project
                     && store.lookup(&matched.reference.release.project).await?
                         != entry.resource_id
@@ -893,8 +1210,7 @@ async fn hydrate_entries_with_service(
         // evidence. An unconfirmed counterpart must not satisfy dependencies.
         entry.known_artifacts = vec![selected.reference.clone()];
         for artifact in &matches {
-            if recognition.ambiguous || artifact.reference == selected.reference
-            {
+            if ambiguous || artifact.reference == selected.reference {
                 continue;
             }
             let same_project =
@@ -932,7 +1248,13 @@ async fn hydrate_entries_with_service(
             "instance changed while verifying installed resources".into(),
         ));
     }
-    let mut tx = state.pool.begin().await.map_err(plans::db)?;
+    let (mut tx, tx_diagnostics) =
+        crate::state::store::lock_diagnostics::begin(
+            &state.pool,
+            "BEGIN IMMEDIATE",
+        )
+        .await
+        .map_err(plans::db)?;
     for (id, artifact, scope) in persisted {
         let previous = installed_artifact_payload(id.as_str(), &mut tx).await?;
         let declared_compatibility = previous
@@ -953,7 +1275,11 @@ async fn hydrate_entries_with_service(
         };
         set_installed_artifact(id.as_str(), &record, &scope, &mut tx).await?;
     }
-    tx.commit().await.map_err(plans::db)?;
+    tx_diagnostics
+        .observe("commit_wait", tx.commit())
+        .await
+        .map_err(plans::db)?;
+    tx_diagnostics.complete("committed");
     Ok(HydratedInstalled { entries, failures })
 }
 

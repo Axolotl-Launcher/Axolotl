@@ -134,11 +134,14 @@ pub async fn get_importable_instances(
                 .await
         }
         ImportLauncherType::PCL2 | ImportLauncherType::PCL2CE => {
-            let sources = pcl::get_pcl_instances()
-                .into_iter()
-                .chain(pcl::get_pclce_instances())
-                .collect();
-            get_pcl_instances(&base_path, sources).await
+            get_pcl_instances(
+                &base_path,
+                pcl::get_pcl_instances(),
+                pcl::get_pclce_instances(),
+                launcher_type == ImportLauncherType::PCL2CE
+                    || direct_link::has_pcl_ce_local_config(&base_path),
+            )
+            .await
         }
         ImportLauncherType::HMCL => get_hmcl_instances(&base_path).await,
         ImportLauncherType::Generic => get_generic_instances(&base_path).await,
@@ -156,7 +159,12 @@ pub async fn get_importable_instances(
     Ok(instances)
 }
 
-async fn check_compatible_mode(instance: &mut ImportableInstance) {
+type DetectInstance = fn(&Path) -> Option<instance_json::InstanceInfo>;
+
+async fn check_compatible_mode(
+    instance: &mut ImportableInstance,
+    detect: DetectInstance,
+) {
     let path = PathBuf::from(&instance.path);
     let Some(version_name) = path.file_name().and_then(|n| n.to_str()) else {
         return;
@@ -176,7 +184,7 @@ async fn check_compatible_mode(instance: &mut ImportableInstance) {
     let has_mods = mods_dir.is_dir();
 
     let no_resourcepacks = !version_dir.join("resourcepacks").is_dir();
-    let has_valid_json = instance_json::detect(&version_dir).is_some();
+    let has_valid_json = detect(&version_dir).is_some();
 
     if has_mods && no_resourcepacks && has_valid_json {
         instance.compatible_mode = true;
@@ -258,12 +266,26 @@ async fn get_modrinth_app_instances(
 async fn get_pcl_instances(
     base_path: &Path,
     sources: Vec<(String, String)>,
+    ce_sources: Vec<(String, String)>,
+    local_is_pcl_ce: bool,
 ) -> crate::Result<Vec<ImportableInstance>> {
     let mut collector = InstanceCollector::new();
-    collect_launcher_instances(&mut collector, sources).await;
+    collect_launcher_instances(&mut collector, sources, instance_json::detect)
+        .await;
+    collect_launcher_instances(
+        &mut collector,
+        ce_sources,
+        instance_json::detect_pcl_ce,
+    )
+    .await;
     // Also check for a .minecraft folder next to the launcher executable.
     if let Some(entry) = pcl::get_local_dotminecraft(base_path) {
-        collect_launcher_instances(&mut collector, vec![entry]).await;
+        let detect = if local_is_pcl_ce {
+            instance_json::detect_pcl_ce
+        } else {
+            instance_json::detect
+        };
+        collect_launcher_instances(&mut collector, vec![entry], detect).await;
     }
     Ok(collector.instances)
 }
@@ -276,14 +298,19 @@ async fn get_hmcl_instances(
         return Ok(Vec::new());
     }
     let mut collector = InstanceCollector::new();
-    collect_launcher_instances(&mut collector, hmcl::get_instances(base_path))
-        .await;
+    collect_launcher_instances(
+        &mut collector,
+        hmcl::get_instances(base_path),
+        instance_json::detect,
+    )
+    .await;
     Ok(collector.instances)
 }
 
 /// Collects Axolotl instances from a base path. A base path holding
 /// `axolotl_config.json` is itself an instance; otherwise direct child
-/// folders with their own config are treated as instances.
+/// folders with their own config are treated as instances. An Axolotl data
+/// directory keeps those folders under `profiles`.
 async fn get_axolotl_instances(
     base_path: &Path,
 ) -> crate::Result<Vec<ImportableInstance>> {
@@ -300,6 +327,20 @@ async fn get_axolotl_instances(
         }]);
     }
 
+    let instances = scan_axolotl_instances(base_path).await?;
+    if !instances.is_empty() {
+        return Ok(instances);
+    }
+    let profiles = base_path.join(crate::state::INSTANCES_FOLDER_NAME);
+    if profiles.is_dir() {
+        return scan_axolotl_instances(&profiles).await;
+    }
+    Ok(instances)
+}
+
+async fn scan_axolotl_instances(
+    base_path: &Path,
+) -> crate::Result<Vec<ImportableInstance>> {
     let mut instances = Vec::new();
     let mut dir = io::read_dir(base_path).await?;
     while let Some(entry) = dir.next_entry().await? {
@@ -323,7 +364,8 @@ async fn get_axolotl_instances(
 async fn get_generic_instances(
     base_path: &Path,
 ) -> crate::Result<Vec<ImportableInstance>> {
-    let mut scanned = scan_instances_at(base_path, None).await;
+    let mut scanned =
+        scan_instances_at(base_path, None, instance_json::detect).await;
     // A folder import commonly targets a launcher or pack directory whose
     // game files live one level below it in `.minecraft`. Treat that nested
     // root exactly like a directly selected `.minecraft` folder, preserving
@@ -334,7 +376,12 @@ async fn get_generic_instances(
         .is_none_or(|name| !name.eq_ignore_ascii_case(".minecraft"))
     {
         scanned.extend(
-            scan_instances_at(&base_path.join(".minecraft"), None).await,
+            scan_instances_at(
+                &base_path.join(".minecraft"),
+                None,
+                instance_json::detect,
+            )
+            .await,
         );
     }
     let mut collector = InstanceCollector::new();
@@ -362,7 +409,7 @@ async fn get_generic_instances(
     }
 
     for instance in &mut instances {
-        check_compatible_mode(instance).await;
+        check_compatible_mode(instance, instance_json::detect).await;
         if instance.compatible_mode {
             finalize_compatible_instance(instance);
         }
@@ -382,23 +429,42 @@ async fn get_unknown_launcher_instances(
     if pe_info::folder_has_product(base_path, "Plain Craft Launcher")
         && pcl::read_pcl_registry().is_some()
     {
-        collect_launcher_instances(&mut collector, pcl::get_pcl_instances())
-            .await;
+        collect_launcher_instances(
+            &mut collector,
+            pcl::get_pcl_instances(),
+            instance_json::detect,
+        )
+        .await;
     }
 
     // PCL2CE
     if pe_info::folder_has_product(base_path, "Plain Craft Launcher")
         && pcl::config_exists()
     {
-        collect_launcher_instances(&mut collector, pcl::get_pclce_instances())
-            .await;
+        collect_launcher_instances(
+            &mut collector,
+            pcl::get_pclce_instances(),
+            instance_json::detect_pcl_ce,
+        )
+        .await;
     }
 
     // Also check for a .minecraft folder next to the launcher executable.
-    if pe_info::folder_has_product(base_path, "Plain Craft Launcher")
-        && let Some(entry) = pcl::get_local_dotminecraft(base_path)
-    {
-        collect_launcher_instances(&mut collector, vec![entry]).await;
+    if let Some(entry) = pcl::get_local_dotminecraft(base_path) {
+        let game_dir = Path::new(&entry.1);
+        let is_ce =
+            direct_link::detect_pcl_ce_root(game_dir, game_dir).is_some();
+        let detect = if is_ce {
+            instance_json::detect_pcl_ce
+        } else {
+            instance_json::detect
+        };
+        if is_ce
+            || pe_info::folder_has_product(base_path, "Plain Craft Launcher")
+        {
+            collect_launcher_instances(&mut collector, vec![entry], detect)
+                .await;
+        }
     }
 
     // HMCL
@@ -406,6 +472,7 @@ async fn get_unknown_launcher_instances(
         collect_launcher_instances(
             &mut collector,
             hmcl::get_instances(base_path),
+            instance_json::detect,
         )
         .await;
     }
@@ -426,7 +493,14 @@ async fn get_unknown_launcher_instances(
     // Generic fallback: scan versions/ subdirectory and base path for
     // instance.json files (handles .minecraft and other unrecognized launchers).
     if collector.instances.is_empty() {
-        for (name, path) in scan_instances_at(base_path, None).await {
+        let detect = if direct_link::detect_pcl_ce_root(base_path, base_path)
+            .is_some()
+        {
+            instance_json::detect_pcl_ce
+        } else {
+            instance_json::detect
+        };
+        for (name, path) in scan_instances_at(base_path, None, detect).await {
             collector.instances.push(ImportableInstance {
                 name,
                 path: path.to_string_lossy().to_string(),
@@ -481,11 +555,14 @@ async fn collect_subfolder_launcher_instances(
 async fn collect_launcher_instances(
     collector: &mut InstanceCollector,
     sources: Vec<(String, String)>,
+    detect: DetectInstance,
 ) {
     for (name, dir) in sources {
         let game_dir = PathBuf::from(&dir);
         let mut game_dir_instances = Vec::new();
-        for (iname, ipath) in scan_instances_at(&game_dir, Some(&name)).await {
+        for (iname, ipath) in
+            scan_instances_at(&game_dir, Some(&name), detect).await
+        {
             game_dir_instances.push(ImportableInstance {
                 name: iname,
                 path: ipath.to_string_lossy().to_string(),
@@ -494,7 +571,7 @@ async fn collect_launcher_instances(
             });
         }
         for mut inst in game_dir_instances {
-            check_compatible_mode(&mut inst).await;
+            check_compatible_mode(&mut inst, detect).await;
             if inst.compatible_mode {
                 finalize_compatible_instance(&mut inst);
             }
@@ -543,6 +620,7 @@ impl InstanceCollector {
 async fn scan_instances_at(
     path: &Path,
     prefix: Option<&str>,
+    detect: DetectInstance,
 ) -> Vec<(String, PathBuf)> {
     if !path.is_dir() {
         return Vec::new();
@@ -557,7 +635,8 @@ async fn scan_instances_at(
         .and_then(|name| name.to_str())
         .is_some_and(|name| name.eq_ignore_ascii_case("versions"))
     {
-        collect_child_instances(&mut instances, path, prefix, false).await;
+        collect_child_instances(&mut instances, path, prefix, false, detect)
+            .await;
         return instances;
     }
 
@@ -569,10 +648,16 @@ async fn scan_instances_at(
     let versions_dir = path.join("versions");
     let has_versions_dir = versions_dir.is_dir();
     if has_versions_dir {
-        collect_child_instances(&mut instances, &versions_dir, prefix, true)
-            .await;
+        collect_child_instances(
+            &mut instances,
+            &versions_dir,
+            prefix,
+            true,
+            detect,
+        )
+        .await;
     }
-    if instances.is_empty() && instance_json::detect(path).is_some() {
+    if instances.is_empty() && detect(path).is_some() {
         let name = path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -603,6 +688,7 @@ async fn collect_child_instances(
     dir: &Path,
     prefix: Option<&str>,
     is_versions_subdir: bool,
+    detect: DetectInstance,
 ) {
     let Ok(mut entries) = io::read_dir(dir).await else {
         return;
@@ -610,7 +696,7 @@ async fn collect_child_instances(
     while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
         if path.is_dir()
-            && instance_json::detect(&path).is_some()
+            && detect(&path).is_some()
             && let Some(name) = path.file_name()
         {
             let name = name.to_string_lossy().to_string();
@@ -992,7 +1078,7 @@ fn find_multimc_path() -> Option<PathBuf> {
 
 /// Checks if this PathBuf is a valid instance for the given launcher type
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn is_valid_importable_instance(
     instance_path: PathBuf,
     r#type: ImportLauncherType,
@@ -1024,7 +1110,7 @@ pub async fn is_valid_importable_instance(
 
 /// Caches an image file in the filesystem into the cache directory, and returns the path to the cached file.
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn recache_icon(
     icon_path: PathBuf,
 ) -> crate::Result<Option<PathBuf>> {
@@ -1665,7 +1751,7 @@ fn is_busy_dir_error(error: &eyre::Report) -> bool {
 }
 
 #[async_recursion::async_recursion]
-#[tracing::instrument]
+#[tracing::instrument(skip_all, level = "info")]
 pub async fn get_all_subfiles(
     src: &Path,
     include_empty_dirs: bool,
@@ -1831,7 +1917,7 @@ mod pcl_instance_scan_tests {
         fs::create_dir_all(&version_dir).unwrap();
         fs::write(
             version_dir.join("1.20.1.json"),
-            r#"{"id":"1.20.1","mainClass":"net.minecraft.client.main.Main"}"#,
+            r#"{/* PCL-CE JSON */ "ID":"1.20.1","MainClass":"net.minecraft.client.main.Main",}"#,
         )
         .unwrap();
         let config_dir = data_dir.join("PCLCE");
@@ -1853,7 +1939,10 @@ mod pcl_instance_scan_tests {
         let sources = pcl::get_pclce_instances_from_config(
             &config_dir.join("config.v1.json"),
         );
-        let instances = get_pcl_instances(&data_dir, sources).await.unwrap();
+        let instances =
+            get_pcl_instances(&data_dir, Vec::new(), sources, false)
+                .await
+                .unwrap();
         assert_eq!(instances.len(), 1);
         assert!(instances.iter().any(|instance| {
             instance.name == "Configured:versions/1.20.1"
@@ -1886,7 +1975,9 @@ mod pcl_instance_scan_tests {
             ("Duplicate".into(), game_dir.to_string_lossy().to_string()),
         ];
         let pcl_instances =
-            get_pcl_instances(root.path(), sources).await.unwrap();
+            get_pcl_instances(root.path(), sources, Vec::new(), false)
+                .await
+                .unwrap();
         let generic_instances = get_generic_instances(&game_dir).await.unwrap();
 
         for instances in [pcl_instances, generic_instances] {
@@ -1945,6 +2036,37 @@ mod default_minecraft_path_tests {
 mod generic_instance_scan_tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn axolotl_data_root_scans_profiles_not_runtime_metadata() {
+        use crate::api::drop_classifier::{
+            DroppedItemType, classify_dropped_item,
+        };
+
+        let root = tempdir().unwrap();
+        let profiles = root.path().join(crate::state::INSTANCES_FOLDER_NAME);
+        let instance = profiles.join("old-instance");
+        std::fs::create_dir_all(&instance).unwrap();
+        std::fs::write(instance.join("axolotl_config.json"), "{}").unwrap();
+        let metadata = root.path().join("meta").join("versions").join("1.21.1");
+        std::fs::create_dir_all(&metadata).unwrap();
+        std::fs::write(metadata.join("1.21.1.json"), "{}").unwrap();
+
+        for base in [root.path(), profiles.as_path(), instance.as_path()] {
+            assert!(matches!(
+                classify_dropped_item(base),
+                DroppedItemType::Launcher {
+                    launcher_type: ImportLauncherType::Axolotl,
+                    base_path,
+                    inner_base: None,
+                } if base_path == base
+            ));
+            let instances = get_axolotl_instances(base).await.unwrap();
+            assert_eq!(instances.len(), 1);
+            assert_eq!(instances[0].name, "old-instance");
+            assert_eq!(instances[0].path, instance.to_string_lossy());
+        }
+    }
 
     #[tokio::test]
     async fn finds_versions_inside_a_selected_folders_minecraft_directory() {

@@ -419,6 +419,7 @@ defineExpose({ getState, setState })
                 v-model="finalCommand"
                 class="w-full min-w-0 rounded-xl border-0 bg-surface-4 px-3 py-2 font-mono text-sm text-[var(--color-text-primary)] outline-none focus:ring-4 focus:ring-brand-shadow"
                 :placeholder="formatMessage(messages.executeFinalPlaceholder)"
+                autocomplete="off"
                 spellcheck="false"
             />
             <p class="m-0 text-xs leading-5 text-[var(--color-text-tertiary)]">

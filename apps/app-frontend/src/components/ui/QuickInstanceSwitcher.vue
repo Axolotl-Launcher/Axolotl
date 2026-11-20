@@ -2,35 +2,22 @@
 import { SpinnerIcon } from '@modrinth/assets'
 import { injectNotificationManager } from '@modrinth/ui'
 import dayjs from 'dayjs'
-import { computed, onUnmounted, ref } from 'vue'
+import { computed } from 'vue'
 
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import NavButton from '@/components/ui/NavButton.vue'
-import { instance_listener } from '@/helpers/events.js'
-import { list } from '@/helpers/instance'
+import { useInstanceList } from '@/composables/instances/use-instance-list'
 import { useTheming } from '@/store/state'
 
 const { handleError } = injectNotificationManager()
 
 const themeStore = useTheming()
 
-const fullInstanceList = ref([])
+const { data: instances, load } = useInstanceList(handleError)
 const instanceCount = computed(() => themeStore.sidebarInstanceCount)
 
 const recentInstances = computed(() => {
-    if (instanceCount.value > 0) {
-        return fullInstanceList.value.slice(0, instanceCount.value)
-    }
-    return fullInstanceList.value
-})
-
-const getInstances = async () => {
-    const instances = await list().catch((error) => {
-        handleError(error)
-        return []
-    })
-
-    fullInstanceList.value = instances.sort((a, b) => {
+    const sorted = [...(instances.value ?? [])].sort((a, b) => {
         const dateACreated = dayjs(a.created)
         const dateAPlayed = a.last_played ? dayjs(a.last_played) : dayjs(0)
 
@@ -46,19 +33,10 @@ const getInstances = async () => {
 
         return dateB - dateA
     })
-}
-
-await getInstances()
-
-const unlistenInstance = await instance_listener(async (event) => {
-    if (event.event !== 'synced') {
-        await getInstances()
-    }
+    return instanceCount.value > 0 ? sorted.slice(0, instanceCount.value) : sorted
 })
 
-onUnmounted(() => {
-    unlistenInstance()
-})
+if (!instances.value) await load().catch(() => {})
 </script>
 
 <template>

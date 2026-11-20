@@ -73,6 +73,21 @@ impl InstanceRuntimeAdapter {
     pub(crate) fn game_dir(&self) -> PathBuf {
         match self {
             Self::AxolotlManaged { game_dir } => game_dir.clone(),
+            // Explicit roots don't depend on the merged version manifest.
+            Self::MinecraftShared { direct }
+                if direct.game_dir_mode
+                    == Some(super::ExternalGameDirMode::Shared) =>
+            {
+                direct.dot_minecraft.clone()
+            }
+            Self::MinecraftIsolated { direct }
+                if direct.game_dir_mode
+                    == Some(super::ExternalGameDirMode::Isolated)
+                    || direct.dialect
+                        == super::LinkedLauncherDialect::Generic =>
+            {
+                direct.version_dir()
+            }
             Self::MinecraftShared { direct } => match direct.resolve() {
                 Ok(resolved) => resolved.game_dir,
                 Err(error) => {

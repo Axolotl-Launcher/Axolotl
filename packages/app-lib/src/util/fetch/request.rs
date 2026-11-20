@@ -104,6 +104,11 @@ async fn fetch_validated_metadata_route(
         request = request.header(name, value);
     }
     let _permit = semaphore.0.acquire().await?;
+    tracing::debug!(
+        source = route.source.as_str(),
+        url = %sanitize_url_for_log(&route.url),
+        "Starting hedged metadata route"
+    );
     let request_started = Instant::now();
     let response = match request.send().await {
         Ok(response) => response,
@@ -331,6 +336,7 @@ pub(crate) async fn fetch_metadata<T>(
     url: &str,
     parse: impl Fn(&Bytes) -> crate::Result<T> + Send + Sync,
     semaphore: &FetchSemaphore,
+    source_mode: Option<crate::state::DownloadSourceMode>,
 ) -> crate::Result<T> {
     let validate = |bytes: &Bytes| parse(bytes).map(|_| ());
     let client = configured_client().await?;
@@ -347,7 +353,7 @@ pub(crate) async fn fetch_metadata<T>(
             None,
             semaphore,
             &client,
-            None,
+            source_mode,
             None,
             Some(&validate),
             METADATA_ATTEMPT_BUDGET,

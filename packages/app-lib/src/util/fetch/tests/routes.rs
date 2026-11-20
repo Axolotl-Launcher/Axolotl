@@ -374,17 +374,21 @@ fn loader_libraries_prefer_mirrors_with_an_official_fallback() {
 }
 
 #[test]
-fn auto_loader_routes_start_official_and_retain_explicit_mirror_preference() {
+fn loader_indexes_follow_metadata_routes_without_reclassifying_artifacts() {
     let _guard = fixtures::AUTO_SOURCE_TEST_LOCK.lock().unwrap();
     let previous_health = std::mem::take(&mut *ROUTE_HEALTH.lock());
     for source in [
         "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml",
+        "https://maven.neoforged.net/releases/net/neoforged/forge/maven-metadata.xml",
         "https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml",
         "https://maven.fabricmc.net/net/fabricmc/fabric-loader/maven-metadata.xml",
+        "https://meta.fabricmc.net/v2/versions/loader/1.21.1",
     ] {
+        let resource = infer_resource_class(source);
+        assert_eq!(resource, ResourceClass::Metadata, "{source}");
         let routes = resolve_download_routes_for(
             source,
-            ResourceClass::Loader,
+            resource,
             crate::state::DownloadSourceMode::Auto,
         );
         assert_eq!(routes[0].url, source);
@@ -392,19 +396,25 @@ fn auto_loader_routes_start_official_and_retain_explicit_mirror_preference() {
         assert!(routes[1..].iter().any(|route| route.is_mirror));
         let mirrors = resolve_download_routes_for(
             source,
-            ResourceClass::Loader,
+            resource,
             crate::state::DownloadSourceMode::MirrorPreferred,
         );
         assert!(mirrors[0].is_mirror);
-        record_route_failure(&routes[0], ResourceClass::Loader, None);
-        let after_failure = resolve_download_routes_for(
+        assert!(!mirrors[0].supports_range);
+        let official_only = resolve_download_routes_for(
             source,
-            ResourceClass::Loader,
-            crate::state::DownloadSourceMode::Auto,
+            resource,
+            crate::state::DownloadSourceMode::OfficialOnly,
         );
-        assert!(after_failure[0].is_mirror);
+        assert_eq!(official_only, [routes[0].clone()]);
     }
     *ROUTE_HEALTH.lock() = previous_health;
+    assert_eq!(
+        infer_resource_class(
+            "https://maven.neoforged.net/releases/net/neoforged/neoforge/21.1.172/neoforge-21.1.172-installer.jar"
+        ),
+        ResourceClass::Loader,
+    );
 }
 
 #[test]

@@ -509,11 +509,20 @@ pub(crate) fn infer_resource_class(url: &str) -> ResourceClass {
     match host {
         FETCH_RESOURCES_DOWNLOAD_MINECRAFT_NET => ResourceClass::MinecraftAsset,
         FETCH_LIBRARIES_MINECRAFT_NET => ResourceClass::MinecraftLibrary,
+        FETCH_META_FABRICMC_NET => ResourceClass::Metadata,
         ROUTE_POLICY_MAVEN_MINECRAFTFORGE_NET
         | FETCH_FILES_MINECRAFTFORGE_NET
         | ROUTE_POLICY_MAVEN_FABRICMC_NET
         | ROUTE_POLICY_MAVEN_NEOFORGED_NET
-        | FETCH_META_FABRICMC_NET => ResourceClass::Loader,
+            if parsed.path().ends_with("/maven-metadata.xml")
+                || parsed.path().ends_with("/promotions_slim.json") =>
+        {
+            ResourceClass::Metadata
+        }
+        ROUTE_POLICY_MAVEN_MINECRAFTFORGE_NET
+        | FETCH_FILES_MINECRAFTFORGE_NET
+        | ROUTE_POLICY_MAVEN_FABRICMC_NET
+        | ROUTE_POLICY_MAVEN_NEOFORGED_NET => ResourceClass::Loader,
         FETCH_REPO1_MAVEN_ORG | FETCH_REPO_MAVEN_APACHE_ORG => {
             ResourceClass::MinecraftLibrary
         }

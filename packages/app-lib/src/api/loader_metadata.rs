@@ -1,8 +1,9 @@
 use crate::State;
 use crate::scheduler::order::instrument;
-use crate::state::CachedLoaderManifest;
+use crate::state::{CachedLoaderManifest, DownloadSourceMode};
 use crate::util::fetch::{
-    FetchSemaphore, fetch, fetch_json, fetch_metadata, fetch_official,
+    FetchSemaphore, ResourceClass, fetch, fetch_json, fetch_metadata,
+    fetch_official, source_mode_for_resource,
 };
 use crate::util::io;
 use daedalus::minecraft::{
@@ -1075,25 +1076,23 @@ fn meta_api_manifest(
 
 async fn fetch_forge_manifest(
     fetch_semaphore: &FetchSemaphore,
-    official_only: bool,
+    force_refresh: bool,
 ) -> crate::Result<Manifest> {
     let metadata_url = format!("{FORGE_MAVEN_URL}maven-metadata.xml");
     let (metadata, promotions) = fetch_forge_indexes(
-        async {
-            if official_only {
-                let bytes = fetch_official(
-                    &metadata_url,
-                    None,
-                    None,
-                    None,
-                    fetch_semaphore,
-                )
-                .await?;
-                parse_maven_metadata(&metadata_url, &bytes)
-            } else {
-                fetch_maven_metadata(&metadata_url, fetch_semaphore).await
-            }
-        },
+        fetch_metadata(
+            &metadata_url,
+            |bytes| parse_maven_metadata(&metadata_url, bytes),
+            fetch_semaphore,
+            force_refresh.then(|| {
+                match source_mode_for_resource(ResourceClass::Metadata) {
+                    DownloadSourceMode::OfficialOnly => {
+                        DownloadSourceMode::OfficialOnly
+                    }
+                    _ => DownloadSourceMode::OfficialPreferred,
+                }
+            }),
+        ),
         fetch_loader_json(FORGE_PROMOTIONS_URL, fetch_semaphore),
     )
     .await?;
@@ -1418,6 +1417,7 @@ async fn fetch_maven_metadata(
         url,
         |bytes| parse_maven_metadata(url, bytes),
         fetch_semaphore,
+        None,
     )
     .await
 }
@@ -1456,6 +1456,7 @@ async fn fetch_loader_json<T: serde::de::DeserializeOwned>(
         url,
         |bytes| serde_json::from_slice(bytes).map_err(Into::into),
         fetch_semaphore,
+        None,
     )
     .await
 }

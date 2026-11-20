@@ -240,6 +240,7 @@ async fn typed_metadata_fetch_validates_xml_without_initializing_application_sta
                     })
             },
             &FetchSemaphore(Semaphore::new(2)),
+            None,
         ),
     )
     .await

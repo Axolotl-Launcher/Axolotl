@@ -426,12 +426,10 @@
         {
           "name": "path",
           "displayNameKey": "app.lab.command-generator.arg.data.path.display",
-          "type": "nbt",
+          "type": "nbt-path",
           "required": false,
           "descriptionKey": "app.lab.command-generator.arg.data.path.desc",
-          "placeholder": "Health",
-          "supportsNbtEditor": true,
-          "nbtKind": "generic"
+          "placeholder": "Health"
         },
         {
           "name": "value",
@@ -1296,12 +1294,10 @@
                 {
                   "name": "path",
                   "displayNameKey": "app.lab.command-generator.arg.execute.if-data.path.display",
-                  "type": "nbt",
+                  "type": "nbt-path",
                   "required": true,
                   "descriptionKey": "app.lab.command-generator.arg.execute.if-data.path.desc",
-                  "placeholder": "Health",
-                  "supportsNbtEditor": true,
-                  "nbtKind": "generic"
+                  "placeholder": "Health"
                 }
               ]
             },

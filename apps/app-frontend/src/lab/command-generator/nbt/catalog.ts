@@ -55,3 +55,20 @@ export function findFieldByPath(domain: NbtDomain, path: string): NbtFieldSpec |
     }
     return current
 }
+
+/**
+ * 路径编辑器用：给定已经走过的键名，返回这一层可选的字段。
+ *
+ * 走到一半断了（键名不在目录里）就返回 `undefined`，由调用方决定退回什么。
+ */
+export function fieldsAtPath(domain: NbtDomain, keys: string[]): NbtFieldSpec[] | undefined {
+    if (keys.length === 0) return fieldsFor(domain)
+    const [first, ...rest] = keys
+    let current = fieldsFor(domain).find((field) => field.key === first)
+    for (const key of rest) {
+        current = current?.children?.find((child) => child.key === key)
+    }
+    if (!current) return undefined
+    if (current.children?.length) return current.children
+    return undefined
+}

@@ -11,6 +11,8 @@ export type ArgumentType =
     | 'item'
     | 'block'
     | 'nbt'
+    /** NBT 路径（`/data` 的 path），不是 NBT 文档。 */
+    | 'nbt-path'
     | 'message'
     | 'time'
     | 'gamemode'

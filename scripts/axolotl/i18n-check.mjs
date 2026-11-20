@@ -21,6 +21,7 @@ const allowedUntranslatedMessages = new Set([
     'example.modrinth.gg',
     '{title} - {count}',
     '@e[type=zombie,distance=..10]',
+    'Inventory[0].id',
     'Hooks',
     '/path/to/java',
     'https://example.com/api/yggdrasil',

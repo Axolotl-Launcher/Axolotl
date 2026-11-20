@@ -8009,6 +8009,18 @@
   "app.lab.command-generator.nbt.palette.title.item": {
     "message": "添加物品组件"
   },
+  "app.lab.command-generator.nbt.path.hint": {
+    "message": "路径指向某个标签：Foo.Bar、Items[0]，或对 Items 加筛选。"
+  },
+  "app.lab.command-generator.nbt.path.placeholder": {
+    "message": "Inventory[0].id"
+  },
+  "app.lab.command-generator.nbt.path.suggestions": {
+    "message": "标签建议"
+  },
+  "app.lab.command-generator.nbt.path.unknown-root": {
+    "message": "目录里没有这个标签，会按原样写出。"
+  },
   "app.lab.command-generator.nbt.remove-tag": {
     "message": "移除标签"
   },

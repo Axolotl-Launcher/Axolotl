@@ -393,6 +393,22 @@ const nbtContext = computed<{ entity?: string; item?: string }>(() => {
     return context
 })
 
+/**
+ * 路径编辑器的上下文。`/data` 的 `targetType` 决定看哪份目录：
+ * `block` 看方块实体，`entity` 看实体（`target` 是选择器时还能收窄），
+ * `storage` 是命令存储，没有字段目录。
+ */
+const pathContext = computed<{ domain?: NbtDomain; targetId?: string }>(() => {
+    const targetType = values.value['targetType']
+    if (targetType === 'block') return { domain: 'block_entity' }
+    if (targetType === 'storage') return {}
+    if (targetType !== undefined && targetType !== 'entity') return {}
+
+    const target = values.value['target']
+    if (typeof target !== 'string' || !target.trim()) return { domain: 'entity' }
+    return { domain: 'entity', targetId: nbtTargetFromSelector(target) }
+})
+
 function nbtDomainFor(arg: CommandArgument): NbtDomain | undefined {
     if (arg.nbtKind === 'entity') return 'entity'
     if (arg.nbtKind === 'item') return 'item'
@@ -880,6 +896,8 @@ async function openWiki() {
                                     :force-data-components="forceDataComponents"
                                     :nbt-domain="nbtDomainFor(arg)"
                                     :nbt-target-id="nbtTargetFor(arg)"
+                                    :path-domain="pathContext.domain"
+                                    :path-target-id="pathContext.targetId"
                                 />
                             </details>
                             <CommandGeneratorArgument
@@ -890,6 +908,8 @@ async function openWiki() {
                                 :force-data-components="forceDataComponents"
                                 :nbt-domain="nbtDomainFor(arg)"
                                 :nbt-target-id="nbtTargetFor(arg)"
+                                :path-domain="pathContext.domain"
+                                :path-target-id="pathContext.targetId"
                             />
                         </template>
                     </div>

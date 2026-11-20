@@ -8009,6 +8009,18 @@
   "app.lab.command-generator.nbt.palette.title.item": {
     "message": "Add item component"
   },
+  "app.lab.command-generator.nbt.path.hint": {
+    "message": "A path points at a tag: Foo.Bar, Items[0], or a filter on Items."
+  },
+  "app.lab.command-generator.nbt.path.placeholder": {
+    "message": "Inventory[0].id"
+  },
+  "app.lab.command-generator.nbt.path.suggestions": {
+    "message": "Tag suggestions"
+  },
+  "app.lab.command-generator.nbt.path.unknown-root": {
+    "message": "This tag is not in the catalog; it will be written as typed."
+  },
   "app.lab.command-generator.nbt.remove-tag": {
     "message": "Remove tag"
   },

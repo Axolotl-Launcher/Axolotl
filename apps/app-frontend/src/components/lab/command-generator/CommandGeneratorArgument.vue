@@ -29,6 +29,7 @@ import { loadVersionResources, TEXTURE_ATLAS } from '@/lab/shared/minecraft/reso
 import CommandGeneratorEntitySelector from './CommandGeneratorEntitySelector.vue'
 import CommandGeneratorItemPickerModal from './CommandGeneratorItemPickerModal.vue'
 import CommandGeneratorNbtEditor from './CommandGeneratorNbtEditor.vue'
+import CommandGeneratorNbtPath from './CommandGeneratorNbtPath.vue'
 
 const props = defineProps<{
     arg: CommandArgument
@@ -38,6 +39,9 @@ const props = defineProps<{
     /** NBT 面板的目录域与目标 ID（由父组件从同命令的其它参数派生）。 */
     nbtDomain?: NbtDomain
     nbtTargetId?: string
+    /** 路径编辑器的上下文，`/data` 由 targetType 决定。 */
+    pathDomain?: NbtDomain
+    pathTargetId?: string
 }>()
 
 const fieldId = useId()
@@ -206,6 +210,7 @@ const GAMERULE_DEFAULT_PRESETS: ArgumentPreset[] = [
 
 const isNumber = computed(() => props.arg.type === 'number' || props.arg.type === 'integer')
 const isNbt = computed(() => props.arg.supportsNbtEditor === true)
+const isNbtPath = computed(() => props.arg.type === 'nbt-path')
 const isItem = computed(() => props.arg.type === 'item')
 const isEntityType = computed(() => props.arg.type === 'entity-type')
 
@@ -659,8 +664,17 @@ function coordinateModeLabel(mode: CoordinateMode): string {
                 </button>
             </div>
         </div>
+        <CommandGeneratorNbtPath
+            v-if="isNbtPath"
+            :model-value="String(modelValue ?? '')"
+            :version="version"
+            :domain="pathDomain"
+            :target-id="pathTargetId"
+            :aria-label="formatDynamic(arg.displayNameKey, arg.name)"
+            @update:model-value="onTextInput"
+        />
         <CommandGeneratorNbtEditor
-            v-if="isNbt"
+            v-else-if="isNbt"
             :model-value="String(modelValue ?? '')"
             :kind="arg.nbtKind"
             :version="version"

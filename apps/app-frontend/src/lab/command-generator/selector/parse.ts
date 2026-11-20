@@ -18,9 +18,15 @@ export interface ParsedSelectorArgument {
     value: string
     /** 值以 `!` 开头（排除语义）。 */
     negated: boolean
-    /** 在原始文本里的区间，用于就地替换。 */
+    /** 值在原始文本里的区间，用于就地替换。 */
     start: number
     end: number
+    /**
+     * 整个 `key=value` 段在原文里的区间（首尾空白已排除），用于删除。
+     * 值可以为空（`@e[distance=]`），那时 `start === end`，拿它删会什么都没删掉。
+     */
+    partStart: number
+    partEnd: number
 }
 
 export interface ParsedSelector {
@@ -130,18 +136,23 @@ export function parseSelector(text: string): ParsedSelector | undefined {
         if (!key) continue
         const rawValue = part.text.slice(eq + 1).trim()
         const negated = rawValue.startsWith('!')
+        const lead = part.text.length - part.text.trimStart().length
+        const tail = part.text.length - part.text.trimEnd().length
+        const partStart = shift + offset + part.start + lead
+        const partEnd = shift + offset + part.end - tail
+        // `eq` 是相对整段（含前导空白）的下标，和 `partStart` 不能直接相加
+        const equalsIndex = shift + offset + part.start + eq
+        const afterEquals = part.text.slice(eq + 1)
+        const valueLead = afterEquals.length - afterEquals.trimStart().length
         result.arguments.push({
             key,
             value: rawValue,
             negated,
-            start:
-                shift +
-                offset +
-                part.start +
-                eq +
-                1 +
-                (part.text.length - part.text.trimStart().length),
-            end: shift + offset + part.end,
+            // `key=   ` 这种只有空白的值：区间要收在段尾，否则 start 会越过 end
+            start: Math.min(equalsIndex + 1 + valueLead, partEnd),
+            end: partEnd,
+            partStart,
+            partEnd,
         })
     }
     return result

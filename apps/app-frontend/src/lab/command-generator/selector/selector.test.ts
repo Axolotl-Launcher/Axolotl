@@ -19,6 +19,7 @@ import {
     draftFromSelector,
     nbtTargetFromSelector,
     removeArgument,
+    removeArgumentText,
     serializeSelector,
     setArgument,
     toggleNegated,
@@ -101,6 +102,16 @@ describe('选择器解析', () => {
         const parsed = parseSelector(text)!
         const argument = parsed.arguments[0]
         expect(text.slice(argument.start, argument.end)).toBe('zombie')
+    })
+
+    it('值的区间不含首尾空白，且不会倒挂', () => {
+        const text = '@e[ a = 1 , b = ]'
+        const [first, second] = parseSelector(text)!.arguments
+        expect(text.slice(first.start, first.end)).toBe('1')
+        // 值只有一个空格时，start 不能越过 end，否则就地替换会切错位置
+        expect(second.value).toBe('')
+        expect(second.start).toBe(second.end)
+        expect(text.slice(first.partStart, first.partEnd)).toBe('a = 1')
     })
 
     it('基岩版变量会被标出来', () => {
@@ -286,6 +297,39 @@ describe('选择器拼装', () => {
     it('取反是纯文本翻转', () => {
         expect(toggleNegated('zombie')).toBe('!zombie')
         expect(toggleNegated('!zombie')).toBe('zombie')
+    })
+})
+
+describe('就地删除参数', () => {
+    it('值还是空的也能删', () => {
+        // 刚添加的筛选就是 `key=`，值区间长度为 0
+        expect(removeArgumentText('@e[distance=]', 0)).toBe('@e')
+    })
+
+    it('删掉最后一个参数时连方括号一起去掉', () => {
+        expect(removeArgumentText('@e[distance=..10]', 0)).toBe('@e')
+        expect(removeArgumentText('@e[ type=zombie ]', 0)).toBe('@e')
+        expect(removeArgumentText('@e[]', 0)).toBe('@e[]')
+    })
+
+    it('删第一个时带走它后面的逗号', () => {
+        expect(removeArgumentText('@e[type=zombie,limit=3]', 0)).toBe('@e[limit=3]')
+    })
+
+    it('删中间和最后一个时带走前面的逗号', () => {
+        expect(removeArgumentText('@e[a=1,b=2,c=3]', 1)).toBe('@e[a=1,c=3]')
+        expect(removeArgumentText('@e[a=1,b=2,c=3]', 2)).toBe('@e[a=1,b=2]')
+    })
+
+    it('参数之间有空格时不会留下双空格或空参数', () => {
+        expect(removeArgumentText('@e[ type=zombie , limit=3 ]', 0)).toBe('@e[ limit=3 ]')
+        expect(removeArgumentText('@e[ type=zombie , limit=3 ]', 1)).toBe('@e[ type=zombie ]')
+    })
+
+    it('没有参数时原样返回', () => {
+        expect(removeArgumentText('@e', 0)).toBe('@e')
+        expect(removeArgumentText('@e[a=1]', 3)).toBe('@e[a=1]')
+        expect(removeArgumentText('hello', 0)).toBe('hello')
     })
 })
 

@@ -82,6 +82,40 @@ export function toggleNegated(value: string): string {
     return value.startsWith('!') ? value.slice(1) : `!${value}`
 }
 
+/** `@e[]` / `@e[ ]` → `@e`：括号里什么都不剩时不必留着。 */
+function dropEmptyBrackets(text: string): string {
+    return text.replace(/\[\s*\]\s*$/, '')
+}
+
+/**
+ * 就地删掉原文里的第 `index` 个参数，返回新文本。
+ *
+ * 按 `partStart` / `partEnd`（整个 `key=value` 段）删，而不是按值的区间：值可以是
+ * 空的（刚添加的 `@e[distance=]`），那时值区间长度为 0，按它删会什么都不做。
+ * 删掉最后一个参数后连方括号一起去掉，选择器就回到「没有任何筛选条件」的 `@e`。
+ */
+export function removeArgumentText(text: string, index: number): string {
+    const argument = parseSelector(text)?.arguments[index]
+    if (!argument) return text
+
+    let start = argument.partStart
+    let end = argument.partEnd
+    const trailingComma = /^\s*,\s*/.exec(text.slice(end))
+    if (trailingComma) {
+        // 后面还有参数：连同它后面的逗号和空白一起删
+        end += trailingComma[0].length
+    } else {
+        // 它是最后一个：改删前面那个逗号，顺带把逗号前的空白收掉
+        const before = text.slice(0, start)
+        const leadingComma = /,\s*$/.exec(before)
+        if (leadingComma) {
+            start = before.slice(0, before.length - leadingComma[0].length).trimEnd().length
+        }
+    }
+
+    return dropEmptyBrackets(`${text.slice(0, start)}${text.slice(end)}`)
+}
+
 /** 区间值：`10`、`8..16`、`..10`、`10..`。 */
 export function rangeValue(range: NumericRange, negated = false): string {
     const text = formatNumericRange(range)

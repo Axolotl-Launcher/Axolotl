@@ -34,7 +34,10 @@ import {
     type SelectorIssue,
     validateSelector,
 } from '@/lab/command-generator/selector/parse.ts'
-import { nbtTargetFromSelector } from '@/lab/command-generator/selector/serialize.ts'
+import {
+    nbtTargetFromSelector,
+    removeArgumentText,
+} from '@/lab/command-generator/selector/serialize.ts'
 
 import CommandGeneratorOptionPickerModal, {
     type PickerGroup,
@@ -412,19 +415,7 @@ function replaceValue(index: number, value: string) {
 }
 
 function removeArgument(index: number) {
-    const argument = parsed.value?.arguments[index]
-    if (!argument) return
-    let start = argument.start
-    let end = argument.end
-    const after = text.value.slice(end)
-    if (after.startsWith(',')) {
-        end += 1
-    } else {
-        const before = text.value.slice(0, start)
-        const trimmed = before.replace(/,\s*$/, '')
-        if (trimmed !== before) start = trimmed.length
-    }
-    publish(`${text.value.slice(0, start)}${text.value.slice(end)}`)
+    publish(removeArgumentText(text.value, index))
 }
 
 function addFilter(key: string) {

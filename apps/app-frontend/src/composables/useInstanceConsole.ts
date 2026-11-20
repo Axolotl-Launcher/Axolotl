@@ -25,7 +25,7 @@ interface InstanceConsoleEntry {
     historicalConsole: ConsoleState
     historicalCache: Map<string, string>
     logList: LogEntry[] | null
-    liveHistoryHydration: Promise<void> | null
+    liveHistoryRead: Promise<[string, string]> | null
 }
 
 const instances = new Map<string, InstanceConsoleEntry>()
@@ -39,42 +39,39 @@ function getOrCreate(instanceId: string): InstanceConsoleEntry {
         historicalConsole: createConsoleState(),
         historicalCache: new Map(),
         logList: null,
-        liveHistoryHydration: null,
+        liveHistoryRead: null,
     }
     instances.set(instanceId, entry)
     return entry
 }
 
-async function hydrate(instanceId: string): Promise<void> {
+async function hydrate(instanceId: string, isDisposed: () => boolean): Promise<void> {
     const entry = getOrCreate(instanceId)
-    if (entry.liveConsole.output.value.length > 0) return
+    if (isDisposed() || entry.liveConsole.output.value.length > 0) return
 
-    if (entry.liveHistoryHydration) {
-        return entry.liveHistoryHydration
-    }
+    const read = (entry.liveHistoryRead ??= Promise.all([
+        get_minecraft_latest_log_cursor(instanceId, 0)
+            .then((result) => result.output)
+            .catch(() => ''),
+        get_live_log_buffer(instanceId),
+    ]))
 
-    const hydration = (async () => {
-        const [latestLog, buffer] = await Promise.all([
-            get_minecraft_latest_log_cursor(instanceId, 0)
-                .then((result) => result.output)
-                .catch(() => ''),
-            get_live_log_buffer(instanceId),
-        ])
-
-        if (entry.liveConsole.output.value.length > 0) return
-
+    try {
+        const [latestLog, buffer] = await read
+        if (
+            isDisposed() ||
+            instances.get(instanceId) !== entry ||
+            entry.liveConsole.output.value.length > 0
+        ) {
+            return
+        }
         const history = mergeLiveLogHistory(latestLog, buffer)
         if (history) {
             await entry.liveConsole.addLegacyLog(history)
         }
-    })()
-
-    entry.liveHistoryHydration = hydration
-    try {
-        await hydration
     } finally {
-        if (entry.liveHistoryHydration === hydration) {
-            entry.liveHistoryHydration = null
+        if (entry.liveHistoryRead === read) {
+            entry.liveHistoryRead = null
         }
     }
 }
@@ -122,7 +119,7 @@ export function useInstanceConsole(instanceId: string) {
     return {
         liveConsole: entry.liveConsole,
         historicalConsole: entry.historicalConsole,
-        hydrate: () => hydrate(instanceId),
+        hydrate: (isDisposed: () => boolean) => hydrate(instanceId, isDisposed),
         getHistoricalLogs: () => getHistoricalLogs(instanceId),
         getHistoricalContent: (filename: string) => getHistoricalContent(instanceId, filename),
         invalidate: () => invalidate(instanceId),

@@ -268,7 +268,7 @@ if (!isDisposed() && !props.playing) {
     void analyseForCrash()
 }
 
-void hydrate()
+void hydrate(isDisposed)
     .catch(handleError)
     .then(() =>
         subscribe(log_listener, (payload) => {

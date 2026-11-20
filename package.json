@@ -16,6 +16,8 @@
     "ci": "turbo run lint test --continue",
     "prepr": "turbo run prepr --continue",
     "prepr:frontend": "turbo run prepr --filter=@modrinth/app-frontend",
+    "prepr:frontend:lib": "turbo run prepr --filter=@modrinth/ui --filter=@modrinth/assets --filter=@modrinth/api-client --filter=@modrinth/utils --filter=@modrinth/server --filter=@modrinth/tooling-config",
+    "prepr:frontend:app": "turbo run prepr --filter=@modrinth/app-frontend",
     "icons:add": "pnpm --filter @modrinth/assets icons:add",
     "scripts": "node scripts/run.mjs",
     "axolotl:brand-guard": "node scripts/axolotl/brand-guard.mjs",

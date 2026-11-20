@@ -72,7 +72,10 @@ onBeforeUnmount(() => {
 @media screen and (max-width: 750px) {
     .scroll-to-top-wrapper {
         bottom: max(
-            calc(1rem + var(--floating-action-bar-clearance, 0px)),
+            calc(
+                1rem + var(--floating-action-bar-clearance, 0px) +
+                    var(--size-mobile-navbar-height, 0px)
+            ),
             var(--notification-panel-clearance, 0px)
         );
     }

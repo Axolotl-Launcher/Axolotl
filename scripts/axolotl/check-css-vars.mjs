@@ -161,6 +161,10 @@ allow('runtime-set', [
         'transparent-window-alpha',
         'apps/app-frontend/src/store/theme.ts setProperty `--transparent-window-alpha`',
     ],
+    [
+        'size-mobile-navbar-height',
+        'packages/ui/src/test/scroll-to-top.visual.spec.ts setProperty `--size-mobile-navbar-height` on body; host shells provide it for mobile navbar clearance',
+    ],
 ])
 
 // References with no declaration. These are harmless: an inline fallback, or a

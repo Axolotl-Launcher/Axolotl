@@ -36,6 +36,9 @@ const emit = defineEmits<{
 
 const { formatMessage, locale } = useVIntl()
 
+/** 说明文字按域取 i18n 译文，没有译文时退回目录里的英文原文。 */
+const describe = (spec: NbtFieldSpec) => fieldDescription(spec, props.domain, formatMessage)
+
 const messages = defineMessages({
     titleEntity: {
         id: 'app.lab.command-generator.nbt.palette.title.entity',
@@ -342,9 +345,9 @@ defineExpose({ show, hide })
                                 >
                             </span>
                             <span
-                                v-if="fieldDescription(spec)"
+                                v-if="describe(spec)"
                                 class="line-clamp-2 text-xs leading-4 text-[var(--color-text-tertiary)]"
-                                >{{ fieldDescription(spec) }}</span
+                                >{{ describe(spec) }}</span
                             >
                         </span>
                     </button>

@@ -2,11 +2,25 @@
  * 目录字段的显示文案。
  *
  * 中文标签来自数据文件（wiki 只有英文，中文是整理时补的），英文标签由键名
- * 推导，说明文字只有英文原文——把它硬翻成中文反而不如直接看 wiki 术语准确。
+ * 推导。说明文字走 i18n：物品组件的译文在 `descriptions.ts`，其余域暂时回退到
+ * wiki 英文原文。
  */
 
+import { ITEM_COMPONENT_DESCRIPTIONS } from './descriptions.ts'
 import type { NbtTagType } from './model.ts'
-import { humanizeKey, type NbtFieldSpec } from './schema.ts'
+import { humanizeKey, type NbtDomain, type NbtFieldSpec } from './schema.ts'
+
+interface MessageDescriptor {
+    id: string
+    defaultMessage: string
+}
+
+/** `useVIntl()` 的 `formatMessage`，只取这里用得到的部分。 */
+export type MessageFormatter = (descriptor: MessageDescriptor) => string
+
+const DESCRIPTIONS: Partial<Record<NbtDomain, Record<string, MessageDescriptor>>> = {
+    item: ITEM_COMPONENT_DESCRIPTIONS as Record<string, MessageDescriptor>,
+}
 
 /** 列表里用的紧凑类型标记：和 SNBT 的写法保持一致，省得再记一套缩写。 */
 export const NBT_TYPE_SHORT: Record<NbtTagType, string> = {
@@ -49,8 +63,14 @@ export function fieldLabel(spec: NbtFieldSpec, locale: string): string {
     return humanizeKey(spec.key)
 }
 
-/** 字段的补充说明，没有时返回空串。 */
-export function fieldDescription(spec: NbtFieldSpec): string {
+/** 字段的补充说明：有译文用译文，否则用 wiki 英文原文。 */
+export function fieldDescription(
+    spec: NbtFieldSpec,
+    domain: NbtDomain,
+    formatMessage: MessageFormatter,
+): string {
+    const descriptor = DESCRIPTIONS[domain]?.[spec.key]
+    if (descriptor) return formatMessage(descriptor)
     return spec.desc ?? ''
 }
 

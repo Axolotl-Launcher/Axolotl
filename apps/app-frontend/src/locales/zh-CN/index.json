@@ -7976,6 +7976,291 @@
   "app.lab.command-generator.nbt.child-count": {
     "message": "{count} 个子项"
   },
+  "app.lab.command-generator.nbt.desc.item.additional_trade_cost": {
+    "message": "用在村民交易的「获得物品」上，用来增加「需求物品」的数量。"
+  },
+  "app.lab.command-generator.nbt.desc.item.attack_animation": {
+    "message": "用该物品攻击时播放的挥动动画。"
+  },
+  "app.lab.command-generator.nbt.desc.item.attack_range": {
+    "message": "决定武器的攻击距离与判定箱外扩范围。"
+  },
+  "app.lab.command-generator.nbt.desc.item.attribute_modifiers": {
+    "message": "属性修饰符列表。物品被玩家或生物装备时生效；装备槽位不对则不生效，物品移出槽位或被删除后修饰符一并移除。未被隐藏的修饰符会列在物品提示框里。"
+  },
+  "app.lab.command-generator.nbt.desc.item.banner_patterns": {
+    "message": "旗帜或盾牌上的全部图案。用于盾牌且未指定 minecraft:base_color 时，底色按白色处理。"
+  },
+  "app.lab.command-generator.nbt.desc.item.base_color": {
+    "message": "盾牌上旗帜的底色染料。既没有它也没有 minecraft:banner_patterns 时，盾牌显示普通木质外观；只有图案没有它时底色为白色。用在盾牌上时物品名会被改写为「'<颜色>'盾牌」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees": {
+    "message": "蜂巢或蜂箱中当前的实体列表。用在物品上时提示框会显示条目数（如「蜜蜂：2 / 3」），且每个条目在 minecraft:bundle_contents 里都按整组计算。提示框写着最多 3 条，但这个组件本身没有数量上限。"
+  },
+  "app.lab.command-generator.nbt.desc.item.block_entity_data": {
+    "message": "放置该方块时应用的方块实体 NBT。视方块类型与这里指定的方块实体 ID，可能给物品提示框加一行红色警告（仅管理员可见），提示放置后可能执行命令。"
+  },
+  "app.lab.command-generator.nbt.desc.item.block_state": {
+    "message": "放置该方块时应用的方块状态属性。用在物品上时，如果 honey_level 被设为 0 到 5，提示框会多一行灰色「蜂蜜：'<honey_level>' / 5」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.block_transformer": {
+    "message": "一个方块转换器（ID）。定义该物品在方块内的用法。有些方块的用法取决于方块并优先，有些物品的用法是写死的。"
+  },
+  "app.lab.command-generator.nbt.desc.item.blocks_attacks": {
+    "message": "存在时，该物品可以像盾牌一样格挡对持有者的攻击。"
+  },
+  "app.lab.command-generator.nbt.desc.item.break_sound": {
+    "message": "耐久耗尽而损坏时播放的服务器端音效事件（ID，或新的音效事件定义）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.brewing_fuel": {
+    "message": "存在时，该物品可作为酿造台的燃料。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bucket_entity_data": {
+    "message": "从该桶倒出实体时应用的 NBT。只有下列标签会生效。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bundle_contents": {
+    "message": "收纳袋里装的物品。加到任何物品上都会让它占用 1/16 个收纳袋的空间，再加上这里指定的物品，无论该物品原本怎么堆叠。带此组件的潜影盒仍然不能放进收纳袋。若从收纳袋上移除该组件，玩家就无法使用它，提示框里的用法说明与容量条也会消失。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_break": {
+    "message": "存在时，持有该物品的玩家在冒险模式下可以破坏指定的方块。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_place_on": {
+    "message": "决定带该组件的方块在冒险模式下可以贴着哪些方块放置。写成复合标签时对应单个方块谓词。物品提示框按指定顺序列出这些方块。"
+  },
+  "app.lab.command-generator.nbt.desc.item.charged_projectiles": {
+    "message": "已装填进这把弩的投射物。有物品栈时，提示框会按「投射物：['<名称>']」列出；重复的条目合并为「投射物：N x ['<名称>']」。不存在时这把弩未装填。"
+  },
+  "app.lab.command-generator.nbt.desc.item.compostable": {
+    "message": "存在时，无论 layers 的取值如何，该物品都能用在堆肥桶上。"
+  },
+  "app.lab.command-generator.nbt.desc.item.consumable": {
+    "message": "存在时，该物品可以被食用，其参数也可以调整。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container": {
+    "message": "容器各槽位里的物品。用在物品上时，提示框列出前 5 个槽位，多出来的显示为「还有 '<N>' 个…」（正常游戏里只有潜影盒会这样，创造模式中键点击的容器也会）。最多支持 256 个槽位，但用在某些方块实体上时，槽位数会按方块需要被限制（例如饰纹陶罐 1 个、箱子 27 个）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container_loot": {
+    "message": "该容器物品尚未解析的战利品表与种子。"
+  },
+  "app.lab.command-generator.nbt.desc.item.cooking_fuel": {
+    "message": "控制该物品能否作为熔炉燃料，以及燃料效率。"
+  },
+  "app.lab.command-generator.nbt.desc.item.creative_slot_lock": {
+    "message": "仅内部使用，用于锁住创造模式物品栏里的说明纸片。设置后该物品无法从槽位取出。"
+  },
+  "app.lab.command-generator.nbt.desc.item.custom_data": {
+    "message": "存放游戏不使用的自定义键值对，可以写成对象，也可以写成 SNBT 字符串。"
+  },
+  "app.lab.command-generator.nbt.desc.item.custom_model_data": {
+    "message": "供物品模型定义做模型选择与染色的一组值。"
+  },
+  "app.lab.command-generator.nbt.desc.item.custom_name": {
+    "message": "指定物品、方块或实体的自定义名称。"
+  },
+  "app.lab.command-generator.nbt.desc.item.damage": {
+    "message": "该物品耐久已消耗（不是剩余）的次数。必须是非负整数，默认 0。不存在时物品不会掉耐久。若该值非 0、物品同时有 minecraft:max_damage、且悬停的玩家开了高级提示框，提示框会加一行白色「耐久：'<durability>' / '<max_damage>'」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.damage_resistant": {
+    "message": "指定后，该物品以实体形式存在或被装备时免疫指定的伤害类型。"
+  },
+  "app.lab.command-generator.nbt.desc.item.damage_type": {
+    "message": "指定该物品造成的伤害类型。"
+  },
+  "app.lab.command-generator.nbt.desc.item.death_protection": {
+    "message": "存在时，该物品通过恢复 1 点生命值让持有者免于死亡。"
+  },
+  "app.lab.command-generator.nbt.desc.item.debug_stick_state": {
+    "message": "调试棒当前选中的方块状态属性。"
+  },
+  "app.lab.command-generator.nbt.desc.item.dye": {
+    "message": "用在物品上时，记录该物品在合成配方与生物 / 方块交互中可当作哪种染料使用。取值可为 white、orange、magenta、light_blue、yellow、lime、pink、gray、light_gray、cyan、purple、blue、brown、green、red 或 black。"
+  },
+  "app.lab.command-generator.nbt.desc.item.dyed_color": {
+    "message": "染色物品的 RGB 色调，通常由 minecraft:crafting_dyed 类配方与染料合成而来。更一般地，它对应物品模型定义里的 minecraft:dye 颜色提供器（只有显式使用该颜色提供器的模型才会被染色）。用在物品上时，提示框会加一行灰色文字：关闭高级提示框时是斜体「已染色」，开启时是「颜色：#'<十六进制>'」。颜色以整数保存，按 (红 ＜＜ 16) + (绿 ＜＜ 8) + 蓝 打包。"
+  },
+  "app.lab.command-generator.nbt.desc.item.enchantable": {
+    "message": "该组件与 minecraft:enchantments 同时存在、且有可用附魔时，物品才能在附魔台上附魔。"
+  },
+  "app.lab.command-generator.nbt.desc.item.enchantment_glint_override": {
+    "message": "覆盖该物品的附魔光效。为 true 时即使没有附魔也显示光效；为 false 时即使有附魔也不显示。"
+  },
+  "app.lab.command-generator.nbt.desc.item.enchantments": {
+    "message": "记录该物品每个附魔及其等级。物品必须同时有它和 minecraft:enchantable 才能在附魔台上附魔。存在时物品名的颜色按稀有度变为青色（普通 / 罕见）或淡紫色（稀有 / 史诗），附魔也会列在提示框里，顺序由 #minecraft:tooltip_order 附魔标签决定。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data": {
+    "message": "由物品生成实体时应用的 NBT。若游戏难度为和平、且这里的 id 是敌对生物，提示框会加一行红色「和平模式下已禁用」。若物品是刷怪蛋且 id 为 falling_block、command_block_minecart 或 spawner_minecart，提示框会加一行红色警告（仅管理员可见），提示使用后可能执行命令。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable": {
+    "message": "存在时，该物品可以装备到指定的槽位。"
+  },
+  "app.lab.command-generator.nbt.desc.item.firework_explosion": {
+    "message": "该烟花球储存的爆炸效果。"
+  },
+  "app.lab.command-generator.nbt.desc.item.fireworks": {
+    "message": "该烟花火箭的飞行时长以及携带的爆炸效果。"
+  },
+  "app.lab.command-generator.nbt.desc.item.food": {
+    "message": "食用该物品后施加给生物或玩家的食物数值。"
+  },
+  "app.lab.command-generator.nbt.desc.item.glider": {
+    "message": "存在时，装备后可以让生物像鞘翅一样滑翔。若物品有耐久，则只有 minecraft:damage 小于 minecraft:max_damage − 1 时才能滑翔。生物滑翔期间每秒会随机挑一件还能用的滑翔装备，尝试扣 1 点耐久。"
+  },
+  "app.lab.command-generator.nbt.desc.item.instrument": {
+    "message": "一件乐器（ID，或新的乐器定义）。用在物品上时，提示框会以灰色文字显示该乐器的说明。"
+  },
+  "app.lab.command-generator.nbt.desc.item.intangible_projectile": {
+    "message": "用在击中后不会损坏的投射物（如箭、三叉戟）上时，射出后玩家无法拾取，除非在创造模式。用在任何物品上都会给提示框加一行灰色「无形」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.interact_animation": {
+    "message": "用该物品与某物交互时播放的挥动动画。"
+  },
+  "app.lab.command-generator.nbt.desc.item.item_model": {
+    "message": "物品模型定义的标识。引用不存在的模型会使用缺失模型。"
+  },
+  "app.lab.command-generator.nbt.desc.item.item_name": {
+    "message": "该物品的默认名称（文本组件），所有物品默认都有。与 minecraft:custom_name 不同，它不能用铁砧抹掉、不是斜体，也不会出现在旗帜标记、物品展示框等部分标签里。"
+  },
+  "app.lab.command-generator.nbt.desc.item.jukebox_playable": {
+    "message": "放进唱片机时播放的一首曲子（ID）。用在物品上时，物品可以放进唱片机播放该曲目，提示框会以灰色文字显示曲目的作者与标题。"
+  },
+  "app.lab.command-generator.nbt.desc.item.kinetic_weapon": {
+    "message": "让物品拥有蓄力攻击：使用期间每刻沿一条射线按实体相对速度结算伤害。"
+  },
+  "app.lab.command-generator.nbt.desc.item.lock": {
+    "message": "一个物品谓词，充当打开该容器的「钥匙」。用在方块上时，玩家主手必须持有通过该谓词的物品才能打开；否则交互只会播放音效并在动作栏提示。"
+  },
+  "app.lab.command-generator.nbt.desc.item.lodestone_tracker": {
+    "message": "记录该指南针指向的磁石信息。用在指南针上时物品名会被改写为「磁石指南针」。放在玩家物品栏中时，它会主动轮询磁石位置是否已加载；若已加载且磁石被破坏，该组件会被移除。"
+  },
+  "app.lab.command-generator.nbt.desc.item.lore": {
+    "message": "在物品提示框里额外显示的行，最多 256 行。"
+  },
+  "app.lab.command-generator.nbt.desc.item.map_color": {
+    "message": "物品模型定义里 minecraft:map_color 颜色提供器使用的颜色代码。通常由 minecraft:filled_map 模型使用。"
+  },
+  "app.lab.command-generator.nbt.desc.item.map_decorations": {
+    "message": "该已绘制地图上要显示的图标键值对。"
+  },
+  "app.lab.command-generator.nbt.desc.item.map_id": {
+    "message": "该物品的地图数据编号，代表共享的地图内容、旗帜与展示框装饰状态。存在时会给提示框补充信息，并改变手持或展示框中的地图渲染。只有地图（filled_map）与探险家地图能更新地图内容。"
+  },
+  "app.lab.command-generator.nbt.desc.item.map_post_processing": {
+    "message": "仅内部使用，在该已绘制地图于工作台或制图台被复制或锁定时写入。0 表示锁定、1 表示缩放，分别对应提示框里的「已锁定」与「已缩放」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.max_damage": {
+    "message": "该物品能承受的最大伤害值。不设置则物品不会掉耐久。必须是正整数。若该物品可堆叠（值大于 1），不能与 minecraft:max_stack_size 同时使用。要让耐久条显示，damage 组件必须有值，例如 damage=0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.max_stack_size": {
+    "message": "一组最多能放多少个。必须是 1 到 99 之间的正整数。值大于 1（可堆叠）时不能与 minecraft:max_damage 同时使用。移除该组件等同于设为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.minimum_attack_charge": {
+    "message": "设置用该物品攻击时攻击指示器所需的最低蓄力值。必须是 0.0 到 1.0 之间的非负浮点数。"
+  },
+  "app.lab.command-generator.nbt.desc.item.mob_visibility": {
+    "message": "表示带有相应 minecraft:equippable 组件的物品提供的可见度百分比，用于调整生物发现实体的距离。"
+  },
+  "app.lab.command-generator.nbt.desc.item.note_block_sound": {
+    "message": "该玩家头颅放在音符盒上时，音符盒播放的音效事件 ID。"
+  },
+  "app.lab.command-generator.nbt.desc.item.ominous_bottle_amplifier": {
+    "message": "食用该物品（通常是怵悚之瓶）后给予的凶兆效果倍率。必须是 0 到 4 的非负整数。效果时长固定为 120000 刻（正常刻率下 1 小时 40 分钟），且忽略 minecraft:potion_duration_scale。存在时，提示框会按 minecraft:potion_contents 的格式显示该状态效果信息。"
+  },
+  "app.lab.command-generator.nbt.desc.item.piercing_weapon": {
+    "message": "用该物品近战时会沿射线伤害多个实体，而不只一个；同时也让该物品不能用来挖掘方块。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations": {
+    "message": "从各面到物品栈的映射（通常是陶片或红砖），各面可以为空。用在饰纹陶罐上时，决定破坏后各面掉落的物品。若物品带有 minecraft:provides_pottery_pattern，则决定对应面的纹理。"
+  },
+  "app.lab.command-generator.nbt.desc.item.potion_contents": {
+    "message": "该药水、喷溅药水、滞留药水、药箭或区域效果云包含的基础药水、自定义状态效果列表与自定义颜色。用在物品上时，状态效果会列在提示框里。若同时有 minecraft:consumable，食用后会把这里的效果全部施加给食用者。写成字符串时对应 potion 字段。"
+  },
+  "app.lab.command-generator.nbt.desc.item.potion_duration_scale": {
+    "message": "用在带有 minecraft:potion_contents 的物品或区域效果云上时，施加的效果时长按此系数缩放。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile": {
+    "message": "提供渲染玩家模型（玩家头颅方块、玩家头颅物品模型、假人）与玩家头像所需的纹理。每个纹理既可以写成资源包中纹理的命名空间路径，也可以来自玩家档案；玩家档案既可以只给需要实时请求的名字或 UUID，也可以给出已解析的属性列表。"
+  },
+  "app.lab.command-generator.nbt.desc.item.provides_banner_patterns": {
+    "message": "任意数量的旗帜图案（ID、带 # 的标签，或 ID 列表）。存在时，该物品可以放进织布机的图案槽并提供这些图案。"
+  },
+  "app.lab.command-generator.nbt.desc.item.provides_pottery_pattern": {
+    "message": "一个饰纹陶罐图案（ID）。存在时，该物品用在陶罐侧面会提供该图案。"
+  },
+  "app.lab.command-generator.nbt.desc.item.provides_trim_material": {
+    "message": "一种盔甲纹饰材质（ID，或新的纹饰材质定义）。存在时，该物品用于锻造纹饰配方会提供该材质。"
+  },
+  "app.lab.command-generator.nbt.desc.item.rarity": {
+    "message": "设置物品稀有度，影响名称的默认颜色。可取 common、uncommon、rare 或 epic。没有该组件时按 common 处理。"
+  },
+  "app.lab.command-generator.nbt.desc.item.recipes": {
+    "message": "使用该知识之书时玩家解锁的配方。"
+  },
+  "app.lab.command-generator.nbt.desc.item.repair_cost": {
+    "message": "用铁砧修理、合并或重命名时，加在基础经验消耗上的等级数。必须是非负整数，默认 0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.repairable": {
+    "message": "允许有耐久的物品在铁砧上用指定材料修理；也能修理已驯服狼身上装备的物品。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sign_text_back": {
+    "message": "告示牌背面的文字。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sign_text_front": {
+    "message": "告示牌正面的文字。"
+  },
+  "app.lab.command-generator.nbt.desc.item.stored_enchantments": {
+    "message": "记录未生效的附魔及其等级。加到除附魔书以外的物品上只会给提示框加文字。从附魔书上移除后，该物品不能再与其他附魔书合并。存在时附魔会列在提示框里，顺序由 #minecraft:tooltip_order 附魔标签决定。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sulfur_cube_content": {
+    "message": "硫磺方块里存放的物品。"
+  },
+  "app.lab.command-generator.nbt.desc.item.suspicious_stew_effects": {
+    "message": "食用该物品（通常是迷之炖菜）后施加给玩家或生物的一组无倍率状态效果，且忽略 minecraft:potion_duration_scale。存在时，只有在物品选择界面里才会显示相关提示文字。"
+  },
+  "app.lab.command-generator.nbt.desc.item.swing_animation": {
+    "message": "26.3 起该组件拆分为 attack_animation 与 interact_animation。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag": {
+    "message": "1.20.5 之前的物品数据，已被数据组件取代。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tool": {
+    "message": "设置后，该物品被当作工具。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tooltip_display": {
+    "message": "允许屏蔽指定物品组件提供的提示框内容。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tooltip_style": {
+    "message": "提示框背景与边框所用自定义贴图的标识，指向 /assets/'<namespace>'/textures/gui/sprites/tooltip/'<id>'_background 与 /assets/'<namespace>'/textures/gui/sprites/tooltip/'<id>'_frame。写错时不会回退到默认值，而是使用缺失贴图。"
+  },
+  "app.lab.command-generator.nbt.desc.item.trim": {
+    "message": "该盔甲上的纹饰。存在时，提示框会补充盔甲纹饰信息。"
+  },
+  "app.lab.command-generator.nbt.desc.item.unbreakable": {
+    "message": "用在物品上时，物品不会掉耐久、耐久条被隐藏，提示框加一行蓝色「无法破坏」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_cooldown": {
+    "message": "存在时，使用后会给同类物品施加使用冷却。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_effects": {
+    "message": "定义带持续使用动作的物品在使用期间的振动与玩家移动惩罚。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_remainder": {
+    "message": "存在时，使用后若数量减少，则把物品替换为剩余的物品。"
+  },
+  "app.lab.command-generator.nbt.desc.item.villager_food": {
+    "message": "存在时，村民可以拾取并食用该物品。"
+  },
+  "app.lab.command-generator.nbt.desc.item.waxed": {
+    "message": "存在时，方块内容被涂蜡。对有独立涂蜡变种的方块不适用，那种情况请改用对应的 block_state。"
+  },
+  "app.lab.command-generator.nbt.desc.item.weapon": {
+    "message": "存在时，该物品作为武器使用。攻击伤害见 attribute_modifiers 组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.writable_book_content": {
+    "message": "书与笔的内容。加到 writable_book 以外的物品上没有效果。从 writable_book 上移除后，使用该物品仍会挥手并增加使用统计，但不会打开界面。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content": {
+    "message": "成书的内容与元数据。加到 written_book 以外的物品上只会给提示框加文字。从 written_book 上移除后，使用该物品仍会挥手并增加使用统计，但不会打开界面。"
+  },
   "app.lab.command-generator.nbt.edit-as-group": {
     "message": "按列表编辑"
   },

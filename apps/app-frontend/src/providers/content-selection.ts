@@ -502,13 +502,6 @@ export function createContentSelection({
         selectionRequests.clear()
         items.value = new Map()
         errorKeys.value = new Set()
-        installedIdentityRequestId += 1
-        installedIdentityCache.clear()
-        installedIdentityRequests.clear()
-        staleInstalledIdentities.clear()
-        installedContentKeys.clear()
-        installedIdentityKeys.value = new Set()
-        installedIdentitySlugs.value = new Set()
     }
 
     function updateVersion(

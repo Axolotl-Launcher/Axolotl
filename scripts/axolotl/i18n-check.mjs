@@ -20,6 +20,7 @@ const allowedUntranslatedMessages = new Set([
     'Explore high-quality Minecraft content on Modrinth.',
     'example.modrinth.gg',
     '{title} - {count}',
+    '@e[type=zombie,distance=..10]',
     'Hooks',
     '/path/to/java',
     'https://example.com/api/yggdrasil',

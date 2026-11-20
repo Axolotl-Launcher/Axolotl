@@ -18,12 +18,15 @@ import { getCurrentVersion } from '@/lab/command-generator/commands/registry.ts'
 import type { ArgumentPreset, CommandArgument } from '@/lab/command-generator/commands/types.ts'
 import advancementsData from '@/lab/command-generator/data/advancements.json'
 import effectsData from '@/lab/command-generator/data/effects.json'
+import entitiesData from '@/lab/command-generator/data/entities.json'
+import type { NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
 import type { SlotDisplay } from '@/lab/recipe-generator/display'
 import { getSlotDisplay } from '@/lab/recipe-generator/display'
 import { buildSlotContext } from '@/lab/recipe-generator/slot-context'
 import type { JavaVersionId, SlotValue } from '@/lab/recipe-generator/types'
 import { loadVersionResources, TEXTURE_ATLAS } from '@/lab/shared/minecraft/resources'
 
+import CommandGeneratorEntitySelector from './CommandGeneratorEntitySelector.vue'
 import CommandGeneratorItemPickerModal from './CommandGeneratorItemPickerModal.vue'
 import CommandGeneratorNbtEditor from './CommandGeneratorNbtEditor.vue'
 
@@ -32,15 +35,20 @@ const props = defineProps<{
     modelValue: string | number | boolean | undefined
     version?: string
     forceDataComponents?: boolean
+    /** NBT 面板的目录域与目标 ID（由父组件从同命令的其它参数派生）。 */
+    nbtDomain?: NbtDomain
+    nbtTargetId?: string
 }>()
 
 const fieldId = useId()
 
 const emit = defineEmits<{
     'update:modelValue': [value: string | number | boolean]
+    /** 选择器里的 `type=` 变化，父组件据此收窄同命令的 NBT 面板。 */
+    'update:nbt-target': [targetId: string | undefined]
 }>()
 
-const { formatMessage } = useVIntl()
+const { formatMessage, locale } = useVIntl()
 
 const messages = defineMessages({
     argRequired: {
@@ -199,6 +207,16 @@ const GAMERULE_DEFAULT_PRESETS: ArgumentPreset[] = [
 const isNumber = computed(() => props.arg.type === 'number' || props.arg.type === 'integer')
 const isNbt = computed(() => props.arg.supportsNbtEditor === true)
 const isItem = computed(() => props.arg.type === 'item')
+const isEntityType = computed(() => props.arg.type === 'entity-type')
+
+/** `/summon` 的实体参数：用 datalist 提供可搜索的实体 ID，中英文名都显示。 */
+const entityListId = `entity-types-${fieldId}`
+const entityOptions = entitiesData.entities as Array<{ id: string; en?: string; zh?: string }>
+
+function entityOptionLabel(entry: { id: string; en?: string; zh?: string }): string {
+    const name = locale.value.toLowerCase().startsWith('zh') ? entry.zh : entry.en
+    return name ? `${name} (${entry.id})` : entry.id
+}
 const isBlock = computed(() => props.arg.type === 'block')
 const isEffect = computed(() => props.arg.type === 'effect')
 const isAdvancement = computed(() => props.arg.type === 'advancement')
@@ -647,6 +665,8 @@ function coordinateModeLabel(mode: CoordinateMode): string {
             :kind="arg.nbtKind"
             :version="version"
             :force-data-components="forceDataComponents"
+            :domain="nbtDomain"
+            :target-id="nbtTargetId"
             @update:model-value="emit('update:modelValue', $event)"
         />
         <Combobox
@@ -703,6 +723,26 @@ function coordinateModeLabel(mode: CoordinateMode): string {
                 }}
             </Button>
         </div>
+        <div v-else-if="isEntityType" class="relative min-w-0 flex-1">
+            <input
+                :id="fieldId"
+                class="w-full rounded-lg border-0 bg-surface-4 px-3 py-2 font-mono text-sm text-[var(--color-text-primary)] outline-none focus:ring-4 focus:ring-brand-shadow"
+                :aria-label="formatDynamic(arg.displayNameKey, arg.name)"
+                :placeholder="arg.placeholder ?? 'minecraft:zombie'"
+                :list="entityListId"
+                :spellcheck="false"
+                :value="String(modelValue ?? '')"
+                @input="onTextInput(($event.target as HTMLInputElement).value)"
+            />
+        </div>
+        <CommandGeneratorEntitySelector
+            v-else-if="arg.type === 'entity-selector'"
+            :model-value="String(modelValue ?? '')"
+            :version="version"
+            :aria-label="formatDynamic(arg.displayNameKey, arg.name)"
+            @update:model-value="onTextInput"
+            @update:nbt-target="emit('update:nbt-target', $event)"
+        />
         <StyledInput
             v-else-if="isMixedCoordinates && mixedAsEntity"
             :id="fieldId"
@@ -787,6 +827,11 @@ function coordinateModeLabel(mode: CoordinateMode): string {
                 >+{{ hiddenPresetCount }}</Button
             >
         </div>
+        <datalist v-if="isEntityType" :id="entityListId">
+            <option v-for="entry in entityOptions" :key="entry.id" :value="entry.id">
+                {{ entityOptionLabel(entry) }}
+            </option>
+        </datalist>
         <CommandGeneratorItemPickerModal
             v-if="isItem || isBlock || isEffect || isAdvancement"
             ref="itemPickerRef"

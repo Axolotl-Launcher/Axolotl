@@ -2812,7 +2812,7 @@
         {
           "name": "entity",
           "displayNameKey": "app.lab.command-generator.arg.summon.entity.display",
-          "type": "string",
+          "type": "entity-type",
           "required": true,
           "descriptionKey": "app.lab.command-generator.arg.summon.entity.desc",
           "placeholder": "minecraft:axolotl",

@@ -3,6 +3,7 @@ import { Button, defineMessages, useVIntl } from '@modrinth/ui'
 import { ref, watch } from 'vue'
 
 import type { NbtKind } from '@/lab/command-generator/commands/types.ts'
+import type { NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
 
 import CommandGeneratorItemNbt from './CommandGeneratorItemNbt.vue'
 import CommandGeneratorNbtAdvanced from './CommandGeneratorNbtAdvanced.vue'
@@ -12,6 +13,9 @@ const props = defineProps<{
     kind?: NbtKind
     version?: string
     forceDataComponents?: boolean
+    /** 目录域与目标实体 / 物品，决定高级模式里搜索面板的候选字段。 */
+    domain?: NbtDomain
+    targetId?: string
 }>()
 
 const emit = defineEmits<{
@@ -73,6 +77,8 @@ watch(
             :kind="kind"
             :version="version"
             :force-data-components="forceDataComponents"
+            :domain="domain"
+            :target-id="targetId"
             @update:model-value="emit('update:modelValue', $event)"
         />
     </div>

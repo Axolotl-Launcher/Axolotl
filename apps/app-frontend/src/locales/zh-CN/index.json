@@ -8876,6 +8876,63 @@
   "app.lab.command-generator.select-version": {
     "message": "游戏版本"
   },
+  "app.lab.command-generator.selector.add-filter": {
+    "message": "添加筛选"
+  },
+  "app.lab.command-generator.selector.entity-search": {
+    "message": "实体 ID"
+  },
+  "app.lab.command-generator.selector.filters": {
+    "message": "筛选条件"
+  },
+  "app.lab.command-generator.selector.group.entity-data": {
+    "message": "实体数据"
+  },
+  "app.lab.command-generator.selector.group.limit": {
+    "message": "数量"
+  },
+  "app.lab.command-generator.selector.group.player-data": {
+    "message": "玩家数据"
+  },
+  "app.lab.command-generator.selector.group.scoreboard": {
+    "message": "计分板"
+  },
+  "app.lab.command-generator.selector.group.space": {
+    "message": "空间"
+  },
+  "app.lab.command-generator.selector.group.species": {
+    "message": "物种"
+  },
+  "app.lab.command-generator.selector.input-label": {
+    "message": "目标选择器"
+  },
+  "app.lab.command-generator.selector.max": {
+    "message": "最大"
+  },
+  "app.lab.command-generator.selector.min": {
+    "message": "最小"
+  },
+  "app.lab.command-generator.selector.no-filters": {
+    "message": "还没有筛选条件，可以在上面的输入框里写，也可以直接添加。"
+  },
+  "app.lab.command-generator.selector.placeholder": {
+    "message": "@e[type=zombie,distance=..10]"
+  },
+  "app.lab.command-generator.selector.players-only-hint": {
+    "message": "这个条件只匹配玩家，其它实体会被忽略。"
+  },
+  "app.lab.command-generator.selector.remove-filter": {
+    "message": "移除筛选"
+  },
+  "app.lab.command-generator.selector.suggestions": {
+    "message": "参数建议"
+  },
+  "app.lab.command-generator.selector.value": {
+    "message": "值"
+  },
+  "app.lab.command-generator.selector.variable": {
+    "message": "目标变量"
+  },
   "app.lab.command-generator.start-hint": {
     "message": "搜索命令名称，或从常用命令开始。"
   },

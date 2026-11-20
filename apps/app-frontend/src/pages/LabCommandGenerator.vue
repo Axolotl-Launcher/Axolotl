@@ -44,6 +44,7 @@ import {
     validateCommand,
 } from '@/lab/command-generator/generator.ts'
 import { loadManifest } from '@/lab/command-generator/loader.ts'
+import type { NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
 import {
     applyPresetToValues,
     deleteUserPreset,
@@ -51,6 +52,7 @@ import {
     saveUserPreset,
     type UserPreset,
 } from '@/lab/command-generator/presets.ts'
+import { nbtTargetFromSelector } from '@/lab/command-generator/selector/serialize.ts'
 
 const { formatMessage, locale } = useVIntl()
 
@@ -357,6 +359,51 @@ const uiArguments = computed<CommandArgument[]>(() => {
     }
     return [...nonNbt, ...nbt]
 })
+
+/**
+ * NBT 面板的上下文：同一个命令里，实体选择器的 `type=` 或 `/summon` 的实体 ID
+ * 决定「哪些字段适用」。物品侧同理，用 `item` 参数的值作为组件上下文。
+ */
+const nbtContext = computed<{ entity?: string; item?: string }>(() => {
+    const args = uiArguments.value
+    const context: { entity?: string; item?: string } = {}
+
+    const selector = args.find((arg) => arg.type === 'entity-selector')
+    if (selector) {
+        const value = values.value[selector.name]
+        if (typeof value === 'string') context.entity = nbtTargetFromSelector(value)
+    }
+
+    const entityType = args.find((arg) => arg.type === 'entity-type')
+    if (!context.entity && entityType) {
+        const value = values.value[entityType.name]
+        if (typeof value === 'string' && value.trim()) {
+            context.entity = value.trim().replace(/^minecraft:/, '')
+        }
+    }
+
+    const item = args.find((arg) => arg.type === 'item')
+    if (item) {
+        const value = values.value[item.name]
+        if (typeof value === 'string' && value.trim()) {
+            context.item = value.trim().replace(/^minecraft:/, '')
+        }
+    }
+
+    return context
+})
+
+function nbtDomainFor(arg: CommandArgument): NbtDomain | undefined {
+    if (arg.nbtKind === 'entity') return 'entity'
+    if (arg.nbtKind === 'item') return 'item'
+    return undefined
+}
+
+function nbtTargetFor(arg: CommandArgument): string | undefined {
+    if (arg.nbtKind === 'entity') return nbtContext.value.entity
+    if (arg.nbtKind === 'item') return nbtContext.value.item
+    return undefined
+}
 
 const permissionName = computed(() => {
     if (!currentCommand.value) return ''
@@ -831,6 +878,8 @@ async function openWiki() {
                                     :arg="arg"
                                     :version="selectedVersion"
                                     :force-data-components="forceDataComponents"
+                                    :nbt-domain="nbtDomainFor(arg)"
+                                    :nbt-target-id="nbtTargetFor(arg)"
                                 />
                             </details>
                             <CommandGeneratorArgument
@@ -839,6 +888,8 @@ async function openWiki() {
                                 :arg="arg"
                                 :version="selectedVersion"
                                 :force-data-components="forceDataComponents"
+                                :nbt-domain="nbtDomainFor(arg)"
+                                :nbt-target-id="nbtTargetFor(arg)"
                             />
                         </template>
                     </div>

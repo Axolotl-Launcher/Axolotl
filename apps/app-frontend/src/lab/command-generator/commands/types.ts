@@ -6,6 +6,8 @@ export type ArgumentType =
     | 'enum'
     | 'coordinates'
     | 'entity-selector'
+    /** 单个实体 ID（`/summon` 的实体参数），可选可搜索。 */
+    | 'entity-type'
     | 'item'
     | 'block'
     | 'nbt'

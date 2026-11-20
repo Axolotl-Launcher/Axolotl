@@ -1,5 +1,7 @@
+param([string]$TestRoot = (Join-Path $PSScriptRoot '../../../target/uninstall-verification'))
+
 $ErrorActionPreference = 'Stop'
-$testRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../target/uninstall-verification'))
+$testRoot = [System.IO.Path]::GetFullPath($TestRoot)
 $install = Join-Path $testRoot '安装目录 with spaces'
 $status = Join-Path $testRoot 'uninstall.status'
 $bundle = 'red.ghs.axolotl.uninstall-fixture'
@@ -26,6 +28,44 @@ function Uninstall-Fixture([string]$options = '') {
   return Run-Core (Join-Path $testRoot 'core.exe') ('/S /UI_CHILD /STATUS_FILE="' + $status + '" ' + $options + ' _?=' + $install)
 }
 Install-Fixture
+$classes = 'HKCU:\Software\Classes'
+$packIcon = Join-Path $classes 'axlfixturepack\DefaultIcon'
+$schematicIcon = Join-Path $classes 'AxolotlFixtureSchematic\DefaultIcon'
+$packIconPath = Join-Path $install 'resources\file-icons\mrpack.ico'
+$schematicIconPath = Join-Path $install 'resources\file-icons\schem.ico'
+$packExtension = Join-Path $classes '.axlfixturepack'
+$schematicExtensions = 'axlfixtureschem', 'axlfixturelitematic', 'axlfixtureschematic'
+if (!(Test-Path -LiteralPath $packIconPath) -or !(Test-Path -LiteralPath $schematicIconPath)) { throw 'Missing document icon files' }
+if ((Get-Item -LiteralPath $packIcon).GetValue('') -ne "$packIconPath,0") { throw 'Incorrect modpack icon' }
+if ((Get-Item -LiteralPath $schematicIcon).GetValue('') -ne "$schematicIconPath,0") { throw 'Incorrect schematic icon' }
+foreach ($extension in $schematicExtensions) {
+  if ((Get-Item -LiteralPath (Join-Path $classes ".$extension")).GetValue('') -ne 'AxolotlFixtureSchematic') {
+    throw "Incorrect schematic association for .$extension"
+  }
+}
+
+$legacyIcon = (Join-Path $install 'AxolotlUninstallFixture.exe') + ',0'
+Set-Item -LiteralPath $packIcon -Value $legacyIcon
+Set-Item -LiteralPath $schematicIcon -Value $legacyIcon
+Remove-ItemProperty -LiteralPath $reg -Name SchematicFileAssociation
+$competingExtension = Join-Path $classes '.axlfixtureschem'
+Set-Item -LiteralPath $competingExtension -Value 'AxolotlFixtureOtherHandler'
+$code = Run-Core (Join-Path $testRoot 'setup.exe') ('/S /UPDATE /ELEVATED /NO_RUN_AFTER_INSTALL /INSTALL_DIR="' + $install + '"')
+if ($code -ne 0) { throw "Upgrade failed: $code" }
+if ((Get-Item -LiteralPath $packIcon).GetValue('') -ne "$packIconPath,0") { throw 'Upgrade did not refresh the modpack icon' }
+if ((Get-Item -LiteralPath $schematicIcon).GetValue('') -ne "$schematicIconPath,0") { throw 'Upgrade did not refresh the schematic icon' }
+if ((Get-Item -LiteralPath $packExtension).GetValue('') -ne 'axlfixturepack') { throw 'Upgrade changed the modpack ProgID' }
+if ((Get-Item -LiteralPath $competingExtension).GetValue('') -ne 'AxolotlFixtureOtherHandler') { throw 'Upgrade replaced the selected schematic handler' }
+foreach ($extension in $schematicExtensions) {
+  $openWith = Join-Path $classes ".$extension\OpenWithProgids"
+  if ((Get-Item -LiteralPath $openWith).GetValueNames() -notcontains 'AxolotlFixtureSchematic') {
+    throw "Upgrade did not add the Open With entry for .$extension"
+  }
+}
+Set-Item -LiteralPath $competingExtension -Value 'AxolotlFixtureSchematic'
+Remove-ItemProperty -LiteralPath $competingExtension -Name AxolotlFixtureSchematic_backup
+Write-Output 'PASS: clean install and silent upgrade use both document icons and preserve the selected handler'
+
 New-Item -ItemType Directory -Path $roaming,$local -Force | Out-Null
 Set-Content (Join-Path $roaming 'keep.txt') 'config'
 Set-Content (Join-Path $local 'keep.txt') 'cache'
@@ -34,6 +74,8 @@ $code = Uninstall-Fixture
 if ($code -ne 0 -or (Get-Content $status -Raw) -ne '100') { throw "Uninstall failed: $code, $(Get-Content $status)" }
 if (Test-Path (Join-Path $install 'AxolotlUninstallFixture.exe')) { throw 'Main binary remains' }
 if (Test-Path (Join-Path $install 'resources\resource.txt')) { throw 'Resource remains' }
+if ((Test-Path -LiteralPath $packIconPath) -or (Test-Path -LiteralPath $schematicIconPath)) { throw 'Document icon files remain' }
+if ((Test-Path -LiteralPath $packIcon) -or (Test-Path -LiteralPath $schematicIcon)) { throw 'Document icon registrations remain' }
 if (Test-Path (Join-Path $install 'uninstall.exe')) { throw 'Uninstaller remains' }
 if (Test-Path $reg) { throw 'Registration remains' }
 if ($shortcutPaths | Where-Object { Test-Path $_ }) { throw 'Shortcuts remain' }

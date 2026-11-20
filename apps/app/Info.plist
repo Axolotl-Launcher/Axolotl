@@ -3,6 +3,80 @@
     "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
     <dict>
+        <key>CFBundleDocumentTypes</key>
+        <array>
+            <dict>
+                <key>CFBundleTypeName</key>
+                <string>Modrinth modpack</string>
+                <key>CFBundleTypeIconFile</key>
+                <string>mrpack.icns</string>
+                <key>CFBundleTypeRole</key>
+                <string>Editor</string>
+                <key>LSItemContentTypes</key>
+                <array>
+                    <string>red.ghs.axolotl.mrpack</string>
+                </array>
+            </dict>
+            <dict>
+                <key>CFBundleTypeName</key>
+                <string>Minecraft schematic</string>
+                <key>CFBundleTypeIconFile</key>
+                <string>schem.icns</string>
+                <key>CFBundleTypeRole</key>
+                <string>Editor</string>
+                <key>LSItemContentTypes</key>
+                <array>
+                    <string>red.ghs.axolotl.schematic</string>
+                </array>
+            </dict>
+        </array>
+        <key>UTImportedTypeDeclarations</key>
+        <array>
+            <dict>
+                <key>UTTypeIdentifier</key>
+                <string>red.ghs.axolotl.mrpack</string>
+                <key>UTTypeDescription</key>
+                <string>Modrinth modpack</string>
+                <key>UTTypeIconFile</key>
+                <string>mrpack.icns</string>
+                <key>UTTypeConformsTo</key>
+                <array>
+                    <string>public.zip-archive</string>
+                </array>
+                <key>UTTypeTagSpecification</key>
+                <dict>
+                    <key>public.filename-extension</key>
+                    <array>
+                        <string>mrpack</string>
+                    </array>
+                    <key>public.mime-type</key>
+                    <string>application/x-modrinth-modpack+zip</string>
+                </dict>
+            </dict>
+            <dict>
+                <key>UTTypeIdentifier</key>
+                <string>red.ghs.axolotl.schematic</string>
+                <key>UTTypeDescription</key>
+                <string>Minecraft schematic</string>
+                <key>UTTypeIconFile</key>
+                <string>schem.icns</string>
+                <key>UTTypeConformsTo</key>
+                <array>
+                    <string>public.data</string>
+                </array>
+                <key>UTTypeTagSpecification</key>
+                <dict>
+                    <key>public.filename-extension</key>
+                    <array>
+                        <string>litematic</string>
+                        <string>schem</string>
+                        <string>schematic</string>
+                    </array>
+                    <key>public.mime-type</key>
+                    <string>application/x-axolotl-schematic</string>
+                </dict>
+            </dict>
+        </array>
         <key>CFBundleURLTypes</key>
         <array>
             <dict>

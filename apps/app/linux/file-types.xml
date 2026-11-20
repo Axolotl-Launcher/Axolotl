@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+    <mime-type type="application/x-modrinth-modpack+zip">
+        <comment>Modrinth modpack</comment>
+        <sub-class-of type="application/zip"/>
+        <glob pattern="*.mrpack"/>
+    </mime-type>
+    <mime-type type="application/x-axolotl-schematic">
+        <comment>Minecraft schematic</comment>
+        <glob pattern="*.litematic"/>
+        <glob pattern="*.schem"/>
+        <glob pattern="*.schematic"/>
+    </mime-type>
+</mime-info>

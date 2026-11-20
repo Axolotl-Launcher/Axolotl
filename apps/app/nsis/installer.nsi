@@ -119,6 +119,7 @@ Var SchematicAssociationState
 ; Holds the state of whichever association group the current loop iteration
 ; belongs to, so one loop body can serve both groups.
 Var AssociationState
+Var AssociationIcon
 ; 1 when this run may claim an extension outright, 0 when it may only fill in
 ; extensions that have no handler.
 Var AssociationMode
@@ -1381,16 +1382,18 @@ Section Install
     {{#if association.name}}
     StrCpy $AssociationState $SchematicAssociationState
     StrCpy $AssociationOfferOnly $SchematicOfferOnly
+    StrCpy $AssociationIcon "$INSTDIR\resources\file-icons\schem.ico,0"
     {{else}}
     StrCpy $AssociationState $FileAssociationState
     StrCpy $AssociationOfferOnly 0
+    StrCpy $AssociationIcon "$INSTDIR\resources\file-icons\mrpack.ico,0"
     {{/if}}
     ${If} $AssociationState = ${BST_CHECKED}
       {{#each association.ext as |ext| ~}}
         ${If} $AssociationOfferOnly = 1
-          !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+          !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$AssociationIcon" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
         ${ElseIf} $AssociationMode = 1
-          !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+          !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$AssociationIcon" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
         ${Else}
           ClearErrors
           ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.{{ext}}" ""
@@ -1401,12 +1404,12 @@ Section Install
             ClearErrors
             ReadRegStr $R1 HKLM "Software\Classes\.{{ext}}" ""
             ${If} $R1 == ""
-              !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+              !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$AssociationIcon" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
             ${Else}
-              !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+              !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$AssociationIcon" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
             ${EndIf}
           ${Else}
-            !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+            !insertmacro AxlRegisterFileTypeAlternative "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$AssociationIcon" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
           ${EndIf}
         ${EndIf}
       {{/each}}

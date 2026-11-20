@@ -1,4 +1,12 @@
 {
+  "bundle": {
+    "macOS": {
+      "files": {
+        "Resources/mrpack.icns": "../../packages/assets/file-icons/mrpack.icns",
+        "Resources/schem.icns": "../../packages/assets/file-icons/schem.icns"
+      }
+    }
+  },
   "app": {
     "windows": [
       {

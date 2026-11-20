@@ -1,7 +1,12 @@
 {
   "bundle": {
     "targets": ["nsis"],
-    "resources": ["resources/blockbench-skin", "resources/seed-map"],
+    "resources": {
+      "resources/blockbench-skin": "resources/blockbench-skin",
+      "resources/seed-map": "resources/seed-map",
+      "../../packages/assets/file-icons/mrpack.ico": "resources/file-icons/mrpack.ico",
+      "../../packages/assets/file-icons/schem.ico": "resources/file-icons/schem.ico"
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser",

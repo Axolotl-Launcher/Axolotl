@@ -1,3 +1,30 @@
 {
-  "mainBinaryName": "Axolotl Launcher"
+  "mainBinaryName": "Axolotl Launcher",
+  "bundle": {
+    "linux": {
+      "deb": {
+        "desktopTemplate": "./linux/axolotl.desktop",
+        "files": {
+          "/usr/share/mime/packages/red.ghs.axolotl.xml": "linux/file-types.xml",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-modrinth-modpack+zip.svg": "../../packages/assets/file-icons/mrpack.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-axolotl-schematic.svg": "../../packages/assets/file-icons/schem.svg"
+        }
+      },
+      "rpm": {
+        "desktopTemplate": "./linux/axolotl.desktop",
+        "files": {
+          "/usr/share/mime/packages/red.ghs.axolotl.xml": "linux/file-types.xml",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-modrinth-modpack+zip.svg": "../../packages/assets/file-icons/mrpack.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-axolotl-schematic.svg": "../../packages/assets/file-icons/schem.svg"
+        }
+      },
+      "appimage": {
+        "files": {
+          "/usr/share/mime/packages/red.ghs.axolotl.xml": "linux/file-types.xml",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-modrinth-modpack+zip.svg": "../../packages/assets/file-icons/mrpack.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-axolotl-schematic.svg": "../../packages/assets/file-icons/schem.svg"
+        }
+      }
+    }
+  }
 }

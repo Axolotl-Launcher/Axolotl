@@ -11,13 +11,14 @@ const { values: options } = parseArgs({
     options: {
         'tauri-nsis': { type: 'string' },
         nsis: { type: 'string' },
+        output: { type: 'string' },
         template: { type: 'string' },
         'installer-helper': { type: 'string' },
     },
 })
 
 const root = path.resolve(__dirname, '../../..')
-const out = path.join(root, 'target/uninstall-verification')
+const out = path.resolve(options.output || path.join(root, 'target/uninstall-verification'))
 if (!options['tauri-nsis'])
     throw new Error('Provide --tauri-nsis with Tauri NSIS includes and languages')
 const tauri = path.resolve(options['tauri-nsis'])
@@ -73,12 +74,27 @@ const values = {
     start_menu_folder: 'Axolotl Uninstall Fixture',
     languages: ['English', 'SimpChinese'],
     language_files: ['English.nsh', 'SimpChinese.nsh'].map((file) => path.join(languageRoot, file)),
-    resources: { [path.join(out, 'resource.txt')]: ['fixture', 'resources\\resource.txt'] },
-    resources_dirs: ['resources'],
-    resources_ancestors: ['resources'],
+    resources: { [path.join(out, 'resource.txt')]: ['resources', 'resources\\resource.txt'] },
+    resources_dirs: ['resources', 'resources\\file-icons'],
+    resources_ancestors: ['resources\\file-icons', 'resources'],
     binaries: [],
-    file_associations: [],
+    file_associations: [
+        { ext: ['axlfixturepack'] },
+        {
+            ext: ['axlfixtureschem', 'axlfixturelitematic', 'axlfixtureschematic'],
+            name: 'AxolotlFixtureSchematic',
+        },
+    ],
     deep_link_protocols: [],
+}
+const windowsConfig = require('../../../apps/app/tauri.windows.conf.json')
+for (const [source, destination] of Object.entries(windowsConfig.bundle.resources)) {
+    if (destination.startsWith('resources/file-icons/')) {
+        values.resources[path.resolve(root, 'apps/app', source)] = [
+            'resources\\file-icons',
+            destination.replaceAll('/', '\\'),
+        ]
+    }
 }
 const template = fs.readFileSync(
     options.template || path.join(root, 'apps/app/nsis/installer.nsi'),

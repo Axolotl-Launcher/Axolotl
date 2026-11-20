@@ -118,7 +118,6 @@
       "key": "bucket_entity_data",
       "type": "compound",
       "category": "basic",
-      "desc": "NBT applied to an entity when placed from this bucket. Only tags below are applied.",
       "since": "1.20.5",
       "zh": "桶内实体数据",
       "desc": "NBT applied to an entity when placed from this bucket. Only tags below are applied."
@@ -700,7 +699,6 @@
               "key": "color",
               "type": "int",
               "category": "data",
-              "desc": "The color of the leather armor. The tooltip displays \"Dyed\" if advanced tooltips are disabled, otherwise it displays the hexadecimal color value. Color codes are the hex code of the color converted to a decimal number, or can be calculated from the Red, Green and Blue components using this formula: Red<<16 + Green<<8 + Blue.",
               "zh": "颜色",
               "desc": "The color of the leather armor. The tooltip displays \"Dyed\" if advanced tooltips are disabled, otherwise it displays the hexadecimal color value. Color codes are the hex code of the color converted to a decimal number, or can be calculated from the Red, Green and Blue components using this formula: Red<<16 + Green<<8 + Blue."
             },
@@ -1031,7 +1029,6 @@
               "key": "Id",
               "type": "int_array",
               "category": "data",
-              "desc": "UUID of owner, stored as four ints. Optional. Used to update the other tags when the chunk loads or the holder logs in, in case the owner's name has changed.",
               "advanced": true,
               "desc": "UUID of owner, stored as four ints. Optional. Used to update the other tags when the chunk loads or the holder logs in, in case the owner's name has changed."
             },
@@ -1039,7 +1036,6 @@
               "key": "Name",
               "type": "string",
               "category": "data",
-              "desc": "Username of owner. If missing or empty, the head appears as a Steve head. Otherwise, used to store or retrieve the downloaded skin in the cache. Need not be a valid player name, but must not be all spaces.",
               "zh": "名称",
               "desc": "Username of owner. If missing or empty, the head appears as a Steve head. Otherwise, used to store or retrieve the downloaded skin in the cache. Need not be a valid player name, but must not be all spaces."
             },

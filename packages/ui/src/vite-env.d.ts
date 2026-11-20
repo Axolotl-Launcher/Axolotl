@@ -31,8 +31,3 @@ declare module 'monaco-editor/editor/common/services/languageFeatures.js' {
 declare module 'monaco-editor/editor/common/languages/language.js' {
     export const ILanguageService: new (...args: never[]) => unknown
 }
-
-declare module 'fuse.js/dist/fuse.basic' {
-    export { default } from 'fuse.js'
-    export * from 'fuse.js'
-}

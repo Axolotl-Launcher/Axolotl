@@ -7,10 +7,9 @@ Read the target package's instructions and [frontend development standard](../..
 
 ## Steps
 
-1. **Read the component, callers and provider setup.** Identify existing query, `useAsyncData`, `useFetch` and imperative request patterns. Confirm server-state ownership before migrating it.
+1. **Read the component, callers and provider setup.** Identify existing query and imperative request patterns. Confirm server-state ownership before migrating it.
 2. **Define query boundaries** with stable hierarchical keys, reactive parameters, lifecycle expectations and mutation ownership.
 3. **Implement or migrate queries when query semantics fit:**
-   - Preserve Nuxt SSR and first-paint behavior; migrate `useAsyncData` or `useFetch` only when the target runtime can support the same lifecycle.
    - Use the existing provider/fetcher for `queryFn`; inject the API client only where that is already the owning data source.
    - Reuse domain query-key factories when available. Include all response-defining parameters, including provider identity, in stable hierarchical keys.
    - Use `computed` query keys for reactive parameters.

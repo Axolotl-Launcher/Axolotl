@@ -39,12 +39,12 @@ export const [injectMyContext, provideMyContext] = createContext<MyContext>('MyC
 ## When to Use DI
 
 Use DI when:
-- **The same interface needs different implementations** depending on the platform (web vs desktop app).
+- **The same interface needs different implementations** depending on the platform (web host vs desktop app).
 - **Deeply nested components** need access to shared page-level state without prop drilling through 3+ levels.
 
 ### Platform Abstraction (Primary Use Case)
 
-`packages/ui` components need capabilities that each frontend fulfils differently:
+`packages/ui` components need capabilities that the desktop frontend fulfils:
 
 | Provider      | App Frontend                     |
 | ------------- | -------------------------------- |

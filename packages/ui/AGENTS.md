@@ -22,7 +22,7 @@ Each subdirectory under `components/` has an `index.ts` barrel file. All public 
 Self-contained page layouts, currently all consumed by the desktop application:
 
 - **`shared/`** — Reusable layout modules with their own components, composables, providers, and types. Each module is a self-contained unit (e.g. `shared/content-tab/` contains the content/mods tab layout with its own `layout.vue`, `components/`, `composables/`, `providers/`, and `types.ts`).
-- **`wrapped/`** — Intended for page-level components mirroring route structures. It is currently empty (its hosting pages were removed); no consumer currently requires shared layouts.
+- **`wrapped/`** — Intended for page-level components mirroring route structures. It is currently empty (its hosting pages were removed); no consumer currently requires a `wrapped/` page layout.
 
 Files inside `layouts/` use the `#ui/*` import alias (resolved via the `"imports"` field in `package.json`) to reference other `src/` modules like `#ui/components/base/buttons/Button.vue` or `#ui/composables/i18n`.
 

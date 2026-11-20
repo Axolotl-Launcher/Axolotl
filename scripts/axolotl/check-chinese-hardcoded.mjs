@@ -39,7 +39,6 @@ const SKIP_DIRS = new Set([
 const SKIP_FILE = [
     /\.mdx?$/i,
     /(^|\/)locales\//,
-    /src\/locales\/site\.ts$/,
     /announcements\/catalog\.ts$/,
     /-zh\.(ts|json)$/,
     /\/daily-challenges\.ts$/,
@@ -60,7 +59,6 @@ const SKIP_FILE = [
     /\/launcher\/direct_link\.rs$/,
     /\/logs\/crash_analysis\.rs$/,
     /(^|\/)public\//,
-    /\/releases\/catalog\.json$/,
     /\/item-name-index\.json$/,
     /\/block-name-index\.json$/,
     /\/lobehub-provider-descriptions\//,

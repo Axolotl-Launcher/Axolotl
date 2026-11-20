@@ -98,19 +98,16 @@ When a message contains links or markup, wrap the relevant ranges with named tag
 Render with the `<IntlFormatted>` component using named slots:
 
 ```vue
-<IntlFormatted :message-id="messages.tosLabel">
-  <template #terms-link="{ children }">
-    <NuxtLink to="/terms">
+<IntlFormatted :message-id="messages.purchaseMinecraft">
+  <template #store-link="{ children }">
+    <a href="https://www.xbox.com/games/store/minecraft-java-bedrock-edition-for-pc">
       <component :is="() => children" />
-    </NuxtLink>
-  </template>
-  <template #privacy-link="{ children }">
-    <NuxtLink to="/privacy">
-      <component :is="() => children" />
-    </NuxtLink>
+    </a>
   </template>
 </IntlFormatted>
 ```
+
+The slot element decides the navigation primitive: an `<a>` when the target is external, a `<RouterLink>` for in-app routes.
 
 For simple emphasis (`'Welcome to <strong>Axolotl</strong>!'`):
 

@@ -1,6 +1,6 @@
 # Axolotl Launcher Monorepo
 
-Axolotl contains a Vue 3 desktop frontend and a Rust / Tauri shell. Turborepo (`turbo.jsonc`) and pnpm workspaces (`pnpm-workspace.yaml`) coordinate the packages. Frontend styling uses Tailwind CSS v3. The official website lives in the separate [Axolotl-Website](https://github.com/Axolotl-Launcher/Axolotl-Website) repository.
+Axolotl contains a Vue 3 desktop frontend and a Rust / Tauri shell. Turborepo (`turbo.jsonc`) and pnpm workspaces (`pnpm-workspace.yaml`) coordinate the packages. Frontend styling uses Tailwind CSS v3. The official website lives in the separate `Axolotl-Launcher/Axolotl-Website` repository.
 
 ## Instruction Routing
 

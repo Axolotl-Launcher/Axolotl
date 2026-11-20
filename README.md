@@ -85,7 +85,7 @@ Axolotl Launcher 采用现代化的混合架构（Hybrid Architecture），兼�
   - **高效后端 (`packages/app-lib`)**：基于 Rust 构建，提供强类型实例管理、SQLite 状态持久化、迁移控制与多线程并发下载引擎。
   - **安全容器 (`apps/app`)**：基于 Tauri 2 构建的轻量原生壳，实现高效的 IPC 调用与原生系统级集成。
 - **现代化前端界面 (Vue 3 / Tailwind CSS)**：
-  - **桌面客户端 (`apps/app-frontend`)** 使用统一的设计系统 (`packages/ui`)，带来丝滑顺畅的交互体验。官方网站已迁移至独立仓库 [Axolotl-Website](https://github.com/Axolotl-Launcher/Axolotl-Website)。
+  - **桌面客户端 (`apps/app-frontend`)** 使用统一的设计系统 (`packages/ui`)，带来丝滑顺畅的交互体验。官方网站已迁移至独立仓库 `Axolotl-Launcher/Axolotl-Website`。
 - **开放内容与生态集成 (`packages/content-management` & `packages/api-client`)**：
   - 深度集成 Modrinth 与 CurseForge 公开 API，支持一键浏览、搜索、安装及自动更新模组、整合包、光影和资源包。
 - **账户与个性化 (`Minecraft Auth` & `Skins`)**：

@@ -7469,6 +7469,18 @@
   "app.lab.command-generator.enchantment.vanishing-curse": {
     "message": "消失诅咒"
   },
+  "app.lab.command-generator.entity-picker.button": {
+    "message": "选择实体"
+  },
+  "app.lab.command-generator.entity-picker.empty": {
+    "message": "没有匹配的实体。"
+  },
+  "app.lab.command-generator.entity-picker.search": {
+    "message": "按名称或 ID 搜索"
+  },
+  "app.lab.command-generator.entity-picker.title": {
+    "message": "选择实体类型"
+  },
   "app.lab.command-generator.error.enum": {
     "message": "请为{name}选择有效值。"
   },
@@ -8060,14 +8072,35 @@
   "app.lab.command-generator.nbt.group.column.text": {
     "message": "一行文本"
   },
+  "app.lab.command-generator.nbt.group.effect-picker.title": {
+    "message": "选择状态效果"
+  },
   "app.lab.command-generator.nbt.group.empty": {
     "message": "还没有内容。"
+  },
+  "app.lab.command-generator.nbt.group.enchantment-picker.title": {
+    "message": "选择附魔"
   },
   "app.lab.command-generator.nbt.group.id-placeholder": {
     "message": "minecraft:…"
   },
   "app.lab.command-generator.nbt.group.no": {
     "message": "否"
+  },
+  "app.lab.command-generator.nbt.group.pick-effect": {
+    "message": "选择状态效果"
+  },
+  "app.lab.command-generator.nbt.group.pick-enchantment": {
+    "message": "选择附魔"
+  },
+  "app.lab.command-generator.nbt.group.picker.added": {
+    "message": "已添加"
+  },
+  "app.lab.command-generator.nbt.group.picker.empty": {
+    "message": "没有匹配的条目。"
+  },
+  "app.lab.command-generator.nbt.group.picker.search": {
+    "message": "按名称或 ID 搜索"
   },
   "app.lab.command-generator.nbt.group.remove-row": {
     "message": "删除这一项"
@@ -8993,8 +9026,29 @@
   "app.lab.command-generator.selector.add-filter": {
     "message": "添加筛选"
   },
+  "app.lab.command-generator.selector.add-filter-hint": {
+    "message": "先写一个目标变量，例如 @e"
+  },
+  "app.lab.command-generator.selector.entity-picker.empty": {
+    "message": "没有匹配的实体。"
+  },
+  "app.lab.command-generator.selector.entity-picker.search": {
+    "message": "按名称或 ID 搜索"
+  },
+  "app.lab.command-generator.selector.entity-picker.title": {
+    "message": "选择实体类型"
+  },
   "app.lab.command-generator.selector.entity-search": {
     "message": "实体 ID"
+  },
+  "app.lab.command-generator.selector.filter-picker.empty": {
+    "message": "没有匹配的筛选条件。"
+  },
+  "app.lab.command-generator.selector.filter-picker.search": {
+    "message": "搜索筛选条件"
+  },
+  "app.lab.command-generator.selector.filter-picker.title": {
+    "message": "添加筛选条件"
   },
   "app.lab.command-generator.selector.filters": {
     "message": "筛选条件"
@@ -9020,14 +9074,68 @@
   "app.lab.command-generator.selector.input-label": {
     "message": "目标选择器"
   },
+  "app.lab.command-generator.selector.issue.above-maximum": {
+    "message": "{key}= 不能大于 {max}"
+  },
+  "app.lab.command-generator.selector.issue.bedrock-argument": {
+    "message": "Java 版没有 {key}=，请改用 {equivalent}="
+  },
+  "app.lab.command-generator.selector.issue.below-minimum": {
+    "message": "{key}= 不能小于 {min}"
+  },
+  "app.lab.command-generator.selector.issue.duplicate-argument": {
+    "message": "{key}= 不能重复"
+  },
+  "app.lab.command-generator.selector.issue.duplicate-type": {
+    "message": "type= 只能写一次"
+  },
+  "app.lab.command-generator.selector.issue.forbidden-on-variable": {
+    "message": "@{variable} 不能用 {key}=，改用 @e 或 @n"
+  },
+  "app.lab.command-generator.selector.issue.invalid-enum": {
+    "message": "{key}= 只能是 {values}"
+  },
+  "app.lab.command-generator.selector.issue.limit-without-sort": {
+    "message": "没有 sort= 时按 arbitrary 取前几个目标"
+  },
+  "app.lab.command-generator.selector.issue.not-a-number": {
+    "message": "{key}= 的值不是数字或区间"
+  },
+  "app.lab.command-generator.selector.issue.not-a-selector": {
+    "message": "目标选择器必须以 @ 开头，例如 @e[type=zombie]"
+  },
+  "app.lab.command-generator.selector.issue.sort-without-limit": {
+    "message": "没有 limit= 时 sort= 不影响选中的数量"
+  },
+  "app.lab.command-generator.selector.issue.type-conflict": {
+    "message": "正向的 type= 与取反的 type= 不能同时出现"
+  },
+  "app.lab.command-generator.selector.issue.unclosed-brackets": {
+    "message": "方括号没有闭合"
+  },
+  "app.lab.command-generator.selector.issue.unknown-argument": {
+    "message": "未知参数 {key}=，会原样保留"
+  },
+  "app.lab.command-generator.selector.issue.unknown-variable": {
+    "message": "@{variable} 不是 Java 版的目标变量"
+  },
   "app.lab.command-generator.selector.max": {
     "message": "最大"
   },
   "app.lab.command-generator.selector.min": {
     "message": "最小"
   },
+  "app.lab.command-generator.selector.negation-off": {
+    "message": "包含匹配的目标"
+  },
+  "app.lab.command-generator.selector.negation-on": {
+    "message": "排除匹配的目标"
+  },
   "app.lab.command-generator.selector.no-filters": {
     "message": "还没有筛选条件，可以在上面的输入框里写，也可以直接添加。"
+  },
+  "app.lab.command-generator.selector.pick-entity": {
+    "message": "选择"
   },
   "app.lab.command-generator.selector.placeholder": {
     "message": "@e[type=zombie,distance=..10]"

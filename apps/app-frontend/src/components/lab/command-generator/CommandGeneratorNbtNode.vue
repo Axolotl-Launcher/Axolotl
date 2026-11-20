@@ -27,6 +27,8 @@ const props = defineProps<{
     /** 同级节点数量，用来决定上移 / 下移按钮是否可用。 */
     siblingCount?: number
     siblingIndex?: number
+    /** 结构化组用它过滤该版本不存在的附魔 / 状态效果。 */
+    version?: string
 }>()
 
 const emit = defineEmits<{
@@ -301,7 +303,12 @@ const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
             v-if="container && expanded && asGroup && spec"
             class="ml-3 flex min-w-0 flex-col gap-2 border-0 border-l border-solid border-surface-4 pl-3"
         >
-            <CommandGeneratorNbtGroup :node="node" :spec="spec" @change="emit('change')" />
+            <CommandGeneratorNbtGroup
+                :node="node"
+                :spec="spec"
+                :version="version"
+                @change="emit('change')"
+            />
         </div>
 
         <div
@@ -315,6 +322,7 @@ const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
                 :depth="depth + 1"
                 :sibling-count="node.children?.length ?? 1"
                 :sibling-index="index"
+                :version="version"
                 @update="(id, f, v) => emit('update', id, f, v)"
                 @remove="(id) => emit('remove', id)"
                 @add-child="(id) => emit('add-child', id)"

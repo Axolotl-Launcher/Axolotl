@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { PlusIcon, XIcon } from '@modrinth/assets'
-import { Button, Combobox, type ComboboxOption, defineMessages, useVIntl } from '@modrinth/ui'
+import { ChevronDownIcon, PlusIcon, XIcon } from '@modrinth/assets'
+import {
+    Button,
+    Combobox,
+    type ComboboxOption,
+    defineMessages,
+    StyledInput,
+    useVIntl,
+} from '@modrinth/ui'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 
 import entitiesData from '@/lab/command-generator/data/entities.json'
@@ -16,13 +23,22 @@ import {
     suggestSelectorArguments,
 } from '@/lab/command-generator/selector/arguments.ts'
 import {
+    SELECTOR_ISSUE_MESSAGE,
+    selectorIssueMessages,
+} from '@/lab/command-generator/selector/messages.ts'
+import {
     completionContext,
     formatNumericRange,
     parseNumericRange,
     parseSelector,
+    type SelectorIssue,
     validateSelector,
 } from '@/lab/command-generator/selector/parse.ts'
 import { nbtTargetFromSelector } from '@/lab/command-generator/selector/serialize.ts'
+
+import CommandGeneratorOptionPickerModal, {
+    type PickerGroup,
+} from './CommandGeneratorOptionPickerModal.vue'
 
 const props = defineProps<{
     modelValue?: string
@@ -56,6 +72,10 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.selector.add-filter',
         defaultMessage: 'Add filter',
     },
+    addFilterHint: {
+        id: 'app.lab.command-generator.selector.add-filter-hint',
+        defaultMessage: 'Write a target variable first, for example @e',
+    },
     noFilters: {
         id: 'app.lab.command-generator.selector.no-filters',
         defaultMessage: 'No filters yet. Type in the box above, or add one.',
@@ -82,6 +102,42 @@ const messages = defineMessages({
     entitySearch: {
         id: 'app.lab.command-generator.selector.entity-search',
         defaultMessage: 'Entity id',
+    },
+    negationOn: {
+        id: 'app.lab.command-generator.selector.negation-on',
+        defaultMessage: 'Excludes matching targets',
+    },
+    negationOff: {
+        id: 'app.lab.command-generator.selector.negation-off',
+        defaultMessage: 'Includes matching targets',
+    },
+    pickEntity: {
+        id: 'app.lab.command-generator.selector.pick-entity',
+        defaultMessage: 'Pick',
+    },
+    filterPickerTitle: {
+        id: 'app.lab.command-generator.selector.filter-picker.title',
+        defaultMessage: 'Add a filter',
+    },
+    filterPickerSearch: {
+        id: 'app.lab.command-generator.selector.filter-picker.search',
+        defaultMessage: 'Search filters',
+    },
+    filterPickerEmpty: {
+        id: 'app.lab.command-generator.selector.filter-picker.empty',
+        defaultMessage: 'No filter matches.',
+    },
+    entityPickerTitle: {
+        id: 'app.lab.command-generator.selector.entity-picker.title',
+        defaultMessage: 'Pick an entity type',
+    },
+    entityPickerSearch: {
+        id: 'app.lab.command-generator.selector.entity-picker.search',
+        defaultMessage: 'Search by name or ID',
+    },
+    entityPickerEmpty: {
+        id: 'app.lab.command-generator.selector.entity-picker.empty',
+        defaultMessage: 'No entity matches.',
     },
     groupSpace: {
         id: 'app.lab.command-generator.selector.group.space',
@@ -130,20 +186,43 @@ const VARIABLE_HINTS: Record<SelectorVariable, { en: string; zh: string }> = {
 const entities = entitiesData.entities as Array<{ id: string; en?: string; zh?: string }>
 
 const inputRef = useTemplateRef<HTMLInputElement>('input')
+const filterPicker =
+    useTemplateRef<InstanceType<typeof CommandGeneratorOptionPickerModal>>('filterPicker')
+const entityPicker =
+    useTemplateRef<InstanceType<typeof CommandGeneratorOptionPickerModal>>('entityPicker')
+
 const text = ref(props.modelValue ?? '@p')
 const caret = ref(0)
 const showSuggestions = ref(false)
 const activeSuggestion = ref(0)
-const showAddFilter = ref(false)
+/** 正在等弹窗回填的卡片下标。 */
+const entityPickIndex = ref<number | undefined>(undefined)
+
+const isChinese = computed(() => locale.value.toLowerCase().startsWith('zh'))
 
 const parsed = computed(() => parseSelector(text.value))
-const issues = computed(() => (parsed.value ? validateSelector(parsed.value) : []))
+
+/**
+ * 文本能认出的 Java 版变量。文本不是选择器、或变量不是 Java 版六个之一时为
+ * `undefined`——此时不选中任何标签，也不给筛选候选，而不是假装它是 `@p`。
+ */
+const activeVariable = computed<SelectorVariable | undefined>(() =>
+    parsed.value && !parsed.value.unknownVariable ? parsed.value.variable : undefined,
+)
+
+const issues = computed<SelectorIssue[]>(() => {
+    if (!text.value.trim()) return []
+    if (!parsed.value) return [{ level: 'error', id: 'not-a-selector' }]
+    return validateSelector(parsed.value)
+})
 const errors = computed(() => issues.value.filter((issue) => issue.level === 'error'))
 const warnings = computed(() => issues.value.filter((issue) => issue.level === 'warning'))
 
-const variable = computed<SelectorVariable>(() => parsed.value?.variable ?? 'p')
-
-const usedKeys = computed(() => parsed.value?.arguments.map((argument) => argument.key) ?? [])
+/** 已占用「取值相等」的参数名；取反过的出现不算占用。 */
+const usedKeys = computed(
+    () =>
+        parsed.value?.arguments.filter((argument) => !argument.negated).map((arg) => arg.key) ?? [],
+)
 
 const completion = computed(() => {
     if (!showSuggestions.value) return undefined
@@ -157,7 +236,8 @@ const suggestions = computed(() => {
 })
 
 const addFilterGroups = computed(() => {
-    const available = argumentsForVariable(variable.value).filter(
+    if (!activeVariable.value) return []
+    const available = argumentsForVariable(activeVariable.value).filter(
         (spec) => !usedKeys.value.includes(spec.key) || spec.repeatable,
     )
     return SELECTOR_GROUP_ORDER.map((group) => ({
@@ -166,6 +246,32 @@ const addFilterGroups = computed(() => {
         specs: available.filter((spec) => spec.group === group),
     })).filter((entry) => entry.specs.length)
 })
+
+const filterPickerGroups = computed<PickerGroup[]>(() =>
+    addFilterGroups.value.map((entry) => ({
+        id: entry.group,
+        label: entry.label,
+        options: entry.specs.map((spec) => ({
+            id: spec.key,
+            label: `${spec.key}=`,
+            detail: isChinese.value ? spec.zh : undefined,
+            hint: isChinese.value ? spec.hint : undefined,
+            keywords: `${spec.key} ${spec.zh} ${spec.hint}`,
+        })),
+    })),
+)
+
+const entityPickerGroups = computed<PickerGroup[]>(() => [
+    {
+        id: 'entities',
+        options: entities.map((entry) => ({
+            id: entry.id,
+            label: entry.id,
+            detail: isChinese.value ? entry.zh : entry.en,
+            keywords: `${entry.id} ${entry.en ?? ''} ${entry.zh ?? ''}`,
+        })),
+    },
+])
 
 /** 已有参数在文本里的位置，用于就地改写而不重排整串。 */
 const argumentCards = computed(() =>
@@ -176,7 +282,8 @@ const argumentCards = computed(() =>
 )
 
 const playerOnlyWarning = computed(() => {
-    if (variable.value === 'a' || variable.value === 'p' || variable.value === 'r') return false
+    const variable = activeVariable.value
+    if (!variable || variable === 'a' || variable === 'p' || variable === 'r') return false
     return (parsed.value?.arguments ?? []).some((argument) =>
         PLAYER_ONLY_ARGUMENTS.includes(argument.key),
     )
@@ -202,13 +309,17 @@ watch(
     },
 )
 
+function issueText(issue: SelectorIssue): string {
+    return formatMessage(selectorIssueMessages[SELECTOR_ISSUE_MESSAGE[issue.id]], issue.values)
+}
+
 function specLabel(spec: SelectorArgumentSpec): string {
-    return locale.value.toLowerCase().startsWith('zh') ? spec.zh : spec.key
+    return isChinese.value ? spec.zh : spec.key
 }
 
 function variableHint(variableId: SelectorVariable): string {
     const hint = VARIABLE_HINTS[variableId]
-    return locale.value.toLowerCase().startsWith('zh') ? hint.zh : hint.en
+    return isChinese.value ? hint.zh : hint.en
 }
 
 function publish(next: string) {
@@ -237,9 +348,13 @@ function onKeyup(event: KeyboardEvent) {
 }
 
 function setVariable(next: SelectorVariable) {
-    const body = text.value.trim().replace(/^@[A-Za-z_]+/, '')
+    // 文本不是选择器时没有任何可保留的部分，直接重写，避免拼出 `@efoo`
+    if (!parsed.value) {
+        publish(`@${next}`)
+        return
+    }
     // 换变量后可能留下不合法的参数（例如 @a 上的 type），先保留让校验提示出来
-    publish(`@${next}${body}`)
+    publish(`@${next}${text.value.trim().replace(/^@[A-Za-z_]+/, '')}`)
 }
 
 function focusInput(position?: number) {
@@ -312,21 +427,47 @@ function removeArgument(index: number) {
     publish(`${text.value.slice(0, start)}${text.value.slice(end)}`)
 }
 
-function addFilter(spec: SelectorArgumentSpec) {
-    showAddFilter.value = false
-    const hasBrackets = text.value.includes('[')
-    const insertion = `${spec.key}=`
-    if (!hasBrackets) {
-        publish(`${text.value}[${insertion}]`)
+function addFilter(key: string) {
+    const insertion = `${key}=`
+    if (!text.value.includes('[')) {
+        publish(`${text.value.trim()}[${insertion}]`)
         focusInput(text.value.length - 1)
         return
     }
+
     const close = text.value.lastIndexOf(']')
+    // 方括号还没闭合：追加在末尾，且不替用户补 `]`
+    if (close === -1) {
+        const separator = /,\s*$/.test(text.value) ? '' : ','
+        const next = `${text.value}${separator}${insertion}`
+        publish(next)
+        focusInput(next.length)
+        return
+    }
+
     const inner = text.value.slice(0, close)
-    const needsComma = !/\[\s*$/.test(inner)
-    const next = `${inner}${needsComma ? ',' : ''}${insertion}]`
+    const separator = /\[\s*$/.test(inner) ? '' : ','
+    const next = `${inner}${separator}${insertion}]`
     publish(next)
     focusInput(next.length - 1)
+}
+
+function openFilterPicker(event: MouseEvent) {
+    filterPicker.value?.show(event)
+}
+
+function openEntityPicker(index: number, event: MouseEvent) {
+    entityPickIndex.value = index
+    entityPicker.value?.show(event)
+}
+
+function onEntityPicked(id: string) {
+    const index = entityPickIndex.value
+    entityPickIndex.value = undefined
+    if (index === undefined) return
+    const argument = parsed.value?.arguments[index]
+    if (!argument) return
+    replaceValue(index, argument.negated ? `!${id}` : id)
 }
 
 // ---------------------------------------------------------------- 值控件
@@ -364,13 +505,6 @@ function onEnumPick(index: number, value: unknown) {
     replaceValue(index, argument.negated ? `!${String(value)}` : String(value))
 }
 
-const entityDatalistId = `entity-ids-${Math.random().toString(36).slice(2, 8)}`
-
-function entityLabel(entry: { id: string; en?: string; zh?: string }): string {
-    const name = locale.value.toLowerCase().startsWith('zh') ? entry.zh : entry.en
-    return name ? `${name} (${entry.id})` : entry.id
-}
-
 defineExpose({ focus: () => focusInput() })
 </script>
 
@@ -388,11 +522,11 @@ defineExpose({ focus: () => focusInput() })
                 type="button"
                 class="rounded-md px-2 py-1 font-mono text-xs transition-colors"
                 :class="
-                    variable === variableId
+                    activeVariable === variableId
                         ? 'bg-brand text-brand-inverted font-semibold'
                         : 'bg-surface-4 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                 "
-                :aria-pressed="variable === variableId"
+                :aria-pressed="activeVariable === variableId"
                 @click="setVariable(variableId)"
             >
                 @{{ variableId }}
@@ -400,9 +534,13 @@ defineExpose({ focus: () => focusInput() })
         </div>
 
         <div class="relative">
+            <!--
+                这里保留原生 input：补全要把光标放到 `key=` 之后，需要 selectionStart /
+                setSelectionRange，StyledInput 没有暴露这两个操作。
+            -->
             <input
                 ref="input"
-                class="w-full rounded-lg border-0 bg-surface-4 px-3 py-2 font-mono text-sm text-[var(--color-text-primary)] outline-none focus:ring-4 focus:ring-brand-shadow"
+                class="w-full rounded-xl border-0 bg-surface-4 px-3 py-2 font-mono text-sm text-[var(--color-text-primary)] outline-none focus:ring-4 focus:ring-brand-shadow"
                 :aria-label="ariaLabel ?? formatMessage(messages.inputLabel)"
                 :placeholder="formatMessage(messages.placeholder)"
                 :spellcheck="false"
@@ -439,15 +577,19 @@ defineExpose({ focus: () => focusInput() })
             </ul>
         </div>
 
-        <p v-for="issue in errors" :key="issue.message" class="m-0 text-xs text-red">
-            {{ issue.message }}
+        <p
+            v-for="issue in errors"
+            :key="`${issue.id}-${issue.argument ?? ''}`"
+            class="m-0 text-xs text-red"
+        >
+            {{ issueText(issue) }}
         </p>
         <p
             v-for="issue in warnings"
-            :key="issue.message"
+            :key="`${issue.id}-${issue.argument ?? ''}`"
             class="m-0 text-xs text-[var(--color-text-tertiary)]"
         >
-            {{ issue.message }}
+            {{ issueText(issue) }}
         </p>
         <p v-if="playerOnlyWarning" class="m-0 text-xs text-[var(--color-text-tertiary)]">
             {{ formatMessage(messages.playersOnlyHint) }}
@@ -458,39 +600,16 @@ defineExpose({ focus: () => focusInput() })
                 class="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]"
                 >{{ formatMessage(messages.filters) }}</span
             >
-            <div class="relative">
-                <Button type="outlined" size="2xs" @click="showAddFilter = !showAddFilter">
-                    <PlusIcon class="h-3 w-3" />
-                    {{ formatMessage(messages.addFilter) }}
-                </Button>
-                <div
-                    v-if="showAddFilter"
-                    class="absolute right-0 top-full z-30 mt-1 max-h-80 w-64 overflow-y-auto rounded-lg border border-solid border-surface-5 bg-surface-2 p-1 shadow-lg"
-                >
-                    <div v-for="entry in addFilterGroups" :key="entry.group">
-                        <p
-                            class="px-2 py-1 text-[0.625rem] uppercase text-[var(--color-text-tertiary)]"
-                        >
-                            {{ entry.label }}
-                        </p>
-                        <button
-                            v-for="spec in entry.specs"
-                            :key="spec.key"
-                            type="button"
-                            class="flex w-full flex-col rounded px-2 py-1.5 text-left hover:bg-surface-3"
-                            @click="addFilter(spec)"
-                        >
-                            <span class="font-mono text-xs text-[var(--color-text-primary)]"
-                                >{{ spec.key }}=</span
-                            >
-                            <span
-                                class="truncate text-[0.625rem] text-[var(--color-text-tertiary)]"
-                                >{{ spec.zh }}</span
-                            >
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <Button
+                v-tooltip="activeVariable ? undefined : formatMessage(messages.addFilterHint)"
+                type="outlined"
+                size="2xs"
+                :disabled="!activeVariable"
+                @click="openFilterPicker"
+            >
+                <PlusIcon class="h-3 w-3" />
+                {{ formatMessage(messages.addFilter) }}
+            </Button>
         </div>
 
         <p
@@ -510,9 +629,12 @@ defineExpose({ focus: () => focusInput() })
                     <span class="font-mono text-xs text-[var(--color-text-secondary)]">{{
                         card.argument.key
                     }}</span>
-                    <span class="truncate text-[0.625rem] text-[var(--color-text-tertiary)]">{{
-                        card.spec ? card.spec.zh : card.argument.key
-                    }}</span>
+                    <!-- 英文界面没有独立的参数名，重复显示一遍 key 没有意义 -->
+                    <span
+                        v-if="card.spec && specLabel(card.spec) !== card.argument.key"
+                        class="truncate text-[0.625rem] text-[var(--color-text-tertiary)]"
+                        >{{ specLabel(card.spec) }}</span
+                    >
                 </div>
 
                 <!-- 区间 / 数字 -->
@@ -524,20 +646,24 @@ defineExpose({ focus: () => focusInput() })
                             card.spec.kind === 'number')
                     "
                 >
-                    <input
-                        class="w-20 rounded-md border-0 bg-surface-4 px-2 py-1.5 font-mono text-xs outline-none focus:ring-2 focus:ring-brand-shadow"
+                    <StyledInput
+                        class="w-24"
+                        size="small"
+                        inputmode="numeric"
                         :aria-label="formatMessage(messages.min)"
                         :placeholder="formatMessage(messages.min)"
-                        :value="rangeOf(card.argument)?.min ?? ''"
+                        :model-value="rangeOf(card.argument)?.min ?? ''"
                         @change="
                             onRangeChange(index, 'min', ($event.target as HTMLInputElement).value)
                         "
                     />
-                    <input
-                        class="w-20 rounded-md border-0 bg-surface-4 px-2 py-1.5 font-mono text-xs outline-none focus:ring-2 focus:ring-brand-shadow"
+                    <StyledInput
+                        class="w-24"
+                        size="small"
+                        inputmode="numeric"
                         :aria-label="formatMessage(messages.max)"
                         :placeholder="formatMessage(messages.max)"
-                        :value="rangeOf(card.argument)?.max ?? ''"
+                        :model-value="rangeOf(card.argument)?.max ?? ''"
                         @change="
                             onRangeChange(index, 'max', ($event.target as HTMLInputElement).value)
                         "
@@ -559,13 +685,13 @@ defineExpose({ focus: () => focusInput() })
                     />
                 </div>
 
-                <!-- 实体类型 -->
+                <!-- 实体类型：输入框 + 弹窗选择 -->
                 <template v-else-if="card.spec && card.spec.kind === 'entity-type'">
-                    <input
-                        class="min-w-0 flex-1 rounded-md border-0 bg-surface-4 px-2 py-1.5 font-mono text-xs outline-none focus:ring-2 focus:ring-brand-shadow"
+                    <StyledInput
+                        class="min-w-0 flex-1"
+                        size="small"
                         :aria-label="formatMessage(messages.entitySearch)"
-                        :list="entityDatalistId"
-                        :value="card.argument.value.replace(/^!/, '')"
+                        :model-value="card.argument.value.replace(/^!/, '')"
                         @change="
                             onValueChange(
                                 index,
@@ -575,20 +701,31 @@ defineExpose({ focus: () => focusInput() })
                             )
                         "
                     />
+                    <Button type="outlined" size="2xs" @click="openEntityPicker(index, $event)">
+                        <ChevronDownIcon class="h-3 w-3" />
+                        {{ formatMessage(messages.pickEntity) }}
+                    </Button>
                 </template>
 
                 <!-- 其余按文本编辑 -->
-                <input
+                <StyledInput
                     v-else
-                    class="min-w-0 flex-1 rounded-md border-0 bg-surface-4 px-2 py-1.5 font-mono text-xs outline-none focus:ring-2 focus:ring-brand-shadow"
+                    class="min-w-0 flex-1"
+                    size="small"
                     :aria-label="formatMessage(messages.value)"
-                    :value="card.argument.value"
+                    :model-value="card.argument.value"
                     @change="onValueChange(index, ($event.target as HTMLInputElement).value)"
                 />
 
                 <Button
                     v-if="card.spec?.negatable"
-                    type="quiet"
+                    v-tooltip="
+                        card.argument.negated
+                            ? formatMessage(messages.negationOn)
+                            : formatMessage(messages.negationOff)
+                    "
+                    :type="card.argument.negated ? 'chip' : 'quiet'"
+                    color="brand"
                     size="2xs"
                     :aria-pressed="card.argument.negated"
                     @click="toggleNegation(index)"
@@ -608,10 +745,21 @@ defineExpose({ focus: () => focusInput() })
             </div>
         </div>
 
-        <datalist :id="entityDatalistId">
-            <option v-for="entry in entities" :key="entry.id" :value="entry.id">
-                {{ entityLabel(entry) }}
-            </option>
-        </datalist>
+        <CommandGeneratorOptionPickerModal
+            ref="filterPicker"
+            :title="formatMessage(messages.filterPickerTitle)"
+            :search-placeholder="formatMessage(messages.filterPickerSearch)"
+            :empty-text="formatMessage(messages.filterPickerEmpty)"
+            :groups="filterPickerGroups"
+            @pick="addFilter"
+        />
+        <CommandGeneratorOptionPickerModal
+            ref="entityPicker"
+            :title="formatMessage(messages.entityPickerTitle)"
+            :search-placeholder="formatMessage(messages.entityPickerSearch)"
+            :empty-text="formatMessage(messages.entityPickerEmpty)"
+            :groups="entityPickerGroups"
+            @pick="onEntityPicked"
+        />
     </div>
 </template>

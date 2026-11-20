@@ -30,6 +30,9 @@ import CommandGeneratorEntitySelector from './CommandGeneratorEntitySelector.vue
 import CommandGeneratorItemPickerModal from './CommandGeneratorItemPickerModal.vue'
 import CommandGeneratorNbtEditor from './CommandGeneratorNbtEditor.vue'
 import CommandGeneratorNbtPath from './CommandGeneratorNbtPath.vue'
+import CommandGeneratorOptionPickerModal, {
+    type PickerGroup,
+} from './CommandGeneratorOptionPickerModal.vue'
 
 const props = defineProps<{
     arg: CommandArgument
@@ -102,6 +105,22 @@ const messages = defineMessages({
     pickAdvancement: {
         id: 'app.lab.command-generator.advancement-picker.button',
         defaultMessage: 'Pick advancement',
+    },
+    pickEntity: {
+        id: 'app.lab.command-generator.entity-picker.button',
+        defaultMessage: 'Pick entity',
+    },
+    entityPickerTitle: {
+        id: 'app.lab.command-generator.entity-picker.title',
+        defaultMessage: 'Pick an entity type',
+    },
+    entityPickerSearch: {
+        id: 'app.lab.command-generator.entity-picker.search',
+        defaultMessage: 'Search by name or ID',
+    },
+    entityPickerEmpty: {
+        id: 'app.lab.command-generator.entity-picker.empty',
+        defaultMessage: 'No entity matches.',
     },
 })
 
@@ -214,14 +233,22 @@ const isNbtPath = computed(() => props.arg.type === 'nbt-path')
 const isItem = computed(() => props.arg.type === 'item')
 const isEntityType = computed(() => props.arg.type === 'entity-type')
 
-/** `/summon` 的实体参数：用 datalist 提供可搜索的实体 ID，中英文名都显示。 */
-const entityListId = `entity-types-${fieldId}`
+const isChinese = computed(() => locale.value.toLowerCase().startsWith('zh'))
 const entityOptions = entitiesData.entities as Array<{ id: string; en?: string; zh?: string }>
 
-function entityOptionLabel(entry: { id: string; en?: string; zh?: string }): string {
-    const name = locale.value.toLowerCase().startsWith('zh') ? entry.zh : entry.en
-    return name ? `${name} (${entry.id})` : entry.id
-}
+/** `/summon` 的实体参数：用弹窗按中英文名挑，输入框仍可手写数据包实体 ID。 */
+const entityPickerGroups = computed<PickerGroup[]>(() => [
+    {
+        id: 'entities',
+        options: entityOptions.map((entry) => ({
+            id: entry.id,
+            label: entry.id,
+            detail: isChinese.value ? entry.zh : entry.en,
+            keywords: `${entry.id} ${entry.en ?? ''} ${entry.zh ?? ''}`,
+        })),
+    },
+])
+
 const isBlock = computed(() => props.arg.type === 'block')
 const isEffect = computed(() => props.arg.type === 'effect')
 const isAdvancement = computed(() => props.arg.type === 'advancement')
@@ -248,6 +275,8 @@ const enumOptions = computed<ComboboxOption<string>[]>(() =>
 
 const itemPickerRef =
     useTemplateRef<InstanceType<typeof CommandGeneratorItemPickerModal>>('itemPickerRef')
+const entityPickerRef =
+    useTemplateRef<InstanceType<typeof CommandGeneratorOptionPickerModal>>('entityPickerRef')
 
 const mergedPresets = computed<ArgumentPreset[]>(() => {
     const custom = props.arg.presets ?? []
@@ -335,6 +364,14 @@ function openItemPicker() {
 }
 
 function onItemPicked(id: string) {
+    emit('update:modelValue', id)
+}
+
+function openEntityPicker(event: MouseEvent) {
+    entityPickerRef.value?.show(event)
+}
+
+function onEntityPicked(id: string) {
     emit('update:modelValue', id)
 }
 
@@ -737,17 +774,19 @@ function coordinateModeLabel(mode: CoordinateMode): string {
                 }}
             </Button>
         </div>
-        <div v-else-if="isEntityType" class="relative min-w-0 flex-1">
-            <input
+        <div v-else-if="isEntityType" class="flex min-w-0 flex-1 gap-2">
+            <StyledInput
                 :id="fieldId"
-                class="w-full rounded-lg border-0 bg-surface-4 px-3 py-2 font-mono text-sm text-[var(--color-text-primary)] outline-none focus:ring-4 focus:ring-brand-shadow"
+                class="min-w-0 flex-1"
                 :aria-label="formatDynamic(arg.displayNameKey, arg.name)"
                 :placeholder="arg.placeholder ?? 'minecraft:zombie'"
-                :list="entityListId"
                 :spellcheck="false"
-                :value="String(modelValue ?? '')"
-                @input="onTextInput(($event.target as HTMLInputElement).value)"
+                :model-value="String(modelValue ?? '')"
+                @update:model-value="onTextInput(String($event ?? ''))"
             />
+            <Button type="outlined" @click="openEntityPicker">
+                {{ formatMessage(messages.pickEntity) }}
+            </Button>
         </div>
         <CommandGeneratorEntitySelector
             v-else-if="arg.type === 'entity-selector'"
@@ -841,11 +880,15 @@ function coordinateModeLabel(mode: CoordinateMode): string {
                 >+{{ hiddenPresetCount }}</Button
             >
         </div>
-        <datalist v-if="isEntityType" :id="entityListId">
-            <option v-for="entry in entityOptions" :key="entry.id" :value="entry.id">
-                {{ entityOptionLabel(entry) }}
-            </option>
-        </datalist>
+        <CommandGeneratorOptionPickerModal
+            v-if="isEntityType"
+            ref="entityPickerRef"
+            :title="formatMessage(messages.entityPickerTitle)"
+            :search-placeholder="formatMessage(messages.entityPickerSearch)"
+            :empty-text="formatMessage(messages.entityPickerEmpty)"
+            :groups="entityPickerGroups"
+            @pick="onEntityPicked"
+        />
         <CommandGeneratorItemPickerModal
             v-if="isItem || isBlock || isEffect || isAdvancement"
             ref="itemPickerRef"

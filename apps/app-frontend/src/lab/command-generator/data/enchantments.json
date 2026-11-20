@@ -1,6 +1,7 @@
 {
   "retrievedAt": "2026-11-20",
   "source": "vanilla en_us.json / zh_cn.json",
+  "versionSource": "Minecraft Wiki: Enchantment#History, Java Edition 24w03a (sweeping renamed to sweeping_edge)",
   "enchantments": [
     {
       "id": "aqua_affinity",
@@ -25,7 +26,8 @@
     {
       "id": "breach",
       "en": "Breach",
-      "zh": "破甲"
+      "zh": "破甲",
+      "since": "1.21"
     },
     {
       "id": "channeling",
@@ -35,7 +37,8 @@
     {
       "id": "density",
       "en": "Density",
-      "zh": "致密"
+      "zh": "致密",
+      "since": "1.21"
     },
     {
       "id": "depth_strider",
@@ -110,7 +113,8 @@
     {
       "id": "lunge",
       "en": "Lunge",
-      "zh": "突进"
+      "zh": "突进",
+      "since": "1.21.11"
     },
     {
       "id": "lure",
@@ -190,12 +194,14 @@
     {
       "id": "sweeping",
       "en": "Sweeping Edge",
-      "zh": "横扫之刃"
+      "zh": "横扫之刃",
+      "until": "1.20.4"
     },
     {
       "id": "sweeping_edge",
       "en": "Sweeping Edge",
-      "zh": "横扫之刃"
+      "zh": "横扫之刃",
+      "since": "1.20.5"
     },
     {
       "id": "swift_sneak",
@@ -220,7 +226,8 @@
     {
       "id": "wind_burst",
       "en": "Wind Burst",
-      "zh": "风爆"
+      "zh": "风爆",
+      "since": "1.21"
     }
   ]
 }

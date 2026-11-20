@@ -165,7 +165,10 @@ export const SELECTOR_ARGUMENTS: readonly SelectorArgumentSpec[] = [
         kind: 'predicate',
         group: 'species',
         zh: '谓词',
-        hint: '数据包里的谓词 ID',
+        hint: '数据包里的谓词 ID；可写多个，! 表示排除',
+        // wiki：Duplicate predicate arguments are allowed，且 `[predicate=!<id>]` 合法
+        repeatable: true,
+        negatable: true,
     },
     {
         key: 'nbt',

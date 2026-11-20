@@ -158,6 +158,11 @@ describe('逐字符补全', () => {
         expect(context.prefix).toBe('')
     })
 
+    it('取反过的参数不算已用', () => {
+        const context = completionContext('@e[name=!a,', 11)!
+        expect(context.usedKeys).toEqual([])
+    })
+
     it('@a[ 不出现 type', () => {
         const context = completionContext('@a[', 3)!
         expect(
@@ -187,6 +192,16 @@ describe('选择器校验', () => {
         expect(issuesOf('@e[nbt={a:1b},nbt={b:2b}]').some((i) => i.level === 'error')).toBe(false)
     })
 
+    it('取反的出现不算重复', () => {
+        // wiki：测试相等的不能重复，测试不等的可以重复
+        expect(issuesOf('@e[name=!a,name=!b]').some((i) => i.level === 'error')).toBe(false)
+        expect(issuesOf('@e[name=a,name=!b]').some((i) => i.level === 'error')).toBe(false)
+        expect(issuesOf('@e[name=a,name=b]').some((i) => i.level === 'error')).toBe(true)
+        expect(
+            issuesOf('@e[gamemode=!creative,gamemode=!survival]').some((i) => i.level === 'error'),
+        ).toBe(false)
+    })
+
     it('type 只能有一个正向值', () => {
         expect(issuesOf('@e[type=creeper,type=pig]').some((i) => i.level === 'error')).toBe(true)
         expect(issuesOf('@e[type=creeper,type=!pig]').some((i) => i.level === 'error')).toBe(true)
@@ -197,7 +212,8 @@ describe('选择器校验', () => {
         const issues = issuesOf('@e[r=10]')
         const issue = issues.find((entry) => entry.argument === 'r')!
         expect(issue.level).toBe('error')
-        expect(issue.message).toContain('distance')
+        expect(issue.id).toBe('bedrock-argument')
+        expect(issue.values?.equivalent).toBe('distance')
     })
 
     it('数值范围与枚举', () => {
@@ -205,6 +221,14 @@ describe('选择器校验', () => {
         expect(issuesOf('@e[x_rotation=120]').some((i) => i.level === 'error')).toBe(true)
         expect(issuesOf('@e[sort=wrong]').some((i) => i.level === 'error')).toBe(true)
         expect(issuesOf('@e[sort=random,limit=1]').some((i) => i.level === 'error')).toBe(false)
+    })
+
+    it('只写了一边的区间也要检查越界', () => {
+        const issue = issuesOf('@e[distance=..-5]').find((i) => i.id === 'below-minimum')
+        expect(issue).toBeDefined()
+        expect(issuesOf('@e[distance=..10]').some((i) => i.level === 'error')).toBe(false)
+        expect(issuesOf('@e[y_rotation=..200]').some((i) => i.id === 'above-maximum')).toBe(true)
+        expect(issuesOf('@e[x_rotation=-120..0]').some((i) => i.id === 'below-minimum')).toBe(true)
     })
 
     it('sort 与 limit 互相提示默认行为', () => {
@@ -298,5 +322,11 @@ describe('参数元数据自洽', () => {
         for (const spec of SELECTOR_ARGUMENTS) {
             if (spec.implies) expect(selectorArgumentSpec(spec.implies)).toBeDefined()
         }
+    })
+
+    it('predicate 可重复且可取反', () => {
+        const spec = selectorArgumentSpec('predicate')!
+        expect(spec.repeatable).toBe(true)
+        expect(spec.negatable).toBe(true)
     })
 })

@@ -7469,6 +7469,18 @@
   "app.lab.command-generator.enchantment.vanishing-curse": {
     "message": "Curse of Vanishing"
   },
+  "app.lab.command-generator.entity-picker.button": {
+    "message": "Pick entity"
+  },
+  "app.lab.command-generator.entity-picker.empty": {
+    "message": "No entity matches."
+  },
+  "app.lab.command-generator.entity-picker.search": {
+    "message": "Search by name or ID"
+  },
+  "app.lab.command-generator.entity-picker.title": {
+    "message": "Pick an entity type"
+  },
   "app.lab.command-generator.error.enum": {
     "message": "Choose a valid value for {name}."
   },
@@ -8060,14 +8072,35 @@
   "app.lab.command-generator.nbt.group.column.text": {
     "message": "A line of text"
   },
+  "app.lab.command-generator.nbt.group.effect-picker.title": {
+    "message": "Pick a status effect"
+  },
   "app.lab.command-generator.nbt.group.empty": {
     "message": "No entries yet."
+  },
+  "app.lab.command-generator.nbt.group.enchantment-picker.title": {
+    "message": "Pick an enchantment"
   },
   "app.lab.command-generator.nbt.group.id-placeholder": {
     "message": "minecraft:…"
   },
   "app.lab.command-generator.nbt.group.no": {
     "message": "No"
+  },
+  "app.lab.command-generator.nbt.group.pick-effect": {
+    "message": "Pick a status effect"
+  },
+  "app.lab.command-generator.nbt.group.pick-enchantment": {
+    "message": "Pick an enchantment"
+  },
+  "app.lab.command-generator.nbt.group.picker.added": {
+    "message": "Added"
+  },
+  "app.lab.command-generator.nbt.group.picker.empty": {
+    "message": "No entry matches."
+  },
+  "app.lab.command-generator.nbt.group.picker.search": {
+    "message": "Search by name or ID"
   },
   "app.lab.command-generator.nbt.group.remove-row": {
     "message": "Remove entry"
@@ -8993,8 +9026,29 @@
   "app.lab.command-generator.selector.add-filter": {
     "message": "Add filter"
   },
+  "app.lab.command-generator.selector.add-filter-hint": {
+    "message": "Write a target variable first, for example @e"
+  },
+  "app.lab.command-generator.selector.entity-picker.empty": {
+    "message": "No entity matches."
+  },
+  "app.lab.command-generator.selector.entity-picker.search": {
+    "message": "Search by name or ID"
+  },
+  "app.lab.command-generator.selector.entity-picker.title": {
+    "message": "Pick an entity type"
+  },
   "app.lab.command-generator.selector.entity-search": {
     "message": "Entity id"
+  },
+  "app.lab.command-generator.selector.filter-picker.empty": {
+    "message": "No filter matches."
+  },
+  "app.lab.command-generator.selector.filter-picker.search": {
+    "message": "Search filters"
+  },
+  "app.lab.command-generator.selector.filter-picker.title": {
+    "message": "Add a filter"
   },
   "app.lab.command-generator.selector.filters": {
     "message": "Filters"
@@ -9020,14 +9074,68 @@
   "app.lab.command-generator.selector.input-label": {
     "message": "Target selector"
   },
+  "app.lab.command-generator.selector.issue.above-maximum": {
+    "message": "{key}= cannot be greater than {max}"
+  },
+  "app.lab.command-generator.selector.issue.bedrock-argument": {
+    "message": "Java Edition has no {key}=, use {equivalent}= instead"
+  },
+  "app.lab.command-generator.selector.issue.below-minimum": {
+    "message": "{key}= cannot be less than {min}"
+  },
+  "app.lab.command-generator.selector.issue.duplicate-argument": {
+    "message": "{key}= cannot be repeated"
+  },
+  "app.lab.command-generator.selector.issue.duplicate-type": {
+    "message": "type= can only appear once"
+  },
+  "app.lab.command-generator.selector.issue.forbidden-on-variable": {
+    "message": "@{variable} cannot use {key}=, use @e or @n instead"
+  },
+  "app.lab.command-generator.selector.issue.invalid-enum": {
+    "message": "{key}= must be one of {values}"
+  },
+  "app.lab.command-generator.selector.issue.limit-without-sort": {
+    "message": "Without sort=, the first targets are taken in arbitrary order"
+  },
+  "app.lab.command-generator.selector.issue.not-a-number": {
+    "message": "{key}= is not a number or a range"
+  },
+  "app.lab.command-generator.selector.issue.not-a-selector": {
+    "message": "A target selector starts with @, for example @e[type=zombie]"
+  },
+  "app.lab.command-generator.selector.issue.sort-without-limit": {
+    "message": "Without limit=, sort= does not change how many targets are selected"
+  },
+  "app.lab.command-generator.selector.issue.type-conflict": {
+    "message": "A positive type= and a negated type= cannot be used together"
+  },
+  "app.lab.command-generator.selector.issue.unclosed-brackets": {
+    "message": "The square brackets are not closed"
+  },
+  "app.lab.command-generator.selector.issue.unknown-argument": {
+    "message": "Unknown argument {key}=; it is kept as written"
+  },
+  "app.lab.command-generator.selector.issue.unknown-variable": {
+    "message": "@{variable} is not a Java Edition target variable"
+  },
   "app.lab.command-generator.selector.max": {
     "message": "Max"
   },
   "app.lab.command-generator.selector.min": {
     "message": "Min"
   },
+  "app.lab.command-generator.selector.negation-off": {
+    "message": "Includes matching targets"
+  },
+  "app.lab.command-generator.selector.negation-on": {
+    "message": "Excludes matching targets"
+  },
   "app.lab.command-generator.selector.no-filters": {
     "message": "No filters yet. Type in the box above, or add one."
+  },
+  "app.lab.command-generator.selector.pick-entity": {
+    "message": "Pick"
   },
   "app.lab.command-generator.selector.placeholder": {
     "message": "@e[type=zombie,distance=..10]"

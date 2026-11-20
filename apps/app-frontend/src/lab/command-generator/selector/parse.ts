@@ -243,7 +243,7 @@ export interface CompletionContext {
     insideBrackets: boolean
     /** 当前正在输入的参数名（不含值）。 */
     prefix: string
-    /** 光标前已写好的参数名，用于去重。 */
+    /** 光标前已写好的参数名，用于去重。只统计「取值相等」的出现：`name=!a` 之后仍可再写 `name=`。 */
     usedKeys: string[]
     /** 已写了 `key=` 但还没写值。 */
     expectsValueFor?: string
@@ -275,6 +275,14 @@ export function completionContext(text: string, caret: number): CompletionContex
     const last = parts[parts.length - 1]
     const usedKeys = parts
         .slice(0, -1)
+        // wiki 允许 `name=!a,name=!b`：取反过的出现不占用候选
+        .filter(
+            (part) =>
+                !part.text
+                    .slice(part.text.indexOf('=') + 1)
+                    .trim()
+                    .startsWith('!'),
+        )
         .map((part) => part.text.split('=')[0]?.trim())
         .filter(Boolean)
     const eq = last.text.indexOf('=')
@@ -299,18 +307,44 @@ export function completionContext(text: string, caret: number): CompletionContex
 
 // ---------------------------------------------------------------- 诊断
 
+/**
+ * 诊断的稳定标识。文案在 `messages.ts` 里按 ID 登记，这里只给 ID 与参数——
+ * 解析层是纯函数，不依赖 i18n 运行时，也不需要知道当前语言。
+ */
+export type SelectorIssueId =
+    | 'not-a-selector'
+    | 'unknown-variable'
+    | 'unclosed-brackets'
+    | 'bedrock-argument'
+    | 'unknown-argument'
+    | 'forbidden-on-variable'
+    | 'not-a-number'
+    | 'below-minimum'
+    | 'above-maximum'
+    | 'invalid-enum'
+    | 'duplicate-type'
+    | 'type-conflict'
+    | 'duplicate-argument'
+    | 'sort-without-limit'
+    | 'limit-without-sort'
+
 export interface SelectorIssue {
     /** `error` 阻断生成，`warning` 只是提醒。 */
     level: 'error' | 'warning'
-    message: string
+    id: SelectorIssueId
+    /** ICU 消息参数，例如 `{ key: 'distance', min: 0 }`。 */
+    values?: Record<string, string | number>
     argument?: string
 }
 
 /**
  * 检查选择器是否合法。规则来自 wiki：
  * - `type` 不能用在 `@a` / `@p` / `@r` 上；
- * - 不可重复的参数不能出现两次（`tag`、`nbt` 可以）；
+ * - 不可重复的参数不能出现两次（`tag`、`nbt`、`predicate` 可以）；
+ * - 取值「相等」的同一参数只能出现一次，取「不相等」的可以重复
+ *   （`@e[name=!a,name=!b]` 合法，`@e[name=a,name=b]` 不合法）；
  * - `type=<id>` 只能出现一次，且不能与 `type=!<id>` 同时出现；
+ * - 数值参数的每一个写出来的边界都要落在允许区间内（`distance=..-5` 不合法）；
  * - `sort` 与 `limit` 相互影响，缺一个时说明默认行为；
  * - 基岩版参数给出对应写法。
  */
@@ -320,37 +354,51 @@ export function validateSelector(parsed: ParsedSelector): SelectorIssue[] {
     if (parsed.unknownVariable) {
         issues.push({
             level: 'error',
-            message: `@${parsed.unknownVariable} 不是 Java 版的目标变量`,
+            id: 'unknown-variable',
+            values: { variable: parsed.unknownVariable },
         })
     }
     if (parsed.error === 'unclosed') {
-        issues.push({ level: 'error', message: '方括号没有闭合' })
+        issues.push({ level: 'error', id: 'unclosed-brackets' })
     }
 
-    const seen = new Map<string, number>()
+    /** 每个参数出现的总次数，以及其中「取值相等」的次数。 */
+    const counts = new Map<string, { total: number; positive: number }>()
     let positiveType = 0
     let negativeType = 0
 
     for (const argument of parsed.arguments) {
         const spec = selectorArgumentSpec(argument.key)
-        seen.set(argument.key, (seen.get(argument.key) ?? 0) + 1)
+        const count = counts.get(argument.key) ?? { total: 0, positive: 0 }
+        count.total += 1
+        if (!argument.negated) count.positive += 1
+        counts.set(argument.key, count)
 
         if (!spec) {
             const equivalent = bedrockEquivalent(argument.key)
-            issues.push({
-                level: equivalent ? 'error' : 'warning',
-                message: equivalent
-                    ? `Java 版没有 ${argument.key}=，请改用 ${equivalent}=`
-                    : `未知参数 ${argument.key}=，会原样保留`,
-                argument: argument.key,
-            })
+            issues.push(
+                equivalent
+                    ? {
+                          level: 'error',
+                          id: 'bedrock-argument',
+                          values: { key: argument.key, equivalent },
+                          argument: argument.key,
+                      }
+                    : {
+                          level: 'warning',
+                          id: 'unknown-argument',
+                          values: { key: argument.key },
+                          argument: argument.key,
+                      },
+            )
             continue
         }
 
         if (spec.forbiddenOn?.includes(parsed.variable)) {
             issues.push({
                 level: 'error',
-                message: `@${parsed.variable} 不能用 ${argument.key}=，改用 @e 或 @n`,
+                id: 'forbidden-on-variable',
+                values: { variable: parsed.variable, key: argument.key },
                 argument: argument.key,
             })
         }
@@ -365,22 +413,28 @@ export function validateSelector(parsed: ParsedSelector): SelectorIssue[] {
             if (!range) {
                 issues.push({
                     level: 'error',
-                    message: `${argument.key}= 的值不是数字或区间`,
+                    id: 'not-a-number',
+                    values: { key: argument.key },
                     argument: argument.key,
                 })
                 continue
             }
-            if (spec.min !== undefined && (range.min ?? 0) < spec.min) {
+            // 区间只写了一边时，另一边就是全部范围：用已定义的那一边判断越界
+            const lowest = range.min ?? range.max
+            const highest = range.max ?? range.min
+            if (spec.min !== undefined && lowest !== undefined && lowest < spec.min) {
                 issues.push({
                     level: 'error',
-                    message: `${argument.key}= 不能小于 ${spec.min}`,
+                    id: 'below-minimum',
+                    values: { key: argument.key, min: spec.min },
                     argument: argument.key,
                 })
             }
-            if (spec.max !== undefined && (range.max ?? 0) > spec.max) {
+            if (spec.max !== undefined && highest !== undefined && highest > spec.max) {
                 issues.push({
                     level: 'error',
-                    message: `${argument.key}= 不能大于 ${spec.max}`,
+                    id: 'above-maximum',
+                    values: { key: argument.key, max: spec.max },
                     argument: argument.key,
                 })
             }
@@ -391,7 +445,8 @@ export function validateSelector(parsed: ParsedSelector): SelectorIssue[] {
             if (spec.enumValues && !spec.enumValues.includes(value)) {
                 issues.push({
                     level: 'error',
-                    message: `${argument.key}= 只能是 ${spec.enumValues.join(' / ')}`,
+                    id: 'invalid-enum',
+                    values: { key: argument.key, values: spec.enumValues.join(' / ') },
                     argument: argument.key,
                 })
             }
@@ -399,41 +454,36 @@ export function validateSelector(parsed: ParsedSelector): SelectorIssue[] {
     }
 
     if (positiveType > 1) {
-        issues.push({ level: 'error', message: 'type= 只能写一次', argument: 'type' })
+        issues.push({ level: 'error', id: 'duplicate-type', argument: 'type' })
     }
     if (positiveType > 0 && negativeType > 0) {
+        issues.push({ level: 'error', id: 'type-conflict', argument: 'type' })
+    }
+
+    for (const [key, count] of counts) {
+        const spec = selectorArgumentSpec(key)
+        if (!spec || spec.repeatable || count.total <= 1) continue
+        if (key === 'type') continue
+        // wiki：测试「不相等」的参数可以重复，测试「相等」的只能出现一次
+        if (count.positive <= 1) continue
         issues.push({
             level: 'error',
-            message: 'type=<实体> 与 type=!<实体> 不能同时出现',
-            argument: 'type',
+            id: 'duplicate-argument',
+            values: { key },
+            argument: key,
         })
     }
 
-    for (const [key, count] of seen) {
-        const spec = selectorArgumentSpec(key)
-        if (!spec || spec.repeatable || count <= 1) continue
-        if (key === 'type') continue
-        issues.push({ level: 'error', message: `${key}= 不能重复`, argument: key })
-    }
-
-    if (seen.has('sort') && !seen.has('limit')) {
-        issues.push({
-            level: 'warning',
-            message: '没有 limit= 时 sort= 不影响选中的数量',
-            argument: 'sort',
-        })
+    if (counts.has('sort') && !counts.has('limit')) {
+        issues.push({ level: 'warning', id: 'sort-without-limit', argument: 'sort' })
     }
     if (
-        seen.has('limit') &&
-        !seen.has('sort') &&
+        counts.has('limit') &&
+        !counts.has('sort') &&
         parsed.variable !== 'p' &&
         parsed.variable !== 'r'
     ) {
-        issues.push({
-            level: 'warning',
-            message: '没有 sort= 时按 arbitrary 取前几个目标',
-            argument: 'limit',
-        })
+        issues.push({ level: 'warning', id: 'limit-without-sort', argument: 'limit' })
     }
 
     return issues

@@ -226,6 +226,7 @@ function removeNodeById(list: NbtTagNode[], id: string): boolean {
                 :depth="0"
                 :sibling-count="nodes.length"
                 :sibling-index="index"
+                :version="version ?? '1.21'"
                 @update="onUpdate"
                 @remove="onRemove"
                 @add-child="onAddChild"

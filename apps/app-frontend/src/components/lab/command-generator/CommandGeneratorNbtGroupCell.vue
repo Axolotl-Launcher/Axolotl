@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Combobox, defineMessages, useVIntl } from '@modrinth/ui'
+import { ChevronDownIcon } from '@modrinth/assets'
+import { Button, Combobox, defineMessages, StyledInput, useVIntl } from '@modrinth/ui'
 import { computed } from 'vue'
 
 import type { NbtGroupColumn } from '@/lab/command-generator/nbt/groups.ts'
@@ -7,12 +8,12 @@ import type { NbtGroupColumn } from '@/lab/command-generator/nbt/groups.ts'
 const props = defineProps<{
     column: NbtGroupColumn
     modelValue: string
-    /** 输入框挂的候选列表 id（附魔、状态效果）。 */
-    datalist?: string
 }>()
 
 const emit = defineEmits<{
     'update:modelValue': [value: string]
+    /** 请求从弹窗里挑一个值（附魔、状态效果）。 */
+    'request-pick': []
 }>()
 
 const { formatMessage } = useVIntl()
@@ -34,6 +35,14 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.nbt.group.no',
         defaultMessage: 'No',
     },
+    pickEnchantment: {
+        id: 'app.lab.command-generator.nbt.group.pick-enchantment',
+        defaultMessage: 'Pick an enchantment',
+    },
+    pickEffect: {
+        id: 'app.lab.command-generator.nbt.group.pick-effect',
+        defaultMessage: 'Pick a status effect',
+    },
 })
 
 const options = computed<Array<{ value: string; label: string }>>(() => {
@@ -53,6 +62,17 @@ const placeholder = computed(() => {
 })
 
 const numeric = computed(() => props.column.kind === 'number')
+
+/** 附魔与状态效果的 ID 是有限集合，给一个弹窗；其余 ID 只能手写。 */
+const pickLabel = computed(() => {
+    if (props.column.kind === 'enchantment') return formatMessage(messages.pickEnchantment)
+    if (props.column.kind === 'effect') return formatMessage(messages.pickEffect)
+    return undefined
+})
+
+function commit(event: Event) {
+    emit('update:modelValue', (event.target as HTMLInputElement).value)
+}
 </script>
 
 <template>
@@ -68,24 +88,37 @@ const numeric = computed(() => props.column.kind === 'number')
             width="full"
             @update:model-value="emit('update:modelValue', String($event ?? ''))"
         />
-        <input
+        <StyledInput
             v-else-if="numeric"
-            class="w-full rounded-md border-0 bg-surface-3 px-2 py-1 font-mono text-xs outline-none focus:ring-2 focus:ring-brand-shadow"
+            class="w-full"
+            size="small"
+            type="number"
             :aria-label="formatMessage(column.label)"
             :min="column.min"
             :max="column.max"
-            type="number"
-            :value="modelValue"
-            @change="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+            :model-value="modelValue"
+            @change="commit"
         />
-        <input
-            v-else
-            class="w-full rounded-md border-0 bg-surface-3 px-2 py-1 font-mono text-xs outline-none focus:ring-2 focus:ring-brand-shadow"
-            :aria-label="formatMessage(column.label)"
-            :list="datalist"
-            :placeholder="placeholder"
-            :value="modelValue"
-            @change="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-        />
+        <div v-else class="flex min-w-0 items-center gap-1">
+            <StyledInput
+                class="min-w-0 flex-1"
+                size="small"
+                :aria-label="formatMessage(column.label)"
+                :placeholder="placeholder"
+                :model-value="modelValue"
+                @change="commit"
+            />
+            <Button
+                v-if="pickLabel"
+                v-tooltip="pickLabel"
+                type="outlined"
+                size="2xs"
+                icon-only
+                :label="pickLabel"
+                @click="emit('request-pick')"
+            >
+                <ChevronDownIcon class="h-3 w-3" />
+            </Button>
+        </div>
     </div>
 </template>

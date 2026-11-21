@@ -113,25 +113,52 @@ it('permanent source capability notices do not restart a successful page', async
     expect(calls).toBe(1)
 })
 
-it('explicit retry invalidates a cached page and cancellation aborts a request', async () => {
+it('explicit retry invalidates a cached page', async () => {
     let calls = 0
     const pager = new ResourceSearchPages(async () => page(calls++))
-    const controller = new AbortController()
-    const first = await pager.get(query(), 1, controller.signal)
-    pager.invalidate(1)
-    expect(await pager.get(query(), 1, controller.signal)).not.toBe(first)
-    controller.abort()
-    await expect(pager.get(query(), 2, controller.signal)).rejects.toMatchObject({
-        name: 'AbortError',
-    })
-})
-
-it('invalidate keeps pages before its starting index', async () => {
-    const pager = new ResourceSearchPages(async (_request, index) => page(index))
     const signal = new AbortController().signal
     const first = await pager.get(query(), 1, signal)
-    await pager.get(query(), 2, signal)
+    pager.invalidate(1)
+    expect(await pager.get(query(), 1, signal)).not.toBe(first)
+})
+
+it('aborting a signal rejects a fetch that is already in flight', async () => {
+    let release!: (value: ResourcePage<ResourceSearchResult>) => void
+    let started!: () => void
+    const pending = new Promise<ResourcePage<ResourceSearchResult>>((resolve) => {
+        release = resolve
+    })
+    const entered = new Promise<void>((resolve) => {
+        started = resolve
+    })
+    const pager = new ResourceSearchPages(async () => {
+        started()
+        return pending
+    })
+    const controller = new AbortController()
+    const inFlight = pager.get(query(), 2, controller.signal)
+    await entered
+    controller.abort()
+    await expect(inFlight).rejects.toMatchObject({ name: 'AbortError' })
+    // Releasing the underlying request must not resurrect the aborted page.
+    release(page(2))
+    await Promise.resolve()
+})
+
+it('invalidate refetches pages at and after its start while keeping earlier ones', async () => {
+    const pages: number[] = []
+    const pager = new ResourceSearchPages(async (_request, index) => {
+        pages.push(index)
+        return page(index)
+    })
+    const signal = new AbortController().signal
+    const first = await pager.get(query(), 1, signal)
+    const second = await pager.get(query(), 2, signal)
     pager.invalidate(2)
+    // Page 1 was before the invalidation point and stays cached.
     expect(await pager.get(query(), 1, signal)).toBe(first)
-    expect(pager.indexOf(await pager.get(query(), 2, signal))).toBe(2)
+    // Page 2 must be fetched again, not served from the stale cache.
+    const refreshed = await pager.get(query(), 2, signal)
+    expect(refreshed).not.toBe(second)
+    expect(pages).toEqual([1, 2, 2])
 })

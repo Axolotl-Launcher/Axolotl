@@ -140,17 +140,21 @@ function pageInfoOf(source: PageSource, retained: ReportedTotal | null): PageInf
     // stays a single request regardless of what the count says.
     if (response.paginationMode === 'offset') {
         const total = reportedTotalOf(response) ?? retained
+        const hasHits = response.projectHits.length > 0 || response.serverHits.length > 0
+        // `has_more: false` proves the end only when this page held results. A
+        // jump past the last nonempty page also returns `false`; treating that
+        // empty page as the end would move the boundary to an invented page.
+        if (response.has_more === false && hasHits) {
+            return { count: Math.max(1, page), known: true, cursor: false }
+        }
         if (total?.precision === 'exact') {
             return { count: pagesFrom(total.hits), known: true, cursor: false }
         }
         if (total) return { count: pagesFrom(total.hits), known: false, cursor: false }
-        // No total (e.g. results merged from several sources): `has_more` is the
-        // only bound available, so it is also the proof of where the end is.
-        return {
-            count: response.has_more === false ? Math.max(1, page) : page + 1,
-            known: response.has_more === false,
-            cursor: false,
-        }
+        // No total (e.g. results merged from several sources): the furthest
+        // page observed is only a lower bound. An ended empty page must not
+        // claim to be the end either.
+        return { count: Math.max(1, page), known: false, cursor: false }
     }
 
     if (response.has_more === undefined) {

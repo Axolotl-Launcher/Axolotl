@@ -270,7 +270,7 @@ it('never marks an offset source as cursor-paged, even with an estimated total',
     }
 })
 
-it('uses has_more as the only page bound for an offset source without a total', async () => {
+it('treats an unknown-total offset source as a lower bound, never a known end', async () => {
     const search = vi
         .fn()
         .mockResolvedValueOnce(offsetResponse(1, { total_precision: 'unknown', total_hits: 0 }))
@@ -278,8 +278,66 @@ it('uses has_more as the only page bound for an offset source without a total', 
     try {
         await state.refreshSearch()
         expect(state.cursorPaged.value).toBe(false)
-        expect(state.pageCount.value).toBe(2)
+        expect(state.pageCount.value).toBe(1)
         expect(state.pageCountKnown.value).toBe(false)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('does not make an empty ended offset page the known last page', async () => {
+    const search = vi.fn().mockResolvedValueOnce(
+        offsetResponse(7, {
+            total_precision: 'estimate',
+            has_more: false,
+            projectHits: [],
+        }),
+    )
+    const { state, wrapper } = mountSearch(search)
+    try {
+        state.currentPage.value = 7
+        await state.refreshSearch()
+        // An estimate sizes the strip but a jump past the results is not proof
+        // of where they end, so the boundary stays unknown.
+        expect(state.pageCountKnown.value).toBe(false)
+        expect(state.pageCount.value).toBe(500)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('accepts a ended nonempty offset page as the real last page', async () => {
+    const search = vi.fn().mockResolvedValueOnce(
+        offsetResponse(7, {
+            total_precision: 'estimate',
+            has_more: false,
+            projectHits: [
+                {
+                    project_id: 'x',
+                    provider: 'modrinth',
+                    project_type: 'mod',
+                    author: '',
+                    title: 'x',
+                    description: '',
+                    slug: 'x',
+                    downloads: 0,
+                    follows: 0,
+                    icon_url: '',
+                    categories: [],
+                    display_categories: [],
+                    versions: [],
+                    date_created: '',
+                    date_modified: '',
+                },
+            ],
+        }),
+    )
+    const { state, wrapper } = mountSearch(search)
+    try {
+        state.currentPage.value = 7
+        await state.refreshSearch()
+        expect(state.pageCountKnown.value).toBe(true)
+        expect(state.pageCount.value).toBe(7)
     } finally {
         wrapper.unmount()
     }

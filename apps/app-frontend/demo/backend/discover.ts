@@ -128,7 +128,9 @@ async function search(
         .filter((hit) => matchesText(hit, text) && matches(hit, query.filter))
     const sortKey = sortKeys[query.sort]
     if (sortKey) hits.sort((a, b) => sortKey(b) - sortKey(a))
-    const offset = Number(cursor ?? 0)
+    // Direct paging sends the logical page on the query with a null cursor;
+    // the legacy cursor path is still accepted for older callers.
+    const offset = query.page ? (query.page - 1) * query.pageSize : Number(cursor ?? 0)
     const end = offset + query.pageSize
     return {
         requestId,

@@ -190,6 +190,23 @@ describe('ID 候选', () => {
         expect(candidates.map((candidate) => candidate.label)).toContain('minecraft:sharpness')
     })
 
+    it('物品栈形状的 id 补物品，不必枚举父键名', async () => {
+        const candidates = await source({
+            domain: 'item',
+            version: '1.21',
+            components: true,
+        }).candidates(scan({ expect: 'value', keyPath: ['bundle_contents'], key: 'id' }))
+        expect(candidates.map((candidate) => candidate.label)).toContain('minecraft:stone')
+    })
+
+    it('实体根层的 id 补实体，不会被 count 误判成物品栈', async () => {
+        const candidates = await source({ domain: 'entity', version: '1.21' }).candidates(
+            scan({ expect: 'value', keyPath: [], key: 'id' }),
+        )
+        expect(candidates.map((candidate) => candidate.label)).toContain('minecraft:zombie')
+        expect(candidates.some((candidate) => candidate.label === 'minecraft:stone')).toBe(false)
+    })
+
     it('普通字符串键不补 ID', async () => {
         const candidates = await source({ domain: 'entity', version: '1.21' }).candidates(
             scan({ expect: 'value', keyPath: [], key: 'CustomName' }),

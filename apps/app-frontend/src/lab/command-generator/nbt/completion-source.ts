@@ -114,6 +114,19 @@ function isChinese(locale: string): boolean {
 }
 
 /**
+ * 物品栈永远是 `{id, count}` 的形状：`Items`、`bundle_contents`、
+ * `charged_projectiles`、`equipment.mainhand` 全都长这样。按这个形状判断，
+ * 比一个个枚举父键名可靠，也不会把效果 / 方块状态里的 `id` 认成物品。
+ *
+ * 根层不算：实体根层就有叫 `count` 的标签（那是生物自己的字段），而根层的
+ * `id` 是实体 / 方块实体的类型。
+ */
+function isItemStack(path: string[], level: NbtLevel | undefined, key: string): boolean {
+    if (key !== 'id' || !path.length || !level) return false
+    return level.fields.some((field) => field.key === 'count' || field.key === 'Count')
+}
+
+/**
  * 这个键的值是不是某一类 ID。
  *
  * 判据是键名加上父级路径：`Items` 里的 `id` 是物品，根层的 `id` 是实体，
@@ -123,7 +136,11 @@ function idSourceFor(
     domain: string | undefined,
     path: string[],
     key: string,
+    level: NbtLevel | undefined,
 ): IdSource | undefined {
+    if (isItemStack(path, level, key)) return 'item'
+    // 这个组件也能直接写成实体 ID 字符串。
+    if (key === 'entity_data') return 'entity'
     const parent = path[path.length - 1]
     if (parent === 'Enchantments') return 'enchantment'
     if (parent === 'levels' && path[path.length - 2] === 'enchantments') return 'enchantment'
@@ -135,7 +152,7 @@ function idSourceFor(
     if (key === 'Item' || key === 'item_id') return 'item'
     if (key !== 'id') return undefined
     if (parent && ITEM_PARENTS.has(parent)) return 'item'
-    if (parent === 'entity_data' || parent === 'EntityTag') return 'entity'
+    if (parent === 'entity' || parent === 'entity_data' || parent === 'EntityTag') return 'entity'
     if (!parent && domain === 'entity') return 'entity'
     return undefined
 }
@@ -299,8 +316,9 @@ function potionCandidates(locale: string): SnbtCandidate[] {
 async function idCandidates(
     context: NbtCompletionContext,
     scan: SnbtScan,
+    level: NbtLevel | undefined,
 ): Promise<SnbtCandidate[]> {
-    const source = idSourceFor(context.lookup?.domain, scan.keyPath, scan.key)
+    const source = idSourceFor(context.lookup?.domain, scan.keyPath, scan.key, level)
     if (!source) return []
     const version = resolveResourceVersion(context.version)
     switch (source) {
@@ -372,7 +390,7 @@ async function valueCandidates(
         }
     }
 
-    const ids = await idCandidates(context, scan)
+    const ids = await idCandidates(context, scan, level)
     const base = forms.length
         ? forms.flatMap((form) => valueCandidatesFor(form, context.version))
         : GENERIC_SHAPES

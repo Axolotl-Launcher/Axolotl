@@ -135,6 +135,24 @@ function pageInfoOf(source: PageSource, retained: ReportedTotal | null): PageInf
     const { response, maxResults, page } = source
     const pagesFrom = (total: number) => Math.max(1, Math.ceil(total / maxResults))
 
+    // An offset source reads any page in one request. It may still only report
+    // a total on some pages, but that never makes it a cursor source: a jump
+    // stays a single request regardless of what the count says.
+    if (response.paginationMode === 'offset') {
+        const total = reportedTotalOf(response) ?? retained
+        if (total?.precision === 'exact') {
+            return { count: pagesFrom(total.hits), known: true, cursor: false }
+        }
+        if (total) return { count: pagesFrom(total.hits), known: false, cursor: false }
+        // No total (e.g. results merged from several sources): `has_more` is the
+        // only bound available, so it is also the proof of where the end is.
+        return {
+            count: response.has_more === false ? Math.max(1, page) : page + 1,
+            known: response.has_more === false,
+            cursor: false,
+        }
+    }
+
     if (response.has_more === undefined) {
         return { count: pagesFrom(response.total_hits), known: true, cursor: false }
     }

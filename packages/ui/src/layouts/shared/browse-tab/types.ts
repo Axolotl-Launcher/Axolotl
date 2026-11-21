@@ -31,6 +31,11 @@ export interface BrowseSearchResponse {
     total_hits: number
     has_more?: boolean
     total_precision?: 'exact' | 'estimate' | 'unknown'
+    /**
+     * Set by sources that read any page directly through an offset/limit API.
+     * Such a source is never cursor-paged, so the page bar must not cap jumps.
+     */
+    paginationMode?: 'offset'
     per_page: number
     page?: number
 }

@@ -84,6 +84,23 @@ function cursorResponse(
     }
 }
 
+function offsetResponse(
+    page: number,
+    overrides: Partial<BrowseSearchResponse> = {},
+): BrowseSearchResponse {
+    return {
+        projectHits: [],
+        serverHits: [],
+        total_hits: 10000,
+        total_precision: 'estimate',
+        has_more: true,
+        paginationMode: 'offset',
+        per_page: 20,
+        page,
+        ...overrides,
+    }
+}
+
 function mountSearch(search: UseBrowseSearchOptions['search']) {
     let state!: ReturnType<typeof useBrowseSearch>
     const wrapper = mount(
@@ -234,6 +251,35 @@ it('follows the page the source resolved instead of the page it was asked for', 
         await state.refreshSearch()
         // A cursor source that runs out answers with the last page it has.
         expect(state.currentPage.value).toBe(4)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('never marks an offset source as cursor-paged, even with an estimated total', async () => {
+    const search = vi.fn().mockResolvedValueOnce(offsetResponse(1))
+    const { state, wrapper } = mountSearch(search)
+    try {
+        await state.refreshSearch()
+        expect(state.cursorPaged.value).toBe(false)
+        expect(state.pageCount.value).toBe(500)
+        // An estimate is a floor, not the real end of the result set.
+        expect(state.pageCountKnown.value).toBe(false)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('uses has_more as the only page bound for an offset source without a total', async () => {
+    const search = vi
+        .fn()
+        .mockResolvedValueOnce(offsetResponse(1, { total_precision: 'unknown', total_hits: 0 }))
+    const { state, wrapper } = mountSearch(search)
+    try {
+        await state.refreshSearch()
+        expect(state.cursorPaged.value).toBe(false)
+        expect(state.pageCount.value).toBe(2)
+        expect(state.pageCountKnown.value).toBe(false)
     } finally {
         wrapper.unmount()
     }

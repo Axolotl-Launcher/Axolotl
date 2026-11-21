@@ -277,11 +277,12 @@ const showLastPage = computed(
 )
 
 /**
- * Whether the jump limit is what bounds this bar: a cursor-paged source walks
- * every page it skips, and a source with no known end has nothing else to stop
- * at.
+ * Whether the jump limit is what bounds this bar. Only a cursor-paged source
+ * walks every page it skips. An unknown end is not a reason to cap a jump: an
+ * offset source can open page N in one request even when it cannot name the
+ * last page.
  */
-const jumpLimitApplies = computed(() => props.cursorPaged || !props.countKnown)
+const jumpLimitApplies = computed(() => props.cursorPaged)
 
 /**
  * The highest page a jump may ask for, or `null` when nothing caps it.

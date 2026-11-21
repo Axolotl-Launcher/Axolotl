@@ -145,6 +145,14 @@ it('does not cap a jump when any page can be read directly', async () => {
     expect(wrapper.emitted('switch-page')).toEqual([[30]])
 })
 
+it('does not cap a jump on an offset source even when the end is unknown', async () => {
+    // A direct offset source opens any page in one request. An estimated or
+    // unknown total must not reintroduce the cursor jump cap.
+    const wrapper = await mountBar({ page: 1, count: 30, countKnown: false })
+    await commit(jumpField(wrapper), '100')
+    expect(wrapper.emitted('switch-page')).toEqual([[100]])
+})
+
 it('shows the page a jump landed on instead of the value that was typed', async () => {
     // A cursor source that has run out reports its last page as the count, and
     // clamping onto the page already shown emits nothing — so the field is the only

@@ -98,6 +98,13 @@ test('根层的普通列表不是组件列表', () => {
     assert.equal(scan('[1,|]').expect, 'element')
 })
 
+test('记下这一层已经写过的键名', () => {
+    assert.deepEqual(scan('{a:1,b:2,|}').container?.keys, ['a', 'b'])
+    assert.deepEqual(scan('[minecraft:custom_name="x",|]').container?.keys, [
+        'minecraft:custom_name',
+    ])
+})
+
 test('数组前缀之后是数字', () => {
     const context = scan('{Pos:[B;|]}')
     assert.equal(context.expect, 'value')

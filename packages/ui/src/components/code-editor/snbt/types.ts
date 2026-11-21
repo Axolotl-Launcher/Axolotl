@@ -16,6 +16,8 @@ export interface SnbtFrame {
     keyPath: string[]
     /** 根层的 `[id=…]` 组件列表。 */
     components: boolean
+    /** 这一层已经写过的键名，用来把「已添加」的候选排在后面。 */
+    keys: string[]
 }
 
 /** 光标位置的语法上下文。 */

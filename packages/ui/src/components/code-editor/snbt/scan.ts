@@ -77,6 +77,12 @@ export function scanSnbt(text: string, offset: number): SnbtScan {
 
     const top = () => stack[stack.length - 1]
 
+    /** 记下这一层已经写过的键名，候选里可以把它们排到后面。 */
+    const rememberKey = (value: string) => {
+        const frame = top()
+        if (frame && (frame.kind === 'compound' || frame.components)) frame.keys.push(value)
+    }
+
     let index = 0
     while (index < limit) {
         const char = text[index]
@@ -97,6 +103,7 @@ export function scanSnbt(text: string, offset: number): SnbtScan {
             const next = skipSpace(text, close + 1, limit)
             if (next < limit && text[next] === ':') {
                 key = content
+                rememberKey(content)
                 expect = 'value'
                 index = next + 1
             } else {
@@ -107,7 +114,12 @@ export function scanSnbt(text: string, offset: number): SnbtScan {
         }
 
         if (char === '{') {
-            stack.push({ kind: 'compound', keyPath: childPath(top(), key), components: false })
+            stack.push({
+                kind: 'compound',
+                keyPath: childPath(top(), key),
+                components: false,
+                keys: [],
+            })
             key = ''
             expect = 'key'
             index += 1
@@ -117,7 +129,12 @@ export function scanSnbt(text: string, offset: number): SnbtScan {
         if (char === '[') {
             const root = stack.length === 0
             const components = root && looksLikeComponents(text, index + 1, limit)
-            stack.push({ kind: 'list', keyPath: childPath(top(), key), components })
+            stack.push({
+                kind: 'list',
+                keyPath: childPath(top(), key),
+                components,
+                keys: [],
+            })
             key = ''
             expect = components ? 'component' : 'element'
             index += 1
@@ -173,12 +190,14 @@ export function scanSnbt(text: string, offset: number): SnbtScan {
         const nextChar = next < limit ? text[next] : ''
         if (expect === 'key' && nextChar === ':') {
             key = token
+            rememberKey(token)
             expect = 'value'
             index = next + 1
             continue
         }
         if (expect === 'component' && nextChar === '=') {
             key = token
+            rememberKey(token)
             expect = 'value'
             index = next + 1
             continue

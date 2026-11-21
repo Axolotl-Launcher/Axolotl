@@ -7,7 +7,9 @@ import effectsData from '@/lab/command-generator/data/effects.json'
 import enchantmentsData from '@/lab/command-generator/data/enchantments.json'
 import {
     emptyGroupRow,
+    groupRowNodes,
     type NbtGroupColumn,
+    type NbtGroupOrigins,
     type NbtGroupRow,
     type NbtGroupSpec,
     readGroupHeader,
@@ -81,6 +83,8 @@ interface VersionedEntry {
 }
 
 const rows = computed(() => readGroupRows(props.node, props.spec))
+/** 每行的原节点：删除行时要连同它的位置一起删，否则后面的行会认错自己的子键。 */
+const origins = computed(() => groupRowNodes(props.node, props.spec))
 const header = computed(() =>
     props.spec.header?.length ? readGroupHeader(props.node, props.spec) : undefined,
 )
@@ -160,8 +164,8 @@ const pickerTakenIds = computed(() => {
         .filter(Boolean)
 })
 
-function commit(next: NbtGroupRow[]) {
-    writeGroupRows(props.node, props.spec, next)
+function commit(next: NbtGroupRow[], source: NbtGroupOrigins) {
+    writeGroupRows(props.node, props.spec, next, source)
     emit('change')
 }
 
@@ -169,7 +173,7 @@ function setCell(rowIndex: number, column: NbtGroupColumn, value: string) {
     const next = rows.value.map((row, index) =>
         index === rowIndex ? { ...row, [column.key]: value } : row,
     )
-    commit(next)
+    commit(next, origins.value)
 }
 
 function setHeader(column: NbtGroupColumn, value: string) {
@@ -188,11 +192,14 @@ function addRow() {
             ?.enumValues?.find((value) => !used.has(value))
         if (free) next[slotKey] = free
     }
-    commit([...rows.value, next])
+    commit([...rows.value, next], [...origins.value, undefined])
 }
 
 function removeRow(rowIndex: number) {
-    commit(rows.value.filter((_, index) => index !== rowIndex))
+    commit(
+        rows.value.filter((_, index) => index !== rowIndex),
+        origins.value.filter((_, index) => index !== rowIndex),
+    )
 }
 
 function requestPick(rowIndex: number, column: NbtGroupColumn) {

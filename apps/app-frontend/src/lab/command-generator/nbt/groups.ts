@@ -318,8 +318,30 @@ export const NBT_GROUPS: Record<string, NbtGroupSpec> = {
 
 export type NbtGroupRow = Record<string, string>
 
+/**
+ * 每一行来自哪个原节点，`undefined` 表示这一行是新加的。
+ *
+ * 表格只建模了一部分子键，其余子键要跟着**这一行**走。按位置取不行：删掉一行
+ * 之后后面的行整体挪位，会把上一行的 `display` 之类挂到别人身上。
+ */
+export type NbtGroupOrigins = readonly (NbtTagNode | undefined)[]
+
 export function groupSpec(id: string | undefined): NbtGroupSpec | undefined {
     return id ? NBT_GROUPS[id] : undefined
+}
+
+/** 表格每一行对应的原节点，顺序与 `readGroupRows` 一致。 */
+export function groupRowNodes(node: NbtTagNode, spec: NbtGroupSpec): NbtTagNode[] {
+    const container = rowsNode(node, spec)
+    if (!container) return []
+    if (spec.shape === 'slots') {
+        return (container.children ?? []).filter((child) => child.type === 'compound')
+    }
+    if (container.type === 'list') return [...(container.children ?? [])]
+    if (container.type === 'compound' && spec.shape === 'map') {
+        return (container.children ?? []).filter((child) => NAMESPACED_ID.test(child.name))
+    }
+    return []
 }
 
 /**
@@ -524,7 +546,12 @@ export function readGroupRows(node: NbtTagNode, spec: NbtGroupSpec): NbtGroupRow
 }
 
 /** 行 → 节点。保留节点已有的结构，只有节点还空着时才用 `spec.shape`。 */
-export function writeGroupRows(node: NbtTagNode, spec: NbtGroupSpec, rows: NbtGroupRow[]) {
+export function writeGroupRows(
+    node: NbtTagNode,
+    spec: NbtGroupSpec,
+    rows: NbtGroupRow[],
+    origins?: NbtGroupOrigins,
+) {
     const container = ensureRowsNode(node, spec)
     const shape = spec.shape === 'slots' ? 'slots' : container.type === 'list' ? 'list' : spec.shape
 
@@ -588,7 +615,8 @@ export function writeGroupRows(node: NbtTagNode, spec: NbtGroupSpec, rows: NbtGr
         const child = createNbtTag(String(index), 'compound', '')
         // 表格没建模的子键（`attribute_modifiers[].display` 之类）原样保留，
         // 否则在表格里改一次数量就会把整条记录的其他字段吞掉
-        const extras = (previous[index]?.children ?? [])
+        const origin = origins?.[index] ?? previous[index]
+        const extras = (origin?.children ?? [])
             .filter((entry) => !managed.has(entry.name))
             .map(cloneNbtNode)
         child.children = [

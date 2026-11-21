@@ -4,6 +4,7 @@ import {
     ATTRIBUTE_SLOTS,
     emptyGroupRow,
     EQUIPMENT_SLOTS,
+    groupRowNodes,
     groupShapeOf,
     groupSpec,
     NBT_GROUPS,
@@ -211,6 +212,36 @@ describe('写回时保留表格没建模的键', () => {
             'levels',
             'show_in_tooltip',
         ])
+    })
+
+    /**
+     * 删掉第一行之后，原来的第二行会挪到索引 0。如果按位置找原节点，它的
+     * `display` 会被前一行的覆盖掉——每一行都得跟着自己的原节点走。
+     */
+    it('删除一行后，其余行还认得自己的子键', () => {
+        const node = createNbtTag('attribute_modifiers', 'list', '', [
+            createNbtTag('0', 'compound', '', [
+                createNbtTag('type', 'string', 'minecraft:scale'),
+                createNbtTag('amount', 'double', '1'),
+                createNbtTag('display', 'string', 'first'),
+            ]),
+            createNbtTag('1', 'compound', '', [
+                createNbtTag('type', 'string', 'minecraft:speed'),
+                createNbtTag('amount', 'double', '2'),
+                createNbtTag('display', 'string', 'second'),
+            ]),
+        ])
+        const origins = groupRowNodes(node, attributeModifiers)
+        const rows = readGroupRows(node, attributeModifiers)
+
+        writeGroupRows(node, attributeModifiers, rows.slice(1), origins.slice(1))
+        expect(node.children).toHaveLength(1)
+        expect(node.children?.[0].children?.find((child) => child.name === 'amount')?.value).toBe(
+            '2',
+        )
+        expect(node.children?.[0].children?.find((child) => child.name === 'display')?.value).toBe(
+            'second',
+        )
     })
 })
 

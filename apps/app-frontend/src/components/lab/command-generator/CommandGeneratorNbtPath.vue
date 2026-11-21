@@ -65,6 +65,7 @@ watch(
 
 const issues = computed(() => validateNbtPath(text.value))
 const errors = computed(() => issues.value.filter((issue) => issue.level === 'error'))
+const warnings = computed(() => issues.value.filter((issue) => issue.level === 'warning'))
 
 const unknownRoot = computed(() => {
     if (!props.domain) return false
@@ -153,10 +154,13 @@ defineExpose({ focus: () => inputRef.value?.focus() })
         <p v-for="issue in errors" :key="issue.message" class="m-0 text-xs text-red">
             {{ issue.message }}
         </p>
+        <p v-for="issue in warnings" :key="issue.message" class="m-0 text-xs text-orange">
+            {{ issue.message }}
+        </p>
         <p v-if="unknownRoot" class="m-0 text-xs text-[var(--color-text-tertiary)]">
             {{ formatMessage(messages.unknownRoot) }}
         </p>
-        <p v-else-if="!errors.length" class="m-0 text-xs text-[var(--color-text-tertiary)]">
+        <p v-else-if="!issues.length" class="m-0 text-xs text-[var(--color-text-tertiary)]">
             {{ formatMessage(messages.hint) }}
         </p>
 

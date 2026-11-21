@@ -15,6 +15,7 @@ import {
     formFor,
     formsFor,
     groupByCategory,
+    keyForVersion,
     type NbtCategory,
     type NbtDomain,
     type NbtFieldSpec,
@@ -28,7 +29,7 @@ const props = defineProps<{
     version: string
     /** 已知实体 / 物品 ID 时才能做「仅显示适用」过滤。 */
     targetId?: string
-    /** 文档里已有的键名，列表上打个标记，不阻止再加一次。 */
+    /** 文档里已有的键名：列表上打个标记，并且不允许再加一条同名键。 */
     existingKeys?: string[]
     /** 这一层可选的字段：根层，或某个母项的子字段。 */
     fields: NbtFieldSpec[]
@@ -234,6 +235,16 @@ const emptyText = computed(() => {
 const existing = computed(() => new Set(props.existingKeys ?? []))
 
 /**
+ * 这个字段是不是已经在这一层了。
+ *
+ * 比对要用**当前版本**的键名：`ActiveEffects` 这类字段在旧版本叫别的名字，
+ * 拿 `spec.key` 去比永远对不上，标记不出来就会让人加第二条。
+ */
+function isAdded(spec: NbtFieldSpec): boolean {
+    return existing.value.has(keyForVersion(spec, props.version))
+}
+
+/**
  * 两个开关只在「拨了会变」的时候才出现。
  *
  * 目录里没有任何 `appliesTo`（早先的物品组件就是这样）时，「仅显示适用」拨了
@@ -410,10 +421,11 @@ defineExpose({ show, hide })
                             v-for="spec in group.items"
                             :key="flatResults.indexOf(spec)"
                             type="button"
-                            class="flex w-full min-w-0 items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-4 focus-visible:outline-brand"
+                            class="flex w-full min-w-0 items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-4 focus-visible:outline-brand disabled:cursor-default disabled:hover:bg-transparent"
                             :class="{
                                 'bg-surface-4': flatResults[activeIndex] === spec,
                             }"
+                            :disabled="isAdded(spec)"
                             @click="pick(spec)"
                             @mouseenter="activeIndex = flatResults.indexOf(spec)"
                         >
@@ -433,7 +445,7 @@ defineExpose({ show, hide })
                                         >{{ fieldLabel(spec, locale) }}</span
                                     >
                                     <span
-                                        v-if="existing.has(spec.key)"
+                                        v-if="isAdded(spec)"
                                         class="rounded bg-surface-5 px-1 text-[0.625rem] text-[var(--color-text-tertiary)]"
                                         >{{ formatMessage(messages.added) }}</span
                                     >

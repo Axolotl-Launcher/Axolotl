@@ -240,6 +240,10 @@ function openPalette(parentId: string | null = null) {
 /** 把新节点放到当前目标容器里：根层、某个复合标签的子节点，或某个列表的元素。 */
 function onPalettePick(spec: NbtFieldSpec, form?: NbtValueForm) {
     const name = keyForVersion(spec, version.value)
+    const siblings =
+        paletteParentId.value === null ? nodes.value : (paletteParent.value?.children ?? [])
+    // 同名的键已经在了就别再加：复合标签里两条同名键只有后一条生效
+    if (siblings.some((node) => node.name === name)) return
     const node = form ? nodeFromForm(name, form, version.value) : nodeFromField(spec, version.value)
     if (paletteParentId.value === null) {
         nodes.value.push(node)

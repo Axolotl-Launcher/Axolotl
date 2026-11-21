@@ -3921,44 +3921,67 @@
     },
     {
       "key": "patterns",
-      "type": "list",
       "category": "basic",
       "appliesTo": {
         "ids": ["banner"]
       },
       "zh": "图案",
-      "desc": "List of all patterns applied to the banner.",
-      "elementType": "compound",
-      "children": [
+      "desc": "List of all patterns applied to the banner. Each entry is a dye color and the pattern the color is applied to.",
+      "forms": [
         {
-          "key": "color",
-          "type": "string",
-          "desc": "Color of the section.",
-          "category": "appearance",
-          "zh": "颜色"
-        },
-        {
-          "key": "pattern",
-          "type": "compound",
-          "desc": "One Banner pattern (an ID, or a new Banner pattern definition) — The banner pattern the color is applied to.",
-          "category": "appearance",
-          "zh": "图案",
-          "children": [
-            {
-              "key": "asset_id",
-              "type": "string",
-              "desc": "The resource location for the texture asset.",
-              "category": "appearance",
-              "zh": "图案资源"
-            },
-            {
-              "key": "translation_key",
-              "type": "string",
-              "desc": "The translation key for displaying the banner tooltip.",
-              "category": "appearance",
-              "zh": "翻译键"
-            }
-          ]
+          "type": "list",
+          "element": {
+            "type": "compound",
+            "children": [
+              {
+                "key": "color",
+                "category": "appearance",
+                "zh": "颜色",
+                "desc": "Dye color of the section.",
+                "forms": [
+                  {
+                    "type": "string",
+                    "values": "dye_color",
+                    "default": "\"white\""
+                  }
+                ]
+              },
+              {
+                "key": "pattern",
+                "category": "appearance",
+                "zh": "图案",
+                "desc": "One banner pattern (an ID, or a new banner pattern definition).",
+                "forms": [
+                  {
+                    "type": "string",
+                    "values": "banner_pattern",
+                    "default": "\"minecraft:cross\"",
+                    "desc": "The pattern ID, for example minecraft:creeper."
+                  },
+                  {
+                    "type": "compound",
+                    "desc": "A new pattern definition: the texture asset and its tooltip translation key.",
+                    "children": [
+                      {
+                        "key": "asset_id",
+                        "type": "string",
+                        "category": "appearance",
+                        "zh": "图案资源",
+                        "desc": "The resource location for the texture asset."
+                      },
+                      {
+                        "key": "translation_key",
+                        "type": "string",
+                        "category": "appearance",
+                        "zh": "翻译键",
+                        "desc": "The translation key for displaying the banner tooltip."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     },
@@ -4066,87 +4089,96 @@
     },
     {
       "key": "profile",
-      "type": "compound",
       "category": "appearance",
       "appliesTo": {
         "ids": ["skull"]
       },
       "zh": "玩家档案",
       "desc": "Optional. The textures and/or player profile used to render a player head. If specified as a string, it corresponds to and is always saved as a compound. If omitted, a the wide Steve skin is used. Does nothing if present on any other head or skull type. Represents the minecraft:profile component. May also be written as a plain string holding a player name or UUID.",
-      "children": [
+      "forms": [
         {
-          "key": "name",
-          "type": "string",
-          "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive than actual player usernames, which must be 3-16 characters and may only contain letters, numbers, and underscores). If no other profile fields are specified, this is used to dynamically request the profile of a player with that username from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given name).",
-          "category": "appearance",
-          "zh": "玩家名"
-        },
-        {
-          "key": "id",
-          "type": "int_array",
-          "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile of a player with that UUID from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given UUID).",
-          "length": 4,
-          "category": "appearance",
-          "zh": "UUID"
-        },
-        {
-          "key": "properties",
-          "type": "list",
-          "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component.",
-          "elementType": "compound",
-          "category": "appearance",
-          "zh": "皮肤属性",
+          "type": "compound",
           "children": [
             {
               "key": "name",
               "type": "string",
-              "desc": "The name of the property. Can only be \"textures\".",
-              "category": "basic",
-              "zh": "属性名"
+              "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive than actual player usernames, which must be 3-16 characters and may only contain letters, numbers, and underscores). If no other profile fields are specified, this is used to dynamically request the profile of a player with that username from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given name).",
+              "category": "appearance",
+              "zh": "玩家名"
             },
             {
-              "key": "value",
-              "type": "string",
-              "desc": "The texture data json, encoded in base64.",
-              "category": "basic",
-              "zh": "属性值"
+              "key": "id",
+              "type": "int_array",
+              "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile of a player with that UUID from Mojang's servers. Once received, that profile's properties (such as its skin, cape, and elytra textures) can be used for rendering. If the profile does not exist, an arbitrary default skin is provided (always the same one for a given UUID).",
+              "length": 4,
+              "category": "appearance",
+              "zh": "UUID"
             },
             {
-              "key": "signature",
+              "key": "properties",
+              "type": "list",
+              "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component.",
+              "elementType": "compound",
+              "category": "appearance",
+              "zh": "皮肤属性",
+              "children": [
+                {
+                  "key": "name",
+                  "type": "string",
+                  "desc": "The name of the property. Can only be \"textures\".",
+                  "category": "basic",
+                  "zh": "属性名"
+                },
+                {
+                  "key": "value",
+                  "type": "string",
+                  "desc": "The texture data json, encoded in base64.",
+                  "category": "basic",
+                  "zh": "属性值"
+                },
+                {
+                  "key": "signature",
+                  "type": "string",
+                  "desc": "Optional. Mojang's signature of the value, encoded in base64.",
+                  "category": "basic",
+                  "zh": "签名"
+                }
+              ]
+            },
+            {
+              "key": "texture",
               "type": "string",
-              "desc": "Optional. Mojang's signature of the value, encoded in base64.",
-              "category": "basic",
-              "zh": "签名"
+              "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a player model or skin, overriding the skin texture provided by a profile. This skin texture may have transparent pixels on the inner body layers whereas resolved skins' are always opaque. If omitted and no skin is provided by a profile, the slim Alex skin is used (minecraft:entity/player/slim/alex).",
+              "category": "appearance",
+              "zh": "皮肤"
+            },
+            {
+              "key": "cape",
+              "type": "string",
+              "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a cape, overriding the cape texture provided by a profile. If the resolved profile (or lack thereof) does not have a cape, it will gain one. This does not affect the elytra texture.",
+              "category": "appearance",
+              "zh": "披风"
+            },
+            {
+              "key": "elytra",
+              "type": "string",
+              "desc": "Optional. path to an elytra texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering an elytra, overriding the elytra texture provided by a profile. This does not affect the cape texture. If omitted and no elytra texture is provided by a profile, the normal elytra texture is used (minecraft:entity/equipment/wings/elytra).",
+              "category": "appearance",
+              "zh": "鞘翅"
+            },
+            {
+              "key": "model",
+              "type": "string",
+              "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model type provided by a profile. If omitted and no model type is provided by a profile, a slim model type is used.",
+              "category": "appearance",
+              "zh": "模型"
             }
           ]
         },
         {
-          "key": "texture",
           "type": "string",
-          "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a player model or skin, overriding the skin texture provided by a profile. This skin texture may have transparent pixels on the inner body layers whereas resolved skins' are always opaque. If omitted and no skin is provided by a profile, the slim Alex skin is used (minecraft:entity/player/slim/alex).",
-          "category": "appearance",
-          "zh": "皮肤"
-        },
-        {
-          "key": "cape",
-          "type": "string",
-          "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a cape, overriding the cape texture provided by a profile. If the resolved profile (or lack thereof) does not have a cape, it will gain one. This does not affect the elytra texture.",
-          "category": "appearance",
-          "zh": "披风"
-        },
-        {
-          "key": "elytra",
-          "type": "string",
-          "desc": "Optional. path to an elytra texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering an elytra, overriding the elytra texture provided by a profile. This does not affect the cape texture. If omitted and no elytra texture is provided by a profile, the normal elytra texture is used (minecraft:entity/equipment/wings/elytra).",
-          "category": "appearance",
-          "zh": "鞘翅"
-        },
-        {
-          "key": "model",
-          "type": "string",
-          "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model type provided by a profile. If omitted and no model type is provided by a profile, a slim model type is used.",
-          "category": "appearance",
-          "zh": "模型"
+          "default": "\"jeb_\"",
+          "desc": "A player name or UUID; saved back as a compound."
         }
       ]
     },

@@ -9,6 +9,7 @@ import {
     NBT_GROUPS,
     readGroupHeader,
     readGroupRows,
+    shapeMatches,
     writeGroupHeader,
     writeGroupRows,
 } from './groups.ts'
@@ -151,6 +152,65 @@ describe('结构判定', () => {
 
     it('复合标签、列表以外的节点不算结构化', () => {
         expect(groupShapeOf(createNbtTag('a', 'string', 'x'))).toBeUndefined()
+    })
+
+    /**
+     * 表格只能套在结构相符的节点上：用列表表格写回复合标签，会把
+     * `{levels:…,show_in_tooltip:…}` 整体改成列表，等于替用户改写标签。
+     */
+    it('形状不符时不套表格', () => {
+        expect(shapeMatches(createNbtTag('e', 'compound', ''), enchantments)).toBe(true)
+        expect(shapeMatches(createNbtTag('e', 'list', ''), enchantments)).toBe(false)
+        expect(shapeMatches(createNbtTag('e', 'compound', ''), attributeModifiers)).toBe(false)
+        expect(shapeMatches(createNbtTag('e', 'list', ''), attributeModifiers)).toBe(true)
+        // listKey 结构：行在子键里，节点本身必须是复合标签
+        expect(shapeMatches(createNbtTag('e', 'compound', ''), potionContents)).toBe(true)
+        expect(shapeMatches(createNbtTag('e', 'list', ''), potionContents)).toBe(false)
+    })
+})
+
+describe('写回时保留表格没建模的键', () => {
+    it('attribute_modifiers 每条记录里的 display 原样留下', () => {
+        const node = createNbtTag('attribute_modifiers', 'list', '', [
+            createNbtTag('0', 'compound', '', [
+                createNbtTag('type', 'string', 'minecraft:scale'),
+                createNbtTag('amount', 'double', '1'),
+                createNbtTag('display', 'compound', '', [createNbtTag('type', 'string', 'hidden')]),
+            ]),
+        ])
+        writeGroupRows(node, attributeModifiers, [
+            {
+                type: 'minecraft:scale',
+                amount: '2',
+                operation: 'add_value',
+                slot: 'any',
+                id: '',
+            },
+        ])
+        const row = node.children?.[0]
+        expect(row?.children?.map((child) => child.name)).toContain('display')
+        expect(row?.children?.find((child) => child.name === 'amount')?.value).toBe('2')
+    })
+
+    /**
+     * 1.20.5–1.21.4 的附魔是 `{levels:…,show_in_tooltip:…}`。没建模这两种包装时
+     * 也不能把它们当成附魔行，更不能写回时抹掉。
+     */
+    it('附魔映射里的 levels / show_in_tooltip 既不当行也不被抹掉', () => {
+        const node = createNbtTag('enchantments', 'compound', '', [
+            createNbtTag('levels', 'compound', '', [
+                createNbtTag('minecraft:sharpness', 'int', '3'),
+            ]),
+            createNbtTag('show_in_tooltip', 'byte', '1'),
+        ])
+        expect(readGroupRows(node, enchantments)).toEqual([])
+
+        writeGroupRows(node, enchantments, [{ id: 'minecraft:mending', level: '1' }])
+        expect(node.children?.map((child) => child.name)).toEqual([
+            'minecraft:mending',
+            'levels',
+            'show_in_tooltip',
+        ])
     })
 })
 

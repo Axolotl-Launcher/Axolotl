@@ -10,7 +10,9 @@ import {
 } from '@modrinth/ui'
 import { computed, ref } from 'vue'
 
-import { groupShapeOf, groupSpec } from '@/lab/command-generator/nbt/groups.ts'
+import { levelAtPath, type NbtLookup } from '@/lab/command-generator/nbt/catalog.ts'
+import { canInsert, insertKindFor } from '@/lab/command-generator/nbt/edit.ts'
+import { groupSpec, shapeMatches } from '@/lab/command-generator/nbt/groups.ts'
 import { NBT_TYPE_SHORT } from '@/lab/command-generator/nbt/labels.ts'
 import {
     isNbtArray,
@@ -18,6 +20,12 @@ import {
     type NbtTagNode,
     type NbtTagType,
 } from '@/lab/command-generator/nbt/model.ts'
+import { formFor, type NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
+import {
+    type NbtValueOption,
+    sameNbtValue,
+    valueOptions,
+} from '@/lab/command-generator/nbt/values.ts'
 
 import CommandGeneratorNbtGroup from './CommandGeneratorNbtGroup.vue'
 
@@ -29,6 +37,13 @@ const props = defineProps<{
     siblingIndex?: number
     /** 结构化组用它过滤该版本不存在的附魔 / 状态效果。 */
     version?: string
+    /** 目录域与目标，用来按路径查回这个节点在目录里的字段。 */
+    domain: NbtDomain
+    targetId?: string
+    /** 物品：true 是 1.20.5+ 数据组件，false 是旧版 `tag` 的子键。 */
+    components?: boolean
+    /** 从根到这里的键名路径；列表元素不贡献键名。 */
+    keyPath: string[]
 }>()
 
 const emit = defineEmits<{
@@ -106,6 +121,10 @@ const messages = defineMessages({
     tagName: { id: 'app.lab.command-generator.nbt.tag-name', defaultMessage: 'Tag name' },
     tagValue: { id: 'app.lab.command-generator.nbt.tag-value', defaultMessage: 'Tag value' },
     addTag: { id: 'app.lab.command-generator.nbt.add-tag', defaultMessage: 'Add child tag' },
+    addElement: {
+        id: 'app.lab.command-generator.nbt.add-element',
+        defaultMessage: 'Add list entry',
+    },
     removeTag: {
         id: 'app.lab.command-generator.nbt.remove-tag',
         defaultMessage: 'Remove tag',
@@ -131,18 +150,49 @@ const messages = defineMessages({
 const expanded = ref(true)
 
 const container = computed(() => isNbtContainer(props.node))
+const array = computed(() => isNbtArray(props.node))
+
+const lookup = computed<NbtLookup>(() => ({
+    domain: props.domain,
+    version: props.version ?? '1.21',
+    targetId: props.targetId,
+    components: props.components,
+}))
+
+/**
+ * 这个节点在目录里对应哪个字段、用的哪种写法。
+ *
+ * 路径是唯一线索：`patterns` 在旗帜方块实体里是 `{color, pattern}`，在物品
+ * 组件里是另一套结构；只看键名会拿错母项的结构。粘贴进来的 SNBT 也因此能
+ * 直接拿到表格编辑器，而不必先从面板添加一遍。
+ */
+const level = computed(() =>
+    props.keyPath.length ? levelAtPath(lookup.value, props.keyPath) : undefined,
+)
+const form = computed(() => {
+    const field = level.value?.spec
+    if (!field) return undefined
+    return formFor(field, lookup.value.version, props.node.type)
+})
 
 /** 目录里登记过结构化编辑器的标签（附魔、状态效果、物品列表）走表格，而不是标签树。 */
-const spec = computed(() => groupSpec(props.node.group))
+const spec = computed(() => groupSpec(form.value?.editor))
 /**
- * 节点必须是复合标签或列表才谈得上「表格」：`potion_contents` 也可以直接写成字符串，
- * 那种情况只能按原始标签编辑，硬套表格会把字符串改成复合标签、丢掉药水种类。
+ * 节点结构必须和组定义相符：`{levels:…}` 与裸映射是两种写法，用表格写回
+ * 会把另一种写法整体改成列表，所以形状不符时退回原始标签。
  */
 const asGroup = computed(
-    () => Boolean(spec.value) && !props.node.raw && groupShapeOf(props.node) !== undefined,
+    () => Boolean(spec.value) && !props.node.raw && shapeMatches(props.node, spec.value!),
 )
-const array = computed(() => isNbtArray(props.node))
-const booleanValue = computed(() => props.node.valueKind === 'boolean')
+
+const insertKind = computed(() => insertKindFor(props.node))
+/** 定长列表满了、标量、数组都不给「添加」按钮：点了也不会发生任何事。 */
+const canAddChild = computed(() => canInsert(props.node, form.value))
+const addLabel = computed(() =>
+    formatMessage(insertKind.value === 'element' ? messages.addElement : messages.addTag),
+)
+
+const booleanValue = computed(() => Boolean(form.value?.valueKind ?? props.node.valueKind))
 
 const typeOptions = computed<ComboboxOption<string>[]>(() => [
     { value: 'string', label: formatMessage(messages.typeString) },
@@ -178,6 +228,21 @@ const canMoveDown = computed(() => {
     return index < count - 1
 })
 
+/** 目录给了枚举来源时用下拉框：染料颜色 16 个、旗帜图案是有限集合。 */
+const options = computed<NbtValueOption[]>(() => {
+    const known = valueOptions(form.value?.values, lookup.value.version)
+    if (!known.length) return []
+    // 手写的值不在集合里也要留在下拉框里，否则界面上会变成空白
+    if (!props.node.value) return known
+    if (known.some((option) => sameNbtValue(props.node.value, option.value))) return known
+    return [{ value: props.node.value, label: props.node.value }, ...known]
+})
+
+const selectedValue = computed(() => {
+    const match = options.value.find((option) => sameNbtValue(props.node.value, option.value))
+    return match?.value ?? props.node.value
+})
+
 function onTypeChange(value: unknown) {
     emit('update', props.node.id, 'type', String(value) as NbtTagType)
 }
@@ -188,6 +253,11 @@ function onBooleanChange(checked: boolean | undefined) {
 }
 
 const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
+
+/** 列表的元素与列表共用同一条键名路径；复合标签的子项再往下走一层。 */
+function childKeyPath(child: NbtTagNode): string[] {
+    return props.node.type === 'list' ? props.keyPath : [...props.keyPath, child.name]
+}
 </script>
 
 <template>
@@ -229,6 +299,14 @@ const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
                 :description="formatMessage(messages.tagValue)"
                 @update:model-value="onBooleanChange"
             />
+            <div v-else-if="!container && options.length" class="min-w-0 flex-1">
+                <Combobox
+                    :model-value="selectedValue"
+                    :options="options"
+                    width="full"
+                    @update:model-value="emit('update', node.id, 'value', String($event ?? ''))"
+                />
+            </div>
             <input
                 v-else-if="!container"
                 class="nbt-value min-w-0 flex-1 rounded-lg border-0 bg-surface-4 px-2 py-2 font-mono text-sm outline-none focus:ring-4 focus:ring-brand-shadow"
@@ -255,12 +333,12 @@ const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
                 <ListOrderedIcon />
             </Button>
             <Button
-                v-if="container && !asGroup"
-                v-tooltip="formatMessage(messages.addTag)"
+                v-if="canAddChild && !asGroup"
+                v-tooltip="addLabel"
                 type="quiet"
                 size="sm"
                 icon-only
-                :label="formatMessage(messages.addTag)"
+                :label="addLabel"
                 @click="emit('add-child', node.id)"
             >
                 <PlusIcon />
@@ -323,6 +401,10 @@ const checked = computed(() => props.node.value.replace(/b$/i, '') === '1')
                 :sibling-count="node.children?.length ?? 1"
                 :sibling-index="index"
                 :version="version"
+                :domain="domain"
+                :target-id="targetId"
+                :components="components"
+                :key-path="childKeyPath(child)"
                 @update="(id, f, v) => emit('update', id, f, v)"
                 @remove="(id) => emit('remove', id)"
                 @add-child="(id) => emit('add-child', id)"

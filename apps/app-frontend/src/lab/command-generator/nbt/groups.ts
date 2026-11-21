@@ -11,7 +11,7 @@
  */
 
 import { groupColumnMessages } from './group-messages.ts'
-import { createNbtTag, type NbtTagNode, type NbtTagType } from './model.ts'
+import { cloneNbtNode, createNbtTag, type NbtTagNode, type NbtTagType } from './model.ts'
 
 export type NbtGroupColumnKind =
     'enchantment' | 'effect' | 'text' | 'id' | 'number' | 'boolean' | 'enum' | 'int-list'
@@ -355,6 +355,24 @@ export function groupShapeOf(node: NbtTagNode): 'map' | 'list' | undefined {
     return undefined
 }
 
+/**
+ * 节点结构是否与组定义相符。
+ *
+ * `map` 与 `slots` 都是复合标签（键名承载语义），`list` 是列表；`listKey`
+ * 结构把行放在父复合标签的子键里，所以节点本身必须是复合标签。
+ *
+ * 形状不符时不能套表格：用表格写回会把 `{levels:…,show_in_tooltip:…}` 这类
+ * 另一种写法整体改成列表，等于静默改写用户的标签。
+ */
+export function shapeMatches(node: NbtTagNode, spec: NbtGroupSpec): boolean {
+    if (spec.listKey) return node.type === 'compound'
+    if (spec.shape === 'list') return node.type === 'list'
+    return node.type === 'compound'
+}
+
+/** 映射结构的行键是命名空间 ID（`minecraft:sharpness`）；其余子键不是行。 */
+const NAMESPACED_ID = /^[a-z0-9_.-]+:[a-z0-9_./-]+$/
+
 /** 按候选键名找子标签（`count` / `Count`、`level` / `lvl`）。 */
 function childField(node: NbtTagNode, column: NbtGroupColumn): NbtTagNode | undefined {
     for (const name of column.listKeys ?? [column.key]) {
@@ -493,11 +511,13 @@ export function readGroupRows(node: NbtTagNode, spec: NbtGroupSpec): NbtGroupRow
 
     if (container.type === 'compound' && spec.shape === 'map') {
         const [idColumn, ...rest] = spec.columns
-        return (container.children ?? []).map((child) => {
-            const row: NbtGroupRow = { [idColumn.key]: child.name }
-            for (const column of rest) row[column.key] = bare(child.value)
-            return row
-        })
+        return (container.children ?? [])
+            .filter((child) => NAMESPACED_ID.test(child.name))
+            .map((child) => {
+                const row: NbtGroupRow = { [idColumn.key]: child.name }
+                for (const column of rest) row[column.key] = bare(child.value)
+                return row
+            })
     }
 
     return []
@@ -510,6 +530,9 @@ export function writeGroupRows(node: NbtTagNode, spec: NbtGroupSpec, rows: NbtGr
 
     if (shape === 'slots') {
         const slotKey = spec.slotKey ?? spec.columns[0].key
+        const slotNames = spec.columns.find((column) => column.key === slotKey)?.enumValues ?? []
+        // 槽位是有限集合，其余子键不是行（`equipment` 里可能还有别的写法），原样留着
+        const extras = (container.children ?? []).filter((child) => !slotNames.includes(child.name))
         container.type = 'compound'
         container.value = ''
         container.children = rows.map((row) => {
@@ -524,11 +547,14 @@ export function writeGroupRows(node: NbtTagNode, spec: NbtGroupSpec, rows: NbtGr
                 .filter((entry): entry is NbtTagNode => entry !== undefined)
             return child
         })
+        container.children.push(...extras.map(cloneNbtNode))
         return
     }
 
     if (shape === 'map') {
         const [idColumn, levelColumn] = spec.columns
+        // `levels` / `show_in_tooltip` 这类不是行，写回时不能顺手抹掉
+        const extras = (container.children ?? []).filter((child) => !NAMESPACED_ID.test(child.name))
         container.type = 'compound'
         container.value = ''
         container.children = rows.map((row) =>
@@ -539,6 +565,7 @@ export function writeGroupRows(node: NbtTagNode, spec: NbtGroupSpec, rows: NbtGr
                 row[levelColumn?.key]?.trim() || levelColumn?.default || '1',
             ),
         )
+        container.children.push(...extras.map(cloneNbtNode))
         return
     }
 
@@ -553,19 +580,31 @@ export function writeGroupRows(node: NbtTagNode, spec: NbtGroupSpec, rows: NbtGr
     }
 
     container.elementType = 'compound'
+    // 列的可选键名（`count` / `Count`）都算表格托管，否则会被当成「未知子键」留下第二条
+    const managed = new Set(
+        spec.columns.flatMap((column) => [column.key, ...(column.listKeys ?? [])]),
+    )
     container.children = rows.map((row, index) => {
         const child = createNbtTag(String(index), 'compound', '')
-        child.children = spec.columns
-            .map((column) => {
-                const name = writeName(column, previous)
-                return cellNode(
-                    column,
-                    name,
-                    row[column.key] ?? column.default,
-                    existingFieldType(previous, name),
-                )
-            })
-            .filter((entry): entry is NbtTagNode => entry !== undefined)
+        // 表格没建模的子键（`attribute_modifiers[].display` 之类）原样保留，
+        // 否则在表格里改一次数量就会把整条记录的其他字段吞掉
+        const extras = (previous[index]?.children ?? [])
+            .filter((entry) => !managed.has(entry.name))
+            .map(cloneNbtNode)
+        child.children = [
+            ...spec.columns
+                .map((column) => {
+                    const name = writeName(column, previous)
+                    return cellNode(
+                        column,
+                        name,
+                        row[column.key] ?? column.default,
+                        existingFieldType(previous, name),
+                    )
+                })
+                .filter((entry): entry is NbtTagNode => entry !== undefined),
+            ...extras,
+        ]
         return child
     })
 }

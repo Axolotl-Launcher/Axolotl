@@ -3,13 +3,16 @@ import { describe, expect, it } from 'vitest'
 import {
     availableFieldsFor,
     catalogFor,
-    childrenAtPath,
     fieldsFor,
     findFieldByPath,
+    levelAtPath,
+    rootFieldsFor,
 } from './catalog.ts'
 import { groupSpec } from './groups.ts'
 import {
     CATEGORY_ORDER,
+    childrenOf,
+    formsFor,
     humanizeKey,
     isVersionInRange,
     keyForVersion,
@@ -131,6 +134,20 @@ const EXPECTED_STRUCTURED_BY_DOMAIN: [NbtDomain, string[]][] = [
     ],
 ]
 
+/** 一个字段所有写法里能填的子字段。 */
+function childFields(field: NbtFieldSpec): NbtFieldSpec[] {
+    const seen = new Set<string>()
+    const out: NbtFieldSpec[] = []
+    for (const form of field.forms) {
+        for (const child of [...(form.fields ?? []), ...(form.element?.fields ?? [])]) {
+            if (seen.has(child.key)) continue
+            seen.add(child.key)
+            out.push(child)
+        }
+    }
+    return out
+}
+
 function walk(
     fields: NbtFieldSpec[],
     visit: (field: NbtFieldSpec, path: string, root: string) => void,
@@ -141,14 +158,15 @@ function walk(
         const path = prefix ? `${prefix}.${field.key}` : field.key
         const rootScope = root || JSON.stringify(field.appliesTo ?? {})
         visit(field, path, rootScope)
-        walk(field.children ?? [], visit, path, rootScope)
+        walk(childFields(field), visit, path, rootScope)
     }
 }
 
 describe('NBT 目录数据', () => {
     it.each(DOMAINS)('%s 目录良构', (domain) => {
         const catalog = catalogFor(domain)
-        expect(catalog.schemaVersion).toBe(1)
+        // 载入时归一化成 forms，所以运行时一律是 schemaVersion 2
+        expect(catalog.schemaVersion).toBe(2)
         expect(catalog.domain).toBe(domain)
         expect(catalog.sources.length).toBeGreaterThan(0)
         expect(catalog.fields.length).toBeGreaterThan(0)
@@ -156,7 +174,7 @@ describe('NBT 目录数据', () => {
         const seen = new Set<string>()
         walk(catalog.fields, (field, path, rootScope) => {
             expect(field.key.length, `${domain}:${path} 缺少键名`).toBeGreaterThan(0)
-            expect(TYPES.has(field.type), `${domain}:${path} 类型非法`).toBe(true)
+            expect(field.forms.length, `${domain}:${path} 没有任何写法`).toBeGreaterThan(0)
             expect(CATEGORY_ORDER.includes(field.category), `${domain}:${path} 分类非法`).toBe(true)
             if (field.since && field.until) {
                 expect(field.since <= field.until, `${domain}:${path} 版本区间倒置`).toBe(true)
@@ -171,9 +189,15 @@ describe('NBT 目录数据', () => {
             expect(seen.has(identity), `${domain}:${path} 重复`).toBe(false)
             seen.add(identity)
 
-            if (field.default !== undefined) {
-                const parsed = parseNbtTag(field.default)
-                expect(parsed.type, `${domain}:${path} 默认值类型不符`).toBe(field.type)
+            for (const form of field.forms) {
+                expect(TYPES.has(form.type), `${domain}:${path} 写法类型非法`).toBe(true)
+                if (form.default !== undefined) {
+                    const parsed = parseNbtTag(form.default)
+                    expect(parsed.type, `${domain}:${path} 默认值类型不符`).toBe(form.type)
+                }
+                if (form.type === 'list') {
+                    expect(form.element, `${domain}:${path} 是列表但缺元素写法`).toBeDefined()
+                }
             }
         })
     })
@@ -212,7 +236,7 @@ describe('NBT 目录数据', () => {
     it.each(EXPECTED_STRUCTURED)('物品组件 %s 展开子字段', (key) => {
         const field = fieldsFor('item').find((entry) => entry.key === key)
         expect(field, `缺少组件 ${key}`).toBeDefined()
-        expect((field!.children ?? []).length, `${key} 没有子字段`).toBeGreaterThan(0)
+        expect(childFields(field!).length, `${key} 没有子字段`).toBeGreaterThan(0)
     })
 
     /**
@@ -224,37 +248,29 @@ describe('NBT 目录数据', () => {
             const matches = fieldsFor(domain).filter((field) => field.key === key)
             expect(matches.length, `缺少字段 ${key}`).toBeGreaterThan(0)
             for (const field of matches) {
-                expect(
-                    (field.children ?? []).length,
-                    `${domain}:${key} 没有子字段`,
-                ).toBeGreaterThan(0)
+                expect(childFields(field).length, `${domain}:${key} 没有子字段`).toBeGreaterThan(0)
             }
-        }
-    })
-
-    /** 列表没有元素类型时，面板不知道要往里面插什么标签，只能插入裸值。 */
-    it('每个列表都有元素类型', () => {
-        for (const domain of DOMAINS) {
-            walk(catalogFor(domain).fields, (field, path) => {
-                if (field.type !== 'list') return
-                expect(field.elementType, `${domain}:${path} 是列表但缺元素类型`).toBeDefined()
-            })
         }
     })
 
     /**
      * 子字段是「这个母项里面能填什么」。标量列表 / 数组没有键名可填，
-     * 给它挂 children 会让面板在 `Rotation` 里列出 `0`、`1` 这种不存在的标签。
+     * 给它挂子字段会让面板在 `Rotation` 里列出 `0`、`1` 这种不存在的标签。
      */
-    it('只有元素是复合标签的列表才有子字段', () => {
+    it('子字段只挂在复合写法或列表元素上', () => {
         for (const domain of DOMAINS) {
             walk(catalogFor(domain).fields, (field, path) => {
-                if ((field.children ?? []).length === 0) return
-                if (field.type === 'compound') return
-                expect(
-                    field.type === 'list' && field.elementType === 'compound',
-                    `${domain}:${path} 是 ${field.type}，不该有子字段`,
-                ).toBe(true)
+                for (const form of field.forms) {
+                    if (form.fields) {
+                        expect(form.type, `${domain}:${path} 的标量写法挂了子字段`).toBe('compound')
+                    }
+                    if (form.type === 'list' && form.element?.fields) {
+                        expect(
+                            form.element.type,
+                            `${domain}:${path} 的列表元素不是复合标签却挂了子字段`,
+                        ).toBe('compound')
+                    }
+                }
             })
         }
     })
@@ -271,13 +287,13 @@ describe('NBT 目录数据', () => {
     ] as const)('%s 的 %s 用自己母项的子项', (domain, key, expected) => {
         const field = fieldsFor(domain).find((entry) => entry.key === key)
         expect(field, `缺少字段 ${key}`).toBeDefined()
-        expect((field!.children ?? []).map((child) => child.key)).toEqual([...expected])
+        expect(childFields(field!).map((child) => child.key)).toEqual([...expected])
     })
 
     /**
      * 子项自己还能是复合标签。旗帜图案的 `pattern` 既可以只写图案 ID，也可以写成
-     * `{asset_id, translation_key}`；只展开一层的话，用户选中 `pattern` 之后
-     * 再也加不进这两个键，等于把「图案定义」这条写法藏了起来。
+     * `{asset_id, translation_key}`：两种写法都要在目录里，否则面板只能造出一种，
+     * 用户既写不出 `pattern:"minecraft:creeper"`，也写不出图案定义。
      */
     it.each([
         ['block_entity', 'patterns.pattern', ['asset_id', 'translation_key']],
@@ -296,7 +312,7 @@ describe('NBT 目录数据', () => {
     ] as const)('%s 的 %s 还能再往下展开', (domain, path, expected) => {
         const field = findFieldByPath(domain, path)
         expect(field, `缺少字段 ${path}`).toBeDefined()
-        expect((field!.children ?? []).map((child) => child.key)).toEqual([...expected])
+        expect(childFields(field!).map((child) => child.key)).toEqual([...expected])
     })
 
     /** 试炼刷怪笼的配置里还套着生成候选，候选里又套着实体。 */
@@ -304,14 +320,14 @@ describe('NBT 目录数据', () => {
         for (const domain of ['entity', 'block_entity'] as const) {
             const data = findFieldByPath(domain, 'SpawnPotentials.data')
             expect(data, `${domain} 缺少 SpawnPotentials.data`).toBeDefined()
-            expect((data!.children ?? []).map((child) => child.key)).toEqual([
+            expect(childFields(data!).map((child) => child.key)).toEqual([
                 'entity',
                 'custom_spawn_rules',
                 'equipment',
             ])
         }
         const config = findFieldByPath('block_entity', 'normal_config')
-        expect((config!.children ?? []).map((child) => child.key)).toContain('spawn_potentials')
+        expect(childFields(config!).map((child) => child.key)).toContain('spawn_potentials')
     })
 
     /**
@@ -325,9 +341,9 @@ describe('NBT 目录数据', () => {
             walk(catalogFor(domain).fields, (field, path) => {
                 if (field.key !== 'slot_drop_chances') return
                 count++
-                expect(field.type, `${domain}:${path} 应该是复合标签`).toBe('compound')
+                expect(field.forms[0].type, `${domain}:${path} 应该是复合标签`).toBe('compound')
                 expect(
-                    (field.children ?? []).map((child) => child.key),
+                    childFields(field).map((child) => child.key),
                     `${domain}:${path} 的槽位`,
                 ).toEqual(SLOTS)
             })
@@ -339,7 +355,7 @@ describe('NBT 目录数据', () => {
         const STACK = ['id', 'count', 'components']
         const holders: string[] = []
         walk(catalogFor('item').fields, (field, path) => {
-            const keys = (field.children ?? []).map((child) => child.key)
+            const keys = childFields(field).map((child) => child.key)
             if (keys.length !== STACK.length || !STACK.every((key) => keys.includes(key))) return
             holders.push(path)
             expect(keys, `item:${path} 的物品栈结构不对`).toEqual(STACK)
@@ -347,16 +363,60 @@ describe('NBT 目录数据', () => {
         expect(holders.length).toBeGreaterThanOrEqual(8)
     })
 
-    it('childrenAtPath 按母项取子字段', () => {
-        expect(childrenAtPath('block_entity', ['patterns'], 'banner')?.map((f) => f.key)).toEqual([
-            'color',
-            'pattern',
-        ])
+    it('levelAtPath 按母项取子字段', () => {
+        const banner = levelAtPath(
+            { domain: 'block_entity', version: '1.21', targetId: 'banner' },
+            ['patterns'],
+        )
+        expect(banner?.fields.map((field) => field.key)).toEqual(['color', 'pattern'])
+        // 列表：元素写法要一起给出来，面板据此只提供「添加元素」
+        expect(banner?.element?.type).toBe('compound')
+
         // 根层给的是这一域的全部字段
-        expect(childrenAtPath('entity', [], 'zombie')?.length).toBeGreaterThan(100)
+        expect(
+            levelAtPath({ domain: 'entity', version: '1.21', targetId: 'zombie' }, [])?.fields
+                .length,
+        ).toBeGreaterThan(100)
         // 走到一半断链：不要退回根字段，否则等于把母项属性塞进子层
-        expect(childrenAtPath('entity', ['nope'])).toBeUndefined()
-        expect(childrenAtPath('entity', ['Pos', 'nope'])).toBeUndefined()
+        expect(levelAtPath({ domain: 'entity', version: '1.21' }, ['nope'])).toBeUndefined()
+        expect(levelAtPath({ domain: 'entity', version: '1.21' }, ['Pos', 'nope'])).toBeUndefined()
+    })
+
+    /**
+     * 1.20.5 之前物品的 NBT 不是组件列表，而是 `{id, Count, tag}` 里的 `tag`。
+     * 面板在旧版模式下必须列 `tag` 的子键（`display`、`Enchantments`…），
+     * 否则用户会把 `custom_name` 这类组件写进旧版标签里。
+     */
+    it('旧版物品的根字段是 tag 的子键', () => {
+        const legacy = rootFieldsFor({ domain: 'item', version: '1.20.4', components: false })
+        expect(legacy.map((field) => field.key)).toContain('display')
+        expect(legacy.map((field) => field.key)).toContain('Enchantments')
+        expect(legacy.map((field) => field.key)).not.toContain('custom_name')
+
+        const modern = rootFieldsFor({ domain: 'item', version: '1.21', components: true })
+        expect(modern.map((field) => field.key)).toContain('custom_name')
+        expect(modern.map((field) => field.key)).not.toContain('display')
+    })
+
+    /** 同一字段的两种写法各有自己的版本区间：26.1 才有「图案 ID 列表」。 */
+    it('写法按版本筛选', () => {
+        const field = findFieldByPath('item', 'provides_banner_patterns')
+        expect(field, '缺少 provides_banner_patterns').toBeDefined()
+        expect(formsFor(field!, '1.21').map((form) => form.type)).toEqual(['string'])
+        expect(formsFor(field!, '26.1').map((form) => form.type)).toEqual(['string', 'list'])
+    })
+
+    /** 图案与染料的取值是有限集合，界面要给下拉框而不是自由输入。 */
+    it('旗帜图案与染料颜色带枚举来源', () => {
+        const pattern = findFieldByPath('item', 'banner_patterns.pattern')
+        expect(pattern, '缺少 banner_patterns.pattern').toBeDefined()
+        const primary = pattern!.forms[0]
+        expect(primary.type, 'pattern 默认写法应该是图案 ID 字符串').toBe('string')
+        expect(primary.values).toBe('banner_pattern')
+
+        const color = findFieldByPath('item', 'banner_patterns.color')
+        expect(color?.forms[0].values).toBe('dye_color')
+        expect(color?.forms[0].default).toBe('"white"')
     })
 
     it('方块实体目录包含公共字段', () => {
@@ -378,18 +438,23 @@ describe('NBT 目录数据', () => {
     ])('$key 是定长数组', ({ key, type, elementType, length }) => {
         const field = fieldsFor('entity').find((entry) => entry.key === key)
         expect(field, `缺少字段 ${key}`).toBeDefined()
-        expect(field!.type, `${key} 的标签类型`).toBe(type)
-        expect(field!.elementType, `${key} 的元素类型`).toBe(elementType)
-        expect(field!.length, `${key} 的长度`).toBe(length)
+        const form = field!.forms[0]
+        expect(form.type, `${key} 的标签类型`).toBe(type)
+        expect(form.element?.type, `${key} 的元素类型`).toBe(elementType)
+        expect(form.length?.exactly, `${key} 的长度`).toBe(length)
     })
 
     it('带长度的字段必须是数组', () => {
         for (const domain of DOMAINS) {
             walk(catalogFor(domain).fields, (field, path) => {
-                if (field.length === undefined) return
-                expect(ARRAY_TYPES.has(field.type), `${domain}:${path} 有长度但不是数组`).toBe(true)
-                if (field.type !== 'list') return
-                expect(field.elementType, `${domain}:${path} 是列表但缺元素类型`).toBeDefined()
+                for (const form of field.forms) {
+                    if (form.length?.exactly === undefined) continue
+                    expect(ARRAY_TYPES.has(form.type), `${domain}:${path} 有长度但不是数组`).toBe(
+                        true,
+                    )
+                    if (form.type !== 'list') continue
+                    expect(form.element, `${domain}:${path} 是列表但缺元素写法`).toBeDefined()
+                }
             })
         }
     })
@@ -421,9 +486,11 @@ describe('NBT 目录数据', () => {
         const missing = new Set<string>()
         for (const domain of DOMAINS) {
             walk(catalogFor(domain).fields, (field, path) => {
-                if (!field.editor) return
-                if (KNOWN_PENDING.has(field.editor)) return
-                if (!groupSpec(field.editor)) missing.add(`${domain}:${path} → ${field.editor}`)
+                for (const form of field.forms) {
+                    if (!form.editor) continue
+                    if (KNOWN_PENDING.has(form.editor)) continue
+                    if (!groupSpec(form.editor)) missing.add(`${domain}:${path} → ${form.editor}`)
+                }
             })
         }
         expect([...missing]).toEqual([])
@@ -469,9 +536,9 @@ describe('NBT 目录查询', () => {
     it('版本门控按数字比较，26.1 高于 1.21', () => {
         const spec: NbtFieldSpec = {
             key: 'enchantments',
-            type: 'compound',
             category: 'inventory',
             since: '1.20.5',
+            forms: [{ type: 'compound' }],
         }
         expect(isVersionInRange(spec, '1.20.4')).toBe(false)
         expect(isVersionInRange(spec, '26.1')).toBe(true)
@@ -481,9 +548,9 @@ describe('NBT 目录查询', () => {
     it('旧版本键名按 until 回退', () => {
         const spec: NbtFieldSpec = {
             key: 'active_effects',
-            type: 'list',
             category: 'effect',
             legacyKeys: [{ key: 'ActiveEffects', until: '1.20.1' }],
+            forms: [{ type: 'list', element: { type: 'compound' } }],
         }
         expect(keyForVersion(spec, '1.19')).toBe('ActiveEffects')
         expect(keyForVersion(spec, '1.20.2')).toBe('active_effects')
@@ -494,6 +561,11 @@ describe('NBT 目录查询', () => {
         expect(humanizeKey('fall_distance')).toBe('Fall distance')
         expect(humanizeKey('CustomNameVisible')).toBe('Custom name visible')
         expect(humanizeKey('UUID')).toBe('UUID')
+    })
+
+    it('childrenOf 取写法里的子字段', () => {
+        const field = findFieldByPath('item', 'banner_patterns')
+        expect(childrenOf(field?.forms[0]).map((child) => child.key)).toEqual(['color', 'pattern'])
     })
 })
 
@@ -510,7 +582,7 @@ describe('版本差异', () => {
     it('旧版物品 tag 在 1.20.4 之后不再出现', () => {
         const legacy = availableFieldsFor({ domain: 'item', version: '1.20.4' })
         expect(legacy.map((field) => field.key)).toContain('tag')
-        expect(legacy.find((field) => field.key === 'tag')?.children?.length).toBeGreaterThan(20)
+        expect(childFields(legacy.find((field) => field.key === 'tag')!).length).toBeGreaterThan(20)
 
         const modern = availableFieldsFor({ domain: 'item', version: '1.20.5' })
         expect(modern.map((field) => field.key)).not.toContain('tag')

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+    bareNbtValue,
     cloneNbtNode,
     coerceNbtValue,
     createNbtTag,
@@ -80,10 +81,18 @@ describe('NBT 节点模型', () => {
     })
 
     it('每种标量类型都有可用的默认值', () => {
-        expect(defaultNbtValue('byte')).toBe('0b')
-        expect(defaultNbtValue('long')).toBe('0L')
-        expect(defaultNbtValue('string')).toBe('""')
+        expect(defaultNbtValue('byte')).toBe('0')
+        expect(defaultNbtValue('long')).toBe('0')
+        // 节点存裸值：字符串的引号由序列化补，存 `""` 会输出 `"\"\""`
+        expect(defaultNbtValue('string')).toBe('')
         expect(defaultNbtValue('compound')).toBe('')
+    })
+
+    it('目录里的 SNBT 默认值要先变成裸值', () => {
+        expect(bareNbtValue('"minecraft:cross"', 'string')).toBe('minecraft:cross')
+        expect(bareNbtValue('5b', 'byte')).toBe('5')
+        expect(bareNbtValue('1.5d', 'double')).toBe('1.5')
+        expect(bareNbtValue('0b', 'byte')).toBe('0')
     })
 
     it('改类型时把值清洗成裸值', () => {

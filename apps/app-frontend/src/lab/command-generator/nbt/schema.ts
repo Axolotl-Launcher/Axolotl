@@ -4,6 +4,11 @@
  * 数据来自 Minecraft Wiki（`Entity format`、`Data component format`、
  * `Block entity format`），每个数据文件头部记录了页面与修订号。
  * 这里只做查询与版本门控，不写死任何游戏知识。
+ *
+ * 一个字段往往有**多种合法写法**：`banner_patterns[].pattern` 既可以写图案 ID
+ * 字符串，也可以写 `{asset_id, translation_key}` 定义；`potion_contents` 既可以
+ * 写药水 ID，也可以写复合标签。所以字段的形状不是单一 `type`，而是 `forms`
+ * ——按版本筛选后第一个就是新建时的默认写法。
  */
 
 import type { NbtTagType } from './model.ts'
@@ -34,17 +39,44 @@ export interface NbtLegacyKey {
     until: string
 }
 
-export interface NbtFieldSpec {
-    key: string
+/** 数组 / 列表的长度约束。`exactly` 是定长（`Pos` 是 3），其余是范围。 */
+export interface NbtLength {
+    exactly?: number
+    min?: number
+    max?: number
+}
+
+/**
+ * 一种合法写法。
+ *
+ * - 标量：`{ type: 'string' }`
+ * - 数组：`{ type: 'int_array', length: { exactly: 4 } }`
+ * - 复合：`{ type: 'compound', fields: [...] }`
+ * - 列表：`{ type: 'list', element: { type: 'compound', fields: [...] } }`
+ */
+export interface NbtValueForm {
     type: NbtTagType
-    /** 列表元素类型；未知时由第一个子节点决定。 */
-    elementType?: NbtTagType
-    /** 定长数组的长度（`Pos` 是 3、`Rotation` 是 2）；长度不定时省略。 */
-    length?: number
+    /** 列表元素写法。 */
+    element?: NbtValueForm
+    /** 复合（或列表元素为复合）的子字段。 */
+    fields?: NbtFieldSpec[]
+    length?: NbtLength
     /** 游戏用 byte 表示布尔，界面应给开关而不是数字框。 */
     valueKind?: 'boolean'
-    /** SNBT 文本形式的默认值，例如 `1b`、`80`、`""`。 */
+    /** 枚举来源 id（见 `values.ts`），例如 `dye_color`、`banner_pattern`。 */
+    values?: string
+    /** SNBT 文本形式的默认值，例如 `1b`、`80`、`"minecraft:cross"`。 */
     default?: string
+    /** 这一种写法自己的说明（wiki 常把两种写法分开描述）。 */
+    desc?: string
+    since?: string
+    until?: string
+    /** 结构化编辑器标识，例如 `enchantments`。 */
+    editor?: string
+}
+
+export interface NbtFieldSpec {
+    key: string
     category: NbtCategory
     advanced?: boolean
     since?: string
@@ -52,12 +84,31 @@ export interface NbtFieldSpec {
     /** 旧版本用过的键名，按 `until` 判定。 */
     legacyKeys?: NbtLegacyKey[]
     appliesTo?: NbtAppliesTo
-    /** 结构化编辑器标识，例如 `enchantments`。 */
-    editor?: string
-    desc?: string
     /** 中文名，用于中文搜索与辅助显示。 */
     zh?: string
-    children?: NbtFieldSpec[]
+    desc?: string
+    /** 合法写法；第一个是新建时的默认写法。 */
+    forms: NbtValueForm[]
+}
+
+/** 目录 JSON 里的字段：v1 用 `type` + `children`，v2 直接写 `forms`。 */
+export interface NbtFieldInput extends Omit<NbtFieldSpec, 'forms'> {
+    type?: NbtTagType
+    elementType?: NbtTagType
+    length?: number | NbtLength
+    valueKind?: 'boolean'
+    default?: string
+    editor?: string
+    children?: NbtFieldInput[]
+    forms?: NbtFormInput[]
+}
+
+export interface NbtFormInput extends Omit<NbtValueForm, 'element' | 'fields' | 'length'> {
+    element?: NbtFormInput
+    elementType?: NbtTagType
+    fields?: NbtFieldInput[]
+    children?: NbtFieldInput[]
+    length?: number | NbtLength
 }
 
 export interface NbtCatalogFile {
@@ -67,6 +118,10 @@ export interface NbtCatalogFile {
     sources: Array<{ page: string; revision: number }>
     groups?: Record<string, NbtAppliesTo>
     fields: NbtFieldSpec[]
+}
+
+export interface NbtCatalogInput extends Omit<NbtCatalogFile, 'fields'> {
+    fields: NbtFieldInput[]
 }
 
 /** 使用目录的上下文：知道具体实体 / 物品时才能做「仅显示适用」过滤。 */
@@ -83,7 +138,7 @@ export function compareVersion(left: string, right: string): number {
 }
 
 export function isVersionInRange(
-    spec: Pick<NbtFieldSpec, 'since' | 'until'>,
+    spec: Pick<NbtValueForm, 'since' | 'until'>,
     version: string,
 ): boolean {
     if (spec.since && compareVersion(version, spec.since) < 0) return false
@@ -97,6 +152,137 @@ export function keyForVersion(spec: NbtFieldSpec, version: string): string {
         if (compareVersion(version, legacy.until) <= 0) return legacy.key
     }
     return spec.key
+}
+
+function normalizeLength(length: number | NbtLength | undefined): NbtLength | undefined {
+    if (length === undefined) return undefined
+    if (typeof length === 'number') return { exactly: length }
+    return length
+}
+
+function normalizeForm(input: NbtFormInput): NbtValueForm {
+    const form: NbtValueForm = { type: input.type }
+    if (input.values) form.values = input.values
+    if (input.valueKind) form.valueKind = input.valueKind
+    if (input.default !== undefined) form.default = input.default
+    if (input.desc) form.desc = input.desc
+    if (input.since) form.since = input.since
+    if (input.until) form.until = input.until
+    if (input.editor) form.editor = input.editor
+
+    const length = normalizeLength(input.length)
+    if (length) form.length = length
+
+    const fields = input.fields ?? input.children
+    if (input.type === 'compound') {
+        if (fields?.length) form.fields = fields.map(normalizeField)
+        return form
+    }
+
+    if (input.type === 'list') {
+        if (input.element) form.element = normalizeForm(input.element)
+        else if (input.elementType === 'compound') {
+            form.element = { type: 'compound' }
+            if (fields?.length) form.element.fields = fields.map(normalizeField)
+        } else if (input.elementType) form.element = { type: input.elementType }
+        return form
+    }
+
+    return form
+}
+
+/**
+ * 把目录里的一层归一化成 `forms`。
+ *
+ * 显式写了 `forms` 的字段原样展开；只写了 `type` 的旧数据归一成单一写法，
+ * 这样三个目录不必一次性重写。
+ */
+export function normalizeField(input: NbtFieldInput): NbtFieldSpec {
+    const field: NbtFieldSpec = {
+        key: input.key,
+        category: input.category,
+        forms: [],
+    }
+    if (input.advanced) field.advanced = input.advanced
+    if (input.since) field.since = input.since
+    if (input.until) field.until = input.until
+    if (input.legacyKeys?.length) field.legacyKeys = input.legacyKeys
+    if (input.appliesTo) field.appliesTo = input.appliesTo
+    if (input.zh) field.zh = input.zh
+    if (input.desc) field.desc = input.desc
+
+    if (input.forms?.length) {
+        field.forms = input.forms.map(normalizeForm)
+        return field
+    }
+
+    if (!input.type) {
+        throw new Error(`NBT 目录字段 ${input.key} 既没有 forms 也没有 type`)
+    }
+
+    field.forms = [
+        normalizeForm({
+            type: input.type,
+            elementType: input.elementType,
+            children: input.children,
+            length: input.length,
+            valueKind: input.valueKind,
+            default: input.default,
+            editor: input.editor,
+        }),
+    ]
+    return field
+}
+
+export function normalizeCatalog(input: NbtCatalogInput): NbtCatalogFile {
+    return {
+        schemaVersion: 2,
+        domain: input.domain,
+        retrievedAt: input.retrievedAt,
+        sources: input.sources,
+        groups: input.groups,
+        fields: input.fields.map(normalizeField),
+    }
+}
+
+/** 该版本下这个字段还剩下哪些写法；空数组表示这个字段在版本里不存在。 */
+export function formsFor(spec: NbtFieldSpec, version: string): NbtValueForm[] {
+    if (!isVersionInRange(spec, version)) return []
+    return spec.forms.filter((form) => isVersionInRange(form, version))
+}
+
+/**
+ * 取一种写法。`preferred` 是节点当前的标签类型：用户已经写成字符串的
+ * `pattern` 不该被当成复合标签处理。
+ */
+export function formFor(
+    spec: NbtFieldSpec,
+    version: string,
+    preferred?: NbtTagType,
+): NbtValueForm | undefined {
+    const forms = formsFor(spec, version)
+    if (preferred) {
+        const match = forms.find((form) => form.type === preferred)
+        if (match) return match
+    }
+    return forms[0]
+}
+
+/** 写法里的子字段：复合取 `fields`，列表取元素的 `fields`。 */
+export function childrenOf(form: NbtValueForm | undefined): NbtFieldSpec[] {
+    if (!form) return []
+    if (form.type === 'list') return form.element?.fields ?? []
+    return form.fields ?? []
+}
+
+/** 列表的元素写法；非列表返回 `undefined`。 */
+export function elementOf(form: NbtValueForm | undefined): NbtValueForm | undefined {
+    return form?.type === 'list' ? form.element : undefined
+}
+
+/** 定长约束；没有约束返回 `undefined`。 */
+export function exactLengthOf(form: NbtValueForm | undefined): number | undefined {
+    return form?.length?.exactly
 }
 
 function matchesAppliesTo(appliesTo: NbtAppliesTo, targetId: string | undefined): boolean {
@@ -136,7 +322,7 @@ export function availableFields(
     const onlyApplicable = options.onlyApplicable ?? true
     return fields.filter(
         (spec) =>
-            isVersionInRange(spec, context.version) &&
+            formsFor(spec, context.version).length > 0 &&
             (!onlyApplicable || !context.targetId || fieldAppliesTo(spec, context, options.groups)),
     )
 }
@@ -182,7 +368,7 @@ export function searchFields(
     const results: NbtSearchResult[] = []
 
     for (const spec of fields) {
-        if (!isVersionInRange(spec, version)) continue
+        if (formsFor(spec, version).length === 0) continue
         const key = keyForVersion(spec, version).toLowerCase()
         const label = humanizeKey(spec.key).toLowerCase()
         const zh = (spec.zh ?? '').toLowerCase()

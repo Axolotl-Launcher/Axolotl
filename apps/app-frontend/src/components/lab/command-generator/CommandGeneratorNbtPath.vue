@@ -2,7 +2,7 @@
 import { defineMessages, StyledInput, useVIntl } from '@modrinth/ui'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 
-import { availableFieldsFor, childrenAtPath } from '@/lab/command-generator/nbt/catalog.ts'
+import { availableFieldsFor, levelAtPath } from '@/lab/command-generator/nbt/catalog.ts'
 import { fieldLabel } from '@/lab/command-generator/nbt/labels.ts'
 import {
     appendPathKey,
@@ -85,7 +85,16 @@ const candidateFields = computed<NbtFieldSpec[]>(() => {
     }
     // 去掉最后一段（正在输入的那个），用剩下的去定位父级
     const parentKeys = keys.slice(0, Math.max(0, depth - 1))
-    return childrenAtPath(props.domain, parentKeys, props.targetId) ?? []
+    return (
+        levelAtPath(
+            {
+                domain: props.domain,
+                version: props.version ?? '1.21',
+                targetId: props.targetId,
+            },
+            parentKeys,
+        )?.fields ?? []
+    )
 })
 
 const suggestions = computed(() => {

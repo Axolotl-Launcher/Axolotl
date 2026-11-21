@@ -7928,6 +7928,9 @@
   "app.lab.command-generator.item-picker.title": {
     "message": "选择物品"
   },
+  "app.lab.command-generator.nbt.add-element": {
+    "message": "添加列表元素"
+  },
   "app.lab.command-generator.nbt.add-tag": {
     "message": "添加子标签"
   },
@@ -7936,6 +7939,9 @@
   },
   "app.lab.command-generator.nbt.advanced.add-root": {
     "message": "添加标签"
+  },
+  "app.lab.command-generator.nbt.advanced.mismatch": {
+    "message": "这些键属于另一种 NBT 形式：{keys}。请切换上面的形式，或改名。"
   },
   "app.lab.command-generator.nbt.advanced.snbt-preview": {
     "message": "SNBT 预览"
@@ -9026,8 +9032,14 @@
   "app.lab.command-generator.nbt.move-up": {
     "message": "上移"
   },
+  "app.lab.command-generator.nbt.palette.add-element": {
+    "message": "添加 {type} 条目"
+  },
   "app.lab.command-generator.nbt.palette.added": {
     "message": "已添加"
+  },
+  "app.lab.command-generator.nbt.palette.element-hint": {
+    "message": "这个标签是列表：元素没有自己的键名，而且必须同类型。"
   },
   "app.lab.command-generator.nbt.palette.empty": {
     "message": "没有匹配的标签，可以手动添加一个。"
@@ -9056,11 +9068,17 @@
   "app.lab.command-generator.nbt.palette.title.child": {
     "message": "向 {parent} 添加标签"
   },
+  "app.lab.command-generator.nbt.palette.title.element": {
+    "message": "向 {parent} 添加条目"
+  },
   "app.lab.command-generator.nbt.palette.title.entity": {
     "message": "添加实体标签"
   },
   "app.lab.command-generator.nbt.palette.title.item": {
     "message": "添加物品组件"
+  },
+  "app.lab.command-generator.nbt.palette.variant-hint": {
+    "message": "这个标签有多种合法写法，选一种："
   },
   "app.lab.command-generator.nbt.path.hint": {
     "message": "路径指向某个标签：Foo.Bar、Items[0]，或对 Items 加筛选。"

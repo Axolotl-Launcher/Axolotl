@@ -3,7 +3,7 @@ import { PlusIcon, SearchIcon, SparklesIcon } from '@modrinth/assets'
 import { Button, Checkbox, defineMessages, NewModal, StyledInput, useVIntl } from '@modrinth/ui'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 
-import { availableFieldsFor, groupsFor } from '@/lab/command-generator/nbt/catalog.ts'
+import { groupsFor } from '@/lab/command-generator/nbt/catalog.ts'
 import {
     fieldDescription,
     fieldLabel,
@@ -11,10 +11,14 @@ import {
     NBT_TYPE_SHORT,
 } from '@/lab/command-generator/nbt/labels.ts'
 import {
+    availableFields,
+    formFor,
+    formsFor,
     groupByCategory,
     type NbtCategory,
     type NbtDomain,
     type NbtFieldSpec,
+    type NbtValueForm,
     searchFields,
 } from '@/lab/command-generator/nbt/schema.ts'
 
@@ -25,14 +29,21 @@ const props = defineProps<{
     targetId?: string
     /** 文档里已有的键名，列表上打个标记，不阻止再加一次。 */
     existingKeys?: string[]
-    /** 复合标签内部再用一次：直接给出这一层可选的子字段。 */
-    fields?: NbtFieldSpec[]
+    /** 这一层可选的字段：根层，或某个母项的子字段。 */
+    fields: NbtFieldSpec[]
+    /**
+     * 这一层是列表时，元素的写法。列表的元素没有键名，也不能混型，
+     * 所以面板只提供「添加元素」，不列元素字段让用户误以为是命名子项。
+     */
+    element?: NbtValueForm
     /** 正在往哪个标签里加子项，只用于标题。 */
     parentKey?: string
 }>()
 
 const emit = defineEmits<{
-    pick: [spec: NbtFieldSpec]
+    /** `form` 是用户显式选的另一种写法；不传表示用默认写法。 */
+    pick: [spec: NbtFieldSpec, form?: NbtValueForm]
+    element: []
     manual: []
 }>()
 
@@ -57,6 +68,10 @@ const messages = defineMessages({
     titleBlockEntity: {
         id: 'app.lab.command-generator.nbt.palette.title.block-entity',
         defaultMessage: 'Add block entity tag',
+    },
+    titleElement: {
+        id: 'app.lab.command-generator.nbt.palette.title.element',
+        defaultMessage: 'Add entry to {parent}',
     },
     searchPlaceholder: {
         id: 'app.lab.command-generator.nbt.palette.search',
@@ -89,6 +104,19 @@ const messages = defineMessages({
     manual: {
         id: 'app.lab.command-generator.nbt.palette.manual',
         defaultMessage: 'Add a custom tag by hand',
+    },
+    addElement: {
+        id: 'app.lab.command-generator.nbt.palette.add-element',
+        defaultMessage: 'Add {type} entry',
+    },
+    elementHint: {
+        id: 'app.lab.command-generator.nbt.palette.element-hint',
+        defaultMessage:
+            'This tag is a list. Entries have no key of their own and must share one type.',
+    },
+    variantHint: {
+        id: 'app.lab.command-generator.nbt.palette.variant-hint',
+        defaultMessage: 'This tag has several accepted shapes. Pick one:',
     },
     categoryBasic: {
         id: 'app.lab.command-generator.nbt.category.basic',
@@ -148,20 +176,29 @@ const activeIndex = ref(0)
 const searchInput = useTemplateRef<InstanceType<typeof StyledInput>>('searchInput')
 
 const header = computed(() => {
+    if (props.element) {
+        return formatMessage(messages.titleElement, { parent: props.parentKey ?? '' })
+    }
     if (props.parentKey) return formatMessage(messages.titleChild, { parent: props.parentKey })
     if (props.domain === 'item') return formatMessage(messages.titleItem)
     if (props.domain === 'block_entity') return formatMessage(messages.titleBlockEntity)
     return formatMessage(messages.titleEntity)
 })
 
-const pool = computed(() => {
-    // 复合标签内部：候选就是这一层的子字段，版本过滤已经在生成目录时做过
-    if (props.fields !== undefined) return props.fields
-    return availableFieldsFor(
+const elementTypeName = computed(() =>
+    props.element ? NBT_TYPE_NAME[props.element.type] : NBT_TYPE_NAME.compound,
+)
+
+const pool = computed(() =>
+    availableFields(
+        props.fields,
         { domain: props.domain, version: props.version, targetId: props.targetId },
-        { onlyApplicable: onlyApplicable.value && Boolean(props.targetId) },
-    )
-})
+        {
+            onlyApplicable: onlyApplicable.value && Boolean(props.targetId),
+            groups: groupsFor(props.domain),
+        },
+    ),
+)
 
 const results = computed(() => {
     const fields = showAdvanced.value ? pool.value : pool.value.filter((field) => !field.advanced)
@@ -182,9 +219,7 @@ const flatResults = computed(() => groups.value.flatMap((group) => group.items))
 
 /** 子项面板里「一个子字段都没有」和「搜索没命中」是两件事，别用同一句话。 */
 const emptyText = computed(() => {
-    if (props.fields !== undefined && props.fields.length === 0) {
-        return formatMessage(messages.emptyChild)
-    }
+    if (props.fields.length === 0) return formatMessage(messages.emptyChild)
     return formatMessage(messages.empty)
 })
 
@@ -207,8 +242,8 @@ function hide() {
     modal.value?.hide()
 }
 
-function pick(spec: NbtFieldSpec) {
-    emit('pick', spec)
+function pick(spec: NbtFieldSpec, form?: NbtValueForm) {
+    emit('pick', spec, form)
     modal.value?.hide()
 }
 
@@ -224,6 +259,7 @@ function move(delta: number) {
 }
 
 function onKeydown(event: KeyboardEvent) {
+    if (props.element) return
     if (event.key === 'ArrowDown') {
         event.preventDefault()
         move(1)
@@ -245,23 +281,34 @@ function pickManual() {
     modal.value?.hide()
 }
 
+function addElement() {
+    emit('element')
+    modal.value?.hide()
+}
+
 /** 目录里列表字段带着元素类型，列表里顺便标出来。 */
 function typeBadge(spec: NbtFieldSpec): string {
-    if (spec.type === 'list' && spec.elementType) {
-        return `[${NBT_TYPE_SHORT[spec.elementType]}]`
+    const form = formFor(spec, props.version)
+    if (!form) return ''
+    if (form.type === 'list' && form.element) {
+        return `[${NBT_TYPE_SHORT[form.element.type]}]`
     }
-    return NBT_TYPE_SHORT[spec.type]
+    return NBT_TYPE_SHORT[form.type]
 }
 
 function typeTitle(spec: NbtFieldSpec): string {
-    if (spec.type === 'list' && spec.elementType) {
-        return `List of ${NBT_TYPE_NAME[spec.elementType]}`
+    const form = formFor(spec, props.version)
+    if (!form) return ''
+    if (form.type === 'list' && form.element) {
+        return `List of ${NBT_TYPE_NAME[form.element.type]}`
     }
-    return NBT_TYPE_NAME[spec.type]
+    return NBT_TYPE_NAME[form.type]
 }
 
-/** 分组表只为实体与方块实体存在；物品组件的适用范围在组件本身。 */
-const hasGroups = computed(() => Object.keys(groupsFor(props.domain)).length > 0)
+/** 同一字段的其它写法：`pattern` 既能是 ID 字符串，也能是图案定义复合标签。 */
+function variants(spec: NbtFieldSpec): NbtValueForm[] {
+    return formsFor(spec, props.version)
+}
 
 defineExpose({ show, hide })
 </script>
@@ -283,95 +330,130 @@ defineExpose({ show, hide })
         -->
         <div
             class="flex min-h-0 min-w-0 flex-col gap-3"
-            :class="fields ? 'h-[min(26rem,60vh)]' : 'h-[min(30rem,64vh)]'"
+            :class="element ? '' : 'h-[min(30rem,64vh)]'"
         >
-            <StyledInput
-                ref="searchInput"
-                v-model="search"
-                class="w-full"
-                :icon="SearchIcon"
-                :placeholder="formatMessage(messages.searchPlaceholder)"
-                clearable
-                @keydown="onKeydown"
-            />
-
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <Checkbox
-                    v-if="!fields && (hasGroups || domain !== 'item')"
-                    :model-value="onlyApplicable"
-                    :disabled="!targetId"
-                    :label="
-                        targetId
-                            ? formatMessage(messages.onlyApplicable, { target: targetId })
-                            : formatMessage(messages.onlyApplicableUnknown)
-                    "
-                    @update:model-value="onlyApplicable = Boolean($event)"
-                />
-                <Checkbox
-                    :model-value="showAdvanced"
-                    :label="formatMessage(messages.showAdvanced)"
-                    @update:model-value="showAdvanced = Boolean($event)"
-                />
-            </div>
-
-            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                <p
-                    v-if="!flatResults.length"
-                    class="px-1 py-6 text-center text-sm text-[var(--color-text-tertiary)]"
-                >
-                    {{ emptyText }}
+            <template v-if="element">
+                <p class="m-0 text-sm text-[var(--color-text-secondary)]">
+                    {{ formatMessage(messages.elementHint) }}
                 </p>
-                <section v-for="group in groups" :key="group.category" class="mb-3">
-                    <h3
-                        class="sticky top-0 z-[1] bg-surface-3 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]"
+                <Button type="outlined" class="self-start" @click="addElement">
+                    <PlusIcon class="h-4 w-4" />
+                    {{ formatMessage(messages.addElement, { type: elementTypeName }) }}
+                </Button>
+            </template>
+
+            <template v-else>
+                <StyledInput
+                    ref="searchInput"
+                    v-model="search"
+                    class="w-full"
+                    :icon="SearchIcon"
+                    :placeholder="formatMessage(messages.searchPlaceholder)"
+                    clearable
+                    @keydown="onKeydown"
+                />
+
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <Checkbox
+                        :model-value="onlyApplicable"
+                        :disabled="!targetId"
+                        :label="
+                            targetId
+                                ? formatMessage(messages.onlyApplicable, { target: targetId })
+                                : formatMessage(messages.onlyApplicableUnknown)
+                        "
+                        @update:model-value="onlyApplicable = Boolean($event)"
+                    />
+                    <Checkbox
+                        :model-value="showAdvanced"
+                        :label="formatMessage(messages.showAdvanced)"
+                        @update:model-value="showAdvanced = Boolean($event)"
+                    />
+                </div>
+
+                <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                    <p
+                        v-if="!flatResults.length"
+                        class="px-1 py-6 text-center text-sm text-[var(--color-text-tertiary)]"
                     >
-                        {{ group.label }}
-                    </h3>
-                    <button
-                        v-for="spec in group.items"
-                        :key="spec.key"
-                        type="button"
-                        class="flex w-full min-w-0 items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-4 focus-visible:outline-brand"
-                        :class="{
-                            'bg-surface-4': flatResults[activeIndex]?.key === spec.key,
-                        }"
-                        @click="pick(spec)"
-                        @mouseenter="activeIndex = flatResults.indexOf(spec)"
-                    >
-                        <span
-                            v-tooltip="typeTitle(spec)"
-                            class="mt-0.5 w-9 shrink-0 rounded bg-surface-5 px-1 py-0.5 text-center font-mono text-[0.625rem] leading-4 text-[var(--color-text-secondary)]"
-                            >{{ typeBadge(spec) }}</span
+                        {{ emptyText }}
+                    </p>
+                    <section v-for="group in groups" :key="group.category" class="mb-3">
+                        <h3
+                            class="sticky top-0 z-[1] bg-surface-3 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]"
                         >
-                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                            <span class="flex min-w-0 flex-wrap items-baseline gap-2">
-                                <span
-                                    class="truncate font-mono text-sm text-[var(--color-text-primary)]"
-                                    >{{ spec.key }}</span
-                                >
-                                <span class="truncate text-xs text-[var(--color-text-secondary)]">{{
-                                    fieldLabel(spec, locale)
-                                }}</span>
-                                <span
-                                    v-if="existing.has(spec.key)"
-                                    class="rounded bg-surface-5 px-1 text-[0.625rem] text-[var(--color-text-tertiary)]"
-                                    >{{ formatMessage(messages.added) }}</span
-                                >
-                                <span
-                                    v-if="spec.since"
-                                    class="rounded bg-surface-5 px-1 font-mono text-[0.625rem] text-[var(--color-text-tertiary)]"
-                                    >{{ spec.since }}+</span
-                                >
-                            </span>
+                            {{ group.label }}
+                        </h3>
+                        <button
+                            v-for="spec in group.items"
+                            :key="spec.key"
+                            type="button"
+                            class="flex w-full min-w-0 items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-4 focus-visible:outline-brand"
+                            :class="{
+                                'bg-surface-4': flatResults[activeIndex]?.key === spec.key,
+                            }"
+                            @click="pick(spec)"
+                            @mouseenter="activeIndex = flatResults.indexOf(spec)"
+                        >
                             <span
-                                v-if="describe(spec)"
-                                class="line-clamp-2 text-xs leading-4 text-[var(--color-text-tertiary)]"
-                                >{{ describe(spec) }}</span
+                                v-tooltip="typeTitle(spec)"
+                                class="mt-0.5 w-9 shrink-0 rounded bg-surface-5 px-1 py-0.5 text-center font-mono text-[0.625rem] leading-4 text-[var(--color-text-secondary)]"
+                                >{{ typeBadge(spec) }}</span
                             >
-                        </span>
-                    </button>
-                </section>
-            </div>
+                            <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <span class="flex min-w-0 flex-wrap items-baseline gap-2">
+                                    <span
+                                        class="truncate font-mono text-sm text-[var(--color-text-primary)]"
+                                        >{{ spec.key }}</span
+                                    >
+                                    <span
+                                        class="truncate text-xs text-[var(--color-text-secondary)]"
+                                        >{{ fieldLabel(spec, locale) }}</span
+                                    >
+                                    <span
+                                        v-if="existing.has(spec.key)"
+                                        class="rounded bg-surface-5 px-1 text-[0.625rem] text-[var(--color-text-tertiary)]"
+                                        >{{ formatMessage(messages.added) }}</span
+                                    >
+                                    <span
+                                        v-if="spec.since"
+                                        class="rounded bg-surface-5 px-1 font-mono text-[0.625rem] text-[var(--color-text-tertiary)]"
+                                        >{{ spec.since }}+</span
+                                    >
+                                </span>
+                                <span
+                                    v-if="describe(spec)"
+                                    class="line-clamp-2 text-xs leading-4 text-[var(--color-text-tertiary)]"
+                                    >{{ describe(spec) }}</span
+                                >
+                                <!--
+                                    同一字段有多种合法写法时（`pattern` 是 ID 或图案定义），
+                                    默认写法由整行点击触发，其余写法在这里显式选。
+                                -->
+                                <span
+                                    v-if="variants(spec).length > 1"
+                                    class="mt-1 flex min-w-0 flex-wrap items-center gap-1"
+                                >
+                                    <span
+                                        class="text-[0.625rem] text-[var(--color-text-tertiary)]"
+                                        >{{ formatMessage(messages.variantHint) }}</span
+                                    >
+                                    <button
+                                        v-for="form in variants(spec)"
+                                        :key="form.type + (form.desc ?? '')"
+                                        type="button"
+                                        class="rounded bg-surface-5 px-1.5 py-0.5 font-mono text-[0.625rem] text-[var(--color-text-secondary)] hover:bg-surface-4"
+                                        :title="form.desc"
+                                        @click.stop="pick(spec, form)"
+                                    >
+                                        {{ NBT_TYPE_SHORT[form.type] }}
+                                    </button>
+                                </span>
+                            </span>
+                        </button>
+                    </section>
+                </div>
+            </template>
 
             <div class="border-0 border-t border-solid border-surface-5 pt-3">
                 <Button type="outlined" size="sm" class="w-full" @click="pickManual">

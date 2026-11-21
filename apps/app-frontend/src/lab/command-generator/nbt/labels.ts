@@ -29,6 +29,20 @@ const DESCRIPTIONS: Partial<Record<NbtDomain, Record<string, MessageDescriptor>>
 
 const indexes = new Map<NbtDomain, WeakMap<NbtFieldSpec, MessageDescriptor>>()
 
+/** 一个字段所有写法里的子字段；同名字段只走一次。 */
+function nestedFields(field: NbtFieldSpec): NbtFieldSpec[] {
+    const seen = new Set<string>()
+    const out: NbtFieldSpec[] = []
+    for (const form of field.forms) {
+        for (const child of [...(form.fields ?? []), ...(form.element?.fields ?? [])]) {
+            if (seen.has(child.key)) continue
+            seen.add(child.key)
+            out.push(child)
+        }
+    }
+    return out
+}
+
 function descriptionIndex(domain: NbtDomain): WeakMap<NbtFieldSpec, MessageDescriptor> {
     const cached = indexes.get(domain)
     if (cached) return cached
@@ -41,7 +55,7 @@ function descriptionIndex(domain: NbtDomain): WeakMap<NbtFieldSpec, MessageDescr
                 const path = prefix ? `${prefix}.${field.key}` : field.key
                 const descriptor = table[path]
                 if (descriptor) index.set(field, descriptor)
-                walk(field.children ?? [], path)
+                walk(nestedFields(field), path)
             }
         }
         walk(catalogFor(domain).fields, '')
@@ -104,5 +118,5 @@ export function fieldDescription(
 
 /** 布尔型 byte 在界面上应该是开关，不是数字框。 */
 export function isBooleanField(spec: NbtFieldSpec): boolean {
-    return spec.type === 'byte' && spec.valueKind === 'boolean'
+    return spec.forms.some((form) => form.type === 'byte' && form.valueKind === 'boolean')
 }

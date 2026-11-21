@@ -7928,6 +7928,9 @@
   "app.lab.command-generator.item-picker.title": {
     "message": "Pick an item"
   },
+  "app.lab.command-generator.nbt.add-element": {
+    "message": "Add list entry"
+  },
   "app.lab.command-generator.nbt.add-tag": {
     "message": "Add child tag"
   },
@@ -7936,6 +7939,9 @@
   },
   "app.lab.command-generator.nbt.advanced.add-root": {
     "message": "Add tag"
+  },
+  "app.lab.command-generator.nbt.advanced.mismatch": {
+    "message": "These tags belong to the other NBT form: {keys}. Switch the form above, or rename them."
   },
   "app.lab.command-generator.nbt.advanced.snbt-preview": {
     "message": "SNBT preview"
@@ -9026,8 +9032,14 @@
   "app.lab.command-generator.nbt.move-up": {
     "message": "Move up"
   },
+  "app.lab.command-generator.nbt.palette.add-element": {
+    "message": "Add {type} entry"
+  },
   "app.lab.command-generator.nbt.palette.added": {
     "message": "added"
+  },
+  "app.lab.command-generator.nbt.palette.element-hint": {
+    "message": "This tag is a list. Entries have no key of their own and must share one type."
   },
   "app.lab.command-generator.nbt.palette.empty": {
     "message": "No tag matches. Add it by hand instead."
@@ -9056,11 +9068,17 @@
   "app.lab.command-generator.nbt.palette.title.child": {
     "message": "Add tag to {parent}"
   },
+  "app.lab.command-generator.nbt.palette.title.element": {
+    "message": "Add entry to {parent}"
+  },
   "app.lab.command-generator.nbt.palette.title.entity": {
     "message": "Add entity tag"
   },
   "app.lab.command-generator.nbt.palette.title.item": {
     "message": "Add item component"
+  },
+  "app.lab.command-generator.nbt.palette.variant-hint": {
+    "message": "This tag has several accepted shapes. Pick one:"
   },
   "app.lab.command-generator.nbt.path.hint": {
     "message": "A path points at a tag: Foo.Bar, Items[0], or a filter on Items."

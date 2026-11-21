@@ -84,26 +84,38 @@ export function isNbtArray(node: Pick<NbtTagNode, 'type'>): boolean {
     return NBT_ARRAY_TYPES.includes(node.type)
 }
 
-/** 新建某个类型时的默认值文本。 */
+/** 新建某个类型时的默认值文本。节点存裸值，后缀与引号由 `snbt.ts` 补。 */
 export function defaultNbtValue(type: NbtTagType): string {
     switch (type) {
         case 'byte':
-            return '0b'
+            return '0'
         case 'short':
-            return '0s'
+            return '0'
         case 'long':
-            return '0L'
+            return '0'
         case 'float':
-            return '0f'
+            return '0'
         case 'double':
-            return '0d'
+            return '0'
         case 'int':
             return '0'
         case 'string':
-            return '""'
+            return ''
         default:
             return ''
     }
+}
+
+/**
+ * 目录里的默认值是 SNBT 文本（`1b`、`"minecraft:cross"`），节点存裸值。
+ *
+ * 直接把 `"minecraft:cross"` 塞进节点会序列化成 `"\"minecraft:cross\""`，
+ * 所以建节点时必须先剥掉引号与数字后缀。
+ */
+export function bareNbtValue(value: string, type: NbtTagType): string {
+    if (type === 'string') return unquoteSnbtText(value)
+    if (isNbtContainer({ type }) || isNbtArray({ type })) return value
+    return value.trim().replace(/[bslfd]$/i, '')
 }
 
 /** 深拷贝，并为每个节点分配新的 id（粘贴 / 复制用）。 */

@@ -6847,71 +6847,45 @@
     },
     {
       "key": "potion_contents",
-      "type": "compound",
       "category": "effect",
       "appliesTo": {
         "ids": ["area_effect_cloud"]
       },
       "zh": "药水内容",
-      "desc": "The potion and custom effects contained in this area effect cloud. May also be written as a plain string holding a potion ID.",
-      "children": [
+      "desc": "The base potion, custom list of mob effects, and custom color. May also be written as a plain string holding the potion ID.",
+      "forms": [
         {
-          "key": "potion",
-          "type": "string",
-          "desc": "The ID of a potion type. Optional. See Potion#Item data.",
-          "category": "effect",
-          "zh": "药水"
-        },
-        {
-          "key": "custom_color",
-          "type": "int",
-          "desc": "The overriding color of this potion texture, and/or the particles of the area effect cloud created.",
-          "category": "effect",
-          "zh": "自定义颜色"
-        },
-        {
-          "key": "custom_name",
-          "type": "string",
-          "desc": "An optional string used to generate containing stack name. The game uses the translation key item.minecraft.<item type>.effect.<value>. This name has a higher priority than the minecraft:item_name component, but lower than the minecraft:custom_name component.",
-          "category": "effect",
-          "zh": "自定义名称"
-        },
-        {
-          "key": "custom_effects",
-          "type": "list",
-          "desc": "A list of the additional effects that this item should apply.",
-          "elementType": "compound",
-          "category": "effect",
-          "zh": "自定义效果",
+          "type": "compound",
+          "editor": "potion_contents",
           "children": [
             {
-              "key": "ambient",
-              "type": "byte",
-              "desc": "1 or 0 (true/false). Whether or not any particles created should be translucent as opposed to opaque. If absent, particles are spawned opaque.",
-              "valueKind": "boolean",
+              "key": "potion",
+              "type": "string",
+              "desc": "The ID of a potion type. Optional. See Potion#Item data.",
               "category": "effect",
-              "zh": "环境效果"
+              "zh": "药水"
             },
             {
-              "key": "amplifier",
-              "type": "byte",
-              "desc": "Represents the effect level minus 1; that is, 0b corresponds to level 1. If absent, the effect is level 1.",
-              "category": "effect",
-              "zh": "倍率"
-            },
-            {
-              "key": "duration",
+              "key": "custom_color",
               "type": "int",
-              "desc": "The number of game ticks before the effect wears off. -1 means infinite duration.",
+              "desc": "The overriding color of this potion texture, and/or the particles of the area effect cloud created.",
               "category": "effect",
-              "zh": "持续时间"
+              "zh": "自定义颜色"
             },
             {
-              "key": "hidden_effect",
-              "type": "compound",
-              "desc": "An inactive, lower-amplifier effect of the same type. When the enclosing effect wears off, this replaces it. (The duration field of a hidden effect still decreases every tick if greater than 0. To avoid redundancy, the id field is not stored.)",
+              "key": "custom_name",
+              "type": "string",
+              "desc": "An optional string used to generate containing stack name. The game uses the translation key item.minecraft.<item type>.effect.<value>. This name has a higher priority than the minecraft:item_name component, but lower than the minecraft:custom_name component.",
               "category": "effect",
-              "zh": "隐藏效果",
+              "zh": "自定义名称"
+            },
+            {
+              "key": "custom_effects",
+              "type": "list",
+              "desc": "A list of the additional effects that this item should apply.",
+              "elementType": "compound",
+              "category": "effect",
+              "zh": "自定义效果",
               "children": [
                 {
                   "key": "ambient",
@@ -6940,7 +6914,61 @@
                   "type": "compound",
                   "desc": "An inactive, lower-amplifier effect of the same type. When the enclosing effect wears off, this replaces it. (The duration field of a hidden effect still decreases every tick if greater than 0. To avoid redundancy, the id field is not stored.)",
                   "category": "effect",
-                  "zh": "隐藏效果"
+                  "zh": "隐藏效果",
+                  "children": [
+                    {
+                      "key": "ambient",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false). Whether or not any particles created should be translucent as opposed to opaque. If absent, particles are spawned opaque.",
+                      "valueKind": "boolean",
+                      "category": "effect",
+                      "zh": "环境效果"
+                    },
+                    {
+                      "key": "amplifier",
+                      "type": "byte",
+                      "desc": "Represents the effect level minus 1; that is, 0b corresponds to level 1. If absent, the effect is level 1.",
+                      "category": "effect",
+                      "zh": "倍率"
+                    },
+                    {
+                      "key": "duration",
+                      "type": "int",
+                      "desc": "The number of game ticks before the effect wears off. -1 means infinite duration.",
+                      "category": "effect",
+                      "zh": "持续时间"
+                    },
+                    {
+                      "key": "hidden_effect",
+                      "type": "compound",
+                      "desc": "An inactive, lower-amplifier effect of the same type. When the enclosing effect wears off, this replaces it. (The duration field of a hidden effect still decreases every tick if greater than 0. To avoid redundancy, the id field is not stored.)",
+                      "category": "effect",
+                      "zh": "隐藏效果"
+                    },
+                    {
+                      "key": "id",
+                      "type": "string",
+                      "desc": "The effect name.",
+                      "category": "effect",
+                      "zh": "效果"
+                    },
+                    {
+                      "key": "show_icon",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false). Whether or not an icon is displayed in the top-right corner of the affected player's screen. Defaults to true if not specified.",
+                      "valueKind": "boolean",
+                      "category": "effect",
+                      "zh": "显示图标"
+                    },
+                    {
+                      "key": "show_particles",
+                      "type": "byte",
+                      "desc": "1 or 0 (true/false). Whether or not particles are created. If not specified, particles are created.",
+                      "valueKind": "boolean",
+                      "category": "effect",
+                      "zh": "显示粒子"
+                    }
+                  ]
                 },
                 {
                   "key": "id",
@@ -6966,31 +6994,13 @@
                   "zh": "显示粒子"
                 }
               ]
-            },
-            {
-              "key": "id",
-              "type": "string",
-              "desc": "The effect name.",
-              "category": "effect",
-              "zh": "效果"
-            },
-            {
-              "key": "show_icon",
-              "type": "byte",
-              "desc": "1 or 0 (true/false). Whether or not an icon is displayed in the top-right corner of the affected player's screen. Defaults to true if not specified.",
-              "valueKind": "boolean",
-              "category": "effect",
-              "zh": "显示图标"
-            },
-            {
-              "key": "show_particles",
-              "type": "byte",
-              "desc": "1 or 0 (true/false). Whether or not particles are created. If not specified, particles are created.",
-              "valueKind": "boolean",
-              "category": "effect",
-              "zh": "显示粒子"
             }
           ]
+        },
+        {
+          "type": "string",
+          "default": "\"minecraft:swiftness\"",
+          "desc": "A potion ID; the same as writing {potion: \"<id>\"}."
         }
       ]
     },

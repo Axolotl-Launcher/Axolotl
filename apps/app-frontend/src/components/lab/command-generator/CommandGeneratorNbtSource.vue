@@ -71,19 +71,41 @@ const options: MonacoEditorOptions = {
 }
 
 const version = computed(() => props.version ?? '1.21')
-const text = ref(props.modelValue ?? '')
+
+/**
+ * 与高级面板一致：1.20.5 起物品只能是数据组件，版本号先说话；页面上的
+ * 「使用 1.20.5+ 数据组件」开关只在 1.20–1.20.4 出现，那时才看开关。
+ */
+const useComponents = computed(() => {
+    if (props.kind !== 'item') return false
+    if (compareVersion(version.value, '1.20.5') >= 0) return true
+    if (version.value === '1.20' || version.value.startsWith('1.20.')) {
+        return Boolean(props.forceDataComponents)
+    }
+    return false
+})
+
+/**
+ * 进入源码模式时铺好的骨架。
+ *
+ * 1.20.5 起物品的 NBT 换成了数据组件，命令里的写法是 `item[组件=值,…]`，
+ * 所以根是**列表**；1.20.4 及以前物品写 `item{…}`，实体与方块实体的 NBT
+ * 也都是复合标签，根是**花括号**。`/data` 这类路径参数不是容器，不给骨架。
+ */
+const skeleton = computed(() => {
+    if (props.kind === 'item') return useComponents.value ? '[\n    \n]' : '{\n    \n}'
+    if (props.kind === 'entity') return '{\n    \n}'
+    return ''
+})
+
+const text = ref(props.modelValue || skeleton.value)
+/** 文本就是刚铺的骨架，没有真正的内容。 */
+const seeded = text.value === skeleton.value && Boolean(skeleton.value)
 const error = ref('')
 
 let completion: SnbtCompletionHandle | null = null
 let lastEmitted = props.modelValue ?? ''
 let timer: ReturnType<typeof setTimeout> | undefined
-
-/** 与高级面板一致：物品的根形态由页面开关决定，文本以实际写法为准。 */
-const useComponents = computed(() => {
-    if (props.kind !== 'item') return false
-    if (props.forceDataComponents !== undefined) return props.forceDataComponents
-    return compareVersion(version.value, '1.20.5') >= 0
-})
 
 const components = computed(() => {
     if (props.kind !== 'item') return false
@@ -121,13 +143,23 @@ const source = createNbtCompletionSource(() => ({
 function onReady(editor: MonacoEditor, monaco: Monaco) {
     registerSnbt(monaco)
     const model = editor.getModel()
-    if (model) completion = attachSnbtCompletion(editor, model, source)
+    if (!model) return
+    completion = attachSnbtCompletion(editor, model, source)
+    if (!seeded) return
+    // 骨架是空的容器：光标放进最后一行，顺手把候选列表弹出来，省掉第一次 Tab。
+    const offset = Math.max(0, skeleton.value.lastIndexOf('\n'))
+    editor.setPosition(model.getPositionAt(offset))
+    requestAnimationFrame(() => {
+        editor.focus()
+        editor.trigger('snbt-skeleton', 'editor.action.triggerSuggest', {})
+    })
 }
 
 /** 解析并压成一行；语法不完整时抛错，由调用方显示。 */
 function compact(): string {
     const raw = text.value.trim()
-    if (!raw) return ''
+    // 骨架只是脚手架，没往里填东西时不该出现在命令里。
+    if (!raw || raw === skeleton.value.trim()) return ''
     const parsed = parseNbt(raw)
     return serializeNbtDocument(parsed.nodes, parsed.components)
 }
@@ -151,6 +183,8 @@ function commit() {
 function collapse() {
     try {
         const next = compact()
+        // 还没填内容时别把骨架也抹掉，留着方便接着写。
+        if (!next) return
         publish(next)
         text.value = next
     } catch (cause) {
@@ -161,6 +195,12 @@ function collapse() {
 watch(text, () => {
     if (timer) clearTimeout(timer)
     timer = setTimeout(commit, 400)
+})
+
+// 版本跨过 1.20.5（或改回开关）时根形态会变：还停在旧骨架上就直接换掉。
+watch(skeleton, (next, previous) => {
+    const current = text.value.trim()
+    if (!current || current === previous.trim()) text.value = next
 })
 
 watch(

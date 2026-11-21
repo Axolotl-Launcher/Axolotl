@@ -17,11 +17,14 @@ import {
 } from './parse.ts'
 import {
     draftFromSelector,
+    nbtArgumentIndexes,
     nbtTargetFromSelector,
+    nbtValueOf,
     removeArgument,
     removeArgumentText,
     serializeSelector,
     setArgument,
+    setNbtValue,
     toggleNegated,
 } from './serialize.ts'
 
@@ -262,6 +265,23 @@ describe('选择器校验', () => {
         expect(issuesOf('@e[limit=3]').some((i) => i.level === 'warning')).toBe(true)
         expect(issuesOf('@p[limit=3]').some((i) => i.level === 'warning')).toBe(false)
     })
+
+    it('nbt 的值必须是复合标签', () => {
+        expect(issuesOf('@e[nbt={a:1b}]').some((i) => i.id === 'invalid-nbt')).toBe(false)
+        expect(issuesOf('@e[nbt=!{a:1b}]').some((i) => i.id === 'invalid-nbt')).toBe(false)
+        expect(issuesOf('@e[nbt={a:}]').some((i) => i.id === 'invalid-nbt')).toBe(true)
+        // 根必须是复合标签：标量与列表都不合法
+        expect(issuesOf('@e[nbt=1]').some((i) => i.id === 'invalid-nbt')).toBe(true)
+        // 刚加进来的空值同样生成不出去，要当场提示
+        expect(issuesOf('@e[nbt=]').some((i) => i.id === 'empty-nbt')).toBe(true)
+    })
+
+    it('nbt 的报错只带原因与位置，不整段回显原文', () => {
+        const issue = issuesOf('@e[nbt={a:}]').find((entry) => entry.id === 'invalid-nbt')!
+        const message = String(issue.values?.message)
+        expect(message).toContain('at position 3')
+        expect(message).not.toContain('<--[HERE]')
+    })
 })
 
 describe('选择器拼装', () => {
@@ -364,6 +384,35 @@ describe('NBT 上下文联动', () => {
     it('只看玩家的变量按玩家处理', () => {
         expect(nbtTargetFromSelector('@a')).toBe('player')
         expect(nbtTargetFromSelector('@p[distance=..5]')).toBe('player')
+    })
+})
+
+describe('就地写回 nbt 参数', () => {
+    it('只替换 nbt 的值，其它参数原样保留', () => {
+        const text = '@e[type=zombie,nbt={a:1b},limit=3]'
+        expect(setNbtValue(text, 1, '{IsBaby:1b}')).toBe('@e[type=zombie,nbt={IsBaby:1b},limit=3]')
+    })
+
+    it('取反的 nbt 读出来不带 !，写回去仍带 !', () => {
+        expect(nbtValueOf('@e[nbt=!{a:1b}]', 0)).toBe('{a:1b}')
+        expect(setNbtValue('@e[nbt=!{a:1b}]', 0, '{b:2b}')).toBe('@e[nbt=!{b:2b}]')
+    })
+
+    it('值为空时删掉整个参数', () => {
+        expect(setNbtValue('@e[type=zombie,nbt={a:1b}]', 1, '')).toBe('@e[type=zombie]')
+        expect(setNbtValue('@e[nbt={a:1b}]', 0, '   ')).toBe('@e')
+    })
+
+    it('重复的 nbt 按各自下标写回', () => {
+        const text = '@e[nbt={a:1b},nbt={b:2b}]'
+        expect(nbtArgumentIndexes(text)).toEqual([0, 1])
+        expect(setNbtValue(text, 1, '{c:3b}')).toBe('@e[nbt={a:1b},nbt={c:3b}]')
+    })
+
+    it('下标指向别的参数时不动文本', () => {
+        expect(nbtValueOf('@e[type=zombie]', 0)).toBeUndefined()
+        expect(setNbtValue('@e[type=zombie]', 0, '{a:1b}')).toBe('@e[type=zombie]')
+        expect(nbtArgumentIndexes('@e[type=zombie]')).toEqual([])
     })
 })
 

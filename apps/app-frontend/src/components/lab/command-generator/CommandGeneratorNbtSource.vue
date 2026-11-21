@@ -193,13 +193,22 @@ function publish(next: string) {
     emit('update:modelValue', next)
 }
 
-function commit() {
+/** 写出去；语法不完整时只报错、不写，返回值告诉调用方这次提交是否成功。 */
+function commit(): boolean {
     try {
         publish(compact())
+        return true
     } catch (cause) {
         error.value = errorText(cause)
+        return false
     }
 }
+
+/**
+ * 供外层在关闭 / 提交之前调用：这里的写入靠 400ms 防抖与 blur 触发，
+ * 点按钮时最后几个字符可能还在等，不先刷一次就会丢掉。
+ */
+defineExpose({ commit })
 
 /** 按钮：把编辑器里的排版也换掉，方便确认最终会发出去什么。 */
 function collapse() {

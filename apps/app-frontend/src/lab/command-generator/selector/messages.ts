@@ -59,6 +59,14 @@ export const selectorIssueMessages = defineMessages({
         id: 'app.lab.command-generator.selector.issue.invalid-enum',
         defaultMessage: '{key}= must be one of {values}',
     },
+    invalidNbt: {
+        id: 'app.lab.command-generator.selector.issue.invalid-nbt',
+        defaultMessage: '{key}= is not valid SNBT: {message}',
+    },
+    emptyNbt: {
+        id: 'app.lab.command-generator.selector.issue.empty-nbt',
+        defaultMessage: '{key}= is empty; it needs a compound tag',
+    },
     duplicateType: {
         id: 'app.lab.command-generator.selector.issue.duplicate-type',
         defaultMessage: 'type= can only appear once',
@@ -95,6 +103,8 @@ export const SELECTOR_ISSUE_MESSAGE: Record<SelectorIssueId, keyof typeof select
     'below-minimum': 'belowMinimum',
     'above-maximum': 'aboveMaximum',
     'invalid-enum': 'invalidEnum',
+    'empty-nbt': 'emptyNbt',
+    'invalid-nbt': 'invalidNbt',
     'duplicate-type': 'duplicateType',
     'type-conflict': 'typeConflict',
     'duplicate-argument': 'duplicateArgument',

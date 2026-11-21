@@ -10067,11 +10067,17 @@
   "app.lab.command-generator.selector.issue.duplicate-type": {
     "message": "type= can only appear once"
   },
+  "app.lab.command-generator.selector.issue.empty-nbt": {
+    "message": "{key}= is empty; it needs a compound tag"
+  },
   "app.lab.command-generator.selector.issue.forbidden-on-variable": {
     "message": "@{variable} cannot use {key}=, use @e or @n instead"
   },
   "app.lab.command-generator.selector.issue.invalid-enum": {
     "message": "{key}= must be one of {values}"
+  },
+  "app.lab.command-generator.selector.issue.invalid-nbt": {
+    "message": "{key}= is not valid SNBT: {message}"
   },
   "app.lab.command-generator.selector.issue.limit-without-sort": {
     "message": "Without sort=, the first targets are taken in arbitrary order"
@@ -10108,6 +10114,27 @@
   },
   "app.lab.command-generator.selector.min": {
     "message": "Min"
+  },
+  "app.lab.command-generator.selector.nbt.apply": {
+    "message": "Apply"
+  },
+  "app.lab.command-generator.selector.nbt.edit": {
+    "message": "Edit NBT"
+  },
+  "app.lab.command-generator.selector.nbt.editor-context": {
+    "message": "Only fields that apply to {target} are listed."
+  },
+  "app.lab.command-generator.selector.nbt.editor-title": {
+    "message": "Edit NBT data"
+  },
+  "app.lab.command-generator.selector.nbt.hint.all": {
+    "message": "No type=, so every entity field is listed"
+  },
+  "app.lab.command-generator.selector.nbt.hint.broad": {
+    "message": "type= is not a single entity, so every field is listed"
+  },
+  "app.lab.command-generator.selector.nbt.hint.target": {
+    "message": "Fields are filtered to {target}"
   },
   "app.lab.command-generator.selector.negation-off": {
     "message": "Includes matching targets"

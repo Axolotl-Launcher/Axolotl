@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
-import { ref, watch } from 'vue'
+import { ref, useTemplateRef, watch } from 'vue'
 
 import type { NbtKind } from '@/lab/command-generator/commands/types.ts'
 import type { NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
@@ -47,6 +47,18 @@ watch(
 watch(mode, (next) => {
     if (next === 'source') sourceMounted.value = true
 })
+
+const source = useTemplateRef<InstanceType<typeof CommandGeneratorNbtSource>>('source')
+
+/**
+ * 把源码模式里还没提交的草稿刷出去；高级模式是同步写回的，不需要等。
+ * 返回 `false` 表示源码还没写完，调用方应先让用户改，而不是直接收尾。
+ */
+function commit(): boolean | undefined {
+    return source.value?.commit()
+}
+
+defineExpose({ commit })
 </script>
 
 <template>
@@ -105,6 +117,7 @@ watch(mode, (next) => {
         <CommandGeneratorNbtSource
             v-if="sourceMounted"
             v-show="mode === 'source'"
+            ref="source"
             :model-value="modelValue"
             :kind="kind"
             :version="version"

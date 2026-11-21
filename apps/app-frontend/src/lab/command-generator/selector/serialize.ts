@@ -116,6 +116,40 @@ export function removeArgumentText(text: string, index: number): string {
     return dropEmptyBrackets(`${text.slice(0, start)}${text.slice(end)}`)
 }
 
+/**
+ * 选择器里第 `index` 个 `nbt` 的值，供 NBT 编辑器读取。
+ *
+ * 编辑器只认 SNBT，不认选择器的 `!` 取反标记，所以前缀在这里剥掉；
+ * 写回时由 `setNbtValue` 按 `negated` 补回去。
+ */
+export function nbtValueOf(text: string, index: number): string | undefined {
+    const argument = parseSelector(text)?.arguments[index]
+    if (!argument || argument.key !== 'nbt') return undefined
+    return argument.negated ? argument.value.slice(1) : argument.value
+}
+
+/** 所有 `nbt` 参数的下标：它可以重复出现，卡片要能区分同名的几条。 */
+export function nbtArgumentIndexes(text: string): number[] {
+    return (parseSelector(text)?.arguments ?? [])
+        .map((argument, index) => (argument.key === 'nbt' ? index : -1))
+        .filter((index) => index !== -1)
+}
+
+/**
+ * 把编辑好的 SNBT 写回第 `index` 个 `nbt` 参数。
+ *
+ * 只替换值的区间：其它参数的写法、顺序与空白都保持原样。值为空时删掉整个
+ * 参数——`nbt=` 没有值游戏会拒绝，留着它只会生成一条跑不通的命令。
+ */
+export function setNbtValue(text: string, index: number, value: string): string {
+    const argument = parseSelector(text)?.arguments[index]
+    if (!argument || argument.key !== 'nbt') return text
+    const trimmed = value.trim()
+    if (!trimmed) return removeArgumentText(text, index)
+    const next = argument.negated ? `!${trimmed}` : trimmed
+    return `${text.slice(0, argument.start)}${next}${text.slice(argument.end)}`
+}
+
 /** 区间值：`10`、`8..16`、`..10`、`10..`。 */
 export function rangeValue(range: NumericRange, negated = false): string {
     const text = formatNumericRange(range)

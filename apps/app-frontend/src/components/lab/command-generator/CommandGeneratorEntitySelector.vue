@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDownIcon, PlusIcon, XIcon } from '@modrinth/assets'
+import { ChevronDownIcon, CodeIcon, PlusIcon, XIcon } from '@modrinth/assets'
 import {
     Button,
     Combobox,
@@ -35,10 +35,14 @@ import {
     validateSelector,
 } from '@/lab/command-generator/selector/parse.ts'
 import {
+    nbtArgumentIndexes,
     nbtTargetFromSelector,
+    nbtValueOf,
     removeArgumentText,
+    setNbtValue,
 } from '@/lab/command-generator/selector/serialize.ts'
 
+import CommandGeneratorNbtModal from './CommandGeneratorNbtModal.vue'
 import CommandGeneratorOptionPickerModal, {
     type PickerGroup,
 } from './CommandGeneratorOptionPickerModal.vue'
@@ -118,6 +122,22 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.selector.pick-entity',
         defaultMessage: 'Pick',
     },
+    editNbt: {
+        id: 'app.lab.command-generator.selector.nbt.edit',
+        defaultMessage: 'Edit NBT',
+    },
+    nbtHintTarget: {
+        id: 'app.lab.command-generator.selector.nbt.hint.target',
+        defaultMessage: 'Fields are filtered to {target}',
+    },
+    nbtHintBroad: {
+        id: 'app.lab.command-generator.selector.nbt.hint.broad',
+        defaultMessage: 'type= is not a single entity, so every field is listed',
+    },
+    nbtHintAll: {
+        id: 'app.lab.command-generator.selector.nbt.hint.all',
+        defaultMessage: 'No type=, so every entity field is listed',
+    },
     filterPickerTitle: {
         id: 'app.lab.command-generator.selector.filter-picker.title',
         defaultMessage: 'Add a filter',
@@ -193,6 +213,7 @@ const filterPicker =
     useTemplateRef<InstanceType<typeof CommandGeneratorOptionPickerModal>>('filterPicker')
 const entityPicker =
     useTemplateRef<InstanceType<typeof CommandGeneratorOptionPickerModal>>('entityPicker')
+const nbtModal = useTemplateRef<InstanceType<typeof CommandGeneratorNbtModal>>('nbtModal')
 
 const text = ref(props.modelValue ?? '@p')
 const caret = ref(0)
@@ -200,6 +221,8 @@ const showSuggestions = ref(false)
 const activeSuggestion = ref(0)
 /** 正在等弹窗回填的卡片下标。 */
 const entityPickIndex = ref<number | undefined>(undefined)
+/** 正在编辑的 `nbt` 参数：下标 + 打开时的原文，用来确认期间没被别人改写。 */
+const nbtEdit = ref<{ index: number; value: string } | undefined>(undefined)
 
 const isChinese = computed(() => locale.value.toLowerCase().startsWith('zh'))
 
@@ -293,6 +316,17 @@ const playerOnlyWarning = computed(() => {
 })
 
 const nbtTarget = computed(() => nbtTargetFromSelector(text.value))
+
+/**
+ * 联动提示：让「字段集合跟着 type= 走」这件事在卡片上看得见。
+ * 三种状态分别是：收窄到某个实体、写了 type= 但不是单个实体、压根没写。
+ */
+const nbtHint = computed(() => {
+    const target = nbtTarget.value
+    if (target) return formatMessage(messages.nbtHintTarget, { target })
+    const typed = (parsed.value?.arguments ?? []).some((argument) => argument.key === 'type')
+    return formatMessage(typed ? messages.nbtHintBroad : messages.nbtHintAll)
+})
 
 // 外部改动（切换命令、套用预设）要同步回输入框，否则两边各说各话
 watch(
@@ -420,27 +454,62 @@ function removeArgument(index: number) {
 
 function addFilter(key: string) {
     const insertion = `${key}=`
+    let next: string
+    let caretAt: number
+
     if (!text.value.includes('[')) {
-        publish(`${text.value.trim()}[${insertion}]`)
-        focusInput(text.value.length - 1)
-        return
+        next = `${text.value.trim()}[${insertion}]`
+        caretAt = next.length - 1
+    } else {
+        const close = text.value.lastIndexOf(']')
+        if (close === -1) {
+            // 方括号还没闭合：追加在末尾，且不替用户补 `]`
+            const separator = /,\s*$/.test(text.value) ? '' : ','
+            next = `${text.value}${separator}${insertion}`
+            caretAt = next.length
+        } else {
+            const inner = text.value.slice(0, close)
+            const separator = /\[\s*$/.test(inner) ? '' : ','
+            next = `${inner}${separator}${insertion}]`
+            caretAt = next.length - 1
+        }
     }
 
-    const close = text.value.lastIndexOf(']')
-    // 方括号还没闭合：追加在末尾，且不替用户补 `]`
-    if (close === -1) {
-        const separator = /,\s*$/.test(text.value) ? '' : ','
-        const next = `${text.value}${separator}${insertion}`
-        publish(next)
-        focusInput(next.length)
-        return
-    }
-
-    const inner = text.value.slice(0, close)
-    const separator = /\[\s*$/.test(inner) ? '' : ','
-    const next = `${inner}${separator}${insertion}]`
     publish(next)
-    focusInput(next.length - 1)
+    focusInput(caretAt)
+    // `nbt=` 空着没有意义，直接把编辑器打开，省掉「加参数 → 再点按钮」一步。
+    // 等一帧再开：筛选弹窗正在关，别让两个弹窗的开关动画叠在一起。
+    if (key === 'nbt') void nextTick(() => openNewestNbtEditor())
+}
+
+/** 刚加进来的 `nbt=` 永远排在最后一个参数，编辑器对着它打开。 */
+function openNewestNbtEditor() {
+    const indexes = nbtArgumentIndexes(text.value)
+    const index = indexes[indexes.length - 1]
+    if (index !== undefined) openNbtEditor(index)
+}
+
+function openNbtEditor(index: number, event?: MouseEvent) {
+    const value = nbtValueOf(text.value, index)
+    const argument = parsed.value?.arguments[index]
+    if (value === undefined || !argument) return
+    nbtEdit.value = { index, value: argument.value }
+    nbtModal.value?.show(value, event)
+}
+
+/**
+ * 弹窗里点「应用」。
+ *
+ * 打开期间文本若被别处改写（切版本会清空参数值），下标就不再指向原来那条
+ * 参数，此时放弃写入，而不是按旧偏移改到别人身上。
+ */
+function onNbtApply(value: string) {
+    const target = nbtEdit.value
+    nbtEdit.value = undefined
+    if (!target) return
+    const current = parsed.value?.arguments[target.index]
+    if (!current || current.key !== 'nbt' || current.value !== target.value) return
+    publish(setNbtValue(text.value, target.index, value))
 }
 
 function openFilterPicker(event: MouseEvent) {
@@ -714,6 +783,37 @@ defineExpose({ focus: () => focusInput() })
                     </Button>
                 </template>
 
+                <!--
+                    NBT：短结构直接在框里粘贴，复杂结构交给弹窗里的编辑器。
+                    提示行说明候选字段跟着哪个 `type=` 收窄。
+                -->
+                <template v-else-if="card.spec && card.spec.kind === 'nbt'">
+                    <StyledInput
+                        class="min-w-0 flex-1"
+                        size="small"
+                        :aria-label="formatMessage(messages.value)"
+                        :model-value="card.argument.value.replace(/^!/, '')"
+                        :spellcheck="false"
+                        @change="
+                            onValueChange(
+                                index,
+                                card.argument.negated
+                                    ? `!${($event.target as HTMLInputElement).value}`
+                                    : ($event.target as HTMLInputElement).value,
+                            )
+                        "
+                    />
+                    <Button type="outlined" size="2xs" @click="openNbtEditor(index, $event)">
+                        <CodeIcon class="h-3 w-3" />
+                        {{ formatMessage(messages.editNbt) }}
+                    </Button>
+                    <p
+                        class="m-0 w-full text-[0.625rem] leading-4 text-[var(--color-text-tertiary)]"
+                    >
+                        {{ nbtHint }}
+                    </p>
+                </template>
+
                 <!-- 其余按文本编辑 -->
                 <StyledInput
                     v-else
@@ -767,6 +867,13 @@ defineExpose({ focus: () => focusInput() })
             :empty-text="formatMessage(messages.entityPickerEmpty)"
             :groups="entityPickerGroups"
             @pick="onEntityPicked"
+        />
+        <CommandGeneratorNbtModal
+            ref="nbtModal"
+            :version="version"
+            domain="entity"
+            :target-id="nbtTarget"
+            @update:model-value="onNbtApply"
         />
     </div>
 </template>

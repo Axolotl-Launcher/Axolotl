@@ -5,6 +5,7 @@
  * 括号不配对也不会抛异常——用户在输入框里打字时，半截的选择器是常态。
  */
 
+import { parseNbt } from '../nbt/snbt.ts'
 import {
     bedrockEquivalent,
     SELECTOR_VARIABLES,
@@ -332,6 +333,8 @@ export type SelectorIssueId =
     | 'below-minimum'
     | 'above-maximum'
     | 'invalid-enum'
+    | 'empty-nbt'
+    | 'invalid-nbt'
     | 'duplicate-type'
     | 'type-conflict'
     | 'duplicate-argument'
@@ -348,6 +351,17 @@ export interface SelectorIssue {
 }
 
 /**
+ * 解析器把出错位置之前的原文整段带进消息（`… at position 3: {a:<--[HERE]`）。
+ * 选择器卡片只有一行位置，长 NBT 会把提示撑成一整行，所以只留原因与位置。
+ */
+function nbtErrorText(error: unknown): string {
+    const message = error instanceof Error ? error.message : String(error)
+    const located = /^(.*? at position \d+)/.exec(message)
+    if (located) return located[1]
+    return message.length > 120 ? `${message.slice(0, 117)}…` : message
+}
+
+/**
  * 检查选择器是否合法。规则来自 wiki：
  * - `type` 不能用在 `@a` / `@p` / `@r` 上；
  * - 不可重复的参数不能出现两次（`tag`、`nbt`、`predicate` 可以）；
@@ -355,6 +369,7 @@ export interface SelectorIssue {
  *   （`@e[name=!a,name=!b]` 合法，`@e[name=a,name=b]` 不合法）；
  * - `type=<id>` 只能出现一次，且不能与 `type=!<id>` 同时出现；
  * - 数值参数的每一个写出来的边界都要落在允许区间内（`distance=..-5` 不合法）；
+ * - `nbt=` 的值必须是合法的复合标签（`{a:1b}`），写坏了要当场报出来；
  * - `sort` 与 `limit` 相互影响，缺一个时说明默认行为；
  * - 基岩版参数给出对应写法。
  */
@@ -480,6 +495,31 @@ export function validateSelector(parsed: ParsedSelector): SelectorIssue[] {
                     values: { key: argument.key, values: spec.enumValues.join(' / ') },
                     argument: argument.key,
                 })
+            }
+        }
+
+        if (spec.kind === 'nbt') {
+            // `nbt=` 只接受复合标签：`{a:1b}` 合法，`1`、`[1]`、写到一半的 `{` 都不合法
+            const value = argument.value.trim().replace(/^!/, '')
+            if (!value) {
+                // 刚添加的 `nbt=` 只有键没有值，游戏同样不认，别让它悄悄生成出去
+                issues.push({
+                    level: 'error',
+                    id: 'empty-nbt',
+                    values: { key: argument.key },
+                    argument: argument.key,
+                })
+            } else {
+                try {
+                    parseNbt(value)
+                } catch (error) {
+                    issues.push({
+                        level: 'error',
+                        id: 'invalid-nbt',
+                        values: { key: argument.key, message: nbtErrorText(error) },
+                        argument: argument.key,
+                    })
+                }
             }
         }
     }

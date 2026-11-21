@@ -10067,11 +10067,17 @@
   "app.lab.command-generator.selector.issue.duplicate-type": {
     "message": "type= 只能写一次"
   },
+  "app.lab.command-generator.selector.issue.empty-nbt": {
+    "message": "{key}= 没有值，需要填一个复合标签"
+  },
   "app.lab.command-generator.selector.issue.forbidden-on-variable": {
     "message": "@{variable} 不能用 {key}=，改用 @e 或 @n"
   },
   "app.lab.command-generator.selector.issue.invalid-enum": {
     "message": "{key}= 只能是 {values}"
+  },
+  "app.lab.command-generator.selector.issue.invalid-nbt": {
+    "message": "{key}= 不是合法的 SNBT：{message}"
   },
   "app.lab.command-generator.selector.issue.limit-without-sort": {
     "message": "没有 sort= 时按 arbitrary 取前几个目标"
@@ -10108,6 +10114,27 @@
   },
   "app.lab.command-generator.selector.min": {
     "message": "最小"
+  },
+  "app.lab.command-generator.selector.nbt.apply": {
+    "message": "应用"
+  },
+  "app.lab.command-generator.selector.nbt.edit": {
+    "message": "编辑 NBT"
+  },
+  "app.lab.command-generator.selector.nbt.editor-context": {
+    "message": "只列出适用于 {target} 的字段。"
+  },
+  "app.lab.command-generator.selector.nbt.editor-title": {
+    "message": "编辑 NBT 数据"
+  },
+  "app.lab.command-generator.selector.nbt.hint.all": {
+    "message": "未写 type=，列出全部实体字段"
+  },
+  "app.lab.command-generator.selector.nbt.hint.broad": {
+    "message": "type= 不是单个实体，列出全部字段"
+  },
+  "app.lab.command-generator.selector.nbt.hint.target": {
+    "message": "字段按 {target} 过滤"
   },
   "app.lab.command-generator.selector.negation-off": {
     "message": "包含匹配的目标"

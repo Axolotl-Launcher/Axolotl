@@ -110,3 +110,15 @@ test('数组前缀之后是数字', () => {
     assert.equal(context.expect, 'value')
     assert.deepEqual(context.keyPath, ['Pos'])
 })
+
+test('组件值里的复合继续挂在组件名下', () => {
+    const context = scan('[potion_contents={|}]')
+    assert.equal(context.expect, 'key')
+    assert.deepEqual(context.keyPath, ['potion_contents'])
+})
+
+test('组件值里的列表元素沿用组件的路径', () => {
+    const context = scan('[banner_patterns=[{|}]')
+    assert.equal(context.expect, 'key')
+    assert.deepEqual(context.keyPath, ['banner_patterns'])
+})

@@ -58,13 +58,22 @@ function looksLikeComponents(text: string, from: number, limit: number): boolean
     const { word, end } = readWord(text, start, limit, VALUE_WORD)
     if (!word) return false
     const next = skipSpace(text, end, limit)
-    return next < limit && text[next] === '='
+    const nextChar = next < limit ? text[next] : ''
+    if (nextChar === '=') return true
+    // 还没写等号：`[banner_` 是组件名写到一半。根层的列表元素只能是带引号的
+    // 字符串或数字，裸词只可能是组件名。
+    if (nextChar === ';') return false
+    if (/^-?\d/.test(word)) return false
+    if (word === 'true' || word === 'false') return false
+    // `[B` 还没敲分号，是数组前缀。
+    if (word === 'B' || word === 'I' || word === 'L') return false
+    return true
 }
 
-/** 新容器属于哪个键：复合里的键名往下走一层，列表元素停在列表本身。 */
+/** 新容器属于哪个键：复合的键、组件列表的组件名往下走一层，列表元素停在列表本身。 */
 function childPath(frame: SnbtFrame | undefined, key: string): string[] {
     if (!frame) return []
-    return frame.kind === 'compound' ? [...frame.keyPath, key] : frame.keyPath
+    return frame.kind === 'compound' || frame.components ? [...frame.keyPath, key] : frame.keyPath
 }
 
 export function scanSnbt(text: string, offset: number): SnbtScan {

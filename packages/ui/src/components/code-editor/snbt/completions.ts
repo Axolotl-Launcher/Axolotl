@@ -96,6 +96,8 @@ export function registerSnbtCompletions(monaco: Monaco): void {
                     documentation: candidate.documentation
                         ? { value: candidate.documentation }
                         : undefined,
+                    // 过滤用的是光标前那整段词（含 `minecraft:` 前缀），
+                    // filterText 必须是它的超集，塞短 ID 会让 `minecraft:zom` 全不匹配。
                     filterText: candidate.filterText ?? candidate.label,
                     // Monaco 按 sortText 升序排；分数越高越靠前。
                     sortText: `${String(999 - Math.round((candidate.score ?? 50) * 10)).padStart(4, '0')}-${String(index).padStart(4, '0')}`,

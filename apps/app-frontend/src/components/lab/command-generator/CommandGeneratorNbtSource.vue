@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ListOrderedIcon } from '@modrinth/assets'
+import { FoldVerticalIcon, UnfoldVerticalIcon } from '@modrinth/assets'
 import {
     attachSnbtCompletion,
     Button,
     CodeEditor,
     defineMessages,
+    formatSnbt,
     type Monaco,
     type MonacoEditor,
     type MonacoEditorOptions,
@@ -39,6 +40,10 @@ const messages = defineMessages({
     hint: {
         id: 'app.lab.command-generator.nbt.source.hint',
         defaultMessage: 'Tab completes a tag; Ctrl+S applies the command.',
+    },
+    expand: {
+        id: 'app.lab.command-generator.nbt.source.expand',
+        defaultMessage: 'Expand to multiple lines',
     },
     compact: {
         id: 'app.lab.command-generator.nbt.source.compact',
@@ -98,7 +103,12 @@ const skeleton = computed(() => {
     return ''
 })
 
-const text = ref(props.modelValue || skeleton.value)
+/** 其他模式给的是一行压好的文本：进源码模式先排成多行，读起来才像代码。 */
+function present(value: string): string {
+    return value.trim() ? formatSnbt(value) : value
+}
+
+const text = ref(present(props.modelValue ?? '') || skeleton.value)
 /** 文本就是刚铺的骨架，没有真正的内容。 */
 const seeded = text.value === skeleton.value && Boolean(skeleton.value)
 const error = ref('')
@@ -192,6 +202,12 @@ function collapse() {
     }
 }
 
+/** 按钮：把一行展开成缩进好的多行，方便逐项改。 */
+function expand() {
+    const next = formatSnbt(text.value)
+    if (next !== text.value) text.value = next
+}
+
 watch(text, () => {
     if (timer) clearTimeout(timer)
     timer = setTimeout(commit, 400)
@@ -209,7 +225,8 @@ watch(
         const next = value ?? ''
         if (next === lastEmitted) return
         lastEmitted = next
-        text.value = next
+        // 别的模式改过之后拿到的还是一行，重新排版。
+        text.value = present(next)
     },
 )
 
@@ -225,10 +242,16 @@ onBeforeUnmount(() => {
             <span class="text-xs text-[var(--color-text-tertiary)]">
                 {{ formatMessage(messages.hint) }}
             </span>
-            <Button type="outlined" size="sm" @click="collapse">
-                <ListOrderedIcon class="h-4 w-4" />
-                {{ formatMessage(messages.compact) }}
-            </Button>
+            <div class="flex items-center gap-2">
+                <Button type="outlined" size="sm" @click="expand">
+                    <UnfoldVerticalIcon class="h-4 w-4" />
+                    {{ formatMessage(messages.expand) }}
+                </Button>
+                <Button type="outlined" size="sm" @click="collapse">
+                    <FoldVerticalIcon class="h-4 w-4" />
+                    {{ formatMessage(messages.compact) }}
+                </Button>
+            </div>
         </div>
         <div class="h-72 overflow-hidden rounded-xl border border-solid border-surface-4">
             <CodeEditor

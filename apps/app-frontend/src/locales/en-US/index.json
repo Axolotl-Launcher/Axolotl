@@ -9128,6 +9128,9 @@
   "app.lab.command-generator.nbt.source.compact": {
     "message": "Collapse to one line"
   },
+  "app.lab.command-generator.nbt.source.expand": {
+    "message": "Expand to multiple lines"
+  },
   "app.lab.command-generator.nbt.source.hint": {
     "message": "Tab completes a tag; Ctrl+S applies the command."
   },

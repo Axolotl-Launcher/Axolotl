@@ -9128,6 +9128,9 @@
   "app.lab.command-generator.nbt.source.compact": {
     "message": "压缩成一行"
   },
+  "app.lab.command-generator.nbt.source.expand": {
+    "message": "展开为多行"
+  },
   "app.lab.command-generator.nbt.source.hint": {
     "message": "Tab 补全标签；Ctrl+S 应用命令。"
   },

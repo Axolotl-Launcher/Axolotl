@@ -88,6 +88,38 @@ it('seeds a compound for entity nbt', async () => {
     expect(text()).toBe('{\n    \n}')
 })
 
+it('expands the one-liner coming from another mode', async () => {
+    const { text } = await mountSource({
+        modelValue: '[custom_name="a",lore=["b"]]',
+        kind: 'item',
+        version: '1.21',
+        domain: 'item',
+    })
+
+    expect(text()).toBe('[\n    custom_name="a",\n    lore=[\n        "b"\n    ]\n]')
+})
+
+it('expands and collapses with the toolbar buttons', async () => {
+    const { wrapper, editor, text } = await mountSource({
+        modelValue: '',
+        kind: 'item',
+        version: '1.21',
+        domain: 'item',
+    })
+
+    editor.setValue('[custom_name="a",lore=["b"]]')
+    await flushPromises()
+
+    const [expandButton, collapseButton] = wrapper.findAll('button')
+    await expandButton.trigger('click')
+    await flushPromises()
+    expect(text()).toBe('[\n    custom_name="a",\n    lore=[\n        "b"\n    ]\n]')
+
+    await collapseButton.trigger('click')
+    await flushPromises()
+    expect(text()).toBe('[custom_name="a",lore=["b"]]')
+})
+
 it('opens the component list right away on the seeded skeleton', async () => {
     const { editor } = await mountSource({
         modelValue: '',
@@ -131,14 +163,39 @@ it('inserts the brackets along with the component name', async () => {
     expect(text()).toBe('[banner_patterns=[]')
 })
 
+it('adds a pair of quotes for a string component', async () => {
+    const { editor, text } = await mountSource({
+        modelValue: '',
+        kind: 'item',
+        version: '1.21',
+        domain: 'item',
+    })
+
+    editor.setValue('[custom_nam')
+    editor.setPosition({ lineNumber: 1, column: 12 })
+    editor.focus()
+    await flushPromises()
+    editor.trigger('keyboard', 'editor.action.triggerSuggest', {})
+
+    await waitFor(() => Boolean(document.querySelector('.suggest-widget .monaco-list-row')), {
+        timeoutMs: 15_000,
+        label: 'rows',
+    })
+    editor.trigger('keyboard', 'acceptSelectedSuggestion', {})
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    expect(text()).toBe('[custom_name=""')
+})
+
 it('lists ids with their sprites after a namespaced prefix', async () => {
     const { editor } = await mountSource({
-        modelValue: '{id:"minecraft:zom',
+        modelValue: '',
         kind: 'entity',
         version: '1.21',
         domain: 'entity',
     })
 
+    editor.setValue('{id:"minecraft:zom')
     editor.setPosition({ lineNumber: 1, column: 19 })
     editor.focus()
     await flushPromises()

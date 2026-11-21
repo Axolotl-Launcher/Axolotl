@@ -105,6 +105,8 @@ export interface ResourceSearchQuery {
         | 'firstPublished'
         | 'latestPublished'
     pageSize: number
+    /** One-based page to read directly via the source's offset/limit API. */
+    page?: number
 }
 
 export type ResourceSearchExpression =
@@ -171,14 +173,10 @@ export async function resourceRequest<T>(
     }
     return result
 }
-export function resourceSearch(
-    query: ResourceSearchQuery,
-    cursor: string | null,
-    signal?: AbortSignal,
-) {
+export function resourceSearch(query: ResourceSearchQuery, page: number, signal?: AbortSignal) {
     return resourceRequest<ResourcePage<ResourceSearchResult>>(
         'resource_search',
-        { query, cursor },
+        { query: { ...query, page }, cursor: null },
         signal,
     )
 }

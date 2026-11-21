@@ -1769,11 +1769,8 @@ async function search(requestParams: string, signal: AbortSignal) {
         sort: sortMap[params.get('index') ?? 'relevance'] ?? 'relevance',
         pageSize: limit,
     }
-    const page = await resourceSearchPages.get(
-        query,
-        Math.floor(Number(params.get('offset') ?? 0) / limit),
-        signal,
-    )
+    const pageNumber = Math.floor(Number(params.get('offset') ?? 0) / limit) + 1
+    const page = await resourceSearchPages.get(query, pageNumber, signal)
     signal.throwIfAborted()
     if (page.entries.length === 0 && page.sourceFailures.length > 0)
         throw new Error(
@@ -1851,8 +1848,9 @@ async function search(requestParams: string, signal: AbortSignal) {
         total_hits: page.total.value ?? hits.length,
         total_precision: page.total.precision,
         has_more: page.hasMore,
+        paginationMode: 'offset',
         per_page: limit,
-        page: resourceSearchPages.indexOf(page) + 1,
+        page: pageNumber,
         resourceNotice: [
             ...page.sourceFailures.map((failure) =>
                 resourceSearchFailure(failure, query, formatMessage),
@@ -1913,7 +1911,7 @@ function setDisplayMode(mode: BrowseDisplayMode) {
 const searchState = useBrowseSearch({
     enabled: searchEnabled,
     deferInitialization: true,
-    invalidateSearch: () => resourceSearchPages.invalidate(searchState.currentPage.value - 1),
+    invalidateSearch: () => resourceSearchPages.invalidate(searchState.currentPage.value),
     formatError: (error) =>
         isResourceOperationError(error)
             ? resourceOperationError(error, formatMessage)

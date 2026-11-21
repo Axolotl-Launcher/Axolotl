@@ -15,28 +15,29 @@ const query = (text = ''): ResourceSearchQuery => ({
 const page = (index: number, hasMore = true): ResourcePage<ResourceSearchResult> => ({
     requestId: String(index),
     entries: [],
-    cursor: hasMore ? `cursor-${index}` : null,
+    cursor: null,
     hasMore,
     total: { value: null, precision: 'unknown' },
     sourceFailures: [],
     exhaustedSources: [],
 })
 
-it('deep pages use successive opaque cursors and navigating back retains the same page', async () => {
-    const cursors: (string | null)[] = []
-    const pager = new ResourceSearchPages(async (_query, cursor) => {
-        cursors.push(cursor)
-        return page(cursors.length - 1)
+it('reads a distant page directly in one request and revisits it from cache', async () => {
+    const pages: number[] = []
+    const pager = new ResourceSearchPages(async (_query, index) => {
+        pages.push(index)
+        return page(index)
     })
     const signal = new AbortController().signal
-    const third = await pager.get(query(), 2, signal)
-    expect(cursors).toEqual([null, 'cursor-0', 'cursor-1'])
-    await pager.get(query(), 0, signal)
-    expect(await pager.get(query(), 2, signal)).toBe(third)
-    expect(cursors.length).toBe(3)
+    const third = await pager.get(query(), 3, signal)
+    expect(pages).toEqual([3])
+    expect(pager.indexOf(third)).toBe(3)
+    await pager.get(query(), 1, signal)
+    expect(await pager.get(query(), 3, signal)).toBe(third)
+    expect(pages).toEqual([3, 1])
 })
 
-it('a new query starts a new cursor chain and stale responses cannot replace it', async () => {
+it('a new query clears the cache and stale responses cannot replace it', async () => {
     let resolveOld!: (value: ResourcePage<ResourceSearchResult>) => void
     const oldResponse = new Promise<ResourcePage<ResourceSearchResult>>((resolve) => {
         resolveOld = resolve
@@ -45,43 +46,37 @@ it('a new query starts a new cursor chain and stale responses cannot replace it'
         request.text === 'old' ? oldResponse : page(20, false),
     )
     const signal = new AbortController().signal
-    const old = pager.get(query('old'), 0, signal)
-    const latest = await pager.get(query('new'), 0, signal)
+    const old = pager.get(query('old'), 1, signal)
+    const latest = await pager.get(query('new'), 1, signal)
     resolveOld(page(1))
     await expect(old).rejects.toMatchObject({ name: 'AbortError' })
-    expect(await pager.get(query('new'), 0, signal)).toBe(latest)
+    expect(await pager.get(query('new'), 1, signal)).toBe(latest)
 })
 
-it('failure and cancellation retain the last complete page and retry its cursor', async () => {
+it('a failed page is retried while earlier pages stay cached', async () => {
     let fail = true
-    const cursors: (string | null)[] = []
-    const pager = new ResourceSearchPages(async (_request, cursor) => {
-        cursors.push(cursor)
-        if (cursor && fail) throw new Error('source unavailable')
-        return page(cursor ? 1 : 0)
+    const pages: number[] = []
+    const pager = new ResourceSearchPages(async (_request, index) => {
+        pages.push(index)
+        if (index === 2 && fail) throw new Error('source unavailable')
+        return page(index)
     })
-    const controller = new AbortController()
-    const first = await pager.get(query(), 0, controller.signal)
-    await expect(pager.get(query(), 1, controller.signal)).rejects.toThrow()
-    expect(await pager.get(query(), 0, controller.signal)).toBe(first)
+    const signal = new AbortController().signal
+    const first = await pager.get(query(), 1, signal)
+    await expect(pager.get(query(), 2, signal)).rejects.toThrow()
+    expect(await pager.get(query(), 1, signal)).toBe(first)
     fail = false
-    await pager.get(query(), 1, controller.signal)
-    expect(cursors).toEqual([null, 'cursor-0', 'cursor-0'])
-    controller.abort()
-    await expect(pager.get(query(), 2, controller.signal)).rejects.toMatchObject({
-        name: 'AbortError',
-    })
-    expect(cursors.length).toBe(3)
+    await pager.get(query(), 2, signal)
+    expect(pages).toEqual([1, 2, 2])
 })
 
-it('a failed page is requested again and an expired cursor rebuilds the query once', async () => {
+it('a retryable source failure is requested again on the next read', async () => {
     let calls = 0
-    let expired = true
-    const pager = new ResourceSearchPages(async (_request, cursor) => {
+    const pager = new ResourceSearchPages(async () => {
         calls++
         if (calls === 1)
             return {
-                ...page(0),
+                ...page(1),
                 sourceFailures: [
                     {
                         source: 'modrinth',
@@ -91,22 +86,15 @@ it('a failed page is requested again and an expired cursor rebuilds the query on
                     },
                 ],
             }
-        if (cursor && expired) {
-            expired = false
-            throw { code: 'cursorExpired' }
-        }
-        return page(cursor ? 1 : 0)
+        return page(1)
     })
     const signal = new AbortController().signal
-    await pager.get(query(), 0, signal)
-    await pager.get(query(), 0, signal)
+    await pager.get(query(), 1, signal)
+    await pager.get(query(), 1, signal)
     expect(calls).toBe(2)
-    const second = await pager.get(query(), 1, signal)
-    expect(second.requestId).toBe('1')
-    expect(calls).toBe(5)
 })
 
-it('permanent source capability notices do not restart successful cursor pages', async () => {
+it('permanent source capability notices do not restart a successful page', async () => {
     let calls = 0
     const pager = new ResourceSearchPages(async () => ({
         ...page(calls++),
@@ -120,34 +108,30 @@ it('permanent source capability notices do not restart successful cursor pages',
         ],
     }))
     const signal = new AbortController().signal
-    const first = await pager.get(query(), 0, signal)
-    expect(await pager.get(query(), 0, signal)).toBe(first)
-    await pager.get(query(), 1, signal)
-    expect(calls).toBe(2)
+    const first = await pager.get(query(), 1, signal)
+    expect(await pager.get(query(), 1, signal)).toBe(first)
+    expect(calls).toBe(1)
 })
 
-it('explicit retry invalidates permanent failures and refreshing a deep page retains earlier cursors', async () => {
-    const cursors: (string | null)[] = []
-    const pager = new ResourceSearchPages(async (_query, cursor) => {
-        cursors.push(cursor)
-        return {
-            ...page(cursors.length),
-            sourceFailures: [
-                {
-                    source: 'modrinth',
-                    code: 'sourceUnavailable',
-                    message: 'failed',
-                    retryable: false,
-                },
-            ],
-        }
+it('explicit retry invalidates a cached page and cancellation aborts a request', async () => {
+    let calls = 0
+    const pager = new ResourceSearchPages(async () => page(calls++))
+    const controller = new AbortController()
+    const first = await pager.get(query(), 1, controller.signal)
+    pager.invalidate(1)
+    expect(await pager.get(query(), 1, controller.signal)).not.toBe(first)
+    controller.abort()
+    await expect(pager.get(query(), 2, controller.signal)).rejects.toMatchObject({
+        name: 'AbortError',
     })
+})
+
+it('invalidate keeps pages before its starting index', async () => {
+    const pager = new ResourceSearchPages(async (_request, index) => page(index))
     const signal = new AbortController().signal
-    const first = await pager.get(query(), 0, signal)
-    pager.invalidate()
-    expect(await pager.get(query(), 0, signal)).not.toBe(first)
+    const first = await pager.get(query(), 1, signal)
     await pager.get(query(), 2, signal)
     pager.invalidate(2)
-    await pager.get(query(), 2, signal)
-    expect(cursors).toEqual([null, null, 'cursor-2', 'cursor-3', 'cursor-3'])
+    expect(await pager.get(query(), 1, signal)).toBe(first)
+    expect(pager.indexOf(await pager.get(query(), 2, signal))).toBe(2)
 })

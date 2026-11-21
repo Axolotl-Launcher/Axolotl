@@ -10079,8 +10079,14 @@
   "app.lab.command-generator.selector.issue.not-a-number": {
     "message": "{key}= 的值不是数字或区间"
   },
+  "app.lab.command-generator.selector.issue.not-a-single-number": {
+    "message": "{key}= 只接受一个数字，不能写区间"
+  },
   "app.lab.command-generator.selector.issue.not-a-selector": {
     "message": "目标选择器必须以 @ 开头，例如 @e[type=zombie]"
+  },
+  "app.lab.command-generator.selector.issue.not-negatable": {
+    "message": "{key}= 不能加 ! 取反"
   },
   "app.lab.command-generator.selector.issue.sort-without-limit": {
     "message": "没有 limit= 时 sort= 不影响选中的数量"

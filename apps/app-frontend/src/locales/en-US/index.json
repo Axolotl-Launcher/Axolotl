@@ -10079,8 +10079,14 @@
   "app.lab.command-generator.selector.issue.not-a-number": {
     "message": "{key}= is not a number or a range"
   },
+  "app.lab.command-generator.selector.issue.not-a-single-number": {
+    "message": "{key}= takes a single number, not a range"
+  },
   "app.lab.command-generator.selector.issue.not-a-selector": {
     "message": "A target selector starts with @, for example @e[type=zombie]"
+  },
+  "app.lab.command-generator.selector.issue.not-negatable": {
+    "message": "{key}= cannot be negated with !"
   },
   "app.lab.command-generator.selector.issue.sort-without-limit": {
     "message": "Without limit=, sort= does not change how many targets are selected"

@@ -476,6 +476,14 @@ function onRangeChange(index: number, side: 'min' | 'max', raw: string) {
     replaceValue(index, formatNumericRange(next) || '0')
 }
 
+/** 单值参数只写一个数：这里不能复用区间写回，否则会留下 `3..5`。 */
+function onNumberChange(index: number, raw: string) {
+    const argument = parsed.value?.arguments[index]
+    if (!argument) return
+    const text = raw.trim()
+    replaceValue(index, argument.negated ? `!${text || '0'}` : text || '0')
+}
+
 function onValueChange(index: number, raw: string) {
     replaceValue(index, raw)
 }
@@ -628,13 +636,23 @@ defineExpose({ focus: () => focusInput() })
                     >
                 </div>
 
-                <!-- 区间 / 数字 -->
+                <!-- 单值：`limit` / `dx` 这类只接受一个数，给两个框会写出 `3..5` -->
+                <StyledInput
+                    v-if="card.spec && card.spec.kind === 'number'"
+                    class="w-24"
+                    size="small"
+                    inputmode="numeric"
+                    :aria-label="formatMessage(messages.value)"
+                    :placeholder="formatMessage(messages.value)"
+                    :model-value="rangeOf(card.argument)?.min ?? ''"
+                    @change="onNumberChange(index, ($event.target as HTMLInputElement).value)"
+                />
+
+                <!-- 区间 -->
                 <template
-                    v-if="
+                    v-else-if="
                         card.spec &&
-                        (card.spec.kind === 'range' ||
-                            card.spec.kind === 'unsigned-range' ||
-                            card.spec.kind === 'number')
+                        (card.spec.kind === 'range' || card.spec.kind === 'unsigned-range')
                     "
                 >
                     <StyledInput

@@ -126,6 +126,8 @@ describe('参数值解析', () => {
         expect(parseNumericRange('..10')).toEqual({ min: undefined, max: 10 })
         expect(parseNumericRange('10..')).toEqual({ min: 10, max: undefined })
         expect(parseNumericRange('abc')).toBeUndefined()
+        // 多写一个点不是区间，不能只取前两段就放过去
+        expect(parseNumericRange('1..2..3')).toBeUndefined()
     })
 
     it('区间写回去保持原样', () => {
@@ -240,6 +242,19 @@ describe('选择器校验', () => {
         expect(issuesOf('@e[distance=..10]').some((i) => i.level === 'error')).toBe(false)
         expect(issuesOf('@e[y_rotation=..200]').some((i) => i.id === 'above-maximum')).toBe(true)
         expect(issuesOf('@e[x_rotation=-120..0]').some((i) => i.id === 'below-minimum')).toBe(true)
+    })
+
+    it('单值参数不接受区间', () => {
+        expect(issuesOf('@e[limit=3]').some((i) => i.level === 'error')).toBe(false)
+        expect(issuesOf('@e[limit=3..5]').some((i) => i.id === 'not-a-single-number')).toBe(true)
+        expect(issuesOf('@e[dx=4..8]').some((i) => i.id === 'not-a-single-number')).toBe(true)
+    })
+
+    it('不能取反的参数带上 ! 就报错', () => {
+        expect(issuesOf('@e[limit=!3]').some((i) => i.id === 'not-negatable')).toBe(true)
+        expect(issuesOf('@e[sort=!random]').some((i) => i.id === 'not-negatable')).toBe(true)
+        expect(issuesOf('@e[type=!zombie]').some((i) => i.level === 'error')).toBe(false)
+        expect(issuesOf('@e[name=!hero]').some((i) => i.level === 'error')).toBe(false)
     })
 
     it('sort 与 limit 互相提示默认行为', () => {

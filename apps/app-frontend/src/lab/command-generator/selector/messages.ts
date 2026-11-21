@@ -39,6 +39,14 @@ export const selectorIssueMessages = defineMessages({
         id: 'app.lab.command-generator.selector.issue.not-a-number',
         defaultMessage: '{key}= is not a number or a range',
     },
+    notASingleNumber: {
+        id: 'app.lab.command-generator.selector.issue.not-a-single-number',
+        defaultMessage: '{key}= takes a single number, not a range',
+    },
+    notNegatable: {
+        id: 'app.lab.command-generator.selector.issue.not-negatable',
+        defaultMessage: '{key}= cannot be negated with !',
+    },
     belowMinimum: {
         id: 'app.lab.command-generator.selector.issue.below-minimum',
         defaultMessage: '{key}= cannot be less than {min}',
@@ -82,6 +90,8 @@ export const SELECTOR_ISSUE_MESSAGE: Record<SelectorIssueId, keyof typeof select
     'unknown-argument': 'unknownArgument',
     'forbidden-on-variable': 'forbiddenOnVariable',
     'not-a-number': 'notANumber',
+    'not-a-single-number': 'notASingleNumber',
+    'not-negatable': 'notNegatable',
     'below-minimum': 'belowMinimum',
     'above-maximum': 'aboveMaximum',
     'invalid-enum': 'invalidEnum',

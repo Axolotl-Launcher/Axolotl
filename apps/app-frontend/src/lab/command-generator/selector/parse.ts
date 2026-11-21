@@ -173,7 +173,10 @@ export function parseNumericRange(value: string): NumericRange | undefined {
     const text = value.replace(/^!/, '').trim()
     if (!text) return undefined
     if (text.includes('..')) {
-        const [left, right] = text.split('..')
+        const parts = text.split('..')
+        // 多写一个点（`1..2..3`）不是区间：只取前两段等于悄悄接受非法值
+        if (parts.length !== 2) return undefined
+        const [left, right] = parts
         const min = left.trim() === '' ? undefined : Number(left)
         const max = right.trim() === '' ? undefined : Number(right)
         if (min !== undefined && !Number.isFinite(min)) return undefined
@@ -330,6 +333,8 @@ export type SelectorIssueId =
     | 'unknown-argument'
     | 'forbidden-on-variable'
     | 'not-a-number'
+    | 'not-a-single-number'
+    | 'not-negatable'
     | 'below-minimum'
     | 'above-maximum'
     | 'invalid-enum'
@@ -419,12 +424,32 @@ export function validateSelector(parsed: ParsedSelector): SelectorIssue[] {
             else positiveType += 1
         }
 
+        // 只有标了 `negatable` 的参数能加 `!`：`limit=!3`、`sort=!random` 游戏会拒绝
+        if (argument.negated && !spec.negatable) {
+            issues.push({
+                level: 'error',
+                id: 'not-negatable',
+                values: { key: argument.key },
+                argument: argument.key,
+            })
+        }
+
         if (spec.kind === 'unsigned-range' || spec.kind === 'range' || spec.kind === 'number') {
             const range = parseNumericRange(argument.value)
             if (!range) {
                 issues.push({
                     level: 'error',
                     id: 'not-a-number',
+                    values: { key: argument.key },
+                    argument: argument.key,
+                })
+                continue
+            }
+            // `number` 参数只吃一个数，`limit=3..5` 游戏不认
+            if (spec.kind === 'number' && range.min !== range.max) {
+                issues.push({
+                    level: 'error',
+                    id: 'not-a-single-number',
                     values: { key: argument.key },
                     argument: argument.key,
                 })
@@ -451,8 +476,9 @@ export function validateSelector(parsed: ParsedSelector): SelectorIssue[] {
             }
         }
 
-        if (spec.kind === 'enum' && !argument.negated) {
-            const value = argument.value.trim()
+        if (spec.kind === 'enum') {
+            // 取反的枚举（`type=!zombie`）去掉 `!` 再比对，不能整个跳过检查
+            const value = argument.value.trim().replace(/^!/, '')
             if (spec.enumValues && !spec.enumValues.includes(value)) {
                 issues.push({
                     level: 'error',

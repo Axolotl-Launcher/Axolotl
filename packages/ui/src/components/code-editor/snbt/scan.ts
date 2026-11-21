@@ -37,11 +37,17 @@ function readWord(
     return { word: text.slice(from, index), end: index }
 }
 
-/** 未闭合的字符串返回 -1，由调用方标记 `quoted`。 */
+/**
+ * 字符串的结束位置。
+ *
+ * SNBT 的字符串不能跨行，所以换行也当成结束：上一行落单的引号不会跟这一行的
+ * 引号配成一对。真的没闭合（读到光标都没有引号）才返回 -1，由调用方标记 `quoted`。
+ */
 function findStringEnd(text: string, from: number, limit: number, quote: string): number {
     let index = from + 1
     while (index < limit) {
         const char = text[index]
+        if (char === '\n' || char === '\r') return index
         if (char === '\\') {
             index += 2
             continue
@@ -105,9 +111,11 @@ export function scanSnbt(text: string, offset: number): SnbtScan {
             const close = findStringEnd(text, index, limit, char)
             if (close < 0) {
                 quoted = true
-                // 只取到光标：光标后面还有别的行时，不能把后面整篇都算成一个词，
-                // 否则替换范围会从行首一直铺到光标，候选全被丢掉。
-                word = text.slice(index + 1, limit)
+                // 只取到光标，且只取最后一行：SNBT 的字符串不能跨行，光标前面
+                // 还有换行时把整段算成一个词，替换范围和过滤都会对不上，
+                // 候选会被全部筛掉。
+                const lineStart = text.lastIndexOf('\n', limit - 1) + 1
+                word = text.slice(Math.max(index + 1, lineStart), limit)
                 break
             }
             const content = text.slice(index + 1, close)

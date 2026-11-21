@@ -82,6 +82,14 @@ test('未闭合的字符串只取到光标，不吞掉后面的内容', () => {
     assert.equal(context.word, 'dia')
 })
 
+test('字符串不跨行：上一行落单的引号不会把这一行也算进词里', () => {
+    // SNBT 的字符串不能换行，光标前有换行时词只能从行首算起，
+    // 否则替换范围会跨行，候选又会被过滤光。
+    const context = scan('{a:"x\n{id:"dia|}')
+    assert.equal(context.quoted, true)
+    assert.equal(context.word, 'dia')
+})
+
 test('光标之后的字符用于判断该不该补分隔符', () => {
     assert.equal(scan('{dis|:1}').next, ':')
     assert.equal(scan('{a:1|').next, '')

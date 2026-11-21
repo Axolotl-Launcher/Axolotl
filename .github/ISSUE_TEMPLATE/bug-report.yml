@@ -1,7 +1,7 @@
 name: 🐛 错误报告
 description: 报告 Axolotl Launcher 中可以复现的问题
 title: '[错误] '
-labels: [bug]
+type: 'Bug'
 body:
   - type: markdown
     attributes:

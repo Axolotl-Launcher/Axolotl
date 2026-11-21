@@ -1,7 +1,7 @@
 name: 💡 功能建议
 description: 为 Axolotl Launcher 提议新功能或体验改进
 title: '[建议] '
-labels: [enhancement]
+type: 'Feature'
 body:
   - type: markdown
     attributes:

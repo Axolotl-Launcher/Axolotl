@@ -229,24 +229,31 @@ describe('写回时保留表格没建模的键', () => {
     })
 
     /**
-     * 1.20.5–1.21.4 的附魔是 `{levels:…,show_in_tooltip:…}`。没建模这两种包装时
-     * 也不能把它们当成附魔行，更不能写回时抹掉。
+     * 1.20.5 起的附魔是 `{levels:…,show_in_tooltip:…}`：行在 `levels` 里面，
+     * 写回时也必须回到 `levels` 里面，否则游戏看不到这条附魔。
      */
-    it('附魔映射里的 levels / show_in_tooltip 既不当行也不被抹掉', () => {
+    it('附魔写在 levels 包装里时，行也在 levels 里', () => {
         const node = createNbtTag('enchantments', 'compound', '', [
             createNbtTag('levels', 'compound', '', [
                 createNbtTag('minecraft:sharpness', 'int', '3'),
             ]),
             createNbtTag('show_in_tooltip', 'byte', '1'),
         ])
-        expect(readGroupRows(node, enchantments)).toEqual([])
-
-        writeGroupRows(node, enchantments, [{ id: 'minecraft:mending', level: '1' }])
-        expect(node.children?.map((child) => child.name)).toEqual([
-            'minecraft:mending',
-            'levels',
-            'show_in_tooltip',
+        expect(readGroupRows(node, enchantments)).toEqual([
+            { id: 'minecraft:sharpness', level: '3' },
         ])
+
+        writeGroupRows(node, enchantments, [
+            { id: 'minecraft:sharpness', level: '3' },
+            { id: 'minecraft:mending', level: '1' },
+        ])
+        const levels = node.children?.find((child) => child.name === 'levels')
+        expect(levels?.children?.map((child) => child.name)).toEqual([
+            'minecraft:sharpness',
+            'minecraft:mending',
+        ])
+        // 兄弟键不能被动到
+        expect(node.children?.map((child) => child.name)).toEqual(['levels', 'show_in_tooltip'])
     })
 
     /**

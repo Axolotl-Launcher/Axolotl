@@ -339,7 +339,9 @@ export function groupRowNodes(node: NbtTagNode, spec: NbtGroupSpec): NbtTagNode[
     }
     if (container.type === 'list') return [...(container.children ?? [])]
     if (container.type === 'compound' && spec.shape === 'map') {
-        return (container.children ?? []).filter((child) => NAMESPACED_ID.test(child.name))
+        return (mapRowsNode(container).children ?? []).filter((child) =>
+            NAMESPACED_ID.test(child.name),
+        )
     }
     return []
 }
@@ -437,6 +439,19 @@ export function shapeMatches(node: NbtTagNode, spec: NbtGroupSpec): boolean {
 
 /** 映射结构的行键是命名空间 ID（`minecraft:sharpness`）；其余子键不是行。 */
 const NAMESPACED_ID = /^[a-z0-9_.-]+:[a-z0-9_./-]+$/
+
+/**
+ * 映射结构的行容器。
+ *
+ * 1.20.5 起的附魔组件是 `{levels:{…},show_in_tooltip:…}`：等级在 `levels` 里，
+ * 直接写在外层会被游戏忽略。没有这层包装（旧版 `Enchantments=[…]` 之外的裸映射）
+ * 时行就是节点自己。
+ */
+function mapRowsNode(container: NbtTagNode): NbtTagNode {
+    if (container.type !== 'compound') return container
+    const levels = container.children?.find((child) => child.name === 'levels')
+    return levels?.type === 'compound' ? levels : container
+}
 
 /** 按候选键名找子标签（`count` / `Count`、`level` / `lvl`）。 */
 function childField(node: NbtTagNode, column: NbtGroupColumn): NbtTagNode | undefined {
@@ -576,7 +591,7 @@ export function readGroupRows(node: NbtTagNode, spec: NbtGroupSpec): NbtGroupRow
 
     if (container.type === 'compound' && spec.shape === 'map') {
         const [idColumn, ...rest] = spec.columns
-        return (container.children ?? [])
+        return (mapRowsNode(container).children ?? [])
             .filter((child) => NAMESPACED_ID.test(child.name))
             .map((child) => {
                 const row: NbtGroupRow = { [idColumn.key]: child.name }
@@ -638,11 +653,12 @@ export function writeGroupRows(
 
     if (shape === 'map') {
         const [idColumn, levelColumn] = spec.columns
-        // `levels` / `show_in_tooltip` 这类不是行，写回时不能顺手抹掉
-        const extras = (container.children ?? []).filter((child) => !NAMESPACED_ID.test(child.name))
-        container.type = 'compound'
-        container.value = ''
-        container.children = rows.map((row) =>
+        // `show_in_tooltip` 这类兄弟键不是行；写回时也不能顺手抹掉
+        const target = mapRowsNode(container)
+        const extras = (target.children ?? []).filter((child) => !NAMESPACED_ID.test(child.name))
+        target.type = 'compound'
+        target.value = ''
+        target.children = rows.map((row) =>
             // 1.20.5+ 的附魔映射值统一是 int
             createNbtTag(
                 row[idColumn.key]?.trim() || idColumn.default,
@@ -650,7 +666,7 @@ export function writeGroupRows(
                 row[levelColumn?.key]?.trim() || levelColumn?.default || '1',
             ),
         )
-        container.children.push(...extras.map(cloneNbtNode))
+        target.children.push(...extras.map(cloneNbtNode))
         return
     }
 

@@ -1514,3 +1514,53 @@ async fn direct_pages_do_not_refill_into_the_next_page_when_entries_are_filtered
     assert_eq!(page.entries.len(), 4);
     cache.close().await;
 }
+
+#[tokio::test]
+async fn direct_pages_keep_every_entry_when_page_size_is_not_divisible_by_source_count()
+ {
+    let (_directory, cache) = cache().await;
+    // Three sources, page size 10 -> quotas 4/3/3. With a naive ceil(10/3)=4
+    // per source the merged pool would hold 12 entries while only 10 are
+    // emitted, and the two leftovers would be lost forever on a stateless page.
+    let sources = vec![
+        SearchProvider::new(
+            SourceId::modrinth(),
+            &(0..9).map(|i| format!("MR {i}")).collect::<Vec<_>>(),
+        ),
+        SearchProvider::new(
+            SourceId::curseforge(),
+            &(0..8).map(|i| format!("CF {i}")).collect::<Vec<_>>(),
+        ),
+        SearchProvider::new(
+            SourceId::mcarchive(),
+            &(0..7).map(|i| format!("MC {i}")).collect::<Vec<_>>(),
+        ),
+    ];
+    let service =
+        ResourceService::new(cache.clone(), sources.iter().cloned().collect())
+            .unwrap();
+    let cancel = CancellationToken::new();
+    let mut returned = std::collections::HashSet::new();
+    for page_number in 1..=9 {
+        let mut query = query(10);
+        query.page = Some(page_number);
+        let page = service
+            .search(
+                query,
+                None,
+                RequestId::new(uuid::Uuid::new_v4().to_string()).unwrap(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        for entry in page.entries {
+            assert!(returned.insert(entry.entry.default_project));
+        }
+        if !page.has_more {
+            break;
+        }
+        assert!(page_number < 9, "direct pages did not terminate");
+    }
+    assert_eq!(returned.len(), 24);
+    cache.close().await;
+}

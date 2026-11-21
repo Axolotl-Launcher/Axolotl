@@ -148,19 +148,23 @@ impl ResourceService {
                 })
                 .collect();
             // A direct page gives every source its own slice of the result
-            // window. Sources are merged round-robin, so each only needs to
-            // supply roughly `page_size / sources` entries; reading a full
-            // page from every source would leave unconsumed entries behind,
-            // and a stateless page has nowhere to keep them for the next one.
-            let source_quota = direct_page.map(|_| {
-                let count = eligible.len().max(1) as u32;
-                query.page_size.div_ceil(count).max(1)
-            });
+            // window. The slices must add up to exactly `page_size`: a larger
+            // total would leave round-robin-merged entries unconsumed, and a
+            // stateless page has nowhere to carry them to the next one. Give
+            // the first `remainder` sources one extra entry so the quotas sum
+            // precisely to the logical page size.
+            let quota_count = eligible.len().max(1) as u32;
+            let quota_base = query.page_size / quota_count;
+            let quota_remainder = query.page_size % quota_count;
             let sources: Vec<_> = eligible
                 .into_iter()
-                .map(|source| {
+                .enumerate()
+                .map(|(index, source)| {
+                    let quota = direct_page.map(|_| {
+                        quota_base + u32::from((index as u32) < quota_remainder)
+                    });
                     let mut source_query = query.clone();
-                    if let Some(quota) = source_quota {
+                    if let Some(quota) = quota {
                         source_query.page_size = quota;
                     }
                     if source.id == SourceId::curseforge() {
@@ -194,8 +198,10 @@ impl ResourceService {
                     };
                     let supported_sort =
                         source.supported_search_sorts.contains(&query.sort);
-                    let quota =
-                        source_quota.unwrap_or(query.page_size) as usize;
+                    // Advance offsets by the logical quota, not the provider's
+                    // clamped per-request size, so consecutive pages stay
+                    // contiguous even when CurseForge caps a request at 50.
+                    let quota = quota.unwrap_or(query.page_size) as usize;
                     SourceBuffer {
                         failure: (!supported_sort).then(|| {
                             source_failure(

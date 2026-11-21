@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
-import { ref, watch } from 'vue'
+import { ref, useTemplateRef, watch } from 'vue'
 
 import type { NbtKind } from '@/lab/command-generator/commands/types.ts'
+import type { NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
 
 import CommandGeneratorItemNbt from './CommandGeneratorItemNbt.vue'
 import CommandGeneratorNbtAdvanced from './CommandGeneratorNbtAdvanced.vue'
+import CommandGeneratorNbtSource from './CommandGeneratorNbtSource.vue'
 
 const props = defineProps<{
     modelValue?: string
     kind?: NbtKind
     version?: string
     forceDataComponents?: boolean
+    /** 目录域与目标实体 / 物品，决定高级模式里搜索面板的候选字段。 */
+    domain?: NbtDomain
+    targetId?: string
 }>()
 
 const emit = defineEmits<{
@@ -23,9 +28,14 @@ const { formatMessage } = useVIntl()
 const messages = defineMessages({
     simple: { id: 'app.lab.command-generator.nbt.simple', defaultMessage: 'Simple' },
     advanced: { id: 'app.lab.command-generator.nbt.advanced', defaultMessage: 'Advanced' },
+    source: { id: 'app.lab.command-generator.nbt.source', defaultMessage: 'Source' },
 })
 
-const mode = ref<'simple' | 'advanced'>(props.kind === 'item' ? 'simple' : 'advanced')
+type Mode = 'simple' | 'advanced' | 'source'
+
+const mode = ref<Mode>(props.kind === 'item' ? 'simple' : 'advanced')
+/** 源码模式一旦打开就留在 DOM 里：切走再切回来不能丢掉没提交的草稿。 */
+const sourceMounted = ref(mode.value === 'source')
 
 watch(
     () => props.kind,
@@ -33,30 +43,57 @@ watch(
         mode.value = kind === 'item' ? 'simple' : 'advanced'
     },
 )
+
+watch(mode, (next) => {
+    if (next === 'source') sourceMounted.value = true
+})
+
+const source = useTemplateRef<InstanceType<typeof CommandGeneratorNbtSource>>('source')
+
+/**
+ * 把源码模式里还没提交的草稿刷出去；高级模式是同步写回的，不需要等。
+ * 返回 `false` 表示源码还没写完，调用方应先让用户改，而不是直接收尾。
+ */
+function commit(): boolean | undefined {
+    return source.value?.commit()
+}
+
+defineExpose({ commit })
 </script>
 
 <template>
     <div class="flex min-w-0 flex-col gap-4">
-        <div v-if="kind === 'item'" class="flex flex-wrap gap-1">
+        <div class="flex flex-wrap gap-1">
             <Button
-                type="quiet"
+                v-if="kind === 'item'"
+                :type="mode === 'simple' ? 'chip' : 'quiet'"
+                color="brand"
                 size="sm"
                 class="nbt-mode-tab"
-                :highlighted="mode === 'simple'"
                 :aria-pressed="mode === 'simple'"
                 @click="mode = 'simple'"
             >
                 {{ formatMessage(messages.simple) }}
             </Button>
             <Button
-                type="quiet"
+                :type="mode === 'advanced' ? 'chip' : 'quiet'"
+                color="brand"
                 size="sm"
                 class="nbt-mode-tab"
-                :highlighted="mode === 'advanced'"
                 :aria-pressed="mode === 'advanced'"
                 @click="mode = 'advanced'"
             >
                 {{ formatMessage(messages.advanced) }}
+            </Button>
+            <Button
+                :type="mode === 'source' ? 'chip' : 'quiet'"
+                color="brand"
+                size="sm"
+                class="nbt-mode-tab"
+                :aria-pressed="mode === 'source'"
+                @click="mode = 'source'"
+            >
+                {{ formatMessage(messages.source) }}
             </Button>
         </div>
 
@@ -68,11 +105,25 @@ watch(
             @update:model-value="emit('update:modelValue', $event)"
         />
         <CommandGeneratorNbtAdvanced
-            v-else
+            v-else-if="mode === 'advanced'"
             :model-value="modelValue"
             :kind="kind"
             :version="version"
             :force-data-components="forceDataComponents"
+            :domain="domain"
+            :target-id="targetId"
+            @update:model-value="emit('update:modelValue', $event)"
+        />
+        <CommandGeneratorNbtSource
+            v-if="sourceMounted"
+            v-show="mode === 'source'"
+            ref="source"
+            :model-value="modelValue"
+            :kind="kind"
+            :version="version"
+            :force-data-components="forceDataComponents"
+            :domain="domain"
+            :target-id="targetId"
             @update:model-value="emit('update:modelValue', $event)"
         />
     </div>

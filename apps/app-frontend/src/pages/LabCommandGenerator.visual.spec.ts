@@ -7,6 +7,7 @@ import CommandGeneratorArgument from '@/components/lab/command-generator/Command
 import CommandGeneratorItemNbt from '@/components/lab/command-generator/CommandGeneratorItemNbt.vue'
 import CommandGeneratorNbtAdvanced from '@/components/lab/command-generator/CommandGeneratorNbtAdvanced.vue'
 import CommandGeneratorNbtEditor from '@/components/lab/command-generator/CommandGeneratorNbtEditor.vue'
+import CommandGeneratorNbtPalette from '@/components/lab/command-generator/CommandGeneratorNbtPalette.vue'
 import { initializeRegistry } from '@/lab/command-generator/commands/registry.ts'
 import { buildCommand } from '@/lab/command-generator/generator.ts'
 import { loadCommandsForVersion } from '@/lab/command-generator/loader.ts'
@@ -414,22 +415,14 @@ it('offers modern gamerule presets without legacy camelCase choices for 26.x', a
     expect(wrapper.get('.result-code').text()).toBe('/gamerule minecraft:keep_inventory true')
 })
 
-it('uses component syntax when adding tags or applying advanced item presets in 26.3', async () => {
+it('writes a manually added tag with component syntax in 26.3', async () => {
     const wrapper = mount(CommandGeneratorNbtAdvanced, {
         props: { kind: 'item', version: '26.3', modelValue: '' },
     })
     wrappers.push(wrapper)
-    await wrapper
-        .findAll('button')
-        .find((button) => button.text() === 'Add root tag')!
-        .trigger('click')
+    await wrapper.get('.nbt-add-root').trigger('click')
+    // 面板里「自己写一个」的路径：节点加在根层，输出按 1.21.5+ 的组件语法
+    wrapper.findComponent(CommandGeneratorNbtPalette).vm.$emit('manual')
+    await flushPromises()
     expect(String(wrapper.emitted('update:modelValue')!.at(-1)![0])).toMatch(/^\[/)
-    await wrapper
-        .findAll('button')
-        .find((button) => button.text() === 'Enchanted item')!
-        .trigger('click')
-    const output = String(wrapper.emitted('update:modelValue')!.at(-1)![0])
-    expect(parseNbt(output).nodes.find((node) => node.name === 'custom_name')!.type).toBe(
-        'compound',
-    )
 })

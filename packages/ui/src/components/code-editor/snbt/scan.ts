@@ -1,0 +1,241 @@
+/**
+ * SNBT 的容错扫描：只看到光标为止，不抛异常。
+ *
+ * 补全要回答的是「光标这个位置现在能写什么」，而正在编辑的文本通常是残缺的
+ * （少一个 `}`、字符串还没闭合）。所以这里不复用 `NbtTag.fromString`，而是自己
+ * 走一遍词法，把容器栈、键名路径和期望类型算出来。
+ *
+ * 路径规则与 NBT 目录一致：列表元素不贡献键名，`Items[0].id` 的路径是
+ * `['Items','id']`。
+ */
+
+import type { SnbtExpect, SnbtFrame, SnbtScan } from './types.ts'
+
+// 键名不能带 `:`（`Pos:` 的冒号是分隔符），值可以是 `minecraft:stone`。
+const KEY_WORD = /[-\w.+]/
+const VALUE_WORD = /[-\w.:+]/
+const SPACE = /\s/
+
+function isSpace(char: string | undefined): boolean {
+    return char !== undefined && SPACE.test(char)
+}
+
+function skipSpace(text: string, from: number, limit: number): number {
+    let index = from
+    while (index < limit && isSpace(text[index])) index += 1
+    return index
+}
+
+function readWord(
+    text: string,
+    from: number,
+    limit: number,
+    pattern: RegExp,
+): { word: string; end: number } {
+    let index = from
+    while (index < limit && pattern.test(text[index])) index += 1
+    return { word: text.slice(from, index), end: index }
+}
+
+/**
+ * 字符串的结束位置。
+ *
+ * SNBT 的字符串不能跨行，所以换行也当成结束：上一行落单的引号不会跟这一行的
+ * 引号配成一对。真的没闭合（读到光标都没有引号）才返回 -1，由调用方标记 `quoted`。
+ */
+function findStringEnd(text: string, from: number, limit: number, quote: string): number {
+    let index = from + 1
+    while (index < limit) {
+        const char = text[index]
+        if (char === '\n' || char === '\r') return index
+        if (char === '\\') {
+            index += 2
+            continue
+        }
+        if (char === quote) return index
+        index += 1
+    }
+    return -1
+}
+
+/** 根层的 `[` 后面是 `name=…` 还是普通列表元素。 */
+function looksLikeComponents(text: string, from: number, limit: number): boolean {
+    const start = skipSpace(text, from, limit)
+    const { word, end } = readWord(text, start, limit, VALUE_WORD)
+    if (!word) return false
+    const next = skipSpace(text, end, limit)
+    const nextChar = next < limit ? text[next] : ''
+    if (nextChar === '=') return true
+    // 还没写等号：`[banner_` 是组件名写到一半。根层的列表元素只能是带引号的
+    // 字符串或数字，裸词只可能是组件名。
+    if (nextChar === ';') return false
+    if (/^-?\d/.test(word)) return false
+    if (word === 'true' || word === 'false') return false
+    // `[B` 还没敲分号，是数组前缀。
+    if (word === 'B' || word === 'I' || word === 'L') return false
+    return true
+}
+
+/** 新容器属于哪个键：复合的键、组件列表的组件名往下走一层，列表元素停在列表本身。 */
+function childPath(frame: SnbtFrame | undefined, key: string): string[] {
+    if (!frame) return []
+    return frame.kind === 'compound' || frame.components ? [...frame.keyPath, key] : frame.keyPath
+}
+
+export function scanSnbt(text: string, offset: number): SnbtScan {
+    const limit = Math.max(0, Math.min(offset, text.length))
+    const stack: SnbtFrame[] = []
+    let expect: SnbtExpect = 'value'
+    let key = ''
+    let word = ''
+    let quoted = false
+
+    const top = () => stack[stack.length - 1]
+
+    /** 记下这一层已经写过的键名，候选里可以把它们排到后面。 */
+    const rememberKey = (value: string) => {
+        const frame = top()
+        if (frame && (frame.kind === 'compound' || frame.components)) frame.keys.push(value)
+    }
+
+    let index = 0
+    while (index < limit) {
+        const char = text[index]
+
+        if (isSpace(char)) {
+            index += 1
+            continue
+        }
+
+        if (char === '"' || char === "'") {
+            const close = findStringEnd(text, index, limit, char)
+            if (close < 0) {
+                quoted = true
+                // 只取到光标，且只取最后一行：SNBT 的字符串不能跨行，光标前面
+                // 还有换行时把整段算成一个词，替换范围和过滤都会对不上，
+                // 候选会被全部筛掉。
+                const lineStart = text.lastIndexOf('\n', limit - 1) + 1
+                word = text.slice(Math.max(index + 1, lineStart), limit)
+                break
+            }
+            const content = text.slice(index + 1, close)
+            const next = skipSpace(text, close + 1, limit)
+            if (next < limit && text[next] === ':') {
+                key = content
+                rememberKey(content)
+                expect = 'value'
+                index = next + 1
+            } else {
+                expect = 'after'
+                index = close + 1
+            }
+            continue
+        }
+
+        if (char === '{') {
+            stack.push({
+                kind: 'compound',
+                keyPath: childPath(top(), key),
+                components: false,
+                keys: [],
+            })
+            key = ''
+            expect = 'key'
+            index += 1
+            continue
+        }
+
+        if (char === '[') {
+            const root = stack.length === 0
+            const components = root && looksLikeComponents(text, index + 1, limit)
+            stack.push({
+                kind: 'list',
+                keyPath: childPath(top(), key),
+                components,
+                keys: [],
+            })
+            key = ''
+            expect = components ? 'component' : 'element'
+            index += 1
+            continue
+        }
+
+        if (char === '}' || char === ']') {
+            stack.pop()
+            key = ''
+            expect = 'after'
+            index += 1
+            continue
+        }
+
+        if (char === ',') {
+            const frame = top()
+            key = ''
+            expect =
+                frame?.kind === 'compound' ? 'key' : frame?.components ? 'component' : 'element'
+            index += 1
+            continue
+        }
+
+        if (char === ':') {
+            expect = 'value'
+            index += 1
+            continue
+        }
+
+        if (char === '=' || char === ';') {
+            expect = 'value'
+            index += 1
+            continue
+        }
+
+        const wordPattern = expect === 'key' ? KEY_WORD : VALUE_WORD
+        const { word: token, end } = readWord(text, index, limit, wordPattern)
+        if (!token) {
+            index += 1
+            continue
+        }
+        // 词正好顶到光标：光标在这个词里面，期望类型保持进入这个词之前的样子。
+        // 唯一的例外是数字——`{a:1|}` 里的 `1` 已经写完了，不该再提示值候选。
+        if (end >= limit) {
+            word = token
+            if ((expect === 'value' || expect === 'element') && /^-?\d/.test(token)) {
+                expect = 'after'
+            }
+            break
+        }
+
+        const next = skipSpace(text, end, limit)
+        const nextChar = next < limit ? text[next] : ''
+        if (expect === 'key' && nextChar === ':') {
+            key = token
+            rememberKey(token)
+            expect = 'value'
+            index = next + 1
+            continue
+        }
+        if (expect === 'component' && nextChar === '=') {
+            key = token
+            rememberKey(token)
+            expect = 'value'
+            index = next + 1
+            continue
+        }
+        if (expect === 'value' || expect === 'element') expect = 'after'
+        index = end
+    }
+
+    const container = top()
+    const after = skipSpace(text, limit, text.length)
+
+    return {
+        frames: stack,
+        container,
+        keyPath: container ? container.keyPath : [],
+        expect,
+        key,
+        word,
+        quoted,
+        next: after < text.length ? text[after] : '',
+    }
+}

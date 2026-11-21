@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { findCommand, getAllCommands, initializeRegistry } from './commands/registry.ts'
 import { buildCommand, getDefaultValues, validateCommand } from './generator.ts'
 import { loadCommandsForVersion, loadManifest } from './loader.ts'
-import { createItemNbtTree, parseNbt, serializeNbtDocument } from './nbt-tree.ts'
+import { createNbtTag, parseNbt, serializeNbtDocument } from './nbt-tree.ts'
 
 describe('Java 26 release command syntax', () => {
     it('loads each release without leaking new commands into earlier versions', () => {
@@ -224,8 +224,16 @@ describe('Java 26 release command syntax', () => {
         ).toBeTruthy()
     })
 
-    it('provides inline text components in advanced item presets for 26.x', () => {
-        const nodes = createItemNbtTree('inline')
+    it('writes text components inline for 26.x items', () => {
+        // 1.21.5 起 `custom_name` 可以直接写 `{text:…}`，不再需要 `display.Name`
+        const nodes = [
+            createNbtTag('custom_name', 'compound', '', [
+                createNbtTag('text', 'string', '我的物品'),
+            ]),
+            createNbtTag('enchantments', 'compound', '', [
+                createNbtTag('minecraft:sharpness', 'int', '5'),
+            ]),
+        ]
         const output = serializeNbtDocument(nodes, true)
         const parsed = parseNbt(output)
         expect(parsed.nodes.find((node) => node.name === 'custom_name')!.type).toBe('compound')

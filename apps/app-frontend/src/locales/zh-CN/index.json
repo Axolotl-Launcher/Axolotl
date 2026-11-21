@@ -7469,6 +7469,18 @@
   "app.lab.command-generator.enchantment.vanishing-curse": {
     "message": "消失诅咒"
   },
+  "app.lab.command-generator.entity-picker.button": {
+    "message": "选择实体"
+  },
+  "app.lab.command-generator.entity-picker.empty": {
+    "message": "没有匹配的实体。"
+  },
+  "app.lab.command-generator.entity-picker.search": {
+    "message": "按名称或 ID 搜索"
+  },
+  "app.lab.command-generator.entity-picker.title": {
+    "message": "选择实体类型"
+  },
   "app.lab.command-generator.error.enum": {
     "message": "请为{name}选择有效值。"
   },
@@ -7916,6 +7928,9 @@
   "app.lab.command-generator.item-picker.title": {
     "message": "选择物品"
   },
+  "app.lab.command-generator.nbt.add-element": {
+    "message": "添加列表元素"
+  },
   "app.lab.command-generator.nbt.add-tag": {
     "message": "添加子标签"
   },
@@ -7923,13 +7938,10 @@
     "message": "高级模式"
   },
   "app.lab.command-generator.nbt.advanced.add-root": {
-    "message": "添加根节点"
+    "message": "添加标签"
   },
-  "app.lab.command-generator.nbt.advanced.preset-custom-name": {
-    "message": "自定义名称"
-  },
-  "app.lab.command-generator.nbt.advanced.preset-enchanted": {
-    "message": "附魔物品"
+  "app.lab.command-generator.nbt.advanced.mismatch": {
+    "message": "这些键属于另一种 NBT 形式：{keys}。请切换上面的形式，或改名。"
   },
   "app.lab.command-generator.nbt.advanced.snbt-preview": {
     "message": "SNBT 预览"
@@ -7937,14 +7949,1193 @@
   "app.lab.command-generator.nbt.advanced.title": {
     "message": "高级 NBT 树"
   },
+  "app.lab.command-generator.nbt.array-hint": {
+    "message": "逗号分隔，不带类型后缀"
+  },
+  "app.lab.command-generator.nbt.category.advanced": {
+    "message": "高级"
+  },
+  "app.lab.command-generator.nbt.category.ai": {
+    "message": "行为"
+  },
+  "app.lab.command-generator.nbt.category.appearance": {
+    "message": "外观"
+  },
+  "app.lab.command-generator.nbt.category.basic": {
+    "message": "通用"
+  },
+  "app.lab.command-generator.nbt.category.combat": {
+    "message": "战斗"
+  },
+  "app.lab.command-generator.nbt.category.data": {
+    "message": "数据"
+  },
+  "app.lab.command-generator.nbt.category.effect": {
+    "message": "状态效果"
+  },
+  "app.lab.command-generator.nbt.category.inventory": {
+    "message": "物品栏"
+  },
+  "app.lab.command-generator.nbt.category.movement": {
+    "message": "移动"
+  },
   "app.lab.command-generator.nbt.child-count": {
     "message": "{count} 个子项"
+  },
+  "app.lab.command-generator.nbt.desc.item.additional_trade_cost": {
+    "message": "用在村民交易的「获得物品」上，用来增加「需求物品」的数量。"
+  },
+  "app.lab.command-generator.nbt.desc.item.attack_animation": {
+    "message": "用该物品攻击时播放的挥动动画。"
+  },
+  "app.lab.command-generator.nbt.desc.item.attack_range": {
+    "message": "决定武器的攻击距离与判定箱外扩范围。"
+  },
+  "app.lab.command-generator.nbt.desc.item.attribute_modifiers": {
+    "message": "属性修饰符列表。物品被玩家或生物装备时生效；装备槽位不对则不生效，物品移出槽位或被删除后修饰符一并移除。未被隐藏的修饰符会列在物品提示框里。"
+  },
+  "app.lab.command-generator.nbt.desc.item.banner_patterns": {
+    "message": "旗帜或盾牌上的全部图案。用于盾牌且未指定 minecraft:base_color 时，底色按白色处理。"
+  },
+  "app.lab.command-generator.nbt.desc.item.banner_patterns.color": {
+    "message": "该图案的颜色（染料色）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.banner_patterns.pattern": {
+    "message": "一个旗帜图案（ID，或新的旗帜图案定义）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.banner_patterns.pattern.asset_id": {
+    "message": "图案贴图的资源位置。"
+  },
+  "app.lab.command-generator.nbt.desc.item.banner_patterns.pattern.translation_key": {
+    "message": "提示框里显示图案名所用的翻译键。"
+  },
+  "app.lab.command-generator.nbt.desc.item.base_color": {
+    "message": "盾牌上旗帜的底色染料。既没有它也没有 minecraft:banner_patterns 时，盾牌显示普通木质外观；只有图案没有它时底色为白色。用在盾牌上时物品名会被改写为「'<颜色>'盾牌」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees": {
+    "message": "蜂巢或蜂箱中当前的实体列表。用在物品上时提示框会显示条目数（如「蜜蜂：2 / 3」），且每个条目在 minecraft:bundle_contents 里都按整组计算。提示框写着最多 3 条，但这个组件本身没有数量上限。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data": {
+    "message": "必须包含 id。若 id 不是 minecraft:bee，该实体永远不会离开蜂巢。蜜蜂生成时会忽略 Passengers、Pos、Rotation 与 UUID 标签（总是在蜂巢前方、面向南方、无乘客、随机 UUID）。也可以直接写成字符串，填实体 ID。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Air": {
+    "message": "实体剩余氧气，单位为游戏刻。无法呼吸时会减少（在方块里窒息除外），能呼吸时恢复。某一刻小于等于 -20 且仍无法呼吸时，立刻因溺水失去 1 点生命并重置为 0。多数生物上限 300 刻（15 秒），海豚可达 4800 刻（240 秒），美西螈 6000 刻（300 秒）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.CustomName": {
+    "message": "该实体的自定义名称文本组件。会出现在玩家死亡信息、村民交易界面，以及光标指向实体时其上方的名称里。可以为空或不存在，对应 minecraft:custom_name 组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.CustomNameVisible": {
+    "message": "1 或 0（true/false）。为 true 且实体有自定义名称时，名称始终显示在实体上方，与光标是否指向无关；没有自定义名称时显示默认名。可能不存在。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.data": {
+    "message": "可选的自定义 NBT 数据，为空时会被移除，对应 minecraft:custom_data 组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.fall_distance": {
+    "message": "实体已下落的距离，数值越大落地时受到的伤害越高。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Fire": {
+    "message": "还有多少游戏刻火会熄灭。负值表示实体还能在火里待多久才开始燃烧；不在着火状态时默认为 -20。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Glowing": {
+    "message": "1 或 0（true/false）。为 true 时实体带发光描边。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.HasVisualFire": {
+    "message": "1 或 0（true/false）。为 true 时实体在视觉上着火，即使实际并没有着火。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.id": {
+    "message": "实体类型的命名空间 ID。只存在于被保存的实体里（例如写在数据组件中），世界中的实体没有这个标签。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Invulnerable": {
+    "message": "1 或 0（true/false）。为 true 时实体不受伤：生物不受任何来源（含状态效果）的伤害，也不会被钓竿、攻击、爆炸或投射物推动；载具、物品展示框这类对象只有移除支撑方块才会被破坏。无敌的玩家实体也不会被敌对生物盯上。注意创造模式玩家仍可伤害它们。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.invulnerable_time": {
+    "message": "可选，小于等于 0 时移除。大于 0 时实体在这么多刻内无敌，效果等同于把 Invulnerable 设为 true，两者独立开关、任一满足即无敌。每刻减 1。垫子被闪电击中掉落的物品此项为 20 刻（1 秒），骷髅陷阱新生成的三只骷髅与骷髅马为 60 刻（3 秒）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Motion": {
+    "message": "3 个 double，表示实体当前在 X、Y、Z 方向的速度（米/游戏刻）。只接受 -10.0 到 10.0（含），超出的会重置为 0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.NoGravity": {
+    "message": "1 或 0（true/false）。为 true 时实体不会自然下落，为 false 时不存这个标签。炽足兽在熔岩里会被设为 true。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.OnGround": {
+    "message": "1 或 0（true/false）。为 true 时实体正接触地面。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Passengers": {
+    "message": "正骑在该实体上的实体的数据。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.PortalCooldown": {
+    "message": "还有多少游戏刻才能再次通过下界传送门传送。传送后初始为 300 刻（15 秒），并逐刻递减到 0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Pos": {
+    "message": "3 个 double，表示实体当前的 X、Y、Z 坐标。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Rotation": {
+    "message": "2 个 float，表示实体在服务端的朝向。不一定与客户端看到的生物视线方向一致；多数投射物的偏航角与俯仰角是反着存的。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Silent": {
+    "message": "1 或 0（true/false）。为 true 时该实体不发声。可能不存在。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.Tags": {
+    "message": "该实体的计分板标签列表。标签被移除后不会保留。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.TicksFrozen": {
+    "message": "可选。实体被细雪或冰冻效果冻结的游戏刻数，在细雪里或带冰冻效果时增加（哪怕只是部分陷入），最多 140 刻（7 秒）；不在细雪里时以双倍速度下降。虽然所有实体都定义了这个标签，但吸收了方块的硫磺立方、装备了 #freeze_immune_wearables 标签物品的实体、骷髅、属于 #freeze_immune_entity_types 或 #immune_to_freezing 的实体以及非生物实体不受冰冻影响。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.entity_data.UUID": {
+    "message": "该实体的通用唯一标识符。128 位 UUID 按 4 个 32 位整数存储，从最高位到最低位排列。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.min_ticks_in_hive": {
+    "message": "该实体在蜂巢中最短停留的刻数。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bees.ticks_in_hive": {
+    "message": "该实体已在蜂巢中停留的刻数。"
+  },
+  "app.lab.command-generator.nbt.desc.item.block_entity_data": {
+    "message": "放置该方块时应用的方块实体 NBT。视方块类型与这里指定的方块实体 ID，可能给物品提示框加一行红色警告（仅管理员可见），提示放置后可能执行命令。"
+  },
+  "app.lab.command-generator.nbt.desc.item.block_state": {
+    "message": "放置该方块时应用的方块状态属性。用在物品上时，如果 honey_level 被设为 0 到 5，提示框会多一行灰色「蜂蜜：'<honey_level>' / 5」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.block_transformer": {
+    "message": "一个方块转换器（ID）。定义该物品在方块内的用法。有些方块的用法取决于方块并优先，有些物品的用法是写死的。"
+  },
+  "app.lab.command-generator.nbt.desc.item.blocks_attacks": {
+    "message": "存在时，该物品可以像盾牌一样格挡对持有者的攻击。"
+  },
+  "app.lab.command-generator.nbt.desc.item.break_sound": {
+    "message": "耐久耗尽而损坏时播放的服务器端音效事件（ID，或新的音效事件定义）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.brewing_fuel": {
+    "message": "存在时，该物品可作为酿造台的燃料。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bucket_entity_data": {
+    "message": "从该桶倒出实体时应用的 NBT。只有下列标签会生效。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bundle_contents": {
+    "message": "收纳袋里装的物品。加到任何物品上都会让它占用 1/16 个收纳袋的空间，再加上这里指定的物品，无论该物品原本怎么堆叠。带此组件的潜影盒仍然不能放进收纳袋。若从收纳袋上移除该组件，玩家就无法使用它，提示框里的用法说明与容量条也会消失。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bundle_contents.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bundle_contents.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.bundle_contents.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_break": {
+    "message": "存在时，持有该物品的玩家在冒险模式下可以破坏指定的方块。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_break.blocks": {
+    "message": "任意数量的方块类型（ID、带 # 的标签，或 ID 列表）。方块类型不匹配则测试失败。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_break.components": {
+    "message": "要求完全一致的数据组件。键为组件 ID，值为该组件的完整内容。任一所给组件不完全相同则测试失败。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_break.nbt": {
+    "message": "一个 NBT 复合标签，写成对象或 SNBT 字符串均可。方块 NBT 不匹配则测试失败。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_break.predicates": {
+    "message": "松散匹配的数据组件谓词。键为组件谓词 ID，值为该谓词。方块的组件未通过全部谓词则测试失败。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_break.state": {
+    "message": "测试方块状态。方块没有匹配的方块状态属性则测试失败。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_place_on": {
+    "message": "决定带该组件的方块在冒险模式下可以贴着哪些方块放置。写成复合标签时对应单个方块谓词。物品提示框按指定顺序列出这些方块。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_place_on.blocks": {
+    "message": "任意数量的方块类型（ID、带 # 的标签，或 ID 列表）。方块类型不匹配则测试失败。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_place_on.components": {
+    "message": "要求完全一致的数据组件。键为组件 ID，值为该组件的完整内容。任一所给组件不完全相同则测试失败。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_place_on.nbt": {
+    "message": "一个 NBT 复合标签，写成对象或 SNBT 字符串均可。方块 NBT 不匹配则测试失败。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_place_on.predicates": {
+    "message": "松散匹配的数据组件谓词。键为组件谓词 ID，值为该谓词。方块的组件未通过全部谓词则测试失败。"
+  },
+  "app.lab.command-generator.nbt.desc.item.can_place_on.state": {
+    "message": "测试方块状态。方块没有匹配的方块状态属性则测试失败。"
+  },
+  "app.lab.command-generator.nbt.desc.item.charged_projectiles": {
+    "message": "已装填进这把弩的投射物。有物品栈时，提示框会按「投射物：['<名称>']」列出；重复的条目合并为「投射物：N x ['<名称>']」。不存在时这把弩未装填。"
+  },
+  "app.lab.command-generator.nbt.desc.item.charged_projectiles.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.charged_projectiles.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.charged_projectiles.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
+  "app.lab.command-generator.nbt.desc.item.compostable": {
+    "message": "存在时，无论 layers 的取值如何，该物品都能用在堆肥桶上。"
+  },
+  "app.lab.command-generator.nbt.desc.item.consumable": {
+    "message": "存在时，该物品可以被食用，其参数也可以调整。"
+  },
+  "app.lab.command-generator.nbt.desc.item.consumable.animation": {
+    "message": "食用时使用的动画。可为 none、eat、drink、block、bow、spear、crossbow、spyglass、toot_horn、brush、bundle 或 trident，默认 eat。"
+  },
+  "app.lab.command-generator.nbt.desc.item.consumable.consume_seconds": {
+    "message": "玩家食用该物品所需的秒数，默认 1.6。"
+  },
+  "app.lab.command-generator.nbt.desc.item.consumable.has_consume_particles": {
+    "message": "食用时是否产生粒子，默认 true。"
+  },
+  "app.lab.command-generator.nbt.desc.item.consumable.on_consume_effects": {
+    "message": "食用该物品后触发的效果列表，可选。"
+  },
+  "app.lab.command-generator.nbt.desc.item.consumable.sound": {
+    "message": "可选。食用过程中与结束时播放的服务器端音效事件（ID，或新的音效事件定义），默认 entity.generic.eat。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container": {
+    "message": "容器各槽位里的物品。用在物品上时，提示框列出前 5 个槽位，多出来的显示为「还有 '<N>' 个…」（正常游戏里只有潜影盒会这样，创造模式中键点击的容器也会）。最多支持 256 个槽位，但用在某些方块实体上时，槽位数会按方块需要被限制（例如饰纹陶罐 1 个、箱子 27 个）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container_loot": {
+    "message": "该容器物品尚未解析的战利品表与种子。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container.item": {
+    "message": "该槽位中的物品栈。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container.item.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container.item.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container.item.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
+  "app.lab.command-generator.nbt.desc.item.container.slot": {
+    "message": "容器中的槽位，取值 0 到 255。"
+  },
+  "app.lab.command-generator.nbt.desc.item.cooking_fuel": {
+    "message": "控制该物品能否作为熔炉燃料，以及燃料效率。"
+  },
+  "app.lab.command-generator.nbt.desc.item.creative_slot_lock": {
+    "message": "仅内部使用，用于锁住创造模式物品栏里的说明纸片。设置后该物品无法从槽位取出。"
+  },
+  "app.lab.command-generator.nbt.desc.item.custom_data": {
+    "message": "存放游戏不使用的自定义键值对，可以写成对象，也可以写成 SNBT 字符串。"
+  },
+  "app.lab.command-generator.nbt.desc.item.custom_model_data": {
+    "message": "供物品模型定义做模型选择与染色的一组值。"
+  },
+  "app.lab.command-generator.nbt.desc.item.custom_model_data.colors": {
+    "message": "model 模型类型染色用的 RGB 值列表。缺省时使用物品模型定义给出的默认值。写成三个浮点数的列表会自动转换为整数，因此该组件最终以整型数组保存。"
+  },
+  "app.lab.command-generator.nbt.desc.item.custom_model_data.flags": {
+    "message": "condition 模型类型使用的布尔值列表。缺省时使用 is_false 模型。"
+  },
+  "app.lab.command-generator.nbt.desc.item.custom_model_data.floats": {
+    "message": "range_dispatch 模型类型使用的浮点数列表。缺省时使用回退模型。"
+  },
+  "app.lab.command-generator.nbt.desc.item.custom_model_data.strings": {
+    "message": "select 模型类型使用的字符串列表。缺省时使用回退模型。"
+  },
+  "app.lab.command-generator.nbt.desc.item.custom_name": {
+    "message": "指定物品、方块或实体的自定义名称。"
+  },
+  "app.lab.command-generator.nbt.desc.item.damage": {
+    "message": "该物品耐久已消耗（不是剩余）的次数。必须是非负整数，默认 0。不存在时物品不会掉耐久。若该值非 0、物品同时有 minecraft:max_damage、且悬停的玩家开了高级提示框，提示框会加一行白色「耐久：'<durability>' / '<max_damage>'」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.damage_resistant": {
+    "message": "指定后，该物品以实体形式存在或被装备时免疫指定的伤害类型。"
+  },
+  "app.lab.command-generator.nbt.desc.item.damage_resistant.types": {
+    "message": "以 # 开头的伤害类型标签。"
+  },
+  "app.lab.command-generator.nbt.desc.item.damage_type": {
+    "message": "指定该物品造成的伤害类型。"
+  },
+  "app.lab.command-generator.nbt.desc.item.death_protection": {
+    "message": "存在时，该物品通过恢复 1 点生命值让持有者免于死亡。"
+  },
+  "app.lab.command-generator.nbt.desc.item.debug_stick_state": {
+    "message": "调试棒当前选中的方块状态属性。"
+  },
+  "app.lab.command-generator.nbt.desc.item.dye": {
+    "message": "用在物品上时，记录该物品在合成配方与生物 / 方块交互中可当作哪种染料使用。取值可为 white、orange、magenta、light_blue、yellow、lime、pink、gray、light_gray、cyan、purple、blue、brown、green、red 或 black。"
+  },
+  "app.lab.command-generator.nbt.desc.item.dyed_color": {
+    "message": "染色物品的 RGB 色调，通常由 minecraft:crafting_dyed 类配方与染料合成而来。更一般地，它对应物品模型定义里的 minecraft:dye 颜色提供器（只有显式使用该颜色提供器的模型才会被染色）。用在物品上时，提示框会加一行灰色文字：关闭高级提示框时是斜体「已染色」，开启时是「颜色：#'<十六进制>'」。颜色以整数保存，按 (红 ＜＜ 16) + (绿 ＜＜ 8) + 蓝 打包。"
+  },
+  "app.lab.command-generator.nbt.desc.item.enchantable": {
+    "message": "该组件与 minecraft:enchantments 同时存在、且有可用附魔时，物品才能在附魔台上附魔。"
+  },
+  "app.lab.command-generator.nbt.desc.item.enchantable.value": {
+    "message": "表示物品附魔能力的正整数。数值越高，越可能抽到消耗更高的附魔。"
+  },
+  "app.lab.command-generator.nbt.desc.item.enchantment_glint_override": {
+    "message": "覆盖该物品的附魔光效。为 true 时即使没有附魔也显示光效；为 false 时即使有附魔也不显示。"
+  },
+  "app.lab.command-generator.nbt.desc.item.enchantments": {
+    "message": "记录该物品每个附魔及其等级。物品必须同时有它和 minecraft:enchantable 才能在附魔台上附魔。存在时物品名的颜色按稀有度变为青色（普通 / 罕见）或淡紫色（稀有 / 史诗），附魔也会列在提示框里，顺序由 #minecraft:tooltip_order 附魔标签决定。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data": {
+    "message": "由物品生成实体时应用的 NBT。若游戏难度为和平、且这里的 id 是敌对生物，提示框会加一行红色「和平模式下已禁用」。若物品是刷怪蛋且 id 为 falling_block、command_block_minecart 或 spawner_minecart，提示框会加一行红色警告（仅管理员可见），提示使用后可能执行命令。也可以直接写成字符串，填实体 ID。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Air": {
+    "message": "实体剩余氧气，单位为游戏刻。无法呼吸时会减少（在方块里窒息除外），能呼吸时恢复。某一刻小于等于 -20 且仍无法呼吸时，立刻因溺水失去 1 点生命并重置为 0。多数生物上限 300 刻（15 秒），海豚可达 4800 刻（240 秒），美西螈 6000 刻（300 秒）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.CustomName": {
+    "message": "该实体的自定义名称文本组件。会出现在玩家死亡信息、村民交易界面，以及光标指向实体时其上方的名称里。可以为空或不存在，对应 minecraft:custom_name 组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.CustomNameVisible": {
+    "message": "1 或 0（true/false）。为 true 且实体有自定义名称时，名称始终显示在实体上方，与光标是否指向无关；没有自定义名称时显示默认名。可能不存在。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.data": {
+    "message": "可选的自定义 NBT 数据，为空时会被移除，对应 minecraft:custom_data 组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.fall_distance": {
+    "message": "实体已下落的距离，数值越大落地时受到的伤害越高。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Fire": {
+    "message": "还有多少游戏刻火会熄灭。负值表示实体还能在火里待多久才开始燃烧；不在着火状态时默认为 -20。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Glowing": {
+    "message": "1 或 0（true/false）。为 true 时实体带发光描边。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.HasVisualFire": {
+    "message": "1 或 0（true/false）。为 true 时实体在视觉上着火，即使实际并没有着火。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.id": {
+    "message": "实体类型的命名空间 ID。只存在于被保存的实体里（例如写在数据组件中），世界中的实体没有这个标签。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Invulnerable": {
+    "message": "1 或 0（true/false）。为 true 时实体不受伤：生物不受任何来源（含状态效果）的伤害，也不会被钓竿、攻击、爆炸或投射物推动；载具、物品展示框这类对象只有移除支撑方块才会被破坏。无敌的玩家实体也不会被敌对生物盯上。注意创造模式玩家仍可伤害它们。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.invulnerable_time": {
+    "message": "可选，小于等于 0 时移除。大于 0 时实体在这么多刻内无敌，效果等同于把 Invulnerable 设为 true，两者独立开关、任一满足即无敌。每刻减 1。垫子被闪电击中掉落的物品此项为 20 刻（1 秒），骷髅陷阱新生成的三只骷髅与骷髅马为 60 刻（3 秒）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Motion": {
+    "message": "3 个 double，表示实体当前在 X、Y、Z 方向的速度（米/游戏刻）。只接受 -10.0 到 10.0（含），超出的会重置为 0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.NoGravity": {
+    "message": "1 或 0（true/false）。为 true 时实体不会自然下落，为 false 时不存这个标签。炽足兽在熔岩里会被设为 true。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.OnGround": {
+    "message": "1 或 0（true/false）。为 true 时实体正接触地面。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Passengers": {
+    "message": "正骑在该实体上的实体的数据。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.PortalCooldown": {
+    "message": "还有多少游戏刻才能再次通过下界传送门传送。传送后初始为 300 刻（15 秒），并逐刻递减到 0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Pos": {
+    "message": "3 个 double，表示实体当前的 X、Y、Z 坐标。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Rotation": {
+    "message": "2 个 float，表示实体在服务端的朝向。不一定与客户端看到的生物视线方向一致；多数投射物的偏航角与俯仰角是反着存的。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Silent": {
+    "message": "1 或 0（true/false）。为 true 时该实体不发声。可能不存在。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.Tags": {
+    "message": "该实体的计分板标签列表。标签被移除后不会保留。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.TicksFrozen": {
+    "message": "可选。实体被细雪或冰冻效果冻结的游戏刻数，在细雪里或带冰冻效果时增加（哪怕只是部分陷入），最多 140 刻（7 秒）；不在细雪里时以双倍速度下降。虽然所有实体都定义了这个标签，但吸收了方块的硫磺立方、装备了 #freeze_immune_wearables 标签物品的实体、骷髅、属于 #freeze_immune_entity_types 或 #immune_to_freezing 的实体以及非生物实体不受冰冻影响。"
+  },
+  "app.lab.command-generator.nbt.desc.item.entity_data.UUID": {
+    "message": "该实体的通用唯一标识符。128 位 UUID 按 4 个 32 位整数存储，从最高位到最低位排列。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable": {
+    "message": "存在时，该物品可以装备到指定的槽位。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.allowed_entities": {
+    "message": "实体 ID、实体标签或实体 ID 列表，用于限制哪些实体能装备该物品，默认所有实体。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.asset_id": {
+    "message": "装备时使用的装备模型标识，指向 assets/'<namespace>'/equipment/'<id>'.json。未指定时，在头盔槽里退化为渲染物品本身（不适用则不渲染）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.camera_overlay": {
+    "message": "装备时使用的覆盖贴图标识，指向 assets/'<namespace>'/textures/'<id>'。贴图不存在时使用缺失贴图，而不是回退到南瓜头这类默认值。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.can_be_sheared": {
+    "message": "能否用剪刀右键从生物身上剪下来，默认 false。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.damage_on_hurt": {
+    "message": "穿戴者受伤时该物品是否掉耐久，默认 true。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.dispensable": {
+    "message": "能否用发射器发射，默认 true。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.equip_on_interact": {
+    "message": "能否对该生物按使用键把物品装备上去（前提是本来就能装备在它身上），默认 false。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.equip_sound": {
+    "message": "可选。装备该物品时播放的服务器端音效事件（ID，或新的音效事件定义），默认 item.armor.equip_generic。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.shearing_sound": {
+    "message": "可选。剪下该物品时播放的服务器端音效事件（ID，或新的音效事件定义），默认 item.shears.snip。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.slot": {
+    "message": "装备到哪个槽位。可为 head、chest、legs、feet、body、mainhand、offhand 或 saddle。"
+  },
+  "app.lab.command-generator.nbt.desc.item.equippable.swappable": {
+    "message": "能否右键装备到对应槽位，默认 true。"
+  },
+  "app.lab.command-generator.nbt.desc.item.firework_explosion": {
+    "message": "该烟花球储存的爆炸效果。"
+  },
+  "app.lab.command-generator.nbt.desc.item.fireworks": {
+    "message": "该烟花火箭的飞行时长以及携带的爆炸效果。"
+  },
+  "app.lab.command-generator.nbt.desc.item.food": {
+    "message": "食用该物品后施加给生物或玩家的食物数值。"
+  },
+  "app.lab.command-generator.nbt.desc.item.food.can_always_eat": {
+    "message": "为 true 时，即使玩家不饿也能食用，默认 false。"
+  },
+  "app.lab.command-generator.nbt.desc.item.food.nutrition": {
+    "message": "玩家食用时恢复的饥饿值点数。用于喂猫时恢复的生命值点数；狼、鹦鹉螺与僵尸鹦鹉螺恢复两倍数值。必须是非负整数。"
+  },
+  "app.lab.command-generator.nbt.desc.item.food.saturation": {
+    "message": "食用时恢复的饱和度。"
+  },
+  "app.lab.command-generator.nbt.desc.item.glider": {
+    "message": "存在时，装备后可以让生物像鞘翅一样滑翔。若物品有耐久，则只有 minecraft:damage 小于 minecraft:max_damage − 1 时才能滑翔。生物滑翔期间每秒会随机挑一件还能用的滑翔装备，尝试扣 1 点耐久。"
+  },
+  "app.lab.command-generator.nbt.desc.item.instrument": {
+    "message": "一件乐器（ID，或新的乐器定义）。用在物品上时，提示框会以灰色文字显示该乐器的说明。"
+  },
+  "app.lab.command-generator.nbt.desc.item.intangible_projectile": {
+    "message": "用在击中后不会损坏的投射物（如箭、三叉戟）上时，射出后玩家无法拾取，除非在创造模式。用在任何物品上都会给提示框加一行灰色「无形」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.interact_animation": {
+    "message": "用该物品与某物交互时播放的挥动动画。"
+  },
+  "app.lab.command-generator.nbt.desc.item.item_model": {
+    "message": "物品模型定义的标识。引用不存在的模型会使用缺失模型。"
+  },
+  "app.lab.command-generator.nbt.desc.item.item_name": {
+    "message": "该物品的默认名称（文本组件），所有物品默认都有。与 minecraft:custom_name 不同，它不能用铁砧抹掉、不是斜体，也不会出现在旗帜标记、物品展示框等部分标签里。"
+  },
+  "app.lab.command-generator.nbt.desc.item.jukebox_playable": {
+    "message": "放进唱片机时播放的一首曲子（ID）。用在物品上时，物品可以放进唱片机播放该曲目，提示框会以灰色文字显示曲目的作者与标题。"
+  },
+  "app.lab.command-generator.nbt.desc.item.kinetic_weapon": {
+    "message": "让物品拥有蓄力攻击：使用期间每刻沿一条射线按实体相对速度结算伤害。"
+  },
+  "app.lab.command-generator.nbt.desc.item.lock": {
+    "message": "一个物品谓词，充当打开该容器的「钥匙」。用在方块上时，玩家主手必须持有通过该谓词的物品才能打开；否则交互只会播放音效并在动作栏提示。"
+  },
+  "app.lab.command-generator.nbt.desc.item.lodestone_tracker": {
+    "message": "记录该指南针指向的磁石信息。用在指南针上时物品名会被改写为「磁石指南针」。放在玩家物品栏中时，它会主动轮询磁石位置是否已加载；若已加载且磁石被破坏，该组件会被移除。"
+  },
+  "app.lab.command-generator.nbt.desc.item.lore": {
+    "message": "在物品提示框里额外显示的行，最多 256 行。"
+  },
+  "app.lab.command-generator.nbt.desc.item.map_color": {
+    "message": "物品模型定义里 minecraft:map_color 颜色提供器使用的颜色代码。通常由 minecraft:filled_map 模型使用。"
+  },
+  "app.lab.command-generator.nbt.desc.item.map_decorations": {
+    "message": "该已绘制地图上要显示的图标键值对。"
+  },
+  "app.lab.command-generator.nbt.desc.item.map_id": {
+    "message": "该物品的地图数据编号，代表共享的地图内容、旗帜与展示框装饰状态。存在时会给提示框补充信息，并改变手持或展示框中的地图渲染。只有地图（filled_map）与探险家地图能更新地图内容。"
+  },
+  "app.lab.command-generator.nbt.desc.item.map_post_processing": {
+    "message": "仅内部使用，在该已绘制地图于工作台或制图台被复制或锁定时写入。0 表示锁定、1 表示缩放，分别对应提示框里的「已锁定」与「已缩放」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.max_damage": {
+    "message": "该物品能承受的最大伤害值。不设置则物品不会掉耐久。必须是正整数。若该物品可堆叠（值大于 1），不能与 minecraft:max_stack_size 同时使用。要让耐久条显示，damage 组件必须有值，例如 damage=0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.max_stack_size": {
+    "message": "一组最多能放多少个。必须是 1 到 99 之间的正整数。值大于 1（可堆叠）时不能与 minecraft:max_damage 同时使用。移除该组件等同于设为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.minimum_attack_charge": {
+    "message": "设置用该物品攻击时攻击指示器所需的最低蓄力值。必须是 0.0 到 1.0 之间的非负浮点数。"
+  },
+  "app.lab.command-generator.nbt.desc.item.mob_visibility": {
+    "message": "表示带有相应 minecraft:equippable 组件的物品提供的可见度百分比，用于调整生物发现实体的距离。"
+  },
+  "app.lab.command-generator.nbt.desc.item.note_block_sound": {
+    "message": "该玩家头颅放在音符盒上时，音符盒播放的音效事件 ID。"
+  },
+  "app.lab.command-generator.nbt.desc.item.ominous_bottle_amplifier": {
+    "message": "食用该物品（通常是怵悚之瓶）后给予的凶兆效果倍率。必须是 0 到 4 的非负整数。效果时长固定为 120000 刻（正常刻率下 1 小时 40 分钟），且忽略 minecraft:potion_duration_scale。存在时，提示框会按 minecraft:potion_contents 的格式显示该状态效果信息。"
+  },
+  "app.lab.command-generator.nbt.desc.item.piercing_weapon": {
+    "message": "用该物品近战时会沿射线伤害多个实体，而不只一个；同时也让该物品不能用来挖掘方块。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations": {
+    "message": "从各面到物品栈的映射（通常是陶片或红砖），各面可以为空。用在饰纹陶罐上时，决定破坏后各面掉落的物品。若物品带有 minecraft:provides_pottery_pattern，则决定对应面的纹理。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.back": {
+    "message": "背面的物品栈。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.back.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.back.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.back.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.front": {
+    "message": "正面的物品栈。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.front.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.front.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.front.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.left": {
+    "message": "左侧面的物品栈。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.left.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.left.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.left.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.right": {
+    "message": "右侧面的物品栈。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.right.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.right.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.pot_decorations.right.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
+  "app.lab.command-generator.nbt.desc.item.potion_contents": {
+    "message": "该药水、喷溅药水、滞留药水、药箭或区域效果云包含的基础药水、自定义状态效果列表与自定义颜色。用在物品上时，状态效果会列在提示框里。若同时有 minecraft:consumable，食用后会把这里的效果全部施加给食用者。写成字符串时对应 potion 字段。"
+  },
+  "app.lab.command-generator.nbt.desc.item.potion_duration_scale": {
+    "message": "用在带有 minecraft:potion_contents 的物品或区域效果云上时，施加的效果时长按此系数缩放。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile": {
+    "message": "提供渲染玩家模型（玩家头颅方块、玩家头颅物品模型、假人）与玩家头像所需的纹理。每个纹理既可以写成资源包中纹理的命名空间路径，也可以来自玩家档案；玩家档案既可以只给需要实时请求的名字或 UUID，也可以给出已解析的属性列表。也可以直接写成字符串，填玩家名或 UUID。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile.cape": {
+    "message": "可选。披风纹理的命名空间路径，相对于资源包的 textures 目录。指定后会覆盖档案提供的披风，但不影响鞘翅纹理。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile.elytra": {
+    "message": "可选。鞘翅纹理的命名空间路径，相对于资源包的 textures 目录。指定后会覆盖档案提供的鞘翅，但不影响披风纹理。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile.id": {
+    "message": "可选。一个 UUID。若没有指定其他档案字段，会用它在 Mojang 服务器上实时请求该 UUID 的档案。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile.model": {
+    "message": "可选。玩家模型类型，取 \"wide\" 或 \"slim\"。指定后会覆盖档案给出的模型类型。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile.name": {
+    "message": "可选。用户名，由 0 到 16 个非空白可打印 ASCII 字符组成（比真实玩家名宽松，后者必须 3 到 16 个字符且只含字母、数字与下划线）。若没有指定其他档案字段，会用它在 Mojang 服务器上实时请求该用户名的档案。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile.properties": {
+    "message": "可选。非空的玩家档案属性列表。指定后会忽略动态档案字段，改用这里给出的自定义档案；设为空列表则移除该字段，而不是让整个组件失效。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile.properties.name": {
+    "message": "属性名，只能是 \"textures\"。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile.properties.signature": {
+    "message": "可选。Mojang 对该值的签名，Base64 编码。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile.properties.value": {
+    "message": "Base64 编码的纹理 JSON 数据。"
+  },
+  "app.lab.command-generator.nbt.desc.item.profile.texture": {
+    "message": "可选。玩家皮肤纹理的命名空间路径，相对于资源包的 textures 目录。指定后会覆盖档案提供的皮肤。"
+  },
+  "app.lab.command-generator.nbt.desc.item.provides_banner_patterns": {
+    "message": "任意数量的旗帜图案（ID、带 # 的标签，或 ID 列表）。存在时，该物品可以放进织布机的图案槽并提供这些图案。"
+  },
+  "app.lab.command-generator.nbt.desc.item.provides_pottery_pattern": {
+    "message": "一个饰纹陶罐图案（ID）。存在时，该物品用在陶罐侧面会提供该图案。"
+  },
+  "app.lab.command-generator.nbt.desc.item.provides_trim_material": {
+    "message": "一种盔甲纹饰材质（ID，或新的纹饰材质定义）。存在时，该物品用于锻造纹饰配方会提供该材质。"
+  },
+  "app.lab.command-generator.nbt.desc.item.rarity": {
+    "message": "设置物品稀有度，影响名称的默认颜色。可取 common、uncommon、rare 或 epic。没有该组件时按 common 处理。"
+  },
+  "app.lab.command-generator.nbt.desc.item.recipes": {
+    "message": "使用该知识之书时玩家解锁的配方。"
+  },
+  "app.lab.command-generator.nbt.desc.item.repair_cost": {
+    "message": "用铁砧修理、合并或重命名时，加在基础经验消耗上的等级数。必须是非负整数，默认 0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.repairable": {
+    "message": "允许有耐久的物品在铁砧上用指定材料修理；也能修理已驯服狼身上装备的物品。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sign_text_back": {
+    "message": "告示牌背面的文字。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sign_text_front": {
+    "message": "告示牌正面的文字。"
+  },
+  "app.lab.command-generator.nbt.desc.item.stored_enchantments": {
+    "message": "记录未生效的附魔及其等级。加到除附魔书以外的物品上只会给提示框加文字。从附魔书上移除后，该物品不能再与其他附魔书合并。存在时附魔会列在提示框里，顺序由 #minecraft:tooltip_order 附魔标签决定。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sulfur_cube_content": {
+    "message": "硫磺方块里存放的物品。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sulfur_cube_content.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sulfur_cube_content.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.sulfur_cube_content.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
+  "app.lab.command-generator.nbt.desc.item.suspicious_stew_effects": {
+    "message": "食用该物品（通常是迷之炖菜）后施加给玩家或生物的一组无倍率状态效果，且忽略 minecraft:potion_duration_scale。存在时，只有在物品选择界面里才会显示相关提示文字。"
+  },
+  "app.lab.command-generator.nbt.desc.item.suspicious_stew_effects.duration": {
+    "message": "效果持续时间（刻），默认 160。"
+  },
+  "app.lab.command-generator.nbt.desc.item.suspicious_stew_effects.id": {
+    "message": "状态效果的 ID。"
+  },
+  "app.lab.command-generator.nbt.desc.item.swing_animation": {
+    "message": "26.3 起该组件拆分为 attack_animation 与 interact_animation。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag": {
+    "message": "1.20.5 之前的物品数据，已被数据组件取代。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.AttributeModifiers": {
+    "message": "该物品上的属性修饰符，用于修改穿戴者或持有者的属性（不在主手或盔甲槽时不生效）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.author": {
+    "message": "成书的作者。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.BlockEntityTag": {
+    "message": "放置该方块时应用的方块实体 NBT。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.BlockStateTag": {
+    "message": "键为方块状态键、值为强制设置的方块状态值的复合标签。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.BlockStateTag.Block state key": {
+    "message": "要修改的方块状态值，例如 facing: \"east\"。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.BucketVariantTag": {
+    "message": "桶里热带鱼的变体数据。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.CanDestroy": {
+    "message": "玩家在冒险模式下使用该物品时唯一能破坏的方块。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.CanPlaceOn": {
+    "message": "决定带该标签的方块在冒险模式下可以贴着哪些方块放置。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Charged": {
+    "message": "弩是否已装填。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.ChargedProjectiles": {
+    "message": "这把弩已装填的物品，通常一个（附有多重射击时为三个）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.custom_potion_effects": {
+    "message": "该药水或药箭携带的自定义药水效果（状态效果）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.CustomModelData": {
+    "message": "供物品模型 overrides 里的 custom_model_data 使用的值。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.CustomPotionColor": {
+    "message": "物品使用该自定义颜色，区域效果云、箭与喷溅 / 滞留药水也用它做粒子效果。不过这个颜色不会延伸到最终获得效果的实体所发出的粒子。数值颜色代码等于颜色的十六进制转换为十进制的结果，也可按「红 × 65536 + 绿 × 256 + 蓝」计算。大于 0x00FFFFFF 的正值会忽略最高字节；所有负值都显示为白色。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Damage": {
+    "message": "该物品耐久已消耗（不是剩余）的次数。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.DebugProperty": {
+    "message": "键为方块 ID、值为要修改的方块状态键的复合标签。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.DebugProperty.Block ID": {
+    "message": "要修改的方块的方块状态键，例如 \"minecraft:oak_fence\": \"east\"。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Decorations": {
+    "message": "地图上要显示的图标列表（可选）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.display": {
+    "message": "显示属性。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.display.color": {
+    "message": "皮革盔甲的染色。关闭高级提示框时显示「已染色」，否则显示十六进制颜色值。颜色代码是该颜色的十六进制转换为十进制的结果，也可按「红 × 65536 + 绿 × 256 + 蓝」计算。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.display.Lore": {
+    "message": "作为物品描述显示的字符串列表。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.display.MapColor": {
+    "message": "物品纹理上标记的颜色。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.display.Name": {
+    "message": "用于显示该物品的 JSON 文本组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.effects": {
+    "message": "该迷之炖菜携带的状态效果。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Enchantments": {
+    "message": "该物品上影响其行为的附魔。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.EntityTag": {
+    "message": "生成实体时应用的实体数据。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Explosion": {
+    "message": "该烟花球贡献的爆炸效果。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.filtered_pages": {
+    "message": "仅 Realms。开启脏话过滤的玩家看到的内容，取代部分正常书页。当关闭过滤的玩家合上含有屏蔽词的书时，该复合标签会自动加上以页码命名的标签并设为 \"\"；若合上前编辑了多页，则只清空含屏蔽词的页面。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.filtered_title": {
+    "message": "仅 Realms。开启脏话过滤的玩家看到的标题，取代正常标题。当关闭过滤的玩家为含屏蔽词的书签名时，该标签会自动设为 \"\"。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Fireworks": {
+    "message": "烟花火箭上可能出现该标签。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Fireworks.Explosions": {
+    "message": "表示该烟花每次爆炸的复合标签列表。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Fireworks.Flight": {
+    "message": "烟花的飞行时长（等于合成时使用的火药数量）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.generation": {
+    "message": "可选。书的副本等级：0 原作、1 原作的副本、2 副本的副本、3 破损。值大于 1 时书不能复制；原作没有该标签；缺失时按原作处理。「破损」在正常游戏中不使用，效果与「副本的副本」相同。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.HideFlags": {
+    "message": "位掩码，决定隐藏提示框的哪些部分。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.instrument": {
+    "message": "山羊角变体的标识。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Items": {
+    "message": "收纳袋中的物品列表。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.LodestoneDimension": {
+    "message": "可选。指南针指向的磁石所在维度。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.LodestonePos": {
+    "message": "可选。指南针指向的磁石坐标。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.LodestonePos.X": {
+    "message": "x 坐标。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.LodestonePos.Y": {
+    "message": "y 坐标。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.LodestonePos.Z": {
+    "message": "z 坐标。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.LodestoneTracked": {
+    "message": "可选。1 或 0（true/false）——为 true 时指南针与磁石绑定。为 false 时，磁石被破坏后不会自动移除 LodestoneDimension 与 LodestonePos，但指南针仍指向该位置。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.map": {
+    "message": "地图编号。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.map_scale_direction": {
+    "message": "仅内部使用，在缩放地图时写入随后立即移除：合成时地图缩放等级增加多少，恒为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.map_to_lock": {
+    "message": "1 或 0（true/false）——为 true 时，地图从制图台取出后会被锁定。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.pages": {
+    "message": "书页列表。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Potion": {
+    "message": "默认药水效果的名称，与状态效果名不同。例如「瞬间治疗 II」药水的值是 \"minecraft:strong_healing\"。由此标签决定效果的药水或药箭会按对应效果命名。默认值 \"minecraft:empty\" 会显示为「不可酿造」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Recipes": {
+    "message": "这本书包含的配方列表。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.RepairCost": {
+    "message": "用铁砧修理、合并或重命名时，加在基础经验消耗上的等级数。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.resolved": {
+    "message": "可选。书（或书堆中的书）创建后第一次被打开时设为 1。用于判断是否要解析 JSON 里的高级组件，因为那时起它们的值就固定了。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.SkullOwner": {
+    "message": "该头颅所属玩家的用户名。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.SkullOwner.Id": {
+    "message": "拥有者的 UUID，以四个整数保存。可选。区块加载或持有者登录时用来更新其他标签，以防拥有者改名。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.SkullOwner.Name": {
+    "message": "拥有者的用户名。缺失或为空时显示为 Steve 头颅；否则用于在缓存中存取下载的皮肤。不必是合法玩家名，但不能全是空格。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.SkullOwner.Properties": {
+    "message": "头颅拥有者的皮肤属性。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.SkullOwner.Properties.textures": {
+    "message": "拥有者的逐条纹理记录，每条在 Value 里存放 Base64 编码的 JSON 对象。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.StoredEnchantments": {
+    "message": "附魔书储存的附魔。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.title": {
+    "message": "成书的标题。优先级低于 tag.display.Name 设置的物品名。不能用于打开上锁的容器。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Trim": {
+    "message": "盔甲纹饰的属性。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Trim.material": {
+    "message": "决定盔甲纹饰颜色的材质。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Trim.pattern": {
+    "message": "盔甲纹饰的图案。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tag.Unbreakable": {
+    "message": "1 或 0（true/false）——为 true 时物品使用时不掉耐久。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tool": {
+    "message": "设置后，该物品被当作工具。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tool.can_destroy_blocks_in_creative": {
+    "message": "创造模式下持有该工具时能否破坏方块，默认 true。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tool.damage_per_block": {
+    "message": "用该工具每破坏一个方块扣除的耐久，必须是非负整数，默认 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tool.default_mining_speed": {
+    "message": "该工具的默认挖掘速度，在没有规则覆盖时使用，默认 1.0。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tool.rules": {
+    "message": "该工具有特殊行为的方块规则列表。同一字段被多条规则覆盖时，取列表中靠前的那条。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tool.rules.blocks": {
+    "message": "要匹配的方块，可以是方块 ID、带 # 的方块标签，或方块 ID 列表。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tool.rules.correct_for_drops": {
+    "message": "方块匹配时，覆盖该工具是否被视为以最高效率挖掘、以及是否按方块战利品表掉落。没有任何规则设置时默认 false，可选。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tool.rules.speed": {
+    "message": "方块匹配时覆盖默认挖掘速度，可选。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tooltip_display": {
+    "message": "允许屏蔽指定物品组件提供的提示框内容。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tooltip_display.hidden_components": {
+    "message": "列表中任一组件提供的提示框内容都会被隐藏。若该组件本来不提供提示框，则没有影响。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tooltip_display.hide_tooltip": {
+    "message": "为 true 时物品悬停不显示提示框。"
+  },
+  "app.lab.command-generator.nbt.desc.item.tooltip_style": {
+    "message": "提示框背景与边框所用自定义贴图的标识，指向 /assets/'<namespace>'/textures/gui/sprites/tooltip/'<id>'_background 与 /assets/'<namespace>'/textures/gui/sprites/tooltip/'<id>'_frame。写错时不会回退到默认值，而是使用缺失贴图。"
+  },
+  "app.lab.command-generator.nbt.desc.item.trim": {
+    "message": "该盔甲上的纹饰。存在时，提示框会补充盔甲纹饰信息。"
+  },
+  "app.lab.command-generator.nbt.desc.item.trim.material": {
+    "message": "一种纹饰材质（ID，或新的纹饰材质定义）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.trim.pattern": {
+    "message": "一个纹饰图案（ID，或新的纹饰图案定义）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.unbreakable": {
+    "message": "用在物品上时，物品不会掉耐久、耐久条被隐藏，提示框加一行蓝色「无法破坏」。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_cooldown": {
+    "message": "存在时，使用后会给同类物品施加使用冷却。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_cooldown.cooldown_group": {
+    "message": "冷却组的唯一标识。存在时，该物品归入某个使用冷却组，不再与基础物品共享冷却，而是与同组的其他物品共享，可选。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_cooldown.seconds": {
+    "message": "使用冷却时长（秒）。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_effects": {
+    "message": "定义带持续使用动作的物品在使用期间的振动与玩家移动惩罚。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_remainder": {
+    "message": "存在时，使用后若数量减少，则把物品替换为剩余的物品。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_remainder.components": {
+    "message": "可选，附加的（非默认）数据组件映射。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_remainder.count": {
+    "message": "这一格堆叠的物品数量，不写时默认为 1。"
+  },
+  "app.lab.command-generator.nbt.desc.item.use_remainder.id": {
+    "message": "物品的命名空间 ID，不能是 minecraft:air。"
+  },
+  "app.lab.command-generator.nbt.desc.item.villager_food": {
+    "message": "存在时，村民可以拾取并食用该物品。"
+  },
+  "app.lab.command-generator.nbt.desc.item.waxed": {
+    "message": "存在时，方块内容被涂蜡。对有独立涂蜡变种的方块不适用，那种情况请改用对应的 block_state。"
+  },
+  "app.lab.command-generator.nbt.desc.item.weapon": {
+    "message": "存在时，该物品作为武器使用。攻击伤害见 attribute_modifiers 组件。"
+  },
+  "app.lab.command-generator.nbt.desc.item.writable_book_content": {
+    "message": "书与笔的内容。加到 writable_book 以外的物品上没有效果。从 writable_book 上移除后，使用该物品仍会挥手并增加使用统计，但不会打开界面。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content": {
+    "message": "成书的内容与元数据。加到 written_book 以外的物品上只会给提示框加文字。从 written_book 上移除后，使用该物品仍会挥手并增加使用统计，但不会打开界面。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content.author": {
+    "message": "该成书的作者，会显示在物品提示框里。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content.generation": {
+    "message": "该成书被复制的次数：0 原作、1 原作的副本、2 副本的副本、3 破损，默认 0。值大于 1 时书不能复制。存在时会显示在物品提示框里。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content.pages": {
+    "message": "书中书页的列表。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content.resolved": {
+    "message": "为 true 时文本组件已由服务器解析。为 false 时，会在管理员打开书、管理员把书放进讲台，或命令把物品栈写入讲台的 Book 标签时解析。默认 false。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content.title": {
+    "message": "该成书的标题，会覆盖基础物品名。设为空字符串时被忽略，不覆盖基础物品名。也可以写成带 raw 与 filtered 的复合标签。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content.title.filtered": {
+    "message": "过滤后的标题，可选。开启聊天过滤的玩家看到的是这一份，而不是 raw。"
+  },
+  "app.lab.command-generator.nbt.desc.item.written_book_content.title.raw": {
+    "message": "未过滤的纯文本标题，最长 32 个字符。"
+  },
+  "app.lab.command-generator.nbt.edit-as-group": {
+    "message": "按列表编辑"
+  },
+  "app.lab.command-generator.nbt.edit-as-raw": {
+    "message": "按原始标签编辑"
+  },
+  "app.lab.command-generator.nbt.element-type": {
+    "message": "元素为 {type}"
+  },
+  "app.lab.command-generator.nbt.group.add-row": {
+    "message": "添加一项"
+  },
+  "app.lab.command-generator.nbt.group.color-placeholder": {
+    "message": "255,0,0"
+  },
+  "app.lab.command-generator.nbt.group.column.ambient": {
+    "message": "信标粒子"
+  },
+  "app.lab.command-generator.nbt.group.column.amount": {
+    "message": "数值"
+  },
+  "app.lab.command-generator.nbt.group.column.amplifier": {
+    "message": "倍率"
+  },
+  "app.lab.command-generator.nbt.group.column.attribute": {
+    "message": "属性"
+  },
+  "app.lab.command-generator.nbt.group.column.attribute-slot": {
+    "message": "生效槽位"
+  },
+  "app.lab.command-generator.nbt.group.column.colors": {
+    "message": "颜色"
+  },
+  "app.lab.command-generator.nbt.group.column.count": {
+    "message": "数量"
+  },
+  "app.lab.command-generator.nbt.group.column.custom-color": {
+    "message": "自定义颜色"
+  },
+  "app.lab.command-generator.nbt.group.column.duration": {
+    "message": "持续时间（刻）"
+  },
+  "app.lab.command-generator.nbt.group.column.effect": {
+    "message": "效果"
+  },
+  "app.lab.command-generator.nbt.group.column.enchantment": {
+    "message": "附魔"
+  },
+  "app.lab.command-generator.nbt.group.column.fade-colors": {
+    "message": "淡出颜色"
+  },
+  "app.lab.command-generator.nbt.group.column.flight-duration": {
+    "message": "飞行时长"
+  },
+  "app.lab.command-generator.nbt.group.column.has-trail": {
+    "message": "拖尾"
+  },
+  "app.lab.command-generator.nbt.group.column.has-twinkle": {
+    "message": "闪烁"
+  },
+  "app.lab.command-generator.nbt.group.column.item": {
+    "message": "物品"
+  },
+  "app.lab.command-generator.nbt.group.column.level": {
+    "message": "等级"
+  },
+  "app.lab.command-generator.nbt.group.column.modifier-id": {
+    "message": "标识（可选）"
+  },
+  "app.lab.command-generator.nbt.group.column.operation": {
+    "message": "运算"
+  },
+  "app.lab.command-generator.nbt.group.column.potion": {
+    "message": "药水"
+  },
+  "app.lab.command-generator.nbt.group.column.shape": {
+    "message": "形状"
+  },
+  "app.lab.command-generator.nbt.group.column.show-icon": {
+    "message": "显示图标"
+  },
+  "app.lab.command-generator.nbt.group.column.show-particles": {
+    "message": "显示粒子"
+  },
+  "app.lab.command-generator.nbt.group.column.slot": {
+    "message": "槽位"
+  },
+  "app.lab.command-generator.nbt.group.column.text": {
+    "message": "一行文本"
+  },
+  "app.lab.command-generator.nbt.group.effect-picker.title": {
+    "message": "选择状态效果"
+  },
+  "app.lab.command-generator.nbt.group.empty": {
+    "message": "还没有内容。"
+  },
+  "app.lab.command-generator.nbt.group.enchantment-picker.title": {
+    "message": "选择附魔"
+  },
+  "app.lab.command-generator.nbt.group.id-placeholder": {
+    "message": "minecraft:…"
+  },
+  "app.lab.command-generator.nbt.group.no": {
+    "message": "否"
+  },
+  "app.lab.command-generator.nbt.group.pick-effect": {
+    "message": "选择状态效果"
+  },
+  "app.lab.command-generator.nbt.group.pick-enchantment": {
+    "message": "选择附魔"
+  },
+  "app.lab.command-generator.nbt.group.picker.added": {
+    "message": "已添加"
+  },
+  "app.lab.command-generator.nbt.group.picker.empty": {
+    "message": "没有匹配的条目。"
+  },
+  "app.lab.command-generator.nbt.group.picker.search": {
+    "message": "按名称或 ID 搜索"
+  },
+  "app.lab.command-generator.nbt.group.remove-row": {
+    "message": "删除这一项"
+  },
+  "app.lab.command-generator.nbt.group.yes": {
+    "message": "是"
+  },
+  "app.lab.command-generator.nbt.move-down": {
+    "message": "下移"
+  },
+  "app.lab.command-generator.nbt.move-up": {
+    "message": "上移"
+  },
+  "app.lab.command-generator.nbt.palette.add-element": {
+    "message": "添加 {type} 条目"
+  },
+  "app.lab.command-generator.nbt.palette.added": {
+    "message": "已添加"
+  },
+  "app.lab.command-generator.nbt.palette.element-hint": {
+    "message": "这个标签是列表：元素没有自己的键名，而且必须同类型。"
+  },
+  "app.lab.command-generator.nbt.palette.empty": {
+    "message": "没有匹配的标签，可以手动添加一个。"
+  },
+  "app.lab.command-generator.nbt.palette.empty-child": {
+    "message": "目录里没有记录这一层的子标签，可以手动添加一个。"
+  },
+  "app.lab.command-generator.nbt.palette.manual": {
+    "message": "手动添加自定义标签"
+  },
+  "app.lab.command-generator.nbt.palette.only-applicable": {
+    "message": "只显示适用于 {target} 的标签"
+  },
+  "app.lab.command-generator.nbt.palette.only-applicable-unknown": {
+    "message": "先选一个实体才能按它筛选"
+  },
+  "app.lab.command-generator.nbt.palette.search": {
+    "message": "按名称或说明搜索标签"
+  },
+  "app.lab.command-generator.nbt.palette.show-advanced": {
+    "message": "显示高级标签"
+  },
+  "app.lab.command-generator.nbt.palette.title.block-entity": {
+    "message": "添加方块实体标签"
+  },
+  "app.lab.command-generator.nbt.palette.title.child": {
+    "message": "向 {parent} 添加标签"
+  },
+  "app.lab.command-generator.nbt.palette.title.element": {
+    "message": "向 {parent} 添加条目"
+  },
+  "app.lab.command-generator.nbt.palette.title.entity": {
+    "message": "添加实体标签"
+  },
+  "app.lab.command-generator.nbt.palette.title.generic": {
+    "message": "添加标签"
+  },
+  "app.lab.command-generator.nbt.palette.title.item": {
+    "message": "添加物品组件"
+  },
+  "app.lab.command-generator.nbt.palette.variant-hint": {
+    "message": "这个标签有多种合法写法，选一种："
+  },
+  "app.lab.command-generator.nbt.path.clear": {
+    "message": "清空路径"
+  },
+  "app.lab.command-generator.nbt.path.descend": {
+    "message": "展开 {key} 的子标签"
+  },
+  "app.lab.command-generator.nbt.path.element": {
+    "message": "正在列表元素里：这里列的是单个条目的标签。"
+  },
+  "app.lab.command-generator.nbt.path.empty": {
+    "message": "这一层没有可选的标签，剩下的手写。"
+  },
+  "app.lab.command-generator.nbt.path.hint": {
+    "message": "路径指向某个标签：Foo.Bar、Items[0]，或对 Items 加筛选。"
+  },
+  "app.lab.command-generator.nbt.path.pick": {
+    "message": "选择标签"
+  },
+  "app.lab.command-generator.nbt.path.placeholder": {
+    "message": "Inventory[0].id"
+  },
+  "app.lab.command-generator.nbt.path.search": {
+    "message": "搜索这一层的标签"
+  },
+  "app.lab.command-generator.nbt.path.title": {
+    "message": "选择标签路径"
+  },
+  "app.lab.command-generator.nbt.path.unknown-root": {
+    "message": "目录里没有这个标签，会按原样写出。"
+  },
+  "app.lab.command-generator.nbt.path.use": {
+    "message": "使用此路径"
   },
   "app.lab.command-generator.nbt.remove-tag": {
     "message": "移除标签"
   },
   "app.lab.command-generator.nbt.simple": {
     "message": "简单模式"
+  },
+  "app.lab.command-generator.nbt.source": {
+    "message": "源码模式"
+  },
+  "app.lab.command-generator.nbt.source.compact": {
+    "message": "压缩成一行"
+  },
+  "app.lab.command-generator.nbt.source.expand": {
+    "message": "展开为多行"
+  },
+  "app.lab.command-generator.nbt.source.hint": {
+    "message": "Tab 补全标签；Ctrl+S 应用命令。"
+  },
+  "app.lab.command-generator.nbt.source.invalid": {
+    "message": "语法错误：{message}"
   },
   "app.lab.command-generator.nbt.tag-name": {
     "message": "标签名称"
@@ -7955,8 +9146,14 @@
   "app.lab.command-generator.nbt.toggle-tag": {
     "message": "展开或收起标签"
   },
+  "app.lab.command-generator.nbt.toggle-tag.empty": {
+    "message": "没有可展开的子标签"
+  },
   "app.lab.command-generator.nbt.type.byte": {
     "message": "字节"
+  },
+  "app.lab.command-generator.nbt.type.byte-array": {
+    "message": "字节数组"
   },
   "app.lab.command-generator.nbt.type.compound": {
     "message": "复合"
@@ -7970,14 +9167,17 @@
   "app.lab.command-generator.nbt.type.int": {
     "message": "整数"
   },
+  "app.lab.command-generator.nbt.type.int-array": {
+    "message": "整型数组"
+  },
   "app.lab.command-generator.nbt.type.list": {
     "message": "列表"
   },
   "app.lab.command-generator.nbt.type.long": {
     "message": "长整型"
   },
-  "app.lab.command-generator.nbt.type.raw": {
-    "message": "SNBT 数组"
+  "app.lab.command-generator.nbt.type.long-array": {
+    "message": "长整型数组"
   },
   "app.lab.command-generator.nbt.type.short": {
     "message": "短整"
@@ -8800,6 +10000,171 @@
   },
   "app.lab.command-generator.select-version": {
     "message": "游戏版本"
+  },
+  "app.lab.command-generator.selector.add-filter": {
+    "message": "添加筛选"
+  },
+  "app.lab.command-generator.selector.add-filter-hint": {
+    "message": "先写一个目标变量，例如 @e"
+  },
+  "app.lab.command-generator.selector.entity-picker.empty": {
+    "message": "没有匹配的实体。"
+  },
+  "app.lab.command-generator.selector.entity-picker.search": {
+    "message": "按名称或 ID 搜索"
+  },
+  "app.lab.command-generator.selector.entity-picker.title": {
+    "message": "选择实体类型"
+  },
+  "app.lab.command-generator.selector.entity-search": {
+    "message": "实体 ID"
+  },
+  "app.lab.command-generator.selector.filter-picker.empty": {
+    "message": "没有匹配的筛选条件。"
+  },
+  "app.lab.command-generator.selector.filter-picker.search": {
+    "message": "搜索筛选条件"
+  },
+  "app.lab.command-generator.selector.filter-picker.title": {
+    "message": "添加筛选条件"
+  },
+  "app.lab.command-generator.selector.filters": {
+    "message": "筛选条件"
+  },
+  "app.lab.command-generator.selector.group.entity-data": {
+    "message": "实体数据"
+  },
+  "app.lab.command-generator.selector.group.limit": {
+    "message": "数量"
+  },
+  "app.lab.command-generator.selector.group.player-data": {
+    "message": "玩家数据"
+  },
+  "app.lab.command-generator.selector.group.scoreboard": {
+    "message": "计分板"
+  },
+  "app.lab.command-generator.selector.group.space": {
+    "message": "空间"
+  },
+  "app.lab.command-generator.selector.group.species": {
+    "message": "物种"
+  },
+  "app.lab.command-generator.selector.input-label": {
+    "message": "目标选择器"
+  },
+  "app.lab.command-generator.selector.issue.above-maximum": {
+    "message": "{key}= 不能大于 {max}"
+  },
+  "app.lab.command-generator.selector.issue.bedrock-argument": {
+    "message": "Java 版没有 {key}=，请改用 {equivalent}="
+  },
+  "app.lab.command-generator.selector.issue.below-minimum": {
+    "message": "{key}= 不能小于 {min}"
+  },
+  "app.lab.command-generator.selector.issue.duplicate-argument": {
+    "message": "{key}= 不能重复"
+  },
+  "app.lab.command-generator.selector.issue.duplicate-type": {
+    "message": "type= 只能写一次"
+  },
+  "app.lab.command-generator.selector.issue.empty-nbt": {
+    "message": "{key}= 没有值，需要填一个复合标签"
+  },
+  "app.lab.command-generator.selector.issue.forbidden-on-variable": {
+    "message": "@{variable} 不能用 {key}=，改用 @e 或 @n"
+  },
+  "app.lab.command-generator.selector.issue.invalid-enum": {
+    "message": "{key}= 只能是 {values}"
+  },
+  "app.lab.command-generator.selector.issue.invalid-nbt": {
+    "message": "{key}= 不是合法的 SNBT：{message}"
+  },
+  "app.lab.command-generator.selector.issue.limit-without-sort": {
+    "message": "没有 sort= 时按 arbitrary 取前几个目标"
+  },
+  "app.lab.command-generator.selector.issue.not-a-number": {
+    "message": "{key}= 的值不是数字或区间"
+  },
+  "app.lab.command-generator.selector.issue.not-a-single-number": {
+    "message": "{key}= 只接受一个数字，不能写区间"
+  },
+  "app.lab.command-generator.selector.issue.not-a-selector": {
+    "message": "目标选择器必须以 @ 开头，例如 @e[type=zombie]"
+  },
+  "app.lab.command-generator.selector.issue.not-negatable": {
+    "message": "{key}= 不能加 ! 取反"
+  },
+  "app.lab.command-generator.selector.issue.sort-without-limit": {
+    "message": "没有 limit= 时 sort= 不影响选中的数量"
+  },
+  "app.lab.command-generator.selector.issue.type-conflict": {
+    "message": "正向的 type= 与取反的 type= 不能同时出现"
+  },
+  "app.lab.command-generator.selector.issue.unclosed-brackets": {
+    "message": "方括号没有闭合"
+  },
+  "app.lab.command-generator.selector.issue.unknown-argument": {
+    "message": "未知参数 {key}=，会原样保留"
+  },
+  "app.lab.command-generator.selector.issue.unknown-variable": {
+    "message": "@{variable} 不是 Java 版的目标变量"
+  },
+  "app.lab.command-generator.selector.max": {
+    "message": "最大"
+  },
+  "app.lab.command-generator.selector.min": {
+    "message": "最小"
+  },
+  "app.lab.command-generator.selector.nbt.apply": {
+    "message": "应用"
+  },
+  "app.lab.command-generator.selector.nbt.edit": {
+    "message": "编辑 NBT"
+  },
+  "app.lab.command-generator.selector.nbt.editor-context": {
+    "message": "只列出适用于 {target} 的字段。"
+  },
+  "app.lab.command-generator.selector.nbt.editor-title": {
+    "message": "编辑 NBT 数据"
+  },
+  "app.lab.command-generator.selector.nbt.hint.all": {
+    "message": "未写 type=，列出全部实体字段"
+  },
+  "app.lab.command-generator.selector.nbt.hint.broad": {
+    "message": "type= 不是单个实体，列出全部字段"
+  },
+  "app.lab.command-generator.selector.nbt.hint.target": {
+    "message": "字段按 {target} 过滤"
+  },
+  "app.lab.command-generator.selector.negation-off": {
+    "message": "包含匹配的目标"
+  },
+  "app.lab.command-generator.selector.negation-on": {
+    "message": "排除匹配的目标"
+  },
+  "app.lab.command-generator.selector.no-filters": {
+    "message": "还没有筛选条件，可以在上面的输入框里写，也可以直接添加。"
+  },
+  "app.lab.command-generator.selector.pick-entity": {
+    "message": "选择"
+  },
+  "app.lab.command-generator.selector.placeholder": {
+    "message": "@e[type=zombie,distance=..10]"
+  },
+  "app.lab.command-generator.selector.players-only-hint": {
+    "message": "这个条件只匹配玩家，其它实体会被忽略。"
+  },
+  "app.lab.command-generator.selector.remove-filter": {
+    "message": "移除筛选"
+  },
+  "app.lab.command-generator.selector.suggestions": {
+    "message": "参数建议"
+  },
+  "app.lab.command-generator.selector.value": {
+    "message": "值"
+  },
+  "app.lab.command-generator.selector.variable": {
+    "message": "目标变量"
   },
   "app.lab.command-generator.start-hint": {
     "message": "搜索命令名称，或从常用命令开始。"

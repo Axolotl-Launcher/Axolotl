@@ -304,6 +304,31 @@ describe('装备组', () => {
         expect(pairs(node.children?.[0])).toEqual(['id=minecraft:gold_boots', 'count=1'])
     })
 
+    /**
+     * 表格只建模了 `id` / `count`：改一次数量不能把槽位里的组件、附魔、
+     * `tag` 一起抹掉。
+     */
+    it('改数量时保留槽位里的其他数据', () => {
+        const node = createNbtTag('equipment', 'compound', '', [
+            createNbtTag('mainhand', 'compound', '', [
+                createNbtTag('id', 'string', 'minecraft:iron_sword'),
+                createNbtTag('count', 'int', '1'),
+                createNbtTag('components', 'compound', '', [
+                    createNbtTag('custom_name', 'string', 'Excalibur'),
+                ]),
+            ]),
+        ])
+        writeGroupRows(node, equipment, [
+            { slot: 'mainhand', id: 'minecraft:iron_sword', count: '1' },
+        ])
+        const slot = node.children?.[0]
+        expect(slot?.name).toBe('mainhand')
+        expect(slot?.children?.find((child) => child.name === 'count')?.value).toBe('1')
+        expect(
+            slot?.children?.find((child) => child.name === 'components')?.children?.[0].value,
+        ).toBe('Excalibur')
+    })
+
     it('槽位集合与 wiki 一致', () => {
         expect(EQUIPMENT_SLOTS).toEqual([
             'mainhand',

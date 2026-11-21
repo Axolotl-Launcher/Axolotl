@@ -558,20 +558,35 @@ export function writeGroupRows(
     if (shape === 'slots') {
         const slotKey = spec.slotKey ?? spec.columns[0].key
         const slotNames = spec.columns.find((column) => column.key === slotKey)?.enumValues ?? []
+        const managed = new Set(
+            spec.columns.flatMap((column) => [column.key, ...(column.listKeys ?? [])]),
+        )
         // 槽位是有限集合，其余子键不是行（`equipment` 里可能还有别的写法），原样留着
         const extras = (container.children ?? []).filter((child) => !slotNames.includes(child.name))
+        const previous = new Map(
+            (container.children ?? [])
+                .filter((child) => child.type === 'compound')
+                .map((child) => [child.name, child] as const),
+        )
         container.type = 'compound'
         container.value = ''
-        container.children = rows.map((row) => {
-            const child = createNbtTag(
-                row[slotKey]?.trim() || spec.columns[0].default,
-                'compound',
-                '',
-            )
-            child.children = spec.columns
-                .filter((column) => column.key !== slotKey)
-                .map((column) => cellNode(column, column.key, row[column.key] ?? column.default))
-                .filter((entry): entry is NbtTagNode => entry !== undefined)
+        container.children = rows.map((row, index) => {
+            const name = row[slotKey]?.trim() || spec.columns[0].default
+            const child = createNbtTag(name, 'compound', '')
+            // 表格只建模了 id / count：槽位里原有的组件、`tag`、附魔都得留下，
+            // 否则在表格里改一次数量就把这把剑变成白板
+            const origin = origins?.[index] ?? previous.get(name)
+            child.children = [
+                ...spec.columns
+                    .filter((column) => column.key !== slotKey)
+                    .map((column) =>
+                        cellNode(column, column.key, row[column.key] ?? column.default),
+                    )
+                    .filter((entry): entry is NbtTagNode => entry !== undefined),
+                ...(origin?.children ?? [])
+                    .filter((entry) => !managed.has(entry.name))
+                    .map(cloneNbtNode),
+            ]
             return child
         })
         container.children.push(...extras.map(cloneNbtNode))

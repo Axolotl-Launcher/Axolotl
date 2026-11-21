@@ -105,7 +105,9 @@ export function scanSnbt(text: string, offset: number): SnbtScan {
             const close = findStringEnd(text, index, limit, char)
             if (close < 0) {
                 quoted = true
-                word = text.slice(index + 1)
+                // 只取到光标：光标后面还有别的行时，不能把后面整篇都算成一个词，
+                // 否则替换范围会从行首一直铺到光标，候选全被丢掉。
+                word = text.slice(index + 1, limit)
                 break
             }
             const content = text.slice(index + 1, close)

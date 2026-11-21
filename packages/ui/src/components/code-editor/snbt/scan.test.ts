@@ -76,6 +76,12 @@ test('未闭合的字符串标记为 quoted', () => {
     assert.equal(context.word, 'minecraft:sto')
 })
 
+test('未闭合的字符串只取到光标，不吞掉后面的内容', () => {
+    const context = scan('{a:"dia|",b:1}')
+    assert.equal(context.quoted, true)
+    assert.equal(context.word, 'dia')
+})
+
 test('光标之后的字符用于判断该不该补分隔符', () => {
     assert.equal(scan('{dis|:1}').next, ':')
     assert.equal(scan('{a:1|').next, '')

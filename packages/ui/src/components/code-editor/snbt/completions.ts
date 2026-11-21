@@ -116,11 +116,15 @@ export function registerSnbtCompletions(monaco: Monaco): void {
  * Monaco 的补全行只认 codicon（`CompletionItemKinds.toIcon`），没有图片通道，
  * 所以这里在列表渲染后用观察器补一层：按行里的标签名找到贴图，画到行首的
  * `.icon` 槽位上。找不到就保持原样，不会破坏列表。
+ *
+ * 列表未必在编辑器里面：传了 `overflowWidgetsDomNode` 的编辑器（弹窗里要靠它
+ * 拿回视口坐标）会把候选列表挂到编辑器外面那棵树上，所以两处都要找。
  */
 export function attachSnbtCompletion(
     editor: MonacoTypes.editor.IStandaloneCodeEditor,
     model: MonacoTypes.editor.ITextModel,
     source: SnbtCompletionSource,
+    overflowNode?: HTMLElement,
 ): SnbtCompletionHandle {
     const key = model.uri.toString()
     const attachment: Attachment = { source, icons: new Map() }
@@ -135,38 +139,46 @@ export function attachSnbtCompletion(
         }
     }
 
+    const roots = [dom, overflowNode].filter((node): node is HTMLElement => Boolean(node))
+
     let frame = 0
     let disposed = false
+
+    function paintRow(row: Element, icons: Map<string, SnbtSprite>) {
+        const slot = row.querySelector('.icon')
+        const glyph = row.querySelector('.icon-label')
+        if (!(slot instanceof HTMLElement)) return
+        const label = row.querySelector('.label-name')?.textContent?.trim()
+        const icon = label ? icons.get(label) : undefined
+
+        if (!icon) {
+            if (slot.style.backgroundImage) {
+                slot.style.backgroundImage = ''
+                slot.classList.add('hide')
+                if (glyph instanceof HTMLElement) glyph.classList.remove('hide')
+            }
+            return
+        }
+
+        slot.classList.remove('hide')
+        const size = slot.clientHeight || 16
+        const scale = size / Math.max(1, icon.width, icon.height)
+        slot.style.backgroundImage = `url("${icon.url}")`
+        slot.style.backgroundRepeat = 'no-repeat'
+        slot.style.backgroundSize = `${icon.sheetWidth * scale}px ${icon.sheetHeight * scale}px`
+        slot.style.backgroundPosition = `${-icon.x * scale}px ${-icon.y * scale}px`
+        slot.style.imageRendering = 'pixelated'
+        if (glyph instanceof HTMLElement) glyph.classList.add('hide')
+    }
 
     const paint = () => {
         const current = attachments.get(key)
         if (!current) return
-        dom.querySelectorAll('.suggest-widget .monaco-list-row').forEach((row) => {
-            const slot = row.querySelector('.icon')
-            const glyph = row.querySelector('.icon-label')
-            if (!(slot instanceof HTMLElement)) return
-            const label = row.querySelector('.label-name')?.textContent?.trim()
-            const icon = label ? current.icons.get(label) : undefined
-
-            if (!icon) {
-                if (slot.style.backgroundImage) {
-                    slot.style.backgroundImage = ''
-                    slot.classList.add('hide')
-                    if (glyph instanceof HTMLElement) glyph.classList.remove('hide')
-                }
-                return
+        for (const root of roots) {
+            for (const row of root.querySelectorAll('.suggest-widget .monaco-list-row')) {
+                paintRow(row, current.icons)
             }
-
-            slot.classList.remove('hide')
-            const size = slot.clientHeight || 16
-            const scale = size / Math.max(1, icon.width, icon.height)
-            slot.style.backgroundImage = `url("${icon.url}")`
-            slot.style.backgroundRepeat = 'no-repeat'
-            slot.style.backgroundSize = `${icon.sheetWidth * scale}px ${icon.sheetHeight * scale}px`
-            slot.style.backgroundPosition = `${-icon.x * scale}px ${-icon.y * scale}px`
-            slot.style.imageRendering = 'pixelated'
-            if (glyph instanceof HTMLElement) glyph.classList.add('hide')
-        })
+        }
     }
 
     const schedule = () => {
@@ -178,7 +190,9 @@ export function attachSnbtCompletion(
     }
 
     const observer = new MutationObserver(schedule)
-    observer.observe(dom, { childList: true, subtree: true, characterData: true })
+    for (const root of roots) {
+        observer.observe(root, { childList: true, subtree: true, characterData: true })
+    }
 
     return {
         dispose() {

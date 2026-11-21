@@ -70,8 +70,8 @@ const messages = defineMessages({
  * `.monaco-editor .suggest-widget` 这类后代选择器下，配色也是挂在这个类上的
  * CSS 变量（VS Code 自己的多文件 diff 就是这么建这个节点的）。宿主零尺寸、
  * 不拦点击，`z-index` 与 `Combobox` 的 teleport 层一致，要盖过弹窗容器
- * （`100 + 21`）。整个应用共用一个，编辑器销毁时 Monaco 会自己摘走它的子节点，
- * 宿主留着给下一个编辑器复用。
+ * （`100 + 21`）。每个编辑器一个宿主：候选列表的贴图是按宿主子树找的，
+ * 共用会让两个编辑器互相画。
  */
 let overflowWidgetsHost: HTMLElement | undefined
 
@@ -189,7 +189,7 @@ function onReady(editor: MonacoEditor, monaco: Monaco) {
     registerSnbt(monaco)
     const model = editor.getModel()
     if (!model) return
-    completion = attachSnbtCompletion(editor, model, source)
+    completion = attachSnbtCompletion(editor, model, source, overflowWidgetsHost)
     if (!seeded) return
     // 骨架是空的容器：光标放进最后一行，顺手把候选列表弹出来，省掉第一次 Tab。
     const offset = Math.max(0, skeleton.value.lastIndexOf('\n'))
@@ -282,6 +282,8 @@ watch(
 onBeforeUnmount(() => {
     if (timer) clearTimeout(timer)
     completion?.dispose()
+    overflowWidgetsHost?.remove()
+    overflowWidgetsHost = undefined
 })
 </script>
 

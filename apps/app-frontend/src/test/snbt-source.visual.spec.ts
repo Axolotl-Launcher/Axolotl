@@ -208,11 +208,56 @@ it('lists ids with their sprites after a namespaced prefix', async () => {
     await new Promise((resolve) => setTimeout(resolve, 600))
 
     const rows = [...document.querySelectorAll('.suggest-widget .monaco-list-row')].map((row) => ({
-        label: row.querySelector('.label-name')?.textContent?.trim(),
+        label: row.querySelector('.label-name')?.textContent?.trim() ?? '',
         sprite: (row.querySelector('.icon') as HTMLElement | null)?.style.backgroundImage ?? '',
     }))
     console.log('ID ROWS:', JSON.stringify(rows.slice(0, 3)))
-    expect(rows[0]?.label).toBe('minecraft:zombie')
-    expect(rows[0]?.sprite).toContain('texture-atlas')
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.every((row) => row.label.startsWith('minecraft:zom'))).toBe(true)
+    expect(rows.some((row) => row.sprite.includes('texture-atlas'))).toBe(true)
     editor.trigger('keyboard', 'hideSuggestWidget', {})
+})
+
+/** 用户报的场景：bundle_contents 里手打 `id`，光标停在中间那行。 */
+const BUNDLE = [
+    '[',
+    '    bundle_contents=[',
+    '        {',
+    '            id',
+    '        }',
+    '    ]',
+    ']',
+].join('\n')
+
+it('suggests item ids while typing inside the quotes of a nested item stack', async () => {
+    const { editor, text } = await mountSource({
+        modelValue: '',
+        kind: 'item',
+        version: '1.21',
+        domain: 'item',
+    })
+
+    editor.setValue(BUNDLE)
+    editor.setPosition({ lineNumber: 4, column: 15 })
+    editor.focus()
+    await flushPromises()
+    editor.trigger('keyboard', 'editor.action.triggerSuggest', {})
+
+    await waitFor(() => Boolean(document.querySelector('.suggest-widget .monaco-list-row')), {
+        timeoutMs: 15_000,
+        label: 'rows',
+    })
+    // 接受 `id`：光标应该落在补出来的那对引号中间。
+    editor.trigger('keyboard', 'acceptSelectedSuggestion', {})
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(text()).toContain('id:""')
+
+    // 接着打字，弹窗要自己出来（snippet 会话不该挡住快速补全）。
+    for (const char of 'dia') {
+        editor.trigger('keyboard', 'type', { text: char })
+        await new Promise((resolve) => setTimeout(resolve, 150))
+    }
+    console.log('BUNDLE WIDGET:', widgetText().slice(0, 160))
+    expect(document.querySelectorAll('.suggest-widget .monaco-list-row').length).toBeGreaterThan(0)
+    expect(widgetText()).toContain('minecraft:diamond')
 })

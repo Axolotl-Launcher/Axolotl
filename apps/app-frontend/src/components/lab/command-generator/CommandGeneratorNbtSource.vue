@@ -69,6 +69,9 @@ const options: MonacoEditorOptions = {
     scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
     suggestOnTriggerCharacters: true,
     quickSuggestions: { other: true, comments: false, strings: true },
+    // 键名候选会把光标放进 `[]` / `""` 里，靠的就是 snippet 的 `$0`；Monaco 默认
+    // 在 snippet 会话中屏蔽快速补全，那样刚补完 `id=""` 再打字就什么都不弹。
+    suggest: { snippetsPreventQuickSuggestions: false },
     // Enter 换行、Tab 接受候选：手写时更接近普通编辑器。
     acceptSuggestionOnEnter: 'off',
     tabCompletion: 'on',

@@ -60,6 +60,32 @@ const messages = defineMessages({
     },
 })
 
+/**
+ * Monaco 的 `fixedOverflowWidgets` 用视口坐标摆放补全与悬浮提示，前提是固定
+ * 定位的包含块就是视口。弹窗的 `.modal-body` 带 `scale`（打开动画），会把包含
+ * 块换成弹窗自己：候选列表于是跑到弹窗左上角，还被它的 `overflow: hidden`
+ * 裁掉。把溢出层挂到 `#teleports` 下的宿主里，包含块重新回到视口。
+ *
+ * 宿主必须带 `monaco-editor` 类：候选列表、悬浮提示的样式全写在
+ * `.monaco-editor .suggest-widget` 这类后代选择器下，配色也是挂在这个类上的
+ * CSS 变量（VS Code 自己的多文件 diff 就是这么建这个节点的）。宿主零尺寸、
+ * 不拦点击，`z-index` 与 `Combobox` 的 teleport 层一致，要盖过弹窗容器
+ * （`100 + 21`）。整个应用共用一个，编辑器销毁时 Monaco 会自己摘走它的子节点，
+ * 宿主留着给下一个编辑器复用。
+ */
+let overflowWidgetsHost: HTMLElement | undefined
+
+function overflowWidgetsHostNode(): HTMLElement | undefined {
+    if (typeof document === 'undefined') return undefined
+    if (overflowWidgetsHost?.isConnected) return overflowWidgetsHost
+    const host = document.createElement('div')
+    host.className = 'monaco-editor'
+    host.style.cssText = 'position: fixed; top: 0; left: 0; z-index: 9999;'
+    ;(document.getElementById('teleports') ?? document.body).appendChild(host)
+    overflowWidgetsHost = host
+    return host
+}
+
 const options: MonacoEditorOptions = {
     minimap: { enabled: false },
     lineNumbers: 'on',
@@ -81,6 +107,7 @@ const options: MonacoEditorOptions = {
     acceptSuggestionOnEnter: 'off',
     tabCompletion: 'on',
     fixedOverflowWidgets: true,
+    overflowWidgetsDomNode: overflowWidgetsHostNode(),
 }
 
 const version = computed(() => props.version ?? '1.21')

@@ -158,8 +158,6 @@ export function parseSelector(text: string): ParsedSelector | undefined {
     return result
 }
 
-// ---------------------------------------------------------------- 值解析
-
 export interface NumericRange {
     min?: number
     max?: number
@@ -249,8 +247,6 @@ export function unwrapBraces(value: string): string | undefined {
     return trimmed.slice(1, close)
 }
 
-// ---------------------------------------------------------------- 补全
-
 export interface CompletionContext {
     variable: SelectorVariable
     /** 光标是否在 `[...]` 内。 */
@@ -318,8 +314,6 @@ export function completionContext(text: string, caret: number): CompletionContex
         usedKeys,
     }
 }
-
-// ---------------------------------------------------------------- 诊断
 
 /**
  * 诊断的稳定标识。文案在 `messages.ts` 里按 ID 登记，这里只给 ID 与参数——

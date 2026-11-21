@@ -461,8 +461,6 @@ function onEntityPicked(id: string) {
     replaceValue(index, argument.negated ? `!${id}` : id)
 }
 
-// ---------------------------------------------------------------- 值控件
-
 function rangeOf(argument: { value: string }) {
     return parseNumericRange(argument.value)
 }

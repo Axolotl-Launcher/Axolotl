@@ -31,6 +31,8 @@ import HtmlWorker from 'monaco-editor/language/html/html.worker.js?worker'
 import JsonWorker from 'monaco-editor/language/json/json.worker.js?worker'
 import TypeScriptWorker from 'monaco-editor/language/typescript/ts.worker.js?worker'
 
+import { registerSnbt } from './snbt/index.ts'
+
 self.MonacoEnvironment = {
     getWorker(_moduleId: string, label: string) {
         switch (label) {
@@ -85,22 +87,8 @@ function registerCustomLanguages() {
         })
     }
 
-    if (!monaco.languages.getLanguages().some(({ id }) => id === 'snbt')) {
-        monaco.languages.register({ id: 'snbt' })
-        monaco.languages.setMonarchTokensProvider('snbt', {
-            tokenizer: {
-                root: [
-                    [/\/\/.*$/, 'comment'],
-                    [/[{}[\],:]/, 'delimiter'],
-                    [/(?:true|false)\b/, 'keyword'],
-                    [/-?(?:\d+\.?\d*|\.\d+)(?:[bBsSlLfFdD])?\b/, 'number'],
-                    [/'(?:[^'\\]|\\.)*'/, 'string'],
-                    [/"(?:[^"\\]|\\.)*"/, 'string'],
-                    [/[A-Za-z0-9_.+-]+(?=\s*:)/, 'key'],
-                ],
-            },
-        })
-    }
+    // SNBT 的词法、括号与缩进规则在 `snbt/language.ts`；补全按模型注入。
+    registerSnbt(monaco)
 }
 
 registerCustomLanguages()

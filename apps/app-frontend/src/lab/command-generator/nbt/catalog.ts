@@ -14,6 +14,7 @@ import itemCatalog from '../data/nbt/item.json' with { type: 'json' }
 import {
     availableFields,
     childrenOf,
+    dedupeFields,
     elementOf,
     fieldAppliesTo,
     formFor,
@@ -136,7 +137,7 @@ export function levelAtPath(lookup: NbtLookup, keys: string[]): NbtLevel | undef
     }
 
     if (!spec) {
-        return { fields: level }
+        return { fields: dedupeFields(level) }
     }
-    return { fields: level, element: elementOf(form), spec, form }
+    return { fields: dedupeFields(level), element: elementOf(form), spec, form }
 }

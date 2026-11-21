@@ -9083,17 +9083,38 @@
   "app.lab.command-generator.nbt.palette.variant-hint": {
     "message": "这个标签有多种合法写法，选一种："
   },
+  "app.lab.command-generator.nbt.path.clear": {
+    "message": "清空路径"
+  },
+  "app.lab.command-generator.nbt.path.descend": {
+    "message": "展开 {key} 的子标签"
+  },
+  "app.lab.command-generator.nbt.path.element": {
+    "message": "正在列表元素里：这里列的是单个条目的标签。"
+  },
+  "app.lab.command-generator.nbt.path.empty": {
+    "message": "这一层没有可选的标签，剩下的手写。"
+  },
   "app.lab.command-generator.nbt.path.hint": {
     "message": "路径指向某个标签：Foo.Bar、Items[0]，或对 Items 加筛选。"
+  },
+  "app.lab.command-generator.nbt.path.pick": {
+    "message": "选择标签"
   },
   "app.lab.command-generator.nbt.path.placeholder": {
     "message": "Inventory[0].id"
   },
-  "app.lab.command-generator.nbt.path.suggestions": {
-    "message": "标签建议"
+  "app.lab.command-generator.nbt.path.search": {
+    "message": "搜索这一层的标签"
+  },
+  "app.lab.command-generator.nbt.path.title": {
+    "message": "选择标签路径"
   },
   "app.lab.command-generator.nbt.path.unknown-root": {
     "message": "目录里没有这个标签，会按原样写出。"
+  },
+  "app.lab.command-generator.nbt.path.use": {
+    "message": "使用此路径"
   },
   "app.lab.command-generator.nbt.remove-tag": {
     "message": "移除标签"

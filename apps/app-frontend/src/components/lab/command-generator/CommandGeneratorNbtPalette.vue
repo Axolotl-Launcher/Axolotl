@@ -394,11 +394,11 @@ defineExpose({ show, hide })
                         </h3>
                         <button
                             v-for="spec in group.items"
-                            :key="spec.key"
+                            :key="flatResults.indexOf(spec)"
                             type="button"
                             class="flex w-full min-w-0 items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-4 focus-visible:outline-brand"
                             :class="{
-                                'bg-surface-4': flatResults[activeIndex]?.key === spec.key,
+                                'bg-surface-4': flatResults[activeIndex] === spec,
                             }"
                             @click="pick(spec)"
                             @mouseenter="activeIndex = flatResults.indexOf(spec)"

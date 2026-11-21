@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import { defineMessages, StyledInput, useVIntl } from '@modrinth/ui'
+/**
+ * NBT 路径输入（`/data` 的 `path` 参数）。
+ *
+ * 输入框是权威来源：路径可以带下标、区间、复合标签过滤器（`Items[{id:"stone"}]`），
+ * 这些没法靠点选拼出来。右边的按钮打开逐层选择器，把能查到的键点进来。
+ */
+
+import { TagIcon } from '@modrinth/assets'
+import { Button, defineMessages, StyledInput, useVIntl } from '@modrinth/ui'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 
-import { availableFieldsFor, levelAtPath } from '@/lab/command-generator/nbt/catalog.ts'
-import { fieldLabel } from '@/lab/command-generator/nbt/labels.ts'
-import {
-    appendPathKey,
-    parseNbtPath,
-    pathCompletionPrefix,
-    validateNbtPath,
-} from '@/lab/command-generator/nbt/path.ts'
-import {
-    type NbtDomain,
-    type NbtFieldSpec,
-    searchFields,
-} from '@/lab/command-generator/nbt/schema.ts'
+import { availableFieldsFor } from '@/lab/command-generator/nbt/catalog.ts'
+import { parseNbtPath, validateNbtPath } from '@/lab/command-generator/nbt/path.ts'
+import type { NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
+
+import CommandGeneratorNbtPathPicker from './CommandGeneratorNbtPathPicker.vue'
 
 const props = defineProps<{
     modelValue?: string
@@ -29,7 +29,7 @@ const emit = defineEmits<{
     'update:modelValue': [value: string]
 }>()
 
-const { formatMessage, locale } = useVIntl()
+const { formatMessage } = useVIntl()
 
 const messages = defineMessages({
     placeholder: {
@@ -40,9 +40,9 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.nbt.path.hint',
         defaultMessage: 'A path points at a tag: Foo.Bar, Items[0], Items[{id:"stone"}]',
     },
-    suggestions: {
-        id: 'app.lab.command-generator.nbt.path.suggestions',
-        defaultMessage: 'Tag suggestions',
+    pick: {
+        id: 'app.lab.command-generator.nbt.path.pick',
+        defaultMessage: 'Pick tag',
     },
     unknownRoot: {
         id: 'app.lab.command-generator.nbt.path.unknown-root',
@@ -51,9 +51,9 @@ const messages = defineMessages({
 })
 
 const inputRef = useTemplateRef<InstanceType<typeof StyledInput>>('input')
+const picker = useTemplateRef<InstanceType<typeof CommandGeneratorNbtPathPicker>>('picker')
+
 const text = ref(props.modelValue ?? '')
-const showSuggestions = ref(false)
-const activeSuggestion = ref(0)
 
 watch(
     () => props.modelValue,
@@ -66,52 +66,6 @@ watch(
 const issues = computed(() => validateNbtPath(text.value))
 const errors = computed(() => issues.value.filter((issue) => issue.level === 'error'))
 
-const completion = computed(() => pathCompletionPrefix(text.value))
-
-/** 走到第几层就列第几层的字段；断链时这一层没有建议，不拿根字段凑数。 */
-const candidateFields = computed<NbtFieldSpec[]>(() => {
-    if (!props.domain) return []
-    const { depth } = completion.value
-    const keys = parseNbtPath(text.value)
-        .filter((segment) => segment.kind === 'key')
-        .map((segment) => (segment as { name: string }).name)
-
-    if (depth <= 1) {
-        return availableFieldsFor({
-            domain: props.domain,
-            version: props.version ?? '1.21',
-            targetId: props.targetId,
-        })
-    }
-    // 去掉最后一段（正在输入的那个），用剩下的去定位父级
-    const parentKeys = keys.slice(0, Math.max(0, depth - 1))
-    return (
-        levelAtPath(
-            {
-                domain: props.domain,
-                version: props.version ?? '1.21',
-                targetId: props.targetId,
-            },
-            parentKeys,
-        )?.fields ?? []
-    )
-})
-
-const suggestions = computed(() => {
-    if (!showSuggestions.value) return []
-    const { prefix } = completion.value
-    const fields = candidateFields.value
-    const needle = prefix.toLowerCase()
-    const matched = needle
-        ? fields.filter(
-              (field) =>
-                  field.key.toLowerCase().includes(needle) ||
-                  fieldLabel(field, locale.value).toLowerCase().includes(needle),
-          )
-        : fields
-    return searchFields(matched, '', props.version ?? '1.21').map((result) => result.spec)
-})
-
 const unknownRoot = computed(() => {
     if (!props.domain) return false
     const keys = parseNbtPath(text.value).filter((segment) => segment.kind === 'key')
@@ -123,45 +77,6 @@ const unknownRoot = computed(() => {
         targetId: props.targetId,
     }).some((field) => field.key === root)
 })
-
-function publish(value: string) {
-    text.value = value
-    emit('update:modelValue', value)
-}
-
-function onInput(value: string | number | undefined) {
-    showSuggestions.value = true
-    activeSuggestion.value = 0
-    publish(String(value ?? ''))
-}
-
-function applySuggestion(spec: NbtFieldSpec) {
-    const next = appendPathKey(text.value, spec.key)
-    showSuggestions.value = false
-    publish(next)
-    void inputRef.value?.focus()
-}
-
-function onKeydown(event: KeyboardEvent) {
-    if (!suggestions.value.length) return
-    if (event.key === 'ArrowDown') {
-        event.preventDefault()
-        activeSuggestion.value = (activeSuggestion.value + 1) % suggestions.value.length
-        return
-    }
-    if (event.key === 'ArrowUp') {
-        event.preventDefault()
-        activeSuggestion.value =
-            (activeSuggestion.value - 1 + suggestions.value.length) % suggestions.value.length
-        return
-    }
-    if (event.key === 'Tab' || event.key === 'Enter') {
-        event.preventDefault()
-        applySuggestion(suggestions.value[activeSuggestion.value])
-        return
-    }
-    if (event.key === 'Escape') showSuggestions.value = false
-}
 
 /** 把路径拆成片段展示，让用户看清自己写的是下标还是键名。 */
 const segments = computed(() =>
@@ -184,49 +99,40 @@ const segments = computed(() =>
     }),
 )
 
+function publish(value: string) {
+    text.value = value
+    emit('update:modelValue', value)
+}
+
+function onInput(value: string | number | undefined) {
+    publish(String(value ?? ''))
+}
+
+function openPicker() {
+    picker.value?.show()
+}
+
 defineExpose({ focus: () => inputRef.value?.focus() })
 </script>
 
 <template>
-    <div class="relative flex min-w-0 flex-col gap-2">
-        <StyledInput
-            ref="input"
-            :model-value="text"
-            :aria-label="ariaLabel"
-            :placeholder="formatMessage(messages.placeholder)"
-            class="w-full font-mono"
-            :spellcheck="false"
-            clearable
-            @update:model-value="onInput"
-            @keydown="onKeydown"
-            @focus="showSuggestions = true"
-            @blur="showSuggestions = false"
-        />
-
-        <ul
-            v-if="suggestions.length"
-            class="absolute left-0 top-full z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-solid border-surface-5 bg-surface-2 p-1 shadow-lg"
-            role="listbox"
-            :aria-label="formatMessage(messages.suggestions)"
-        >
-            <li v-for="(spec, index) in suggestions" :key="spec.key">
-                <button
-                    type="button"
-                    class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left"
-                    :class="index === activeSuggestion ? 'bg-surface-4' : 'hover:bg-surface-3'"
-                    role="option"
-                    :aria-selected="index === activeSuggestion"
-                    @mousedown.prevent="applySuggestion(spec)"
-                >
-                    <span class="font-mono text-sm text-[var(--color-text-primary)]">{{
-                        spec.key
-                    }}</span>
-                    <span class="truncate text-xs text-[var(--color-text-tertiary)]">{{
-                        fieldLabel(spec, locale)
-                    }}</span>
-                </button>
-            </li>
-        </ul>
+    <div class="flex min-w-0 flex-col gap-2">
+        <div class="flex min-w-0 gap-2">
+            <StyledInput
+                ref="input"
+                :model-value="text"
+                :aria-label="ariaLabel"
+                :placeholder="formatMessage(messages.placeholder)"
+                class="min-w-0 flex-1 font-mono"
+                :spellcheck="false"
+                clearable
+                @update:model-value="onInput"
+            />
+            <Button type="outlined" @click="openPicker">
+                <TagIcon class="h-4 w-4" />
+                {{ formatMessage(messages.pick) }}
+            </Button>
+        </div>
 
         <div v-if="segments.length" class="flex flex-wrap items-center gap-1">
             <span
@@ -253,5 +159,14 @@ defineExpose({ focus: () => inputRef.value?.focus() })
         <p v-else-if="!errors.length" class="m-0 text-xs text-[var(--color-text-tertiary)]">
             {{ formatMessage(messages.hint) }}
         </p>
+
+        <CommandGeneratorNbtPathPicker
+            ref="picker"
+            :model-value="text"
+            :version="version"
+            :domain="domain"
+            :target-id="targetId"
+            @update:model-value="publish"
+        />
     </div>
 </template>

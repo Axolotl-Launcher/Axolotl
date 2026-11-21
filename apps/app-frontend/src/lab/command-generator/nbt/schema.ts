@@ -320,11 +320,46 @@ export function availableFields(
     options: { onlyApplicable?: boolean; groups?: Record<string, NbtAppliesTo> } = {},
 ): NbtFieldSpec[] {
     const onlyApplicable = options.onlyApplicable ?? true
-    return fields.filter(
-        (spec) =>
-            formsFor(spec, context.version).length > 0 &&
-            (!onlyApplicable || !context.targetId || fieldAppliesTo(spec, context, options.groups)),
+    return dedupeFields(
+        fields.filter(
+            (spec) =>
+                formsFor(spec, context.version).length > 0 &&
+                (!onlyApplicable ||
+                    !context.targetId ||
+                    fieldAppliesTo(spec, context, options.groups)),
+        ),
     )
+}
+
+/** 形态签名：形状真的不同的同名键要分开保留，形状相同的才算重复。 */
+function formSignature(form: NbtValueForm): string {
+    if (form.type === 'list') {
+        return `list<${form.element ? formSignature(form.element) : ''}>`
+    }
+    if (form.type === 'compound') {
+        return `compound(${(form.fields ?? []).map((field) => field.key).join('+')})`
+    }
+    return form.type
+}
+
+/**
+ * 去掉同名同形的重复字段。
+ *
+ * 目录按 `appliesTo` 存多条：`Item` 在 12 个投掷物实体下各有一条，`Items` 在
+ * 驴 / 羊驼 / 骡 / 行商羊驼和容器实体下共 15 条。知道具体目标时会被过滤掉，
+ * 不知道目标时（`/data` 的坐标、没有 `type=` 的选择器）它们除了隐藏的适用范围
+ * 之外完全一样，全列出来就是同一行重复十几遍。
+ */
+export function dedupeFields(fields: NbtFieldSpec[]): NbtFieldSpec[] {
+    const seen = new Set<string>()
+    const result: NbtFieldSpec[] = []
+    for (const field of fields) {
+        const signature = `${field.key}|${field.forms.map(formSignature).join(',')}`
+        if (seen.has(signature)) continue
+        seen.add(signature)
+        result.push(field)
+    }
+    return result
 }
 
 /** 把 `fall_distance` / `CustomName` 这类键名变成可读标签。 */

@@ -12,6 +12,7 @@ import { groupSpec } from './groups.ts'
 import {
     CATEGORY_ORDER,
     childrenOf,
+    dedupeFields,
     formsFor,
     humanizeKey,
     isVersionInRange,
@@ -524,6 +525,39 @@ describe('NBT 目录查询', () => {
             targetId: 'oak_boat',
         })
         expect(plainBoat.map((field) => field.key)).not.toContain('Items')
+    })
+
+    /**
+     * 目录按 `appliesTo` 存多条同名字段（`Item` 在 12 个投掷物实体下各有一条）。
+     * 不知道具体目标时这些行除了隐藏的适用范围之外完全一样，列出来就是同一行
+     * 重复十几遍。
+     */
+    it('同名同形的字段只列一次', () => {
+        const entityKeys = availableFieldsFor({ domain: 'entity', version: '26.3' }).map(
+            (field) => field.key,
+        )
+        expect(entityKeys.filter((key) => key === 'Item')).toHaveLength(1)
+        expect(entityKeys.filter((key) => key === 'Owner')).toHaveLength(1)
+
+        const blockKeys = availableFieldsFor({ domain: 'block_entity', version: '26.3' }).map(
+            (field) => field.key,
+        )
+        expect(blockKeys.filter((key) => key === 'Items')).toHaveLength(1)
+    })
+
+    it('形状不同的同名键仍然分开保留', () => {
+        const compound: NbtFieldSpec = {
+            key: 'pattern',
+            category: 'appearance',
+            forms: [{ type: 'compound', fields: [] }],
+        }
+        const text: NbtFieldSpec = {
+            key: 'pattern',
+            category: 'appearance',
+            forms: [{ type: 'string' }],
+        }
+        const deduped = dedupeFields([compound, text, { ...compound }])
+        expect(deduped.map((field) => field.forms[0].type)).toEqual(['compound', 'string'])
     })
 
     it('搜索命中键名与可读名', () => {

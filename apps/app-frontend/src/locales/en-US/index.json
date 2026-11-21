@@ -9083,17 +9083,38 @@
   "app.lab.command-generator.nbt.palette.variant-hint": {
     "message": "This tag has several accepted shapes. Pick one:"
   },
+  "app.lab.command-generator.nbt.path.clear": {
+    "message": "Clear path"
+  },
+  "app.lab.command-generator.nbt.path.descend": {
+    "message": "Open the sub tags of {key}"
+  },
+  "app.lab.command-generator.nbt.path.element": {
+    "message": "Inside a list entry: these are the tags of one entry."
+  },
+  "app.lab.command-generator.nbt.path.empty": {
+    "message": "The catalog documents no tags here. Type the rest by hand."
+  },
   "app.lab.command-generator.nbt.path.hint": {
     "message": "A path points at a tag: Foo.Bar, Items[0], or a filter on Items."
+  },
+  "app.lab.command-generator.nbt.path.pick": {
+    "message": "Pick tag"
   },
   "app.lab.command-generator.nbt.path.placeholder": {
     "message": "Inventory[0].id"
   },
-  "app.lab.command-generator.nbt.path.suggestions": {
-    "message": "Tag suggestions"
+  "app.lab.command-generator.nbt.path.search": {
+    "message": "Search tags at this level"
+  },
+  "app.lab.command-generator.nbt.path.title": {
+    "message": "Pick a tag path"
   },
   "app.lab.command-generator.nbt.path.unknown-root": {
     "message": "This tag is not in the catalog; it will be written as typed."
+  },
+  "app.lab.command-generator.nbt.path.use": {
+    "message": "Use this path"
   },
   "app.lab.command-generator.nbt.remove-tag": {
     "message": "Remove tag"

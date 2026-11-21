@@ -191,6 +191,18 @@ function shapeCandidate(form: NbtValueForm): SnbtCandidate {
     }
 }
 
+/**
+ * 括号类写法要连括号一起补：只给 `banner_patterns= ` 的话，用户还得自己敲
+ * `[]` 再把光标挪进去，位置一错就补成了别的类型。标量没有括号，交给后面的
+ * 值候选，不必先塞一个占位数字。
+ */
+function containerSnippet(form: NbtValueForm | undefined): string | undefined {
+    if (!form) return undefined
+    if (form.type === 'compound') return '{$0}'
+    if (form.type === 'list') return '[$0]'
+    return ARRAY_LITERALS[form.type]
+}
+
 function valueCandidatesFor(form: NbtValueForm, version: string): SnbtCandidate[] {
     if (form.values) {
         return valueOptions(form.values, version).map((option) => ({
@@ -223,7 +235,7 @@ function keyScore(key: string, prefix: string, spec: NbtFieldSpec, exists: boole
     return Math.max(0, Math.min(100, score))
 }
 
-/** 过滤时忽略命名空间：只打 `stone` 也能命中 `minecraft:stone`。 */
+/** 显示用的短 ID：`minecraft:water` 写成 `water`。 */
 function shortId(id: string): string {
     return id.replace(/^minecraft:/, '')
 }
@@ -232,7 +244,6 @@ async function itemCandidates(version: JavaVersionId, locale: string): Promise<S
     const items = await loadItems(version)
     return items.map((item) => ({
         label: item.id,
-        filterText: shortId(item.id),
         detail: resolveRecipeItemName(item.id, locale, item.name),
         kind: 'item' as const,
         icon: spriteFor(item.texture),
@@ -246,7 +257,6 @@ async function effectCandidates(version: JavaVersionId, locale: string): Promise
         const icon = byId.get(`minecraft:${effect.icon}`)
         return {
             label: `minecraft:${effect.id}`,
-            filterText: effect.id,
             detail: isChinese(locale) ? undefined : humanizeKey(effect.id),
             kind: 'effect' as const,
             icon: spriteFor(icon?.texture),
@@ -259,7 +269,6 @@ async function entityCandidates(version: JavaVersionId, locale: string): Promise
     const byId = new Map(items.map((item) => [item.id, item]))
     return entitiesData.entities.map((entity) => ({
         label: `minecraft:${entity.id}`,
-        filterText: entity.id,
         detail: isChinese(locale) ? entity.zh : entity.en,
         kind: 'entity' as const,
         // 生物没有贴图，用刷怪蛋代替；没有刷怪蛋就退回 codicon。
@@ -270,7 +279,6 @@ async function entityCandidates(version: JavaVersionId, locale: string): Promise
 function enchantmentCandidates(locale: string): SnbtCandidate[] {
     return enchantmentsData.enchantments.map((enchantment) => ({
         label: `minecraft:${enchantment.id}`,
-        filterText: enchantment.id,
         detail: isChinese(locale) ? enchantment.zh : enchantment.en,
         kind: 'enchantment' as const,
     }))
@@ -279,7 +287,6 @@ function enchantmentCandidates(locale: string): SnbtCandidate[] {
 function potionCandidates(locale: string): SnbtCandidate[] {
     return potionsData.map((id) => ({
         label: id,
-        filterText: shortId(id),
         detail: isChinese(locale) ? undefined : humanizeKey(shortId(id)),
         kind: 'potion' as const,
     }))
@@ -326,14 +333,17 @@ function keyCandidates(context: NbtCompletionContext, scan: SnbtScan): SnbtCandi
     return fields.map((spec) => {
         const key = keyForVersion(spec, lookup.version)
         const form = formFor(spec, lookup.version)
+        const shape = containerSnippet(form)
         const description = fieldDescription(spec, lookup.domain, context.formatMessage)
         const type = form ? NBT_TYPE_SHORT[form.type] : ''
         const label = fieldLabel(spec, context.locale)
         const separator = component ? '=' : ':'
+        // 后面已经跟着分隔符时只补键名，不然会出现 `display: :`。
+        const typed = scan.next === separator
         return {
             label: key,
-            // 后面已经跟着分隔符时只补键名，不然会出现 `display: :`。
-            insertText: scan.next === separator ? key : `${key}${separator} `,
+            insertText: typed ? key : `${key}${separator}${shape ?? ' '}`,
+            snippet: !typed && Boolean(shape),
             detail: type && label ? `${type} · ${label}` : type || label,
             documentation: description || undefined,
             kind: 'field' as const,
@@ -359,7 +369,9 @@ async function valueCandidates(
     }
 
     const candidates = forms.flatMap((form) => valueCandidatesFor(form, context.version))
-    candidates.push(...(await idCandidates(context, scan)))
+    const ids = await idCandidates(context, scan)
+    // 有 ID 列表时，字段自带的 `""` 占位只是噪音。
+    if (ids.length) return [...ids, ...candidates.filter((item) => item.insertText !== '""')]
     if (candidates.length === 0) candidates.push(...GENERIC_SHAPES)
     return candidates
 }
@@ -370,6 +382,13 @@ export function createNbtCompletionSource(read: () => NbtCompletionContext): Snb
         async candidates(scan) {
             if (scan.expect === 'after') return []
             const context = read()
+            // 物品在 1.20.5+ 的根是 `[id=…]`。刚敲下 `[` 时扫描器还认不出这是
+            // 组件列表（没有 `=`），按元素位置给候选只会得到空列表。
+            const rootList =
+                scan.expect === 'element' && scan.frames.length === 1 && !scan.keyPath.length
+            if (rootList && context.lookup?.components) {
+                return keyCandidates(context, { ...scan, expect: 'component' })
+            }
             if (scan.expect === 'key' || scan.expect === 'component') {
                 return keyCandidates(context, scan)
             }

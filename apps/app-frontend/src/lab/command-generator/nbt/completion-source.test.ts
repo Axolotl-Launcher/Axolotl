@@ -72,6 +72,26 @@ describe('键名候选', () => {
         const motion = candidates.find((candidate) => candidate.label === 'Motion')
         expect(position?.score).toBeLessThan(motion?.score ?? 0)
     })
+
+    it('括号类的值连括号一起补，光标停在括号里', async () => {
+        const candidates = await source({
+            domain: 'item',
+            version: '1.21',
+            components: true,
+        }).candidates(scan({ expect: 'component', word: 'banner_' }))
+        const banner = candidates.find((candidate) => candidate.label === 'banner_patterns')
+        expect(banner?.insertText).toBe('banner_patterns=[$0]')
+        expect(banner?.snippet).toBe(true)
+    })
+
+    it('标量只补分隔符，值交给后面的候选', async () => {
+        const candidates = await source({ domain: 'entity', version: '1.21' }).candidates(
+            scan({ expect: 'key', word: 'NoGravity' }),
+        )
+        const flag = candidates.find((candidate) => candidate.label === 'NoGravity')
+        expect(flag?.insertText).toBe('NoGravity: ')
+        expect(flag?.snippet).toBe(false)
+    })
 })
 
 describe('值候选', () => {
@@ -115,6 +135,15 @@ describe('值候选', () => {
         )
         expect(candidates.map((candidate) => candidate.insertText)).toContain('0.0d')
     })
+
+    it('组件值里的键按组件自己的子字段补', async () => {
+        const candidates = await source({
+            domain: 'item',
+            version: '1.21',
+            components: true,
+        }).candidates(scan({ expect: 'key', keyPath: ['banner_patterns'] }))
+        expect(candidates.map((candidate) => candidate.label)).toContain('pattern')
+    })
 })
 
 describe('ID 候选', () => {
@@ -147,5 +176,12 @@ describe('ID 候选', () => {
             scan({ expect: 'value', keyPath: [], key: 'CustomName' }),
         )
         expect(candidates.every((candidate) => candidate.kind !== 'item')).toBe(true)
+    })
+
+    it('有 ID 列表时不再附送空的字符串占位', async () => {
+        const candidates = await source({ domain: 'entity', version: '1.21' }).candidates(
+            scan({ expect: 'value', keyPath: ['Items'], key: 'id' }),
+        )
+        expect(candidates.map((candidate) => candidate.insertText)).not.toContain('""')
     })
 })

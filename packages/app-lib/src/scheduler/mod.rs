@@ -6,6 +6,7 @@
 pub mod aging;
 pub mod bands;
 pub mod bypass;
+pub mod contract;
 pub mod eviction;
 pub mod fairness;
 pub mod idle_policy;

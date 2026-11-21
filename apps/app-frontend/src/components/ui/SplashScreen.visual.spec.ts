@@ -78,6 +78,33 @@ it('waits for successful migration completion even if ordinary loading is alread
     expect(wrapper.find('img').exists()).toBe(false)
 })
 
+it.each([1, null])(
+    'clears completed migration details at fraction %s while initialization stays pending',
+    async (fraction) => {
+        vi.useFakeTimers()
+        const { wrapper, progress, pending } = await mountSplash(migrating(0.4))
+        progress.value = {
+            ...migrating(fraction),
+            event: { type: 'database_migration', stage: 'finishing', completed: 1, total: 1 },
+        }
+        await nextTick()
+        expect(wrapper.text()).toContain('正在启动 Axolotl 启动器……')
+        expect(wrapper.text()).not.toContain('正在迁移启动器数据……')
+        expect(wrapper.text()).not.toContain('正在完成迁移……')
+        expect(wrapper.text()).not.toContain('1 / 1')
+        expect(wrapper.getComponent(ProgressBar).props('progress')).toBe(100)
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(wrapper.find('img').exists()).toBe(true)
+
+        progress.value = { ...progress.value, fraction: null }
+        pending.value = false
+        await nextTick()
+        await vi.advanceTimersByTimeAsync(1)
+        await nextTick()
+        expect(wrapper.find('img').exists()).toBe(false)
+    },
+)
+
 it('keeps directory relocation progress and clears migration-specific details', async () => {
     const { wrapper, progress } = await mountSplash(migrating(0.4))
     progress.value = { event: { type: 'directory_move' }, loader_uuid: 'move', fraction: 0.2 }

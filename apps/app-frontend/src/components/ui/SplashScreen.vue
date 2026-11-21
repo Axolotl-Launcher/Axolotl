@@ -42,6 +42,10 @@ const loading = injectLoadingState()
 const { formatMessage } = useVIntl()
 
 const messages = defineMessages({
+    startingLauncher: {
+        id: 'app.splash.starting',
+        defaultMessage: 'Starting Axolotl Launcher...',
+    },
     updatingAppDirectory: {
         id: 'app.splash.updating-app-directory',
         defaultMessage: 'Updating app directory...',
@@ -74,10 +78,15 @@ const messages = defineMessages({
 
 const migrating = computed(() => props.startupProgress?.event.type === 'database_migration')
 const migrationPending = computed(() => migrating.value && props.startupProgress?.fraction !== null)
+const migrationActive = computed(
+    () => migrationPending.value && (props.startupProgress?.fraction ?? 0) < 1,
+)
 const message = computed(() => {
     switch (props.startupProgress?.event.type) {
         case 'database_migration':
-            return formatMessage(messages.migratingData)
+            return formatMessage(
+                migrationActive.value ? messages.migratingData : messages.startingLauncher,
+            )
         case 'directory_move':
             return formatMessage(messages.updatingAppDirectory)
         case 'checking_for_updates':
@@ -87,7 +96,7 @@ const message = computed(() => {
     }
 })
 const migrationDetail = computed(() => {
-    if (!migrating.value) return null
+    if (!migrationActive.value) return null
     switch (props.startupProgress?.event.stage) {
         case 'preparing':
             return formatMessage(messages.preparingMigration)
@@ -103,7 +112,7 @@ const migrationDetail = computed(() => {
 })
 const migrationCount = computed(() => {
     const event = props.startupProgress?.event
-    if (!migrating.value || !event?.total || event.completed == null) return null
+    if (!migrationActive.value || !event?.total || event.completed == null) return null
     return `${event.completed} / ${event.total}`
 })
 

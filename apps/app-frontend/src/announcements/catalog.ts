@@ -30,6 +30,37 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
+        id: 'launcher-1.11.2-beta.3',
+        version: '1.11.2-beta.3',
+        publishedAt: '2026-11-21',
+        title: {
+            'en-US': 'Axolotl Launcher 1.11.2-beta.3',
+            'zh-CN': 'Axolotl Launcher 1.11.2-beta.3',
+        },
+        changes: {
+            changed: [
+                {
+                    'en-US':
+                        'Improved startup and periodic backup performance for libraries with extensive recovery history.',
+                    'zh-CN': '优化包含大量恢复记录时的启动和周期备份速度。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed startup remaining on "Finishing migration..." after database migration had completed.',
+                    'zh-CN': '修复数据库迁移完成后，启动界面仍长时间停留在“正在完成迁移…”的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed database lock errors and stalled instance content loading when recovery copies were generated in the background.',
+                    'zh-CN':
+                        '修复后台生成实例恢复副本时，可能出现数据库锁定错误和实例内容加载卡顿的问题。',
+                },
+            ],
+        },
+    },
+    {
         id: 'launcher-1.11.2-beta.2',
         version: '1.11.2-beta.2',
         publishedAt: '2026-11-20',

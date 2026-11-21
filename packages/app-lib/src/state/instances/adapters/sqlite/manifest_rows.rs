@@ -202,14 +202,36 @@ pub(crate) async fn snapshot(
         Map<String, Value>,
     )>,
 > {
-    // Capture one consistent view without reserving the writer. Publication
-    // independently checks that the captured revision is still current.
+    snapshot_with_revision_hook(pool, id, expected, || async {}).await
+}
+
+async fn snapshot_with_revision_hook<F, Fut>(
+    pool: &SqlitePool,
+    id: &str,
+    expected: i64,
+    after_revision: F,
+) -> crate::Result<
+    Option<(
+        crate::state::instances::InstanceMetadata,
+        Map<String, Value>,
+    )>,
+>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    // Reserve the attached rollback-journal databases before taking any read
+    // locks. Otherwise table-info reads can wait behind a writer's COMMIT
+    // while that COMMIT waits for this snapshot's instances.db read lock.
+    // Publication still independently checks the captured revision.
     let (mut tx, tx_diagnostics) =
-        crate::state::store::lock_diagnostics::begin(pool, "BEGIN").await?;
+        crate::state::store::lock_diagnostics::begin(pool, "BEGIN IMMEDIATE")
+            .await?;
     let current:Option<i64>=sqlx::query_scalar("SELECT revision FROM instance_recovery_publications WHERE instance_id=? AND deleted=0").bind(id).fetch_optional(&mut *tx).await?;
     if current != Some(expected) {
         return Ok(None);
     }
+    after_revision().await;
     if crate::state::store::compatibility::unsupported_instance_on(&mut *tx, id)
         .await?
     {
@@ -373,4 +395,72 @@ pub(crate) async fn live_ids(pool: &SqlitePool) -> crate::Result<Vec<String>> {
     Ok(sqlx::query_scalar("SELECT id FROM instances ORDER BY id")
         .fetch_all(pool)
         .await?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn recovery_snapshot_reserves_core_before_reading_relationships() {
+        let root = tempfile::tempdir().unwrap();
+        let pool = crate::state::store::databases::open(root.path())
+            .await
+            .unwrap();
+        sqlx::raw_sql(
+            "INSERT INTO instances(id,path,name,install_stage,launcher_feature_version,update_channel,created,modified) VALUES('one','one','One','installed','none','release',0,0);
+             INSERT INTO instance_content_sets(id,instance_id,name,source_kind,status,game_version,loader,created,modified) VALUES('set','one','local','local','available','1.21','vanilla',0,0);
+             UPDATE instances SET applied_content_set_id='set' WHERE id='one';",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let expected = revision(&pool, "one").await.unwrap();
+        let mut writer = pool.acquire().await.unwrap();
+        // Fail immediately instead of turning a regression into a 30-second
+        // busy timeout. Acquiring this reservation after the first snapshot
+        // read would let COMMIT and table-info reads wait on each other.
+        sqlx::query("PRAGMA busy_timeout=0")
+            .execute(&mut *writer)
+            .await
+            .unwrap();
+        let captured = snapshot_with_revision_hook(
+            &pool,
+            "one",
+            expected,
+            || async move {
+                let reservation = sqlx::query("BEGIN IMMEDIATE")
+                    .execute(&mut *writer)
+                    .await;
+                match reservation {
+                    Err(sqlx::Error::Database(error)) => {
+                        assert_eq!(error.code().as_deref(), Some("5"));
+                    }
+                    Ok(_) => {
+                        sqlx::query("ROLLBACK")
+                            .execute(&mut *writer)
+                            .await
+                            .unwrap();
+                        panic!(
+                            "a writer must not reserve the core after a recovery snapshot has started reading"
+                        );
+                    }
+                    Err(error) => panic!("unexpected writer error: {error}"),
+                }
+            },
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(captured.0.instance.name, "One");
+        assert_eq!(captured.1["instances"][0]["id"], "one");
+        sqlx::query(
+            "UPDATE instances SET name='After snapshot' WHERE id='one'",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert!(snapshot(&pool, "one", expected).await.unwrap().is_none());
+        pool.close().await;
+    }
 }

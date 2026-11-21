@@ -18608,6 +18608,9 @@
   "app.splash.migration.recovery": {
     "message": "Migrating recovery records..."
   },
+  "app.splash.starting": {
+    "message": "Starting Axolotl Launcher..."
+  },
   "app.splash.updating-app-directory": {
     "message": "Updating app directory..."
   },

@@ -626,6 +626,17 @@ pub(crate) async fn backup(
     snapshot: &Path,
     staging: &Path,
 ) -> crate::Result<()> {
+    backup_with_directory_hook(snapshot, staging, |_| {}).await
+}
+
+async fn backup_with_directory_hook<F>(
+    snapshot: &Path,
+    staging: &Path,
+    mut before_directory_read: F,
+) -> crate::Result<()>
+where
+    F: FnMut(&Path),
+{
     let snapshot =
         crate::state::db_backup::sqlite_native_path(snapshot).await?;
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
@@ -641,7 +652,11 @@ pub(crate) async fn backup(
         return Ok(());
     }
     let records:Vec<(String,String,Option<String>,i64,String,String,bool)>=sqlx::query_as("SELECT kind,id,instance_id,revision,object_path,sha256,deleted FROM main.operation_publications ORDER BY kind,id").fetch_all(&mut *connection).await?;
+    drop(connection);
+    pool.close().await;
     let destination = staging.join("operation-records");
+    let mut directories =
+        std::collections::BTreeMap::<&Path, Vec<&Path>>::new();
     for (_, _, _, _, path, _, deleted) in &records {
         if *deleted {
             continue;
@@ -650,65 +665,80 @@ pub(crate) async fn backup(
         let parent = path
             .parent()
             .ok_or_else(|| invalid("Operation envelope parent unavailable"))?;
-        let stem = path
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .ok_or_else(|| invalid("Operation envelope filename invalid"))?;
-        let folder = destination.join(crate::state::recovery::record::digest(
-            path.to_string_lossy().as_bytes(),
-        ));
-        // The live instance may be removed after the core snapshot was frozen.
-        // Missing selected files invalidate this backup; retaining only their
-        // SQL references would falsely advertise a complete recovery source.
+        directories.entry(parent).or_default().push(path);
+    }
+    for (parent, paths) in directories {
+        // Legacy imports can put thousands of generations in one directory.
+        // Index its names once, then visit only each selected stem's range.
+        before_directory_read(parent);
         let mut entries = tokio::fs::read_dir(parent).await?;
-        let mut envelope = None;
-        let mut previous_envelope = false;
-        let previous_name = format!(
-            "{}.previous",
-            path.file_name()
-                .expect("envelope filename")
-                .to_string_lossy()
-        );
+        let mut files = std::collections::BTreeMap::new();
         while let Some(entry) = entries.next_entry().await? {
             let name = entry.file_name();
-            if !name.to_string_lossy().starts_with(stem)
-                || name.to_string_lossy().ends_with(".lock")
-                || !entry.file_type().await?.is_file()
+            if !name.to_string_lossy().ends_with(".lock") {
+                files.insert(name, entry);
+            }
+        }
+        for path in paths {
+            let stem =
+                path.file_stem().and_then(|stem| stem.to_str()).ok_or_else(
+                    || invalid("Operation envelope filename invalid"),
+                )?;
+            let folder =
+                destination.join(crate::state::recovery::record::digest(
+                    path.to_string_lossy().as_bytes(),
+                ));
+            let mut envelope = None;
+            let mut previous_envelope = false;
+            let previous_name = format!(
+                "{}.previous",
+                path.file_name()
+                    .expect("envelope filename")
+                    .to_string_lossy()
+            );
+            for (name, entry) in
+                files.range(std::ffi::OsString::from(stem)..).take_while(
+                    |(name, _)| name.to_string_lossy().starts_with(stem),
+                )
             {
-                continue;
-            }
-            if entry.path() == path {
-                envelope = Some((entry.path(), folder.join(name)));
-                continue;
-            }
-            if name.to_string_lossy() == previous_name {
-                previous_envelope = true;
-            }
-            crate::state::persistence::document::write_blob(
-                &folder.join(name),
-                crate::state::recovery::record::bounded(
-                    &entry.path(),
-                    2 * 1024 * 1024,
+                if !entry.file_type().await?.is_file() {
+                    continue;
+                }
+                if entry.path() == path {
+                    envelope = Some((entry.path(), folder.join(name)));
+                    continue;
+                }
+                if name.to_string_lossy() == previous_name {
+                    previous_envelope = true;
+                }
+                crate::state::persistence::document::write_blob(
+                    &folder.join(name),
+                    crate::state::recovery::record::bounded(
+                        &entry.path(),
+                        2 * 1024 * 1024,
+                    )
+                    .await?,
                 )
-                .await?,
-            )
-            .await?;
-        }
-        if envelope.is_none() && !previous_envelope {
-            return Err(invalid(
-                "Selected operation envelope disappeared during backup",
-            ));
-        }
-        if let Some((source, target)) = envelope {
-            crate::state::persistence::document::write_blob(
-                &target,
-                crate::state::recovery::record::bounded(
-                    &source,
-                    2 * 1024 * 1024,
+                .await?;
+            }
+            // The live instance may be removed after the core snapshot was
+            // frozen. Missing selected files must invalidate this backup.
+            if envelope.is_none() && !previous_envelope {
+                return Err(invalid(
+                    "Selected operation envelope disappeared during backup",
+                ));
+            }
+            if let Some((source, target)) = envelope {
+                crate::state::persistence::document::write_blob(
+                    &target,
+                    crate::state::recovery::record::bounded(
+                        &source,
+                        2 * 1024 * 1024,
+                    )
+                    .await?,
                 )
-                .await?,
-            )
-            .await?;
+                .await?;
+            }
         }
     }
     crate::state::persistence::document::write_json(
@@ -1724,6 +1754,159 @@ mod tests {
         install(&mut *pool.acquire().await.unwrap()).await.unwrap();
         (root, pool)
     }
+
+    async fn backup_record(
+        pool: &sqlx::SqlitePool,
+        key: &str,
+        path: &Path,
+    ) -> String {
+        let hash = crate::state::recovery::record::write(
+            path,
+            "$legacy",
+            key,
+            None,
+            1,
+            json!({"key":key,"future":{"retained":true}}),
+        )
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO main.operation_publications(kind,id,revision,object_path,sha256) VALUES('$legacy',?,1,?,?)")
+            .bind(key).bind(path.to_string_lossy().as_ref()).bind(&hash)
+            .execute(pool).await.unwrap();
+        hash
+    }
+
+    fn backed_up_record(staging: &Path, path: &Path) -> PathBuf {
+        staging
+            .join("operation-records")
+            .join(crate::state::recovery::record::digest(
+                path.to_string_lossy().as_bytes(),
+            ))
+            .join(path.file_name().unwrap())
+    }
+
+    #[tokio::test]
+    async fn backup_scans_each_parent_once_and_preserves_exact_generations() {
+        let (root, pool) = fixture().await;
+        let parents =
+            [root.path().join("operations"), root.path().join("other")];
+        for parent in &parents {
+            tokio::fs::create_dir(parent).await.unwrap();
+        }
+        let mut records = Vec::new();
+        for index in 0..26 {
+            let key = format!("record-{index:02}");
+            let path =
+                parents[usize::from(index >= 24)].join(format!("{key}.json"));
+            let hash = backup_record(&pool, &key, &path).await;
+            records.push((key, path, hash));
+        }
+        // An unknown attachment and an overlapping prefix must survive without
+        // making the backup interpret a damaged or future record format.
+        let extension = parents[0].join("record-00-extension.bin");
+        tokio::fs::write(&extension, b"opaque extension")
+            .await
+            .unwrap();
+        tokio::fs::write(parents[0].join("record-00.writer.lock"), b"lock")
+            .await
+            .unwrap();
+        tokio::fs::create_dir(parents[0].join("record-00-directory"))
+            .await
+            .unwrap();
+        tokio::fs::write(&records[0].1, b"damaged original")
+            .await
+            .unwrap();
+        tokio::fs::remove_file(&records[1].1).await.unwrap();
+        sqlx::query("INSERT INTO main.operation_publications(kind,id,revision,object_path,sha256,deleted) VALUES('$legacy','deleted',2,?,'retained',1)")
+            .bind(root.path().join("missing/deleted.json").to_string_lossy().as_ref())
+            .execute(&pool).await.unwrap();
+        pool.close().await;
+
+        let staging = root.path().join("backup");
+        let mut scanned = Vec::new();
+        backup_with_directory_hook(
+            &root.path().join("data/system.db"),
+            &staging,
+            |parent| scanned.push(parent.to_owned()),
+        )
+        .await
+        .unwrap();
+        let mut expected = parents.to_vec();
+        expected.sort();
+        assert_eq!(scanned, expected);
+        for (key, path, hash) in &records {
+            let saved = backed_up_record(&staging, path);
+            let payload = crate::state::recovery::record::read(
+                &saved, hash, "$legacy", key, None, 1,
+            )
+            .await
+            .unwrap();
+            assert_eq!(payload, json!({"key":key,"future":{"retained":true}}));
+        }
+        let saved = backed_up_record(&staging, &records[0].1);
+        assert_eq!(tokio::fs::read(&saved).await.unwrap(), b"damaged original");
+        let folder = saved.parent().unwrap();
+        assert_eq!(
+            tokio::fs::read(folder.join("record-00-extension.bin"))
+                .await
+                .unwrap(),
+            b"opaque extension"
+        );
+        assert!(!folder.join("record-00.writer.lock").exists());
+        assert!(!folder.join("record-00-directory").exists());
+        assert!(!backed_up_record(&staging, &records[1].1).exists());
+        let inventory: Value = serde_json::from_slice(
+            &tokio::fs::read(staging.join("operation-records/references.json"))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(inventory.as_array().unwrap().len(), 27);
+        let deleted = inventory
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row[1] == "deleted")
+            .unwrap();
+        assert_eq!(deleted[6], true);
+        for (key, path, hash) in &records {
+            let row = inventory
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row[1] == *key)
+                .unwrap();
+            assert_eq!(row[4], path.to_string_lossy().as_ref());
+            assert_eq!(row[5], *hash);
+        }
+    }
+
+    #[tokio::test]
+    async fn backup_rejects_missing_selected_generation_without_publishing_inventory()
+     {
+        let (root, pool) = fixture().await;
+        let parent = root.path().join("operations");
+        tokio::fs::create_dir(&parent).await.unwrap();
+        let path = parent.join("selected.json");
+        backup_record(&pool, "selected", &path).await;
+        tokio::fs::remove_file(&path).await.unwrap();
+        tokio::fs::remove_file(parent.join("selected.json.previous"))
+            .await
+            .unwrap();
+        pool.close().await;
+        let staging = root.path().join("backup");
+        let error = backup(&root.path().join("data/system.db"), &staging)
+            .await
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("Selected operation envelope disappeared")
+        );
+        assert!(!staging.join("operation-records/references.json").exists());
+        assert!(parent.join("selected-0.part").is_file());
+    }
+
     #[tokio::test]
     async fn immutable_payload_is_invisible_until_its_core_decision_commits() {
         let (_root, pool) = fixture().await;

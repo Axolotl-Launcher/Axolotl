@@ -893,9 +893,6 @@ impl State {
         if let Err(error) = instances::config_sync::reconcile_all(state).await {
             tracing::warn!(%error, "Could not reconcile instance config files at startup");
         }
-        if let Err(error) = state.maintain_database_backups().await {
-            tracing::warn!(%error, "Could not maintain database snapshots at startup");
-        }
         if let Err(error) =
             crate::api::instance::maintain_backup_repository().await
         {
@@ -932,11 +929,16 @@ impl State {
                     tracing::error!(%error, "Could not initialize Discord presence");
                 }
 
-                wait_for_frontend_ready("partial download cleanup").await;
+                wait_for_frontend_ready("startup maintenance").await;
                 crate::util::fetch::cleanup_stale_partial_downloads(vec![
                     state.directories.metadata_dir(),
                     state.directories.caches_dir(),
                 ]);
+                // Periodic snapshots may copy a large operation history. They
+                // must not hold initialization open after takeover is complete.
+                if let Err(error) = state.maintain_database_backups().await {
+                    tracing::warn!(%error, "Could not maintain deferred database snapshots");
+                }
             }
         });
     }

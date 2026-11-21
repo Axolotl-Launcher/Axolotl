@@ -18608,6 +18608,9 @@
   "app.splash.migration.recovery": {
     "message": "正在迁移恢复记录……"
   },
+  "app.splash.starting": {
+    "message": "正在启动 Axolotl 启动器……"
+  },
   "app.splash.updating-app-directory": {
     "message": "正在更新应用目录……"
   },

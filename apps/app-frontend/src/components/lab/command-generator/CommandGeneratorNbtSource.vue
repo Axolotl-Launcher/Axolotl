@@ -208,7 +208,8 @@ function collapse() {
 /** 按钮：把一行展开成缩进好的多行，方便逐项改。 */
 function expand() {
     const next = formatSnbt(text.value)
-    if (next !== text.value) text.value = next
+    // 模型里的换行是 `\r\n`：忽略这个差别，免得重复点按钮把光标弹回行首。
+    if (next !== text.value.replace(/\r\n?/g, '\n')) text.value = next
 }
 
 watch(text, () => {

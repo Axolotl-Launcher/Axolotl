@@ -88,8 +88,10 @@ export function registerSnbtLanguage(monaco: Monaco): void {
         },
         onEnterRules: [
             {
+                // `{|}` 回车要变成三行：光标落在缩进后的空行，右括号自己退到
+                // 下一行。只写 `Indent` 的话右括号会跟光标挤在一行。
                 beforeText: /[[{]\s*$/,
-                action: { indentAction: monaco.languages.IndentAction.Indent },
+                action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
             },
             {
                 beforeText: /^\s*[}\]]/,

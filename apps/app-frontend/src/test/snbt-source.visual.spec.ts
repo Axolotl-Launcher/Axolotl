@@ -88,6 +88,26 @@ it('seeds a compound for entity nbt', async () => {
     expect(text()).toBe('{\n    \n}')
 })
 
+it('indents a new line between a bracket pair', async () => {
+    const { editor, text } = await mountSource({
+        modelValue: '',
+        kind: 'entity',
+        version: '1.21',
+        domain: 'entity',
+    })
+
+    editor.setValue('{}')
+    editor.setPosition({ lineNumber: 1, column: 2 })
+    editor.focus()
+    await flushPromises()
+    editor.trigger('keyboard', 'type', { text: '\n' })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    // 三行：光标落在缩进后的空行，右括号自己退到下一行。
+    expect(text().replace(/\r\n/g, '\n')).toBe('{\n    \n}')
+    expect(editor.getPosition()).toEqual({ lineNumber: 2, column: 5 })
+})
+
 it('expands the one-liner coming from another mode', async () => {
     const { text } = await mountSource({
         modelValue: '[custom_name="a",lore=["b"]]',

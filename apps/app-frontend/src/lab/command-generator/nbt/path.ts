@@ -149,7 +149,9 @@ export function validateNbtPath(path: string): NbtPathIssue[] {
         issues.push({ level: 'error', message: '路径不能以点开头', at: 0 })
     }
 
-    let depth = 0
+    // 括号要成对且类型一致：`Items{id:stone]` 用一个 `]` 把 `{` 抵掉，
+    // 只看深度的校验会当成合法路径。
+    const openers: string[] = []
     let quote: string | null = null
     for (let index = 0; index < text.length; index += 1) {
         const char = text[index]
@@ -162,16 +164,23 @@ export function validateNbtPath(path: string): NbtPathIssue[] {
             quote = char
             continue
         }
-        if (char === '[' || char === '{') depth += 1
-        else if (char === ']' || char === '}') {
-            depth -= 1
-            if (depth < 0) {
+        if (char === '[' || char === '{') {
+            openers.push(char)
+            continue
+        }
+        if (char === ']' || char === '}') {
+            const open = openers.pop()
+            if (!open) {
                 issues.push({ level: 'error', message: '多余的右括号', at: index })
+                break
+            }
+            if ((open === '[') !== (char === ']')) {
+                issues.push({ level: 'error', message: '括号不配对', at: index })
                 break
             }
         }
     }
-    if (depth > 0) {
+    if (openers.length > 0) {
         issues.push({ level: 'error', message: '括号没有闭合', at: text.length })
     }
 

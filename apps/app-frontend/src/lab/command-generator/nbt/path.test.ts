@@ -84,6 +84,16 @@ describe('NBT 路径校验', () => {
         expect(validateNbtPath('Items[0]')).toEqual([])
     })
 
+    it('右括号必须和左括号配对', () => {
+        // 只看深度的话，一个 `]` 会把 `{` 抵掉，半截筛选器就成了合法路径
+        expect(validateNbtPath('Items{id:stone]').some((issue) => issue.level === 'error')).toBe(
+            true,
+        )
+        expect(validateNbtPath('Items[0}').some((issue) => issue.level === 'error')).toBe(true)
+        expect(validateNbtPath('Items{id:stone}')).toEqual([])
+        expect(validateNbtPath('Items[{id:stone}]')).toEqual([])
+    })
+
     it('下标必须是整数', () => {
         expect(validateNbtPath('Items[a]').some((issue) => issue.level === 'error')).toBe(true)
         expect(validateNbtPath('Items[1.5]').some((issue) => issue.level === 'error')).toBe(true)

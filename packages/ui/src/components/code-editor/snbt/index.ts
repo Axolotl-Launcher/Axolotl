@@ -3,6 +3,7 @@ import { registerSnbtCompletions } from './completions.ts'
 import { registerSnbtLanguage } from './language.ts'
 
 export { attachSnbtCompletion, registerSnbtCompletions } from './completions.ts'
+export { formatSnbt } from './format.ts'
 export { registerSnbtLanguage, SNBT_LANGUAGE_ID } from './language.ts'
 export { scanSnbt } from './scan.ts'
 export type {

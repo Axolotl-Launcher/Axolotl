@@ -192,15 +192,19 @@ function shapeCandidate(form: NbtValueForm): SnbtCandidate {
 }
 
 /**
- * 括号类写法要连括号一起补：只给 `banner_patterns= ` 的话，用户还得自己敲
- * `[]` 再把光标挪进去，位置一错就补成了别的类型。标量没有括号，交给后面的
- * 值候选，不必先塞一个占位数字。
+ * 括号类写法要连括号一起补：只给 `banner_patterns=` 的话，用户还得自己敲
+ * `[]` 再把光标挪进去，位置一错就补成了别的类型。字符串同理，直接给一对
+ * 引号，光标停在中间，紧接着的候选会填进去（扫描器认得出光标在引号里）。
+ * 数字、布尔没有括号，只补分隔符，值交给后面的候选。
  */
-function containerSnippet(form: NbtValueForm | undefined): string | undefined {
+function keySuffix(form: NbtValueForm | undefined): string | undefined {
     if (!form) return undefined
     if (form.type === 'compound') return '{$0}'
     if (form.type === 'list') return '[$0]'
-    return ARRAY_LITERALS[form.type]
+    const array = ARRAY_LITERALS[form.type]
+    if (array) return array
+    if (form.values || form.type === 'string') return '"$0"'
+    return undefined
 }
 
 function valueCandidatesFor(form: NbtValueForm, version: string): SnbtCandidate[] {
@@ -333,17 +337,17 @@ function keyCandidates(context: NbtCompletionContext, scan: SnbtScan): SnbtCandi
     return fields.map((spec) => {
         const key = keyForVersion(spec, lookup.version)
         const form = formFor(spec, lookup.version)
-        const shape = containerSnippet(form)
+        const suffix = keySuffix(form)
         const description = fieldDescription(spec, lookup.domain, context.formatMessage)
         const type = form ? NBT_TYPE_SHORT[form.type] : ''
         const label = fieldLabel(spec, context.locale)
         const separator = component ? '=' : ':'
-        // 后面已经跟着分隔符时只补键名，不然会出现 `display: :`。
+        // 后面已经跟着分隔符时只补键名，不然会出现 `display::`。
         const typed = scan.next === separator
         return {
             label: key,
-            insertText: typed ? key : `${key}${separator}${shape ?? ' '}`,
-            snippet: !typed && Boolean(shape),
+            insertText: typed ? key : `${key}${separator}${suffix ?? ''}`,
+            snippet: !typed && Boolean(suffix),
             detail: type && label ? `${type} · ${label}` : type || label,
             documentation: description || undefined,
             kind: 'field' as const,
@@ -368,12 +372,15 @@ async function valueCandidates(
         }
     }
 
-    const candidates = forms.flatMap((form) => valueCandidatesFor(form, context.version))
     const ids = await idCandidates(context, scan)
-    // 有 ID 列表时，字段自带的 `""` 占位只是噪音。
-    if (ids.length) return [...ids, ...candidates.filter((item) => item.insertText !== '""')]
-    if (candidates.length === 0) candidates.push(...GENERIC_SHAPES)
-    return candidates
+    const base = forms.length
+        ? forms.flatMap((form) => valueCandidatesFor(form, context.version))
+        : GENERIC_SHAPES
+    // 光标已经在引号里时，`""` 补进去只会得到一对空引号；有 ID 列表时它也只是
+    // 噪音。两种情况都不该把占位摆出来。
+    const noisy = scan.quoted || ids.length > 0
+    const candidates = base.filter((item) => !noisy || item.insertText !== '""')
+    return [...ids, ...candidates]
 }
 
 /** 一个补全来源：按光标上下文给出候选，数据全部来自当前目录与版本。 */

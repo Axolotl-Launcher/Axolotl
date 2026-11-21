@@ -84,13 +84,32 @@ describe('键名候选', () => {
         expect(banner?.snippet).toBe(true)
     })
 
-    it('标量只补分隔符，值交给后面的候选', async () => {
+    it('标量只补分隔符，不跟空格', async () => {
         const candidates = await source({ domain: 'entity', version: '1.21' }).candidates(
             scan({ expect: 'key', word: 'NoGravity' }),
         )
         const flag = candidates.find((candidate) => candidate.label === 'NoGravity')
-        expect(flag?.insertText).toBe('NoGravity: ')
+        expect(flag?.insertText).toBe('NoGravity:')
         expect(flag?.snippet).toBe(false)
+    })
+
+    it('字符串给一对引号，光标停在中间', async () => {
+        const candidates = await source({ domain: 'entity', version: '1.21' }).candidates(
+            scan({ expect: 'key', word: 'CustomName' }),
+        )
+        const name = candidates.find((candidate) => candidate.label === 'CustomName')
+        expect(name?.insertText).toBe('CustomName:"$0"')
+        expect(name?.snippet).toBe(true)
+    })
+
+    it('枚举同样先给引号', async () => {
+        const candidates = await source({
+            domain: 'item',
+            version: '1.21',
+            components: true,
+        }).candidates(scan({ expect: 'component', word: 'base_color' }))
+        const color = candidates.find((candidate) => candidate.label === 'base_color')
+        expect(color?.insertText).toBe('base_color="$0"')
     })
 })
 

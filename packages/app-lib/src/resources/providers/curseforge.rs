@@ -718,6 +718,23 @@ impl CurseForgeProvider {
                     )),
                 };
                 let start = offset(cursor)?;
+                // CurseForge only exposes the first 10,000 results. A direct
+                // jump can land past that window; report it as an exhausted
+                // source instead of failing the whole search, so the page can
+                // still show results from other sources and the existing
+                // window-exhausted notice explains the boundary.
+                const WINDOW: usize = 10_000;
+                if start >= WINDOW {
+                    return Ok(ProviderValue::Search(SourcePage {
+                        entries: Vec::new(),
+                        cursor: None,
+                        total: ResourceTotal {
+                            value: Some(WINDOW as u64),
+                            precision: TotalPrecision::Estimate,
+                        },
+                        window_exhausted: true,
+                    }));
+                }
                 let mut request = ProtocolRequest::get("/v1/mods/search");
                 request.query = pagination(start, query.page_size)?;
                 request.query.extend([

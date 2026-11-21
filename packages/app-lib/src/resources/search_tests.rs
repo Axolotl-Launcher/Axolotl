@@ -1409,3 +1409,108 @@ async fn direct_page_rejects_zero_and_ignores_an_opaque_cursor() {
     assert_eq!(page.entries.len(), 1);
     cache.close().await;
 }
+
+#[tokio::test]
+async fn direct_pages_visit_every_entry_once_across_two_sources() {
+    let (_directory, cache) = cache().await;
+    let mr = SearchProvider::new(
+        SourceId::modrinth(),
+        &(0..31)
+            .map(|index| format!("MR {index}"))
+            .collect::<Vec<_>>(),
+    );
+    let cf = SearchProvider::new(
+        SourceId::curseforge(),
+        &(0..27)
+            .map(|index| format!("CF {index}"))
+            .collect::<Vec<_>>(),
+    );
+    let service =
+        ResourceService::new(cache.clone(), vec![mr.clone(), cf.clone()])
+            .unwrap();
+    let cancel = CancellationToken::new();
+    let mut returned = std::collections::HashSet::new();
+    // page_size 10 across two sources gives each source a quota of 5. Every
+    // source window is independent, so consecutive pages must cover all 58
+    // entries exactly once — not skip the unconsumed tail of a round-robin
+    // merge as a shared-offset calculation would.
+    for page_number in 1..=12 {
+        let mut query = query(10);
+        query.page = Some(page_number);
+        let page = service
+            .search(
+                query,
+                None,
+                RequestId::new(uuid::Uuid::new_v4().to_string()).unwrap(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert!(page.cursor.is_none());
+        for entry in page.entries {
+            assert!(returned.insert(entry.entry.default_project));
+        }
+        if !page.has_more {
+            break;
+        }
+        assert!(page_number < 12, "direct pages did not terminate");
+    }
+    assert_eq!(returned.len(), 58);
+    cache.close().await;
+}
+
+#[tokio::test]
+async fn direct_pages_do_not_refill_into_the_next_page_when_entries_are_filtered()
+ {
+    let (_directory, cache) = cache().await;
+    // Every third entry is hidden by the query filter. A refill driven by the
+    // post-filter entry count would walk past this page's 5-entry window and
+    // request the next page's entries, which the next page would then repeat.
+    let provider = SearchProvider::new(
+        SourceId::modrinth(),
+        &(0..12)
+            .map(|index| format!("Project {index}"))
+            .collect::<Vec<_>>(),
+    );
+    let service =
+        ResourceService::new(cache.clone(), vec![provider.clone()]).unwrap();
+    let cancel = CancellationToken::new();
+    // Modrinth ids here are zero-padded indexes, so "00000007" is the eighth
+    // entry — inside page 2's raw window [5, 10).
+    let mut query = query(5);
+    query.page = Some(2);
+    query.filter = Some(ResourceSearchExpression::Predicate {
+        field: "projectId".into(),
+        values: vec!["00000007".into()],
+        excluded: true,
+    });
+    let page = service
+        .search(
+            query,
+            None,
+            RequestId::new("direct-filtered-page").unwrap(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    // Page 2's window is raw [5, 10). Even though one entry there may be
+    // filtered, the source must not fetch beyond offset 10 for this page.
+    let offsets = provider
+        .calls
+        .lock()
+        .unwrap()
+        .iter()
+        .filter_map(|call| match call {
+            ProviderQuery::Search { cursor, .. } => cursor.clone(),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(offsets.contains(&Some("5".into())));
+    assert!(
+        offsets.iter().all(|offset| offset.as_deref() != Some("10")),
+        "page 2 refilled into page 3's window: {offsets:?}"
+    );
+    // Five raw entries minus the one excluded by the filter.
+    assert_eq!(page.entries.len(), 4);
+    cache.close().await;
+}

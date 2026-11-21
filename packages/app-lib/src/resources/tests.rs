@@ -4125,3 +4125,36 @@ async fn changed_cached_catalogue_is_refetched_once_as_a_complete_round() {
     assert_eq!(calls.load(Ordering::Acquire), 4);
     cache.close().await;
 }
+
+#[tokio::test]
+async fn curseforge_direct_page_past_window_is_exhausted_not_an_error() {
+    let transport = FixtureTransport::new(|_, _| {
+        panic!("a page past the 10k window must not hit the API")
+    });
+    let query = ProviderQuery::Search {
+        query: ipc::ResourceSearchQuery {
+            filter: None,
+            text: String::new(),
+            types: vec![ResourceType::Mod],
+            sources: vec![],
+            target: target(),
+            categories: vec![],
+            sort: ipc::ResourceSearchSort::Relevance,
+            page_size: 50,
+            page: Some(101),
+        },
+        cursor: Some("10000".into()),
+    };
+    let result = CurseForgeProvider::for_tests(transport)
+        .fetch_many(&[query])
+        .await
+        .remove(0)
+        .unwrap();
+    let ProviderValue::Search(page) = result else {
+        panic!("expected a search page");
+    };
+    assert!(page.entries.is_empty());
+    assert!(page.cursor.is_none());
+    assert!(page.window_exhausted);
+    assert_eq!(page.total.precision, TotalPrecision::Estimate);
+}

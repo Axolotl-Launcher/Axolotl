@@ -31,6 +31,12 @@ struct SourceBuffer {
     exhausted: bool,
     entries: VecDeque<SourceProjectMetadata>,
     total: ResourceTotal,
+    /// Raw entries this source still owes for the current direct page. A
+    /// provider may cap one request (CurseForge at 50), so a page can need a
+    /// refill. This counter is decremented by raw fetched entries — never by
+    /// entries dropped by local filters — so a refill cannot walk into the
+    /// next page's window. `None` means the streaming cursor path.
+    window_remaining: Option<usize>,
 }
 
 pub fn normalized_title(value: &str) -> String {
@@ -123,7 +129,7 @@ impl ResourceService {
             let split =
                 crate::content_search::expand_content_search_query(&query.text)
                     .suggested_split;
-            let sources = self
+            let eligible: Vec<_> = self
                 .sources()
                 .into_iter()
                 .filter(|source| {
@@ -140,8 +146,23 @@ impl ResourceService {
                             .iter()
                             .all(|kind| source.types.contains(kind))
                 })
+                .collect();
+            // A direct page gives every source its own slice of the result
+            // window. Sources are merged round-robin, so each only needs to
+            // supply roughly `page_size / sources` entries; reading a full
+            // page from every source would leave unconsumed entries behind,
+            // and a stateless page has nowhere to keep them for the next one.
+            let source_quota = direct_page.map(|_| {
+                let count = eligible.len().max(1) as u32;
+                query.page_size.div_ceil(count).max(1)
+            });
+            let sources: Vec<_> = eligible
+                .into_iter()
                 .map(|source| {
                     let mut source_query = query.clone();
+                    if let Some(quota) = source_quota {
+                        source_query.page_size = quota;
+                    }
                     if source.id == SourceId::curseforge() {
                         source_query.page_size = source_query.page_size.min(50);
                     }
@@ -173,6 +194,8 @@ impl ResourceService {
                     };
                     let supported_sort =
                         source.supported_search_sorts.contains(&query.sort);
+                    let quota =
+                        source_quota.unwrap_or(query.page_size) as usize;
                     SourceBuffer {
                         failure: (!supported_sort).then(|| {
                             source_failure(
@@ -185,17 +208,11 @@ impl ResourceService {
                         }),
                         source: source.id,
                         query: source_query,
-                        // The offset is per source but uses the shared logical
-                        // page size: each source reads `[page-1, page)` entries
-                        // in its own ordering, so no entry is skipped. A
-                        // CurseForge page is capped at 50 but `page_size` here
-                        // is the logical window, not the per-request limit.
-                        cursor: direct_page
-                            .map(|page| {
-                                (page as usize - 1)
-                                    .saturating_mul(query.page_size as usize)
-                            })
-                            .map(|offset| offset.to_string()),
+                        cursor: direct_page.map(|page| {
+                            (page as usize - 1)
+                                .saturating_mul(quota)
+                                .to_string()
+                        }),
                         started: false,
                         done: !supported_sort,
                         exhausted: false,
@@ -204,6 +221,7 @@ impl ResourceService {
                             value: None,
                             precision: TotalPrecision::Unknown,
                         },
+                        window_remaining: direct_page.map(|_| quota),
                     }
                 })
                 .collect();
@@ -256,7 +274,11 @@ impl ResourceService {
                 .filter(|(index, source)| {
                     !failed_this_page.contains(index)
                         && !source.done
-                        && source.entries.len() < query.page_size as usize
+                        && if let Some(remaining) = source.window_remaining {
+                            remaining > 0
+                        } else {
+                            source.entries.len() < query.page_size as usize
+                        }
                 })
                 .map(|(index, source)| {
                     let query = ProviderQuery::Search {
@@ -294,6 +316,14 @@ impl ResourceService {
                         }
                         source.started = true;
                         source.failure = None;
+                        // A refill is bounded by the raw entries this page
+                        // still owes, counted before `excluded_entry` below.
+                        // Using the accepted-entry count here would let a
+                        // filtered page refill into the next page's window.
+                        if let Some(remaining) = &mut source.window_remaining {
+                            *remaining =
+                                remaining.saturating_sub(page.entries.len());
+                        }
                         source.cursor = page.cursor;
                         source.done = source.cursor.is_none();
                         source.exhausted = page.window_exhausted;

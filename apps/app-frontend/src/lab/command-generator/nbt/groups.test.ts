@@ -141,6 +141,41 @@ describe('描述文本组', () => {
         expect(node.elementType).toBe('string')
         expect(node.children?.[0].value).toBe('{"text":"一行"}')
     })
+
+    /**
+     * 改一行文字不该把这一行的颜色、粗体一起抹掉，也不该把 JSON 字符串条目
+     * 重新包成 `{text:"<整段 JSON>"}`。
+     */
+    it('改文字时保留原条目的样式与写法', () => {
+        const node = createNbtTag('lore', 'list', '', [
+            createNbtTag('0', 'string', '{"text":"旧","color":"red","bold":true}'),
+            createNbtTag('1', 'compound', '', [
+                createNbtTag('text', 'string', '旧'),
+                createNbtTag('color', 'string', 'blue'),
+            ]),
+            createNbtTag('2', 'string', '纯文本'),
+        ])
+        const origins = groupRowNodes(node, lore)
+        expect(readGroupRows(node, lore)).toEqual([
+            { text: '旧' },
+            { text: '旧' },
+            { text: '纯文本' },
+        ])
+
+        writeGroupRows(node, lore, [{ text: '新' }, { text: '新' }, { text: '新' }], origins)
+        expect(node.children?.[0].value).toBe('{"text":"新","color":"red","bold":true}')
+        expect(pairs(node.children?.[1])).toEqual(['text=新', 'color=blue'])
+        expect(node.children?.[2].value).toBe('新')
+        expect(node.elementType).toBe('string')
+    })
+
+    it('复合条目写成复合列表', () => {
+        const node = createNbtTag('lore', 'list', '', [
+            createNbtTag('0', 'compound', '', [createNbtTag('text', 'string', '旧')]),
+        ])
+        writeGroupRows(node, lore, [{ text: '新' }], groupRowNodes(node, lore))
+        expect(node.elementType).toBe('compound')
+    })
 })
 
 describe('结构判定', () => {

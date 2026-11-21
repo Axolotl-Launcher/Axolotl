@@ -355,10 +355,29 @@ function bare(value: string): string {
     return unquoted
 }
 
-/** 一个 `{text:…}` 或裸字符串的文本组件取纯文本。 */
+/** `{"text":"…","color":"red"}` 这种 JSON 字符串条目。 */
+function parseTextComponent(raw: string): Record<string, unknown> | undefined {
+    const trimmed = raw.trim()
+    if (!trimmed.startsWith('{')) return undefined
+    try {
+        const parsed: unknown = JSON.parse(trimmed)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined
+        return parsed as Record<string, unknown>
+    } catch {
+        return undefined
+    }
+}
+
+/** 一个 `{text:…}`、JSON 字符串或裸字符串的文本组件取纯文本。 */
 function textOf(node: NbtTagNode | undefined): string {
     if (!node) return ''
-    if (node.type === 'string') return bare(node.value)
+    if (node.type === 'string') {
+        const raw = bare(node.value)
+        // 样式写成 JSON 字符串时，表格里要显示文字而不是整段 JSON
+        const component = parseTextComponent(raw)
+        if (component) return typeof component.text === 'string' ? component.text : ''
+        return raw
+    }
     if (node.type === 'compound') {
         const text = node.children?.find((child) => child.name === 'text')
         if (text) return bare(text.value)
@@ -368,6 +387,30 @@ function textOf(node: NbtTagNode | undefined): string {
 
 function textNode(name: string, value: string): NbtTagNode {
     return createNbtTag(name, 'string', JSON.stringify({ text: value }))
+}
+
+/**
+ * 写回一条描述文本：只换文字，颜色、粗体这些样式字段与写法（复合标签 / JSON
+ * 字符串 / 裸字符串）都跟着原条目走。没有原条目时才新建 `{text:…}`。
+ */
+function loreNode(origin: NbtTagNode | undefined, index: number, text: string): NbtTagNode {
+    if (origin?.type === 'compound') {
+        const clone = cloneNbtNode(origin)
+        const field = clone.children?.find((child) => child.name === 'text')
+        if (field) field.value = text
+        else clone.children = [createNbtTag('text', 'string', text), ...(clone.children ?? [])]
+        return clone
+    }
+    if (origin?.type === 'string') {
+        const raw = bare(origin.value)
+        const component = parseTextComponent(raw)
+        if (component) {
+            return createNbtTag(origin.name, 'string', JSON.stringify({ ...component, text }))
+        }
+        // 裸字符串本身就是一个纯文本组件，别包成 JSON 再套一层
+        return createNbtTag(origin.name, 'string', text)
+    }
+    return textNode(String(index), text)
 }
 
 /** 节点当前用的是哪种结构；两种都不是时返回 `undefined`。 */
@@ -616,8 +659,11 @@ export function writeGroupRows(
     container.value = ''
 
     if (spec.id === 'lore') {
-        container.elementType = 'string'
-        container.children = rows.map((row, index) => textNode(String(index), row.text ?? ''))
+        container.children = rows.map((row, index) =>
+            loreNode(origins?.[index] ?? previous[index], index, row.text ?? ''),
+        )
+        // 元素类型跟着实际条目走：复合条目不能标成 string
+        container.elementType = container.children[0]?.type
         return
     }
 

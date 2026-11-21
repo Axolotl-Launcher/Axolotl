@@ -15,6 +15,7 @@ fn search_query() -> ResourceSearchQuery {
         filter: None,
         sort: ResourceSearchSort::Relevance,
         page_size: 20,
+        page: None,
     }
 }
 fn predicate(

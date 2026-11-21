@@ -2572,6 +2572,7 @@ async fn source_search_projections_preserve_variants_and_date_semantics() {
             categories: vec![],
             sort: ipc::ResourceSearchSort::Relevance,
             page_size: 20,
+            page: None,
         },
         cursor: None,
     };
@@ -2646,6 +2647,7 @@ async fn modrinth_search_publication_matches_detail_approval_without_reordering_
         categories: vec![],
         sort: ipc::ResourceSearchSort::ProjectPublished,
         page_size: 100,
+        page: None,
     };
     let ProviderValue::Search(page) = provider
         .fetch_many(&[ProviderQuery::Search {
@@ -2711,6 +2713,7 @@ async fn curseforge_last_window_page_is_bounded_and_does_not_claim_a_complete_to
             categories: vec![],
             sort: ipc::ResourceSearchSort::Relevance,
             page_size: 50,
+            page: None,
         },
         cursor: Some("9990".into()),
     };
@@ -2761,6 +2764,7 @@ async fn curseforge_search_never_uses_game_version_sort_for_publication_dates()
         categories: vec![],
         sort: ipc::ResourceSearchSort::ProjectUpdated,
         page_size: 50,
+        page: None,
     };
     let ProviderValue::Search(page) = provider
         .fetch_many(&[ProviderQuery::Search {

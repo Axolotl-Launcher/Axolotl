@@ -38,6 +38,11 @@ pub struct ResourceSearchQuery {
     pub categories: Vec<String>,
     pub sort: ResourceSearchSort,
     pub page_size: u32,
+    /// One-based page to read directly. When set, the service translates it into
+    /// each source's own offset (`offset/limit` for Modrinth, `index/pageSize`
+    /// for CurseForge) instead of walking an opaque cursor chain.
+    #[serde(default)]
+    pub page: Option<u32>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

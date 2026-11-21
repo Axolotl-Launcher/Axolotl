@@ -169,6 +169,7 @@ fn query(page_size: u32) -> ResourceSearchQuery {
         categories: vec![],
         sort: ResourceSearchSort::Relevance,
         page_size,
+        page: None,
     }
 }
 async fn main_pool() -> sqlx::SqlitePool {
@@ -1333,4 +1334,78 @@ async fn future_provider_favorites_survive_grouped_removal_of_supported_projects
     assert!(service.favorites(&pool).await.unwrap().is_empty());
     cache.close().await;
     pool.close().await;
+}
+
+#[tokio::test]
+async fn direct_page_reads_its_offset_without_a_session_cursor() {
+    let (_temp, cache) = cache().await;
+    let titles: Vec<String> =
+        (0..35).map(|index| format!("Project {index}")).collect();
+    let provider = SearchProvider::new(SourceId::modrinth(), &titles);
+    let service =
+        ResourceService::new(cache.clone(), vec![provider.clone()]).unwrap();
+    let mut query = query(10);
+    query.page = Some(3);
+    let page = service
+        .search(
+            query,
+            None,
+            RequestId::new("direct-page-3").unwrap(),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(page.entries.len(), 10);
+    assert_eq!(page.entries[0].projects[0].title, "Project 20");
+    assert!(page.has_more);
+    // The source was asked for its own numeric offset for this logical page.
+    let calls = provider.calls.lock().unwrap();
+    assert!(!calls.is_empty());
+    match &calls[0] {
+        ProviderQuery::Search { cursor, .. } => {
+            assert_eq!(cursor.as_deref(), Some("20"))
+        }
+        _ => panic!("expected a search query"),
+    }
+    drop(calls);
+    // A stateless page has no opaque continuation cursor; the next page is
+    // reached by incrementing `query.page`, not by following this token.
+    assert!(page.cursor.is_none());
+    cache.close().await;
+}
+
+#[tokio::test]
+async fn direct_page_rejects_zero_and_ignores_an_opaque_cursor() {
+    let (_temp, cache) = cache().await;
+    let provider =
+        SearchProvider::new(SourceId::modrinth(), &["Project 0".into()]);
+    let service =
+        ResourceService::new(cache.clone(), vec![provider.clone()]).unwrap();
+    let mut query = query(10);
+    query.page = Some(0);
+    let error = service
+        .search(
+            query.clone(),
+            None,
+            RequestId::new("direct-page-zero").unwrap(),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
+    assert!(matches!(error, ResourceError::InvalidRequest(_)));
+
+    // When a page is given, any legacy cursor is irrelevant: the service must
+    // not try to look it up in the session map.
+    query.page = Some(1);
+    let page = service
+        .search(
+            query,
+            Some("stale-session-token".into()),
+            RequestId::new("direct-page-stale-cursor").unwrap(),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(page.entries.len(), 1);
+    cache.close().await;
 }

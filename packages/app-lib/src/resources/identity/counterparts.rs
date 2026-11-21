@@ -99,6 +99,7 @@ impl ResourceService {
                     categories: vec![],
                     sort: ipc::ResourceSearchSort::Relevance,
                     page_size: 50,
+                    page: None,
                 };
                 match self
                     .query(

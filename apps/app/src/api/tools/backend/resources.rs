@@ -245,6 +245,7 @@ pub(super) async fn execute(
                 categories: vec![],
                 sort: ResourceSearchSort::Relevance,
                 page_size: limit,
+                page: None,
             };
             let page = service()
                 .await?

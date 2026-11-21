@@ -90,9 +90,20 @@ impl ResourceService {
                 "invalid page size".into(),
             ));
         }
+        if query.page.is_some_and(|page| page == 0) {
+            return Err(ResourceError::InvalidRequest(
+                "page must be at least 1".into(),
+            ));
+        }
+        // A logical page is translated into each source's own numeric offset:
+        // `offset/limit` on Modrinth and `index/pageSize` on CurseForge. It is
+        // stateless, so a distant page costs one request per source instead of
+        // walking every page before it. When absent, the opaque session cursor
+        // below keeps the existing buffered, cross-page deduplicating behaviour.
+        let direct_page = query.page;
         let now = Utc::now().timestamp();
         self.searches.retain(|_, cursor| cursor.expires_at > now);
-        let mut state = if let Some(cursor) = cursor {
+        let mut state = if let (Some(cursor), None) = (cursor, direct_page) {
             let state = self
                 .searches
                 .get(&cursor)
@@ -174,7 +185,17 @@ impl ResourceService {
                         }),
                         source: source.id,
                         query: source_query,
-                        cursor: None,
+                        // The offset is per source but uses the shared logical
+                        // page size: each source reads `[page-1, page)` entries
+                        // in its own ordering, so no entry is skipped. A
+                        // CurseForge page is capped at 50 but `page_size` here
+                        // is the logical window, not the per-request limit.
+                        cursor: direct_page
+                            .map(|page| {
+                                (page as usize - 1)
+                                    .saturating_mul(query.page_size as usize)
+                            })
+                            .map(|offset| offset.to_string()),
                         started: false,
                         done: !supported_sort,
                         exhausted: false,
@@ -222,6 +243,10 @@ impl ResourceService {
             }
         }
         // Each source gets one initial fetch and at most one refill per page.
+        // The refill is also needed for a direct page: CurseForge caps a single
+        // request at 50, so a 100-entry logical page still takes two fetches.
+        // It cannot spill into the next page here — the next page is requested
+        // from scratch using its own computed offset, not this page's cursor.
         let mut failed_this_page = HashSet::new();
         for _ in 0..2 {
             let requests = state
@@ -523,7 +548,11 @@ impl ResourceService {
                 .iter()
                 .filter_map(|source| source.failure.clone()),
         );
-        let next = if has_more {
+        let next = if direct_page.is_some() {
+            // A direct page is stateless; the frontend asks for the next page by
+            // incrementing `query.page`, so it needs no opaque session token.
+            None
+        } else if has_more {
             let mut same_session: Vec<_> = self
                 .searches
                 .iter()

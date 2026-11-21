@@ -1,0 +1,369 @@
+/**
+ * SNBT 补全的候选来源：把 NBT 目录、版本与目标物品 / 实体接进 `@modrinth/ui`
+ * 的补全管线。
+ *
+ * 语言本身（词法、括号、缩进、悬浮列表）在 UI 包里，这里只回答「这个位置有
+ * 哪些合法写法」。所以同一套补全可以给命令生成器用，也可以给 Studio 用，
+ * 差别只在传进来的目录与 ID 表。
+ */
+
+import type { SnbtCandidate, SnbtCompletionSource, SnbtScan, SnbtSprite } from '@modrinth/ui'
+
+import potionsData from '../../shared/minecraft/assets/vanilla/potions.json' with { type: 'json' }
+import { resolveRecipeItemName } from '../../shared/minecraft/item-names.ts'
+import { loadItems, TEXTURE_ATLAS, TEXTURE_ATLAS_SIZE } from '../../shared/minecraft/resources.ts'
+import type { JavaVersionId } from '../../shared/minecraft/types.ts'
+import { compareMinecraftVersions, JAVA_VERSIONS } from '../../shared/minecraft/versions.ts'
+import effectsData from '../data/effects.json' with { type: 'json' }
+import enchantmentsData from '../data/enchantments.json' with { type: 'json' }
+import entitiesData from '../data/entities.json' with { type: 'json' }
+import { groupsFor, levelAtPath, type NbtLevel, type NbtLookup, rootFieldsFor } from './catalog.ts'
+import {
+    fieldDescription,
+    fieldLabel,
+    type MessageFormatter,
+    NBT_TYPE_NAME,
+    NBT_TYPE_SHORT,
+} from './labels.ts'
+import type { NbtTagType } from './model.ts'
+import {
+    availableFields,
+    formFor,
+    formsFor,
+    humanizeKey,
+    keyForVersion,
+    type NbtFieldSpec,
+    type NbtValueForm,
+} from './schema.ts'
+import { quoteSnbt } from './snbt.ts'
+import { valueOptions } from './values.ts'
+
+export interface NbtCompletionContext {
+    /** 没有目录可查时（例如 `/data` 的 storage）为 `null`，只给形态候选。 */
+    lookup: NbtLookup | null
+    version: string
+    locale: string
+    formatMessage: MessageFormatter
+}
+
+/** 没有目录时也能写的容器：让用户先打出骨架，再往里填。 */
+const GENERIC_SHAPES: SnbtCandidate[] = [
+    {
+        label: '{ … }',
+        insertText: '{$0}',
+        snippet: true,
+        kind: 'snippet',
+        detail: 'Compound',
+        score: 40,
+    },
+    {
+        label: '[ … ]',
+        insertText: '[$0]',
+        snippet: true,
+        kind: 'snippet',
+        detail: 'List',
+        score: 38,
+    },
+    { label: '""', insertText: '""', kind: 'value', detail: 'String', score: 36 },
+]
+
+const SCALAR_LITERALS: Partial<Record<NbtTagType, string>> = {
+    byte: '0b',
+    short: '0s',
+    int: '0',
+    long: '0L',
+    float: '0.0f',
+    double: '0.0d',
+    string: '""',
+}
+
+const ARRAY_LITERALS: Partial<Record<NbtTagType, string>> = {
+    byte_array: '[B;$0]',
+    int_array: '[I;$0]',
+    long_array: '[L;$0]',
+}
+
+type IdSource = 'item' | 'entity' | 'potion' | 'enchantment' | 'effect'
+
+const ITEM_PARENTS = new Set(['Items', 'Item', 'item', 'equipment', 'Inventory', 'item_stack'])
+const EFFECT_PARENTS = new Set(['Effects', 'effects', 'active_effects', 'custom_effects'])
+
+/** 版本号落到最近的资源快照上（物品清单只按大版本打包）。 */
+function resolveResourceVersion(version: string): JavaVersionId {
+    const match = JAVA_VERSIONS.find((meta) => compareMinecraftVersions(meta.id, version) <= 0)
+    return (match ?? JAVA_VERSIONS[JAVA_VERSIONS.length - 1]).id
+}
+
+function spriteFor(texture: string | null | undefined): SnbtSprite | undefined {
+    if (!texture) return undefined
+    const region = TEXTURE_ATLAS.layout[texture]
+    if (!region) return undefined
+    return {
+        url: TEXTURE_ATLAS.url,
+        x: region[0],
+        y: region[1],
+        width: region[2],
+        height: region[3],
+        sheetWidth: TEXTURE_ATLAS_SIZE.width,
+        sheetHeight: TEXTURE_ATLAS_SIZE.height,
+    }
+}
+
+function isChinese(locale: string): boolean {
+    return locale.toLowerCase().startsWith('zh')
+}
+
+/**
+ * 这个键的值是不是某一类 ID。
+ *
+ * 判据是键名加上父级路径：`Items` 里的 `id` 是物品，根层的 `id` 是实体，
+ * 附魔表里的键名本身就是附魔 ID。
+ */
+function idSourceFor(
+    domain: string | undefined,
+    path: string[],
+    key: string,
+): IdSource | undefined {
+    const parent = path[path.length - 1]
+    if (parent === 'Enchantments') return 'enchantment'
+    if (parent === 'levels' && path[path.length - 2] === 'enchantments') return 'enchantment'
+    if (parent && EFFECT_PARENTS.has(parent)) {
+        return key === 'id' || key === 'effect' ? 'effect' : undefined
+    }
+    if (key === 'potion' || key === 'Potion' || key === 'base_potion') return 'potion'
+    if (key === 'effect' || key === 'primary_effect' || key === 'secondary_effect') return 'effect'
+    if (key === 'Item' || key === 'item_id') return 'item'
+    if (key !== 'id') return undefined
+    if (parent && ITEM_PARENTS.has(parent)) return 'item'
+    if (parent === 'entity_data' || parent === 'EntityTag') return 'entity'
+    if (!parent && domain === 'entity') return 'entity'
+    return undefined
+}
+
+function findSpec(fields: NbtFieldSpec[], key: string, version: string): NbtFieldSpec | undefined {
+    return fields.find(
+        (spec) =>
+            keyForVersion(spec, version) === key ||
+            spec.key === key ||
+            (spec.legacyKeys ?? []).some((legacy) => legacy.key === key),
+    )
+}
+
+function shapeCandidate(form: NbtValueForm): SnbtCandidate {
+    if (form.type === 'compound') {
+        return {
+            label: '{ … }',
+            insertText: '{$0}',
+            snippet: true,
+            kind: 'snippet',
+            detail: NBT_TYPE_NAME.compound,
+            score: 60,
+        }
+    }
+    if (form.type === 'list') {
+        return {
+            label: '[ … ]',
+            insertText: '[$0]',
+            snippet: true,
+            kind: 'snippet',
+            detail: NBT_TYPE_NAME.list,
+            score: 58,
+        }
+    }
+    const array = ARRAY_LITERALS[form.type]
+    if (array) {
+        return {
+            label: array.replace('$0', ' … '),
+            insertText: array,
+            snippet: true,
+            kind: 'snippet',
+            detail: NBT_TYPE_NAME[form.type],
+            score: 56,
+        }
+    }
+    const literal = form.default ?? SCALAR_LITERALS[form.type] ?? '""'
+    return {
+        label: literal,
+        insertText: literal,
+        kind: 'value',
+        detail: NBT_TYPE_NAME[form.type],
+        score: 55,
+    }
+}
+
+function valueCandidatesFor(form: NbtValueForm, version: string): SnbtCandidate[] {
+    if (form.values) {
+        return valueOptions(form.values, version).map((option) => ({
+            label: option.label,
+            insertText: quoteSnbt(option.value),
+            kind: 'enum',
+            detail: NBT_TYPE_SHORT.string,
+            score: 70,
+        }))
+    }
+    if (form.valueKind === 'boolean') {
+        return [
+            { label: 'true', insertText: '1b', kind: 'value', detail: 'Byte', score: 68 },
+            { label: 'false', insertText: '0b', kind: 'value', detail: 'Byte', score: 67 },
+        ]
+    }
+    return [shapeCandidate(form)]
+}
+
+function keyScore(key: string, prefix: string, spec: NbtFieldSpec, exists: boolean): number {
+    let score = 50
+    if (prefix) {
+        const lower = key.toLowerCase()
+        if (lower === prefix) score += 40
+        else if (lower.startsWith(prefix)) score += 30
+        else if (lower.includes(prefix)) score += 10
+    }
+    if (spec.advanced) score -= 15
+    if (exists) score -= 20
+    return Math.max(0, Math.min(100, score))
+}
+
+async function itemCandidates(version: JavaVersionId, locale: string): Promise<SnbtCandidate[]> {
+    const items = await loadItems(version)
+    return items.map((item) => ({
+        label: item.id,
+        detail: resolveRecipeItemName(item.id, locale, item.name),
+        kind: 'item' as const,
+        icon: spriteFor(item.texture),
+    }))
+}
+
+async function effectCandidates(version: JavaVersionId, locale: string): Promise<SnbtCandidate[]> {
+    const items = await loadItems(version)
+    const byId = new Map(items.map((item) => [item.id, item]))
+    return effectsData.map((effect) => {
+        const icon = byId.get(`minecraft:${effect.icon}`)
+        return {
+            label: `minecraft:${effect.id}`,
+            detail: isChinese(locale) ? undefined : humanizeKey(effect.id),
+            kind: 'effect' as const,
+            icon: spriteFor(icon?.texture),
+        }
+    })
+}
+
+async function entityCandidates(version: JavaVersionId, locale: string): Promise<SnbtCandidate[]> {
+    const items = await loadItems(version)
+    const byId = new Map(items.map((item) => [item.id, item]))
+    return entitiesData.entities.map((entity) => ({
+        label: `minecraft:${entity.id}`,
+        detail: isChinese(locale) ? entity.zh : entity.en,
+        kind: 'entity' as const,
+        // 生物没有贴图，用刷怪蛋代替；没有刷怪蛋就退回 codicon。
+        icon: spriteFor(byId.get(`minecraft:${entity.id}_spawn_egg`)?.texture),
+    }))
+}
+
+function enchantmentCandidates(locale: string): SnbtCandidate[] {
+    return enchantmentsData.enchantments.map((enchantment) => ({
+        label: `minecraft:${enchantment.id}`,
+        detail: isChinese(locale) ? enchantment.zh : enchantment.en,
+        kind: 'enchantment' as const,
+    }))
+}
+
+function potionCandidates(locale: string): SnbtCandidate[] {
+    return potionsData.map((id) => ({
+        label: id,
+        detail: isChinese(locale) ? undefined : humanizeKey(id.replace('minecraft:', '')),
+        kind: 'potion' as const,
+    }))
+}
+
+async function idCandidates(
+    context: NbtCompletionContext,
+    scan: SnbtScan,
+): Promise<SnbtCandidate[]> {
+    const source = idSourceFor(context.lookup?.domain, scan.keyPath, scan.key)
+    if (!source) return []
+    const version = resolveResourceVersion(context.version)
+    switch (source) {
+        case 'item':
+            return itemCandidates(version, context.locale)
+        case 'effect':
+            return effectCandidates(version, context.locale)
+        case 'entity':
+            return entityCandidates(version, context.locale)
+        case 'enchantment':
+            return enchantmentCandidates(context.locale)
+        case 'potion':
+            return potionCandidates(context.locale)
+    }
+}
+
+function keyCandidates(context: NbtCompletionContext, scan: SnbtScan): SnbtCandidate[] {
+    const lookup = context.lookup
+    if (!lookup) return []
+    const level = scan.keyPath.length
+        ? levelAtPath(lookup, scan.keyPath)
+        : { fields: rootFieldsFor(lookup) }
+    if (!level) return []
+
+    const fields = availableFields(
+        level.fields,
+        { domain: lookup.domain, version: lookup.version, targetId: lookup.targetId },
+        { onlyApplicable: Boolean(lookup.targetId), groups: groupsFor(lookup.domain) },
+    )
+    const existing = new Set(scan.container?.keys ?? [])
+    const prefix = scan.word.toLowerCase()
+    const component = scan.expect === 'component'
+
+    return fields.map((spec) => {
+        const key = keyForVersion(spec, lookup.version)
+        const form = formFor(spec, lookup.version)
+        const description = fieldDescription(spec, lookup.domain, context.formatMessage)
+        const type = form ? NBT_TYPE_SHORT[form.type] : ''
+        const label = fieldLabel(spec, context.locale)
+        const separator = component ? '=' : ':'
+        return {
+            label: key,
+            // 后面已经跟着分隔符时只补键名，不然会出现 `display: :`。
+            insertText: scan.next === separator ? key : `${key}${separator} `,
+            detail: type && label ? `${type} · ${label}` : type || label,
+            documentation: description || undefined,
+            kind: 'field' as const,
+            score: keyScore(key, prefix, spec, existing.has(key)),
+        }
+    })
+}
+
+async function valueCandidates(
+    context: NbtCompletionContext,
+    scan: SnbtScan,
+): Promise<SnbtCandidate[]> {
+    const lookup = context.lookup
+    const level: NbtLevel | undefined = lookup ? levelAtPath(lookup, scan.keyPath) : undefined
+    const forms: NbtValueForm[] = []
+    if (level) {
+        if (scan.expect === 'element') {
+            if (level.element) forms.push(level.element)
+        } else {
+            const spec = findSpec(level.fields, scan.key, context.version)
+            if (spec) forms.push(...formsFor(spec, context.version))
+        }
+    }
+
+    const candidates = forms.flatMap((form) => valueCandidatesFor(form, context.version))
+    candidates.push(...(await idCandidates(context, scan)))
+    if (candidates.length === 0) candidates.push(...GENERIC_SHAPES)
+    return candidates
+}
+
+/** 一个补全来源：按光标上下文给出候选，数据全部来自当前目录与版本。 */
+export function createNbtCompletionSource(read: () => NbtCompletionContext): SnbtCompletionSource {
+    return {
+        async candidates(scan) {
+            if (scan.expect === 'after') return []
+            const context = read()
+            if (scan.expect === 'key' || scan.expect === 'component') {
+                return keyCandidates(context, scan)
+            }
+            return valueCandidates(context, scan)
+        },
+    }
+}

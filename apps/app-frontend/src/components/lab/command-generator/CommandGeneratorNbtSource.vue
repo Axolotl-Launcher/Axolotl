@@ -19,7 +19,12 @@ import { errorText } from '@/helpers/error-text'
 import type { NbtLookup } from '@/lab/command-generator/nbt/catalog.ts'
 import { createNbtCompletionSource } from '@/lab/command-generator/nbt/completion-source.ts'
 import { compareVersion, type NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
-import { parseNbt, serializeNbtDocument } from '@/lab/command-generator/nbt/snbt.ts'
+import {
+    parseNbt,
+    parseNbtTag,
+    serializeNbtDocument,
+    serializeNbtValue,
+} from '@/lab/command-generator/nbt/snbt.ts'
 
 const props = defineProps<{
     modelValue?: string
@@ -173,6 +178,10 @@ function compact(): string {
     const raw = text.value.trim()
     // 骨架只是脚手架，没往里填东西时不该出现在命令里。
     if (!raw || raw === skeleton.value.trim()) return ''
+    // `/data … value` 接受任意标签：`1`、`[1,2]` 都是合法值，不能按文档根来解析
+    if (props.kind !== 'item' && props.kind !== 'entity') {
+        return serializeNbtValue(parseNbtTag(raw))
+    }
     const parsed = parseNbt(raw)
     return serializeNbtDocument(parsed.nodes, parsed.components)
 }

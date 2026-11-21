@@ -140,6 +140,26 @@ it('expands and collapses with the toolbar buttons', async () => {
     expect(text()).toBe('[custom_name="a",lore=["b"]]')
 })
 
+it('accepts any tag as a generic data value', async () => {
+    const { wrapper, editor, text } = await mountSource({
+        modelValue: '',
+        kind: 'generic',
+        version: '1.21',
+    })
+
+    // `/data … value` 可以是标量或普通列表，不该铺骨架
+    expect(text()).toBe('')
+
+    const [, collapseButton] = wrapper.findAll('button')
+    for (const value of ['1', '[1,2]']) {
+        editor.setValue(value)
+        await flushPromises()
+        await collapseButton.trigger('click')
+        await flushPromises()
+        expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([value])
+    }
+})
+
 it('opens the component list right away on the seeded skeleton', async () => {
     const { editor } = await mountSource({
         modelValue: '',

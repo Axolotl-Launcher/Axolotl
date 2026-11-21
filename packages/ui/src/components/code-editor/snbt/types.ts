@@ -79,6 +79,8 @@ export interface SnbtCandidate {
     kind: SnbtCandidateKind
     /** 0–100，越大越靠前。 */
     score?: number
+    /** 参与过滤的文本，默认与 `label` 相同；id 用它去掉命名空间好让人只打短名。 */
+    filterText?: string
     icon?: SnbtSprite
     /** 按代码片段插入（`$0` 定位光标）。 */
     snippet?: boolean

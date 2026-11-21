@@ -69,12 +69,13 @@ export function registerSnbtCompletions(monaco: Monaco): void {
 
             const scan = scanSnbt(model.getValue(), model.getOffsetAt(position))
             const candidates = await attachment.source.candidates(scan)
-            const word = model.getWordUntilPosition(position)
+            // 替换范围按扫描器认出来的词算，而不是 Monaco 的单词定义：
+            // `minecraft:sto` 整个要换掉，`display:` 后面的冒号不能算进去。
             const range = {
                 startLineNumber: position.lineNumber,
-                startColumn: word.startColumn,
+                startColumn: Math.max(1, position.column - scan.word.length),
                 endLineNumber: position.lineNumber,
-                endColumn: word.endColumn,
+                endColumn: position.column,
             }
 
             attachment.icons.clear()
@@ -95,7 +96,7 @@ export function registerSnbtCompletions(monaco: Monaco): void {
                     documentation: candidate.documentation
                         ? { value: candidate.documentation }
                         : undefined,
-                    filterText: candidate.label,
+                    filterText: candidate.filterText ?? candidate.label,
                     // Monaco 按 sortText 升序排；分数越高越靠前。
                     sortText: `${String(999 - Math.round((candidate.score ?? 50) * 10)).padStart(4, '0')}-${String(index).padStart(4, '0')}`,
                     range,

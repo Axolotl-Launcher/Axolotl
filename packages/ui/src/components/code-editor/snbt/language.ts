@@ -78,8 +78,10 @@ export function registerSnbtLanguage(monaco: Monaco): void {
             ['{', '}'],
             ['[', ']'],
         ],
-        // `minecraft:stone` 要算一个词，补全与过滤才认全整个 id。
-        wordPattern: /[-\w.:+]+/,
+        // 不能把 `:` 算进单词：Monaco 用 `getWordUntilPosition` 过滤候选，
+        // `display:` 会变成过滤词，冒号后面的值候选就全被筛掉了。
+        // id 的替换范围由补全自己按词法算，见 `completions.ts`。
+        wordPattern: /[-\w.+]+/,
         indentationRules: {
             increaseIndentPattern: /[[{]\s*$/,
             decreaseIndentPattern: /^\s*[}\]]/,

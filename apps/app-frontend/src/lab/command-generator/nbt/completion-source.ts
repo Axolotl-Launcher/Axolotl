@@ -223,10 +223,16 @@ function keyScore(key: string, prefix: string, spec: NbtFieldSpec, exists: boole
     return Math.max(0, Math.min(100, score))
 }
 
+/** 过滤时忽略命名空间：只打 `stone` 也能命中 `minecraft:stone`。 */
+function shortId(id: string): string {
+    return id.replace(/^minecraft:/, '')
+}
+
 async function itemCandidates(version: JavaVersionId, locale: string): Promise<SnbtCandidate[]> {
     const items = await loadItems(version)
     return items.map((item) => ({
         label: item.id,
+        filterText: shortId(item.id),
         detail: resolveRecipeItemName(item.id, locale, item.name),
         kind: 'item' as const,
         icon: spriteFor(item.texture),
@@ -240,6 +246,7 @@ async function effectCandidates(version: JavaVersionId, locale: string): Promise
         const icon = byId.get(`minecraft:${effect.icon}`)
         return {
             label: `minecraft:${effect.id}`,
+            filterText: effect.id,
             detail: isChinese(locale) ? undefined : humanizeKey(effect.id),
             kind: 'effect' as const,
             icon: spriteFor(icon?.texture),
@@ -252,6 +259,7 @@ async function entityCandidates(version: JavaVersionId, locale: string): Promise
     const byId = new Map(items.map((item) => [item.id, item]))
     return entitiesData.entities.map((entity) => ({
         label: `minecraft:${entity.id}`,
+        filterText: entity.id,
         detail: isChinese(locale) ? entity.zh : entity.en,
         kind: 'entity' as const,
         // 生物没有贴图，用刷怪蛋代替；没有刷怪蛋就退回 codicon。
@@ -262,6 +270,7 @@ async function entityCandidates(version: JavaVersionId, locale: string): Promise
 function enchantmentCandidates(locale: string): SnbtCandidate[] {
     return enchantmentsData.enchantments.map((enchantment) => ({
         label: `minecraft:${enchantment.id}`,
+        filterText: enchantment.id,
         detail: isChinese(locale) ? enchantment.zh : enchantment.en,
         kind: 'enchantment' as const,
     }))
@@ -270,7 +279,8 @@ function enchantmentCandidates(locale: string): SnbtCandidate[] {
 function potionCandidates(locale: string): SnbtCandidate[] {
     return potionsData.map((id) => ({
         label: id,
-        detail: isChinese(locale) ? undefined : humanizeKey(id.replace('minecraft:', '')),
+        filterText: shortId(id),
+        detail: isChinese(locale) ? undefined : humanizeKey(shortId(id)),
         kind: 'potion' as const,
     }))
 }

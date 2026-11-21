@@ -7,6 +7,7 @@ import type { NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
 
 import CommandGeneratorItemNbt from './CommandGeneratorItemNbt.vue'
 import CommandGeneratorNbtAdvanced from './CommandGeneratorNbtAdvanced.vue'
+import CommandGeneratorNbtSource from './CommandGeneratorNbtSource.vue'
 
 const props = defineProps<{
     modelValue?: string
@@ -27,9 +28,14 @@ const { formatMessage } = useVIntl()
 const messages = defineMessages({
     simple: { id: 'app.lab.command-generator.nbt.simple', defaultMessage: 'Simple' },
     advanced: { id: 'app.lab.command-generator.nbt.advanced', defaultMessage: 'Advanced' },
+    source: { id: 'app.lab.command-generator.nbt.source', defaultMessage: 'Source' },
 })
 
-const mode = ref<'simple' | 'advanced'>(props.kind === 'item' ? 'simple' : 'advanced')
+type Mode = 'simple' | 'advanced' | 'source'
+
+const mode = ref<Mode>(props.kind === 'item' ? 'simple' : 'advanced')
+/** 源码模式一旦打开就留在 DOM 里：切走再切回来不能丢掉没提交的草稿。 */
+const sourceMounted = ref(mode.value === 'source')
 
 watch(
     () => props.kind,
@@ -37,12 +43,17 @@ watch(
         mode.value = kind === 'item' ? 'simple' : 'advanced'
     },
 )
+
+watch(mode, (next) => {
+    if (next === 'source') sourceMounted.value = true
+})
 </script>
 
 <template>
     <div class="flex min-w-0 flex-col gap-4">
-        <div v-if="kind === 'item'" class="flex flex-wrap gap-1">
+        <div class="flex flex-wrap gap-1">
             <Button
+                v-if="kind === 'item'"
                 :type="mode === 'simple' ? 'chip' : 'quiet'"
                 color="brand"
                 size="sm"
@@ -62,6 +73,16 @@ watch(
             >
                 {{ formatMessage(messages.advanced) }}
             </Button>
+            <Button
+                :type="mode === 'source' ? 'chip' : 'quiet'"
+                color="brand"
+                size="sm"
+                class="nbt-mode-tab"
+                :aria-pressed="mode === 'source'"
+                @click="mode = 'source'"
+            >
+                {{ formatMessage(messages.source) }}
+            </Button>
         </div>
 
         <CommandGeneratorItemNbt
@@ -72,7 +93,18 @@ watch(
             @update:model-value="emit('update:modelValue', $event)"
         />
         <CommandGeneratorNbtAdvanced
-            v-else
+            v-else-if="mode === 'advanced'"
+            :model-value="modelValue"
+            :kind="kind"
+            :version="version"
+            :force-data-components="forceDataComponents"
+            :domain="domain"
+            :target-id="targetId"
+            @update:model-value="emit('update:modelValue', $event)"
+        />
+        <CommandGeneratorNbtSource
+            v-if="sourceMounted"
+            v-show="mode === 'source'"
             :model-value="modelValue"
             :kind="kind"
             :version="version"

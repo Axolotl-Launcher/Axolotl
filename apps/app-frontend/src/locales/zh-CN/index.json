@@ -9122,6 +9122,18 @@
   "app.lab.command-generator.nbt.simple": {
     "message": "简单模式"
   },
+  "app.lab.command-generator.nbt.source": {
+    "message": "源码模式"
+  },
+  "app.lab.command-generator.nbt.source.compact": {
+    "message": "压缩成一行"
+  },
+  "app.lab.command-generator.nbt.source.hint": {
+    "message": "Tab 补全标签；Ctrl+S 应用命令。"
+  },
+  "app.lab.command-generator.nbt.source.invalid": {
+    "message": "语法错误：{message}"
+  },
   "app.lab.command-generator.nbt.tag-name": {
     "message": "标签名称"
   },

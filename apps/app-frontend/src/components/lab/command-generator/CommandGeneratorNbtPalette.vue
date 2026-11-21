@@ -233,6 +233,15 @@ const emptyText = computed(() => {
 
 const existing = computed(() => new Set(props.existingKeys ?? []))
 
+/**
+ * 两个开关只在「拨了会变」的时候才出现。
+ *
+ * 目录里没有任何 `appliesTo`（早先的物品组件就是这样）时，「仅显示适用」拨了
+ * 也不会少一行；没有 `advanced` 字段时，「显示高级标签」同理。留着就是假开关。
+ */
+const canFilterByTarget = computed(() => props.fields.some((field) => field.appliesTo))
+const hasAdvanced = computed(() => props.fields.some((field) => field.advanced))
+
 watch(results, () => {
     activeIndex.value = 0
 })
@@ -361,8 +370,12 @@ defineExpose({ show, hide })
                     @keydown="onKeydown"
                 />
 
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <div
+                    v-if="canFilterByTarget || hasAdvanced"
+                    class="flex flex-wrap items-center gap-x-4 gap-y-1"
+                >
                     <Checkbox
+                        v-if="canFilterByTarget"
                         :model-value="onlyApplicable"
                         :disabled="!targetId"
                         :label="
@@ -373,6 +386,7 @@ defineExpose({ show, hide })
                         @update:model-value="onlyApplicable = Boolean($event)"
                     />
                     <Checkbox
+                        v-if="hasAdvanced"
                         :model-value="showAdvanced"
                         :label="formatMessage(messages.showAdvanced)"
                         @update:model-value="showAdvanced = Boolean($event)"

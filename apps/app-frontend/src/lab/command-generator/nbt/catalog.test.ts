@@ -560,6 +560,34 @@ describe('NBT 目录查询', () => {
         expect(deduped.map((field) => field.forms[0].type)).toEqual(['compound', 'string'])
     })
 
+    /**
+     * 面板上的「仅显示适用于 X 的标签」靠 `appliesTo` 生效。物品目录早先一条
+     * 都没有，开关拨了也不会少一行——这条用例保证它真的会筛。
+     */
+    it('物品组件按物品过滤', () => {
+        const keysOf = (targetId: string) =>
+            availableFieldsFor({ domain: 'item', version: '26.3', targetId }).map(
+                (field) => field.key,
+            )
+
+        const sword = keysOf('diamond_sword')
+        expect(sword).toContain('custom_name')
+        expect(sword).not.toContain('banner_patterns')
+        expect(sword).not.toContain('trim')
+
+        expect(keysOf('white_banner')).toContain('banner_patterns')
+        expect(keysOf('written_book')).toContain('written_book_content')
+        expect(keysOf('compass')).toContain('lodestone_tracker')
+        expect(keysOf('crossbow')).toContain('charged_projectiles')
+    })
+
+    /** 「显示高级标签」同理：没有 `advanced` 字段时它是个假开关。 */
+    it('物品目录标出了高级组件', () => {
+        const fields = fieldsFor('item')
+        expect(fields.some((field) => field.advanced)).toBe(true)
+        expect(fields.filter((field) => field.advanced).length).toBeLessThan(fields.length / 2)
+    })
+
     it('搜索命中键名与可读名', () => {
         const fields = fieldsFor('entity')
         expect(searchFields(fields, 'nograv', '26.3')[0].spec.key).toBe('NoGravity')

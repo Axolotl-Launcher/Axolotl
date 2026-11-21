@@ -37,8 +37,8 @@ const props = defineProps<{
     siblingIndex?: number
     /** 结构化组用它过滤该版本不存在的附魔 / 状态效果。 */
     version?: string
-    /** 目录域与目标，用来按路径查回这个节点在目录里的字段。 */
-    domain: NbtDomain
+    /** 目录域与目标，用来按路径查回这个节点在目录里的字段；没有目录时为 undefined。 */
+    domain?: NbtDomain
     targetId?: string
     /** 物品：true 是 1.20.5+ 数据组件，false 是旧版 `tag` 的子键。 */
     components?: boolean
@@ -118,6 +118,10 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.nbt.toggle-tag',
         defaultMessage: 'Expand or collapse tag',
     },
+    toggleEmpty: {
+        id: 'app.lab.command-generator.nbt.toggle-tag.empty',
+        defaultMessage: 'No child tags to expand',
+    },
     tagName: { id: 'app.lab.command-generator.nbt.tag-name', defaultMessage: 'Tag name' },
     tagValue: { id: 'app.lab.command-generator.nbt.tag-value', defaultMessage: 'Tag value' },
     addTag: { id: 'app.lab.command-generator.nbt.add-tag', defaultMessage: 'Add child tag' },
@@ -151,13 +155,25 @@ const expanded = ref(true)
 
 const container = computed(() => isNbtContainer(props.node))
 const array = computed(() => isNbtArray(props.node))
+/** 空容器展开后什么也没有，箭头因此禁用；加了子项就自动恢复。 */
+const hasChildren = computed(() => (props.node.children?.length ?? 0) > 0)
+const toggleLabel = computed(() =>
+    formatMessage(hasChildren.value ? messages.toggleTag : messages.toggleEmpty),
+)
 
-const lookup = computed<NbtLookup>(() => ({
-    domain: props.domain,
-    version: props.version ?? '1.21',
-    targetId: props.targetId,
-    components: props.components,
-}))
+const version = computed(() => props.version ?? '1.21')
+
+/** 没有目录域时不做任何查表：所有标签都按原始标签编辑。 */
+const lookup = computed<NbtLookup | undefined>(() =>
+    props.domain
+        ? {
+              domain: props.domain,
+              version: version.value,
+              targetId: props.targetId,
+              components: props.components,
+          }
+        : undefined,
+)
 
 /**
  * 这个节点在目录里对应哪个字段、用的哪种写法。
@@ -167,12 +183,12 @@ const lookup = computed<NbtLookup>(() => ({
  * 直接拿到表格编辑器，而不必先从面板添加一遍。
  */
 const level = computed(() =>
-    props.keyPath.length ? levelAtPath(lookup.value, props.keyPath) : undefined,
+    props.keyPath.length && lookup.value ? levelAtPath(lookup.value, props.keyPath) : undefined,
 )
 const form = computed(() => {
     const field = level.value?.spec
     if (!field) return undefined
-    return formFor(field, lookup.value.version, props.node.type)
+    return formFor(field, version.value, props.node.type)
 })
 
 /** 目录里登记过结构化编辑器的标签（附魔、状态效果、物品列表）走表格，而不是标签树。 */
@@ -230,7 +246,7 @@ const canMoveDown = computed(() => {
 
 /** 目录给了枚举来源时用下拉框：染料颜色 16 个、旗帜图案是有限集合。 */
 const options = computed<NbtValueOption[]>(() => {
-    const known = valueOptions(form.value?.values, lookup.value.version)
+    const known = valueOptions(form.value?.values, version.value)
     if (!known.length) return []
     // 手写的值不在集合里也要留在下拉框里，否则界面上会变成空白
     if (!props.node.value) return known
@@ -265,11 +281,12 @@ function childKeyPath(child: NbtTagNode): string[] {
         <div class="nbt-row flex min-w-0 flex-wrap items-center gap-2">
             <Button
                 v-if="container"
-                v-tooltip="formatMessage(messages.toggleTag)"
+                v-tooltip="toggleLabel"
                 type="quiet"
                 size="sm"
                 icon-only
-                :label="formatMessage(messages.toggleTag)"
+                :label="toggleLabel"
+                :disabled="!hasChildren"
                 :aria-expanded="expanded"
                 @click="expanded = !expanded"
             >
@@ -390,7 +407,7 @@ function childKeyPath(child: NbtTagNode): string[] {
         </div>
 
         <div
-            v-else-if="container && expanded"
+            v-else-if="container && expanded && hasChildren"
             class="ml-3 flex min-w-0 flex-col gap-2 border-0 border-l border-solid border-surface-4 pl-3"
         >
             <CommandGeneratorNbtNode

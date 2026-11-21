@@ -9074,6 +9074,9 @@
   "app.lab.command-generator.nbt.palette.title.entity": {
     "message": "Add entity tag"
   },
+  "app.lab.command-generator.nbt.palette.title.generic": {
+    "message": "Add tag"
+  },
   "app.lab.command-generator.nbt.palette.title.item": {
     "message": "Add item component"
   },
@@ -9106,6 +9109,9 @@
   },
   "app.lab.command-generator.nbt.toggle-tag": {
     "message": "Expand or collapse tag"
+  },
+  "app.lab.command-generator.nbt.toggle-tag.empty": {
+    "message": "No child tags to expand"
   },
   "app.lab.command-generator.nbt.type.byte": {
     "message": "Byte"

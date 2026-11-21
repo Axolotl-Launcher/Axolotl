@@ -409,16 +409,23 @@ const pathContext = computed<{ domain?: NbtDomain; targetId?: string }>(() => {
     return { domain: 'entity', targetId: nbtTargetFromSelector(target) }
 })
 
+/**
+ * NBT 面板的目录域。
+ *
+ * `item` / `entity` 参数自己就说明了域；`generic`（`/data` 的 `value`）没有
+ * 固定指向，只能跟着同一命令的 `targetType` 走：`block` 查方块实体、`entity`
+ * 查实体，`storage` 没有字段目录，面板就不筛选。
+ */
 function nbtDomainFor(arg: CommandArgument): NbtDomain | undefined {
     if (arg.nbtKind === 'entity') return 'entity'
     if (arg.nbtKind === 'item') return 'item'
-    return undefined
+    return pathContext.value.domain
 }
 
 function nbtTargetFor(arg: CommandArgument): string | undefined {
     if (arg.nbtKind === 'entity') return nbtContext.value.entity
     if (arg.nbtKind === 'item') return nbtContext.value.item
-    return undefined
+    return pathContext.value.targetId
 }
 
 const permissionName = computed(() => {

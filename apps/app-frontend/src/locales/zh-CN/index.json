@@ -9074,6 +9074,9 @@
   "app.lab.command-generator.nbt.palette.title.entity": {
     "message": "添加实体标签"
   },
+  "app.lab.command-generator.nbt.palette.title.generic": {
+    "message": "添加标签"
+  },
   "app.lab.command-generator.nbt.palette.title.item": {
     "message": "添加物品组件"
   },
@@ -9106,6 +9109,9 @@
   },
   "app.lab.command-generator.nbt.toggle-tag": {
     "message": "展开或收起标签"
+  },
+  "app.lab.command-generator.nbt.toggle-tag.empty": {
+    "message": "没有可展开的子标签"
   },
   "app.lab.command-generator.nbt.type.byte": {
     "message": "字节"

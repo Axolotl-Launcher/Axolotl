@@ -23,7 +23,8 @@ import {
 } from '@/lab/command-generator/nbt/schema.ts'
 
 const props = defineProps<{
-    domain: NbtDomain
+    /** 没有目录域时（`/data storage`）不列候选字段，只保留「自己写一个」。 */
+    domain?: NbtDomain
     version: string
     /** 已知实体 / 物品 ID 时才能做「仅显示适用」过滤。 */
     targetId?: string
@@ -50,7 +51,8 @@ const emit = defineEmits<{
 const { formatMessage, locale } = useVIntl()
 
 /** 说明文字按域取 i18n 译文，没有译文时退回目录里的英文原文。 */
-const describe = (spec: NbtFieldSpec) => fieldDescription(spec, props.domain, formatMessage)
+const describe = (spec: NbtFieldSpec) =>
+    props.domain ? fieldDescription(spec, props.domain, formatMessage) : (spec.desc ?? '')
 
 const messages = defineMessages({
     titleEntity: {
@@ -72,6 +74,10 @@ const messages = defineMessages({
     titleElement: {
         id: 'app.lab.command-generator.nbt.palette.title.element',
         defaultMessage: 'Add entry to {parent}',
+    },
+    titleGeneric: {
+        id: 'app.lab.command-generator.nbt.palette.title.generic',
+        defaultMessage: 'Add tag',
     },
     searchPlaceholder: {
         id: 'app.lab.command-generator.nbt.palette.search',
@@ -180,6 +186,7 @@ const header = computed(() => {
         return formatMessage(messages.titleElement, { parent: props.parentKey ?? '' })
     }
     if (props.parentKey) return formatMessage(messages.titleChild, { parent: props.parentKey })
+    if (!props.domain) return formatMessage(messages.titleGeneric)
     if (props.domain === 'item') return formatMessage(messages.titleItem)
     if (props.domain === 'block_entity') return formatMessage(messages.titleBlockEntity)
     return formatMessage(messages.titleEntity)
@@ -189,16 +196,17 @@ const elementTypeName = computed(() =>
     props.element ? NBT_TYPE_NAME[props.element.type] : NBT_TYPE_NAME.compound,
 )
 
-const pool = computed(() =>
-    availableFields(
+const pool = computed(() => {
+    if (!props.domain) return props.fields
+    return availableFields(
         props.fields,
         { domain: props.domain, version: props.version, targetId: props.targetId },
         {
             onlyApplicable: onlyApplicable.value && Boolean(props.targetId),
             groups: groupsFor(props.domain),
         },
-    ),
-)
+    )
+})
 
 const results = computed(() => {
     const fields = showAdvanced.value ? pool.value : pool.value.filter((field) => !field.advanced)

@@ -99,15 +99,26 @@ let lastOutput = props.modelValue ?? ''
 
 const snbtPreview = computed(() => serializeNbtDocument(nodes.value, components.value))
 
+/**
+ * 目录域。`/data` 的 `value` 是 `generic`：`targetType=storage` 时没有任何
+ * 字段目录，这时面板不列候选字段，只让用户手写标签，而不是把实体标签摆出来。
+ */
+const domain = computed<NbtDomain | undefined>(() => {
+    if (props.domain) return props.domain
+    if (props.kind === 'item') return 'item'
+    if (props.kind === 'entity') return 'entity'
+    return undefined
+})
+
 const lookup = computed<NbtLookup>(() => ({
-    domain: props.domain ?? (props.kind === 'item' ? 'item' : 'entity'),
+    domain: domain.value ?? 'entity',
     version: version.value,
     targetId: props.targetId,
     components: components.value,
 }))
 
 /** 这一种形态下根层能填什么：组件，或旧版 `tag` 的子键。 */
-const rootFields = computed(() => rootFieldsFor(lookup.value))
+const rootFields = computed(() => (domain.value ? rootFieldsFor(lookup.value) : []))
 
 /**
  * 根层出现**另一种形态**才有的键，说明开关与文档对不上（例如在组件列表里
@@ -193,6 +204,7 @@ const paletteParent = computed(() =>
  * 只会让人把 `Pos` 写进物品里。
  */
 const paletteLevel = computed<NbtLevel>(() => {
+    if (!domain.value) return { fields: [] }
     if (paletteParentId.value === null) return { fields: rootFields.value }
     const path = nbtKeyPathFor(nodes.value, paletteParentId.value)
     if (!path) return { fields: [] }
@@ -296,7 +308,7 @@ function removeNodeById(list: NbtTagNode[], id: string): boolean {
                 :sibling-count="nodes.length"
                 :sibling-index="index"
                 :version="version"
-                :domain="lookup.domain"
+                :domain="domain"
                 :target-id="targetId"
                 :components="components"
                 :key-path="[node.name]"
@@ -328,7 +340,7 @@ function removeNodeById(list: NbtTagNode[], id: string): boolean {
 
         <CommandGeneratorNbtPalette
             ref="palette"
-            :domain="lookup.domain"
+            :domain="domain"
             :version="version"
             :target-id="targetId"
             :existing-keys="paletteExistingKeys"

@@ -133,6 +133,7 @@ const messages = defineMessages({
         defaultMessage: 'Gradient text generator',
     },
     seedMap: { id: 'app.lab.seed-map.title', defaultMessage: 'Seed map' },
+    stronghold: { id: 'app.lab.stronghold.title', defaultMessage: 'Stronghold locator' },
     schematicWorkshop: {
         id: 'app.lab.schematic-preview.title',
         defaultMessage: 'Schematic workshop',
@@ -163,6 +164,7 @@ const staticLabels = {
     Lab: messages.lab,
     'Gradient text generator': messages.gradientText,
     'Seed map': messages.seedMap,
+    'Stronghold locator': messages.stronghold,
     'Schematic workshop': messages.schematicWorkshop,
     'Mod translation': messages.modTranslation,
     'Skin editor': messages.skinEditor,
@@ -187,6 +189,7 @@ const staticIcons: Record<string, Component> = {
     Lab: FlaskConicalIcon,
     'Gradient text generator': FlaskConicalIcon,
     'Seed map': MapIcon,
+    'Stronghold locator': CompassIcon,
     'Schematic workshop': CodeIcon,
     'Mod translation': CodeIcon,
     'Skin editor': PencilIcon,

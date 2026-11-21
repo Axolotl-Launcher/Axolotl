@@ -1,4 +1,5 @@
-import type { CommandDefinition } from './commands/types.ts'
+import type { CommandDefinition, ExecuteChainSubcommand } from './commands/types.ts'
+import { migrateLegacyStep } from './variants.ts'
 
 /** execute 链的结构化状态（与组件里的 ExecuteChainState 保持一致） */
 export interface ExecuteChainState {
@@ -68,6 +69,43 @@ export function deleteUserPreset(id: string): void {
 
 export function getPresetsForCommand(commandId: string): UserPreset[] {
     return getUserPresets().filter((p) => p.commandId === commandId)
+}
+
+/** 按 id 覆盖一条预置，其余预置保持原样。 */
+export function replaceUserPreset(preset: UserPreset): void {
+    const presets = getUserPresets().map((candidate) =>
+        candidate.id === preset.id ? preset : candidate,
+    )
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(presets))
+}
+
+/**
+ * 旧版预置：链步骤里存的是 `if-biome` 这种「一个写法一个子命令」的 id，
+ * 或者只剩一段命令字符串、没有结构化状态。
+ *
+ * 前一种能在打开时自动还原，但存下来的仍是旧写法；后一种没有步骤可以还原。
+ */
+export function presetNeedsMigration(
+    preset: UserPreset,
+    lookup: ReadonlyMap<string, ExecuteChainSubcommand>,
+): boolean {
+    if (!preset.executeState) return Boolean(preset.chainString)
+    return preset.executeState.chain.some((step) => migrateLegacyStep(step, lookup) !== null)
+}
+
+/** 把旧版步骤换成「子命令 + 写法」；没有需要迁移的步骤时返回 null。 */
+export function migratePresetState(
+    state: ExecuteChainState,
+    lookup: ReadonlyMap<string, ExecuteChainSubcommand>,
+): ExecuteChainState | null {
+    let changed = false
+    const chain = state.chain.map((step) => {
+        const migrated = migrateLegacyStep(step, lookup)
+        if (!migrated) return step
+        changed = true
+        return migrated
+    })
+    return changed ? { chain, finalCommand: state.finalCommand } : null
 }
 
 /**

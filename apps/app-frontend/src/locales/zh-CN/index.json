@@ -5666,6 +5666,12 @@
   "app.lab.command-generator.arg.execute.at.target.display": {
     "message": "目标"
   },
+  "app.lab.command-generator.arg.execute.dimension.dimension.desc": {
+    "message": "要检测的维度"
+  },
+  "app.lab.command-generator.arg.execute.dimension.dimension.display": {
+    "message": "维度"
+  },
   "app.lab.command-generator.arg.execute.facing-entity.anchor.desc": {
     "message": "eyes 眼睛 / feet 脚"
   },
@@ -5840,17 +5846,41 @@
   "app.lab.command-generator.arg.execute.in.dimension.display": {
     "message": "维度"
   },
+  "app.lab.command-generator.arg.execute.loaded.pos.desc": {
+    "message": "要检测区块加载状态的坐标"
+  },
+  "app.lab.command-generator.arg.execute.loaded.pos.display": {
+    "message": "坐标"
+  },
+  "app.lab.command-generator.arg.execute.on.relation.desc": {
+    "message": "attacker 攻击者 / controller 控制者 / leasher 拴绳者 / origin 原点 / owner 主人 / passengers 乘客 / target 目标 / vehicle 载具"
+  },
+  "app.lab.command-generator.arg.execute.on.relation.display": {
+    "message": "关系"
+  },
   "app.lab.command-generator.arg.execute.positioned-as.target.desc": {
     "message": "位置参照实体"
   },
   "app.lab.command-generator.arg.execute.positioned-as.target.display": {
     "message": "目标"
   },
+  "app.lab.command-generator.arg.execute.positioned-over.heightmap.desc": {
+    "message": "world_surface 地表 / ocean_floor 海床 / motion_blocking 阻挡移动 / motion_blocking_no_leaves 忽略树叶"
+  },
+  "app.lab.command-generator.arg.execute.positioned-over.heightmap.display": {
+    "message": "高度图"
+  },
   "app.lab.command-generator.arg.execute.positioned.pos.desc": {
     "message": "新的执行位置"
   },
   "app.lab.command-generator.arg.execute.positioned.pos.display": {
     "message": "坐标"
+  },
+  "app.lab.command-generator.arg.execute.predicate.predicate.desc": {
+    "message": "谓词标识符"
+  },
+  "app.lab.command-generator.arg.execute.predicate.predicate.display": {
+    "message": "谓词"
   },
   "app.lab.command-generator.arg.execute.rotated-as.target.desc": {
     "message": "朝向参照实体"
@@ -5879,11 +5909,71 @@
   "app.lab.command-generator.arg.execute.slots.display": {
     "message": "槽位来源"
   },
-  "app.lab.command-generator.arg.execute.source.desc": {
-    "message": "来源类型"
+  "app.lab.command-generator.arg.execute.slots.target.desc": {
+    "message": "要检查槽位的实体"
   },
-  "app.lab.command-generator.arg.execute.source.display": {
-    "message": "来源类型"
+  "app.lab.command-generator.arg.execute.slots.target.display": {
+    "message": "目标实体"
+  },
+  "app.lab.command-generator.arg.execute.stopwatch.id.desc": {
+    "message": "计时器标识符"
+  },
+  "app.lab.command-generator.arg.execute.stopwatch.id.display": {
+    "message": "计时器 ID"
+  },
+  "app.lab.command-generator.arg.execute.stopwatch.range.desc": {
+    "message": "数值范围，如 1..10"
+  },
+  "app.lab.command-generator.arg.execute.stopwatch.range.display": {
+    "message": "范围"
+  },
+  "app.lab.command-generator.arg.execute.store-block.path.desc": {
+    "message": "存入的 NBT 内的路径"
+  },
+  "app.lab.command-generator.arg.execute.store-block.path.display": {
+    "message": "NBT 路径"
+  },
+  "app.lab.command-generator.arg.execute.store-block.pos.desc": {
+    "message": "接收数值的方块坐标"
+  },
+  "app.lab.command-generator.arg.execute.store-block.pos.display": {
+    "message": "坐标"
+  },
+  "app.lab.command-generator.arg.execute.store-block.scale.desc": {
+    "message": "数值乘以的倍率"
+  },
+  "app.lab.command-generator.arg.execute.store-block.scale.display": {
+    "message": "倍率"
+  },
+  "app.lab.command-generator.arg.execute.store-block.type.desc": {
+    "message": "byte 字节 / short 短整型 / int 整型 / long 长整型 / float 单精度 / double 双精度"
+  },
+  "app.lab.command-generator.arg.execute.store-block.type.display": {
+    "message": "数值类型"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.path.desc": {
+    "message": "存入的 NBT 内的路径"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.path.display": {
+    "message": "NBT 路径"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.scale.desc": {
+    "message": "数值乘以的倍率"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.scale.display": {
+    "message": "倍率"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.target.desc": {
+    "message": "接收数值的实体"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.target.display": {
+    "message": "目标"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.type.desc": {
+    "message": "byte 字节 / short 短整型 / int 整型 / long 长整型 / float 单精度 / double 双精度"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.type.display": {
+    "message": "数值类型"
   },
   "app.lab.command-generator.arg.execute.store-result-bossbar.id.desc": {
     "message": "Boss 栏标识符"
@@ -5909,23 +5999,41 @@
   "app.lab.command-generator.arg.execute.store-result-score.target.display": {
     "message": "目标"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.objective.desc": {
-    "message": "记分项名称"
+  "app.lab.command-generator.arg.execute.store-storage.path.desc": {
+    "message": "存入的 NBT 内的路径"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.objective.display": {
-    "message": "记分项"
+  "app.lab.command-generator.arg.execute.store-storage.path.display": {
+    "message": "NBT 路径"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.target.desc": {
-    "message": "记分持有者"
+  "app.lab.command-generator.arg.execute.store-storage.scale.desc": {
+    "message": "数值乘以的倍率"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.target.display": {
-    "message": "目标"
+  "app.lab.command-generator.arg.execute.store-storage.scale.display": {
+    "message": "倍率"
   },
-  "app.lab.command-generator.arg.execute.target.desc": {
-    "message": "实体或坐标"
+  "app.lab.command-generator.arg.execute.store-storage.storage.desc": {
+    "message": "命令存储标识符"
   },
-  "app.lab.command-generator.arg.execute.target.display": {
-    "message": "实体或坐标"
+  "app.lab.command-generator.arg.execute.store-storage.storage.display": {
+    "message": "存储 ID"
+  },
+  "app.lab.command-generator.arg.execute.store-storage.type.desc": {
+    "message": "byte 字节 / short 短整型 / int 整型 / long 长整型 / float 单精度 / double 双精度"
+  },
+  "app.lab.command-generator.arg.execute.store-storage.type.display": {
+    "message": "数值类型"
+  },
+  "app.lab.command-generator.arg.execute.store.mode.desc": {
+    "message": "result 存命令的返回值，success 存 1 或 0"
+  },
+  "app.lab.command-generator.arg.execute.store.mode.display": {
+    "message": "存储内容"
+  },
+  "app.lab.command-generator.arg.execute.summon.entity.desc": {
+    "message": "实体 ID"
+  },
+  "app.lab.command-generator.arg.execute.summon.entity.display": {
+    "message": "实体"
   },
   "app.lab.command-generator.arg.execute.unless-block.block.desc": {
     "message": "方块 ID"
@@ -7491,25 +7599,25 @@
     "message": "把执行坐标对齐到方块网格"
   },
   "app.lab.command-generator.execute.align.label": {
-    "message": "align · 对齐坐标"
+    "message": "align"
   },
   "app.lab.command-generator.execute.anchored.desc": {
     "message": "改变执行基准点（脚或眼睛），影响 ^ 坐标计算"
   },
   "app.lab.command-generator.execute.anchored.label": {
-    "message": "anchored · 改变基准点"
+    "message": "anchored"
   },
   "app.lab.command-generator.execute.as.desc": {
     "message": "以指定实体作为执行者，位置和朝向不变"
   },
   "app.lab.command-generator.execute.as.label": {
-    "message": "as · 改变执行者"
+    "message": "as"
   },
   "app.lab.command-generator.execute.at.desc": {
     "message": "使用目标的位置和朝向"
   },
   "app.lab.command-generator.execute.at.label": {
-    "message": "at · 改变位置和朝向"
+    "message": "at"
   },
   "app.lab.command-generator.execute.build-first": {
     "message": "请先构建子命令链"
@@ -7532,17 +7640,56 @@
   "app.lab.command-generator.execute.clear": {
     "message": "清空"
   },
+  "app.lab.command-generator.execute.condition.kind.biome.label": {
+    "message": "生物群系"
+  },
+  "app.lab.command-generator.execute.condition.kind.block.label": {
+    "message": "方块"
+  },
+  "app.lab.command-generator.execute.condition.kind.blocks.label": {
+    "message": "区域方块"
+  },
+  "app.lab.command-generator.execute.condition.kind.data.label": {
+    "message": "NBT 数据"
+  },
+  "app.lab.command-generator.execute.condition.kind.dimension.label": {
+    "message": "维度"
+  },
+  "app.lab.command-generator.execute.condition.kind.entity.label": {
+    "message": "实体"
+  },
+  "app.lab.command-generator.execute.condition.kind.function.label": {
+    "message": "函数"
+  },
+  "app.lab.command-generator.execute.condition.kind.items.label": {
+    "message": "物品"
+  },
+  "app.lab.command-generator.execute.condition.kind.loaded.label": {
+    "message": "区块已加载"
+  },
+  "app.lab.command-generator.execute.condition.kind.predicate.label": {
+    "message": "谓词"
+  },
+  "app.lab.command-generator.execute.condition.kind.score-matches.label": {
+    "message": "分数范围"
+  },
+  "app.lab.command-generator.execute.condition.kind.score.label": {
+    "message": "分数比较"
+  },
+  "app.lab.command-generator.execute.condition.kind.slots.label": {
+    "message": "槽位"
+  },
+  "app.lab.command-generator.execute.condition.kind.stopwatch.label": {
+    "message": "计时器"
+  },
   "app.lab.command-generator.execute.facing-entity.desc": {
     "message": "把执行朝向设为面向某个实体"
-  },
-  "app.lab.command-generator.execute.facing-entity.label": {
-    "message": "facing entity · 面向实体"
   },
   "app.lab.command-generator.execute.facing.desc": {
     "message": "把执行朝向设为面向某个坐标"
   },
   "app.lab.command-generator.execute.facing.label": {
-    "message": "facing · 面向坐标"
+    "message": "facing"
   },
   "app.lab.command-generator.execute.final-hint": {
     "message": "输入实际命令，不带斜杠。"
@@ -7556,68 +7703,56 @@
   "app.lab.command-generator.execute.if-biome.desc": {
     "message": "如果指定位置的生物群系匹配则继续"
   },
-  "app.lab.command-generator.execute.if-biome.label": {
-    "message": "if biome · 检测生物群系"
-  },
   "app.lab.command-generator.execute.if-block.desc": {
     "message": "如果指定位置是指定方块则继续"
-  },
-  "app.lab.command-generator.execute.if-block.label": {
-    "message": "if block · 检测方块"
   },
   "app.lab.command-generator.execute.if-blocks.desc": {
     "message": "如果两个区域的方块匹配则继续"
   },
-  "app.lab.command-generator.execute.if-blocks.label": {
-    "message": "if blocks · 检测区域"
-  },
   "app.lab.command-generator.execute.if-data.desc": {
     "message": "如果指定 NBT 路径存在则继续"
   },
-  "app.lab.command-generator.execute.if-data.label": {
-    "message": "if data · 检测 NBT 数据"
+  "app.lab.command-generator.execute.if-dimension.desc": {
+    "message": "如果执行维度匹配则继续"
   },
   "app.lab.command-generator.execute.if-entity.desc": {
     "message": "如果指定实体存在则继续"
   },
-  "app.lab.command-generator.execute.if-entity.label": {
-    "message": "if entity · 检测实体存在"
-  },
   "app.lab.command-generator.execute.if-function.desc": {
     "message": "如果函数返回成功则继续"
-  },
-  "app.lab.command-generator.execute.if-function.label": {
-    "message": "if function · 检测函数返回"
   },
   "app.lab.command-generator.execute.if-items.desc": {
     "message": "如果指定槽位有指定物品则继续"
   },
-  "app.lab.command-generator.execute.if-items.label": {
-    "message": "if items · 检测物品（1.21+）"
+  "app.lab.command-generator.execute.if-loaded.desc": {
+    "message": "如果该位置的区块已加载则继续"
+  },
+  "app.lab.command-generator.execute.if-predicate.desc": {
+    "message": "如果谓词判定通过则继续"
   },
   "app.lab.command-generator.execute.if-score-matches.desc": {
     "message": "如果分数在指定范围内则继续"
   },
-  "app.lab.command-generator.execute.if-score-matches.label": {
-    "message": "if score matches · 检测分数范围"
-  },
   "app.lab.command-generator.execute.if-score.desc": {
     "message": "如果两个记分比较成立则继续"
-  },
-  "app.lab.command-generator.execute.if-score.label": {
-    "message": "if score · 比较分数"
   },
   "app.lab.command-generator.execute.if-slots.desc": {
     "message": "使用槽位来源检查方块或实体的槽位。"
   },
-  "app.lab.command-generator.execute.if-slots.label": {
-    "message": "if slots · 检查槽位"
+  "app.lab.command-generator.execute.if-stopwatch.desc": {
+    "message": "如果计时器数值在范围内则继续"
+  },
+  "app.lab.command-generator.execute.if.desc": {
+    "message": "条件成立才继续"
+  },
+  "app.lab.command-generator.execute.if.label": {
+    "message": "if"
   },
   "app.lab.command-generator.execute.in.desc": {
     "message": "切换执行维度，位置坐标不变"
   },
   "app.lab.command-generator.execute.in.label": {
-    "message": "in · 切换维度"
+    "message": "in"
   },
   "app.lab.command-generator.execute.move-down": {
     "message": "下移"
@@ -7625,20 +7760,26 @@
   "app.lab.command-generator.execute.move-up": {
     "message": "上移"
   },
+  "app.lab.command-generator.execute.on.desc": {
+    "message": "根据攻击者、乘客、目标等关系选取执行者"
+  },
+  "app.lab.command-generator.execute.on.label": {
+    "message": "on"
+  },
   "app.lab.command-generator.execute.picker-title": {
     "message": "可用子命令"
   },
   "app.lab.command-generator.execute.positioned-as.desc": {
     "message": "把执行位置设为目标的当前位置"
   },
-  "app.lab.command-generator.execute.positioned-as.label": {
-    "message": "positioned as · 以目标为位置"
+  "app.lab.command-generator.execute.positioned-over.desc": {
+    "message": "把执行位置放到坐标下方的高度图上"
   },
   "app.lab.command-generator.execute.positioned.desc": {
     "message": "改变执行位置，执行者和朝向不变"
   },
   "app.lab.command-generator.execute.positioned.label": {
-    "message": "positioned · 改变位置"
+    "message": "positioned"
   },
   "app.lab.command-generator.execute.quick-examples": {
     "message": "快速示例"
@@ -7664,56 +7805,152 @@
   "app.lab.command-generator.execute.rotated-as.desc": {
     "message": "把执行朝向设为目标当前的朝向"
   },
-  "app.lab.command-generator.execute.rotated-as.label": {
-    "message": "rotated as · 以目标为朝向"
-  },
   "app.lab.command-generator.execute.rotated.desc": {
     "message": "改变执行朝向，位置和执行者不变"
   },
   "app.lab.command-generator.execute.rotated.label": {
-    "message": "rotated · 改变朝向"
+    "message": "rotated"
   },
-  "app.lab.command-generator.execute.store-result-bossbar.desc": {
-    "message": "把结果值存入 Boss 栏的当前值或最大值"
+  "app.lab.command-generator.execute.run-required": {
+    "message": "还没填要执行的命令：run 后面必须跟一条命令"
   },
-  "app.lab.command-generator.execute.store-result-bossbar.label": {
-    "message": "store result bossbar · 存入 Boss 栏"
+  "app.lab.command-generator.execute.store-block.desc": {
+    "message": "把数值存入方块的 NBT 数据"
   },
-  "app.lab.command-generator.execute.store-result-score.desc": {
-    "message": "把命令的实际结果值存入记分板"
+  "app.lab.command-generator.execute.store-bossbar.desc": {
+    "message": "把数值存入 Boss 栏的当前值或最大值"
   },
-  "app.lab.command-generator.execute.store-result-score.label": {
-    "message": "store result score · 存入记分板"
+  "app.lab.command-generator.execute.store-entity.desc": {
+    "message": "把数值存入实体的 NBT 数据"
   },
-  "app.lab.command-generator.execute.store-success-score.desc": {
-    "message": "把命令是否成功（1 或 0）存入记分板"
+  "app.lab.command-generator.execute.store-score.desc": {
+    "message": "把数值存入记分板"
   },
-  "app.lab.command-generator.execute.store-success-score.label": {
-    "message": "store success score · 存入成功状态"
+  "app.lab.command-generator.execute.store-storage.desc": {
+    "message": "把数值存入命令存储"
+  },
+  "app.lab.command-generator.execute.store.desc": {
+    "message": "把结果或成功状态存到别处，供后面的子命令读取"
+  },
+  "app.lab.command-generator.execute.store.label": {
+    "message": "store"
+  },
+  "app.lab.command-generator.execute.summon.desc": {
+    "message": "在执行位置生成实体，并以该实体为执行者"
+  },
+  "app.lab.command-generator.execute.summon.label": {
+    "message": "summon"
+  },
+  "app.lab.command-generator.execute.unless-biome.desc": {
+    "message": "如果位置不在指定生物群系则继续"
   },
   "app.lab.command-generator.execute.unless-block.desc": {
     "message": "如果指定位置不是指定方块则继续"
   },
-  "app.lab.command-generator.execute.unless-block.label": {
-    "message": "unless block · 检测方块（反向）"
+  "app.lab.command-generator.execute.unless-blocks.desc": {
+    "message": "如果区域不匹配则继续"
+  },
+  "app.lab.command-generator.execute.unless-data.desc": {
+    "message": "如果 NBT 路径不存在则继续"
+  },
+  "app.lab.command-generator.execute.unless-dimension.desc": {
+    "message": "如果执行维度不匹配则继续"
   },
   "app.lab.command-generator.execute.unless-entity.desc": {
     "message": "如果指定实体不存在则继续"
   },
-  "app.lab.command-generator.execute.unless-entity.label": {
-    "message": "unless entity · 检测实体不存在"
+  "app.lab.command-generator.execute.unless-function.desc": {
+    "message": "如果函数未成功返回则继续"
+  },
+  "app.lab.command-generator.execute.unless-items.desc": {
+    "message": "如果指定槽位没有指定物品则继续"
+  },
+  "app.lab.command-generator.execute.unless-loaded.desc": {
+    "message": "如果该位置的区块未加载则继续"
+  },
+  "app.lab.command-generator.execute.unless-predicate.desc": {
+    "message": "如果谓词判定不通过则继续"
+  },
+  "app.lab.command-generator.execute.unless-score-matches.desc": {
+    "message": "如果分数不在范围内则继续"
   },
   "app.lab.command-generator.execute.unless-score.desc": {
     "message": "如果两个记分比较不成立则继续"
   },
-  "app.lab.command-generator.execute.unless-score.label": {
-    "message": "unless score · 比较分数（反向）"
-  },
   "app.lab.command-generator.execute.unless-slots.desc": {
     "message": "使用槽位来源检查方块或实体的槽位。"
   },
-  "app.lab.command-generator.execute.unless-slots.label": {
-    "message": "unless slots · 检查槽位"
+  "app.lab.command-generator.execute.unless-stopwatch.desc": {
+    "message": "如果计时器数值不在范围内则继续"
+  },
+  "app.lab.command-generator.execute.unless.desc": {
+    "message": "条件不成立才继续"
+  },
+  "app.lab.command-generator.execute.unless.label": {
+    "message": "unless"
+  },
+  "app.lab.command-generator.execute.variant-required": {
+    "message": "第 {index} 步（{command}）还没选具体写法"
+  },
+  "app.lab.command-generator.execute.variant.count": {
+    "message": "{count} 种形式"
+  },
+  "app.lab.command-generator.execute.variant.field.condition": {
+    "message": "判断条件"
+  },
+  "app.lab.command-generator.execute.variant.field.destination": {
+    "message": "存储目标"
+  },
+  "app.lab.command-generator.execute.variant.field.orientation": {
+    "message": "朝向方式"
+  },
+  "app.lab.command-generator.execute.variant.field.positioning": {
+    "message": "定位方式"
+  },
+  "app.lab.command-generator.execute.variant.field.rotation": {
+    "message": "旋转方式"
+  },
+  "app.lab.command-generator.execute.variant.form.facing-entity.label": {
+    "message": "面向实体"
+  },
+  "app.lab.command-generator.execute.variant.form.facing-pos.label": {
+    "message": "面向坐标"
+  },
+  "app.lab.command-generator.execute.variant.form.positioned-as.label": {
+    "message": "以目标位置"
+  },
+  "app.lab.command-generator.execute.variant.form.positioned-over.label": {
+    "message": "按高度图"
+  },
+  "app.lab.command-generator.execute.variant.form.positioned-pos.label": {
+    "message": "指定坐标"
+  },
+  "app.lab.command-generator.execute.variant.form.rotated-angle.label": {
+    "message": "指定角度"
+  },
+  "app.lab.command-generator.execute.variant.form.rotated-as.label": {
+    "message": "以目标朝向"
+  },
+  "app.lab.command-generator.execute.variant.form.store-block.label": {
+    "message": "方块 NBT"
+  },
+  "app.lab.command-generator.execute.variant.form.store-bossbar.label": {
+    "message": "Boss 栏"
+  },
+  "app.lab.command-generator.execute.variant.form.store-entity.label": {
+    "message": "实体 NBT"
+  },
+  "app.lab.command-generator.execute.variant.form.store-score.label": {
+    "message": "记分板"
+  },
+  "app.lab.command-generator.execute.variant.form.store-storage.label": {
+    "message": "命令存储"
+  },
+  "app.lab.command-generator.execute.variant.placeholder": {
+    "message": "选择一项"
+  },
+  "app.lab.command-generator.execute.variant.unset": {
+    "message": "还没选择具体形式"
   },
   "app.lab.command-generator.filter.all": {
     "message": "全部"
@@ -8537,6 +8774,21 @@
   "app.lab.command-generator.preset.item.netherite-ingot": {
     "message": "下界合金锭"
   },
+  "app.lab.command-generator.preset.legacy": {
+    "message": "旧版"
+  },
+  "app.lab.command-generator.preset.legacy.hint": {
+    "message": "存的是旧版「一个写法一个子命令」的步骤，可以就地升级"
+  },
+  "app.lab.command-generator.preset.legacy.string-hint": {
+    "message": "只存了命令字符串，没有步骤可以还原，无法自动升级"
+  },
+  "app.lab.command-generator.preset.migrate": {
+    "message": "迁移"
+  },
+  "app.lab.command-generator.preset.migrate.hint": {
+    "message": "把存下来的步骤改写成新版写法"
+  },
   "app.lab.command-generator.preset.minutes.15": {
     "message": "15 分钟"
   },
@@ -8750,8 +9002,14 @@
   "app.lab.command-generator.preset.toast.loaded": {
     "message": "已加载预设「{name}」"
   },
+  "app.lab.command-generator.preset.toast.migrated": {
+    "message": "已把「{name}」升级到新版写法"
+  },
   "app.lab.command-generator.preset.toast.name-required": {
     "message": "请输入预设名称"
+  },
+  "app.lab.command-generator.preset.toast.not-migratable": {
+    "message": "这条预置无法自动升级"
   },
   "app.lab.command-generator.preset.toast.saved": {
     "message": "已保存预设「{name}」"

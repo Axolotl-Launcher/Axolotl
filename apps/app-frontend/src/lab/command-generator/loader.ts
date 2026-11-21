@@ -2,6 +2,8 @@ import type {
     BaseDataFile,
     CommandDataFile,
     CommandDefinition,
+    ExecuteChainOptionPatch,
+    ExecuteChainVariantOption,
     PatchDataFile,
     VersionManifest,
 } from './commands/types.ts'
@@ -60,19 +62,30 @@ function resolveCommandsForVersion(versionId: string): CommandDefinition[] {
 }
 
 export function loadCommandsForVersion(versionId: string): CommandDefinition[] {
+    const isAvailable = (sinceVersion: string | undefined) =>
+        !sinceVersion || versionId.localeCompare(sinceVersion, undefined, { numeric: true }) >= 0
+
     return resolveCommandsForVersion(versionId).map((command) =>
         command.chainCategories
             ? {
                   ...command,
                   chainCategories: command.chainCategories.map((category) => ({
                       ...category,
-                      subcommands: category.subcommands.filter(
-                          (subcommand) =>
-                              !subcommand.sinceVersion ||
-                              versionId.localeCompare(subcommand.sinceVersion, undefined, {
-                                  numeric: true,
-                              }) >= 0,
-                      ),
+                      subcommands: category.subcommands
+                          .map((subcommand) =>
+                              subcommand.variants
+                                  ? {
+                                        ...subcommand,
+                                        variants: {
+                                            ...subcommand.variants,
+                                            options: subcommand.variants.options.filter((option) =>
+                                                isAvailable(option.sinceVersion),
+                                            ),
+                                        },
+                                    }
+                                  : subcommand,
+                          )
+                          .filter((subcommand) => isAvailable(subcommand.sinceVersion)),
                   })),
               }
             : command,
@@ -126,10 +139,53 @@ function applyPatch(base: CommandDefinition[], patch: PatchDataFile): CommandDef
                         ...subcommand,
                         ...chainPatch.patched?.[subcommand.id],
                     }))
-                    .concat(category.id === chainPatch.categoryId ? (chainPatch.added ?? []) : []),
+                    .concat(category.id === chainPatch.categoryId ? (chainPatch.added ?? []) : [])
+                    .map((subcommand) => {
+                        if (category.id !== chainPatch.categoryId) return subcommand
+                        const extra = (chainPatch.addedOptions ?? [])
+                            .filter((entry) => entry.subcommandId === subcommand.id)
+                            .map((entry) => entry.option)
+                        const overrides = (chainPatch.patchedOptions ?? []).filter(
+                            (entry) => entry.subcommandId === subcommand.id,
+                        )
+                        if ((!extra.length && !overrides.length) || !subcommand.variants) {
+                            return subcommand
+                        }
+                        return {
+                            ...subcommand,
+                            variants: {
+                                ...subcommand.variants,
+                                options: [
+                                    ...subcommand.variants.options.map((option) => {
+                                        const override = overrides.find(
+                                            (entry) => entry.optionId === option.id,
+                                        )
+                                        return override ? patchOption(option, override) : option
+                                    }),
+                                    ...extra,
+                                ],
+                            },
+                        }
+                    }),
             })),
         }
     })
+}
+
+/** 只改列出的参数，没列出的保持原样。 */
+function patchOption(
+    option: ExecuteChainVariantOption,
+    override: ExecuteChainOptionPatch,
+): ExecuteChainVariantOption {
+    const patches = override.arguments ?? []
+    if (!patches.length) return option
+    return {
+        ...option,
+        arguments: option.arguments.map((argument) => {
+            const patch = patches.find((candidate) => candidate.name === argument.name)
+            return patch ? { ...argument, ...patch } : argument
+        }),
+    }
 }
 
 function mergeCommand(

@@ -266,6 +266,104 @@ it('disables browser form history for execute commands while preserving manual i
     expect(wrapper.get('.result-code').text()).toBe('/execute run say manual command')
 })
 
+it('refuses to generate an execute chain that never says what to run', async () => {
+    saveUserPreset(
+        'Chain without run',
+        'execute',
+        '1.16',
+        {},
+        {
+            executeState: {
+                chain: [{ subcommandId: 'as', values: { target: '@a' } }],
+                finalCommand: '',
+            },
+        },
+    )
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.get('.global-presets-button').trigger('click')
+    await wrapper.get('.global-preset-item').trigger('click')
+    await flushPromises()
+    await wrapper.get('.action-bar button').trigger('click')
+    expect(wrapper.find('.result-code').exists()).toBe(false)
+    expect(wrapper.get('[role="alert"]').text()).toContain('Fill in the command to run')
+})
+
+it('prompts for an unpicked form only while the step is collapsed', async () => {
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.findAll('select')[3].setValue('execute')
+    const ifCard = wrapper.findAll('button').find((button) => button.text().startsWith('if'))!
+    await ifCard.trigger('click')
+    // 新加的步骤是展开的，卡片里的下拉框已经写着「Choose one」
+    expect(wrapper.text()).not.toContain('No form picked yet')
+    await wrapper.get('ol li button[aria-expanded]').trigger('click')
+    expect(wrapper.text()).toContain('No form picked yet')
+})
+
+it('refuses to generate a chain whose step has no form picked', async () => {
+    saveUserPreset(
+        'Chain without a form',
+        'execute',
+        '1.16',
+        {},
+        {
+            executeState: {
+                chain: [{ subcommandId: 'if', values: {} }],
+                finalCommand: 'say hello',
+            },
+        },
+    )
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.get('.global-presets-button').trigger('click')
+    await wrapper.get('.global-preset-item').trigger('click')
+    await flushPromises()
+    await wrapper.get('.action-bar button').trigger('click')
+    expect(wrapper.find('.result-code').exists()).toBe(false)
+    expect(wrapper.get('[role="alert"]').text()).toContain('has no form picked yet')
+})
+
+it('marks a preset saved with the old step ids and upgrades it in place', async () => {
+    saveUserPreset(
+        'Old chain',
+        'execute',
+        '1.21',
+        {},
+        {
+            executeState: {
+                chain: [
+                    {
+                        subcommandId: 'if-biome',
+                        values: { pos: '~ ~ ~', biome: 'minecraft:plains' },
+                    },
+                ],
+                finalCommand: 'say hi',
+            },
+        },
+    )
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.get('.global-presets-button').trigger('click')
+    expect(wrapper.text()).toContain('Legacy')
+    const migrate = wrapper.findAll('button').find((button) => button.text() === 'Migrate')!
+    await migrate.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Legacy')
+    const stored = JSON.parse(
+        localStorage.getItem('axolotl:command-generator:user-presets') as string,
+    )
+    expect(stored[0].executeState.chain[0]).toEqual({
+        subcommandId: 'if',
+        values: { condition: 'biome', pos: '~ ~ ~', biome: 'minecraft:plains' },
+    })
+    expect(stored[0].chainString).toBe(undefined)
+})
+
 it.each(['give', 'execute'])(
     'opens a %s preset from another version and generates the restored command',
     async (commandId) => {

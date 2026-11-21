@@ -5666,6 +5666,12 @@
   "app.lab.command-generator.arg.execute.at.target.display": {
     "message": "Target"
   },
+  "app.lab.command-generator.arg.execute.dimension.dimension.desc": {
+    "message": "Dimension to check"
+  },
+  "app.lab.command-generator.arg.execute.dimension.dimension.display": {
+    "message": "Dimension"
+  },
   "app.lab.command-generator.arg.execute.facing-entity.anchor.desc": {
     "message": "eyes or feet"
   },
@@ -5840,17 +5846,41 @@
   "app.lab.command-generator.arg.execute.in.dimension.display": {
     "message": "Dimension"
   },
+  "app.lab.command-generator.arg.execute.loaded.pos.desc": {
+    "message": "Position whose chunk is checked"
+  },
+  "app.lab.command-generator.arg.execute.loaded.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.execute.on.relation.desc": {
+    "message": "attacker / controller / leasher / origin / owner / passengers / target / vehicle"
+  },
+  "app.lab.command-generator.arg.execute.on.relation.display": {
+    "message": "Relation"
+  },
   "app.lab.command-generator.arg.execute.positioned-as.target.desc": {
     "message": "Position reference entity"
   },
   "app.lab.command-generator.arg.execute.positioned-as.target.display": {
     "message": "Target"
   },
+  "app.lab.command-generator.arg.execute.positioned-over.heightmap.desc": {
+    "message": "world_surface / ocean_floor / motion_blocking / motion_blocking_no_leaves"
+  },
+  "app.lab.command-generator.arg.execute.positioned-over.heightmap.display": {
+    "message": "Heightmap"
+  },
   "app.lab.command-generator.arg.execute.positioned.pos.desc": {
     "message": "New execution position"
   },
   "app.lab.command-generator.arg.execute.positioned.pos.display": {
     "message": "Position"
+  },
+  "app.lab.command-generator.arg.execute.predicate.predicate.desc": {
+    "message": "Predicate ID"
+  },
+  "app.lab.command-generator.arg.execute.predicate.predicate.display": {
+    "message": "Predicate"
   },
   "app.lab.command-generator.arg.execute.rotated-as.target.desc": {
     "message": "Rotation reference entity"
@@ -5879,11 +5909,71 @@
   "app.lab.command-generator.arg.execute.slots.display": {
     "message": "Slot source"
   },
-  "app.lab.command-generator.arg.execute.source.desc": {
-    "message": "Source type"
+  "app.lab.command-generator.arg.execute.slots.target.desc": {
+    "message": "Entities whose slots are checked"
   },
-  "app.lab.command-generator.arg.execute.source.display": {
-    "message": "Source type"
+  "app.lab.command-generator.arg.execute.slots.target.display": {
+    "message": "Targets"
+  },
+  "app.lab.command-generator.arg.execute.stopwatch.id.desc": {
+    "message": "Stopwatch identifier"
+  },
+  "app.lab.command-generator.arg.execute.stopwatch.id.display": {
+    "message": "Stopwatch ID"
+  },
+  "app.lab.command-generator.arg.execute.stopwatch.range.desc": {
+    "message": "Value range such as 1..10"
+  },
+  "app.lab.command-generator.arg.execute.stopwatch.range.display": {
+    "message": "Range"
+  },
+  "app.lab.command-generator.arg.execute.store-block.path.desc": {
+    "message": "Path inside the stored NBT"
+  },
+  "app.lab.command-generator.arg.execute.store-block.path.display": {
+    "message": "NBT path"
+  },
+  "app.lab.command-generator.arg.execute.store-block.pos.desc": {
+    "message": "Block whose NBT receives the value"
+  },
+  "app.lab.command-generator.arg.execute.store-block.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.execute.store-block.scale.desc": {
+    "message": "Multiplier applied to the value"
+  },
+  "app.lab.command-generator.arg.execute.store-block.scale.display": {
+    "message": "Scale"
+  },
+  "app.lab.command-generator.arg.execute.store-block.type.desc": {
+    "message": "byte / short / int / long / float / double"
+  },
+  "app.lab.command-generator.arg.execute.store-block.type.display": {
+    "message": "Type"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.path.desc": {
+    "message": "Path inside the stored NBT"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.path.display": {
+    "message": "NBT path"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.scale.desc": {
+    "message": "Multiplier applied to the value"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.scale.display": {
+    "message": "Scale"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.target.desc": {
+    "message": "Entity that receives the value"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.type.desc": {
+    "message": "byte / short / int / long / float / double"
+  },
+  "app.lab.command-generator.arg.execute.store-entity.type.display": {
+    "message": "Type"
   },
   "app.lab.command-generator.arg.execute.store-result-bossbar.id.desc": {
     "message": "Boss bar identifier"
@@ -5909,23 +5999,41 @@
   "app.lab.command-generator.arg.execute.store-result-score.target.display": {
     "message": "Target"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.objective.desc": {
-    "message": "Objective name"
+  "app.lab.command-generator.arg.execute.store-storage.path.desc": {
+    "message": "Path inside the stored NBT"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.objective.display": {
-    "message": "Objective"
+  "app.lab.command-generator.arg.execute.store-storage.path.display": {
+    "message": "NBT path"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.target.desc": {
-    "message": "Score holder"
+  "app.lab.command-generator.arg.execute.store-storage.scale.desc": {
+    "message": "Multiplier applied to the value"
   },
-  "app.lab.command-generator.arg.execute.store-success-score.target.display": {
-    "message": "Target"
+  "app.lab.command-generator.arg.execute.store-storage.scale.display": {
+    "message": "Scale"
   },
-  "app.lab.command-generator.arg.execute.target.desc": {
-    "message": "Entity or position"
+  "app.lab.command-generator.arg.execute.store-storage.storage.desc": {
+    "message": "Command storage ID"
   },
-  "app.lab.command-generator.arg.execute.target.display": {
-    "message": "Entity or position"
+  "app.lab.command-generator.arg.execute.store-storage.storage.display": {
+    "message": "Storage"
+  },
+  "app.lab.command-generator.arg.execute.store-storage.type.desc": {
+    "message": "byte / short / int / long / float / double"
+  },
+  "app.lab.command-generator.arg.execute.store-storage.type.display": {
+    "message": "Type"
+  },
+  "app.lab.command-generator.arg.execute.store.mode.desc": {
+    "message": "result keeps the command value, success keeps 1 or 0"
+  },
+  "app.lab.command-generator.arg.execute.store.mode.display": {
+    "message": "What to store"
+  },
+  "app.lab.command-generator.arg.execute.summon.entity.desc": {
+    "message": "Entity ID"
+  },
+  "app.lab.command-generator.arg.execute.summon.entity.display": {
+    "message": "Entity"
   },
   "app.lab.command-generator.arg.execute.unless-block.block.desc": {
     "message": "Block ID"
@@ -7491,25 +7599,25 @@
     "message": "Align the execution coordinates to the block grid"
   },
   "app.lab.command-generator.execute.align.label": {
-    "message": "align · Align to block grid"
+    "message": "align"
   },
   "app.lab.command-generator.execute.anchored.desc": {
     "message": "Change the anchor point (feet or eyes) for ^ coordinates"
   },
   "app.lab.command-generator.execute.anchored.label": {
-    "message": "anchored · Change anchor point"
+    "message": "anchored"
   },
   "app.lab.command-generator.execute.as.desc": {
     "message": "Run as the given entity, keeping position and rotation"
   },
   "app.lab.command-generator.execute.as.label": {
-    "message": "as · Change executor"
+    "message": "as"
   },
   "app.lab.command-generator.execute.at.desc": {
     "message": "Use the target's position and rotation"
   },
   "app.lab.command-generator.execute.at.label": {
-    "message": "at · Change position and rotation"
+    "message": "at"
   },
   "app.lab.command-generator.execute.build-first": {
     "message": "Please build the subcommand chain first"
@@ -7532,17 +7640,56 @@
   "app.lab.command-generator.execute.clear": {
     "message": "Clear"
   },
+  "app.lab.command-generator.execute.condition.kind.biome.label": {
+    "message": "Biome"
+  },
+  "app.lab.command-generator.execute.condition.kind.block.label": {
+    "message": "Block"
+  },
+  "app.lab.command-generator.execute.condition.kind.blocks.label": {
+    "message": "Block region"
+  },
+  "app.lab.command-generator.execute.condition.kind.data.label": {
+    "message": "NBT data"
+  },
+  "app.lab.command-generator.execute.condition.kind.dimension.label": {
+    "message": "Dimension"
+  },
+  "app.lab.command-generator.execute.condition.kind.entity.label": {
+    "message": "Entity"
+  },
+  "app.lab.command-generator.execute.condition.kind.function.label": {
+    "message": "Function"
+  },
+  "app.lab.command-generator.execute.condition.kind.items.label": {
+    "message": "Items"
+  },
+  "app.lab.command-generator.execute.condition.kind.loaded.label": {
+    "message": "Chunk loaded"
+  },
+  "app.lab.command-generator.execute.condition.kind.predicate.label": {
+    "message": "Predicate"
+  },
+  "app.lab.command-generator.execute.condition.kind.score-matches.label": {
+    "message": "Score range"
+  },
+  "app.lab.command-generator.execute.condition.kind.score.label": {
+    "message": "Score compare"
+  },
+  "app.lab.command-generator.execute.condition.kind.slots.label": {
+    "message": "Slots"
+  },
+  "app.lab.command-generator.execute.condition.kind.stopwatch.label": {
+    "message": "Stopwatch"
+  },
   "app.lab.command-generator.execute.facing-entity.desc": {
     "message": "Face the execution direction toward an entity"
-  },
-  "app.lab.command-generator.execute.facing-entity.label": {
-    "message": "facing entity · Face an entity"
   },
   "app.lab.command-generator.execute.facing.desc": {
     "message": "Face the execution direction toward a coordinate"
   },
   "app.lab.command-generator.execute.facing.label": {
-    "message": "facing · Face a coordinate"
+    "message": "facing"
   },
   "app.lab.command-generator.execute.final-hint": {
     "message": "Type the actual command without the leading slash."
@@ -7556,68 +7703,56 @@
   "app.lab.command-generator.execute.if-biome.desc": {
     "message": "Continue if the position matches the biome"
   },
-  "app.lab.command-generator.execute.if-biome.label": {
-    "message": "if biome · Check biome"
-  },
   "app.lab.command-generator.execute.if-block.desc": {
     "message": "Continue if the given position is the given block"
-  },
-  "app.lab.command-generator.execute.if-block.label": {
-    "message": "if block · Check block"
   },
   "app.lab.command-generator.execute.if-blocks.desc": {
     "message": "Continue if the two regions match"
   },
-  "app.lab.command-generator.execute.if-blocks.label": {
-    "message": "if blocks · Check region"
-  },
   "app.lab.command-generator.execute.if-data.desc": {
     "message": "Continue if the given NBT path exists"
   },
-  "app.lab.command-generator.execute.if-data.label": {
-    "message": "if data · Check NBT data"
+  "app.lab.command-generator.execute.if-dimension.desc": {
+    "message": "Continue if the execution dimension matches"
   },
   "app.lab.command-generator.execute.if-entity.desc": {
     "message": "Continue if the given entity exists"
   },
-  "app.lab.command-generator.execute.if-entity.label": {
-    "message": "if entity · Check entity exists"
-  },
   "app.lab.command-generator.execute.if-function.desc": {
     "message": "Continue if the function returns success"
-  },
-  "app.lab.command-generator.execute.if-function.label": {
-    "message": "if function · Check function result"
   },
   "app.lab.command-generator.execute.if-items.desc": {
     "message": "Continue if the given slot contains the item"
   },
-  "app.lab.command-generator.execute.if-items.label": {
-    "message": "if items · Check items (1.21+)"
+  "app.lab.command-generator.execute.if-loaded.desc": {
+    "message": "Continue if the chunk at the position is loaded"
+  },
+  "app.lab.command-generator.execute.if-predicate.desc": {
+    "message": "Continue if the predicate passes"
   },
   "app.lab.command-generator.execute.if-score-matches.desc": {
     "message": "Continue if the score is within the given range"
   },
-  "app.lab.command-generator.execute.if-score-matches.label": {
-    "message": "if score matches · Check score range"
-  },
   "app.lab.command-generator.execute.if-score.desc": {
     "message": "Continue if the score comparison holds"
-  },
-  "app.lab.command-generator.execute.if-score.label": {
-    "message": "if score · Compare scores"
   },
   "app.lab.command-generator.execute.if-slots.desc": {
     "message": "Test slots on a block or entity using a slot source."
   },
-  "app.lab.command-generator.execute.if-slots.label": {
-    "message": "if slots"
+  "app.lab.command-generator.execute.if-stopwatch.desc": {
+    "message": "Continue if the stopwatch value is inside the range"
+  },
+  "app.lab.command-generator.execute.if.desc": {
+    "message": "Continue only when the condition holds"
+  },
+  "app.lab.command-generator.execute.if.label": {
+    "message": "if"
   },
   "app.lab.command-generator.execute.in.desc": {
     "message": "Switch the execution dimension, keeping coordinates"
   },
   "app.lab.command-generator.execute.in.label": {
-    "message": "in · Switch dimension"
+    "message": "in"
   },
   "app.lab.command-generator.execute.move-down": {
     "message": "Move down"
@@ -7625,20 +7760,26 @@
   "app.lab.command-generator.execute.move-up": {
     "message": "Move up"
   },
+  "app.lab.command-generator.execute.on.desc": {
+    "message": "Pick the executor from a relationship such as attacker, passenger or target"
+  },
+  "app.lab.command-generator.execute.on.label": {
+    "message": "on"
+  },
   "app.lab.command-generator.execute.picker-title": {
     "message": "Available subcommands"
   },
   "app.lab.command-generator.execute.positioned-as.desc": {
     "message": "Use the target's position as the execution position"
   },
-  "app.lab.command-generator.execute.positioned-as.label": {
-    "message": "positioned as · Use target's position"
+  "app.lab.command-generator.execute.positioned-over.desc": {
+    "message": "Move the execution position onto a heightmap below the coordinates"
   },
   "app.lab.command-generator.execute.positioned.desc": {
     "message": "Change the execution position, keeping executor and rotation"
   },
   "app.lab.command-generator.execute.positioned.label": {
-    "message": "positioned · Change position"
+    "message": "positioned"
   },
   "app.lab.command-generator.execute.quick-examples": {
     "message": "Quick examples"
@@ -7664,56 +7805,152 @@
   "app.lab.command-generator.execute.rotated-as.desc": {
     "message": "Use the target's rotation as the execution rotation"
   },
-  "app.lab.command-generator.execute.rotated-as.label": {
-    "message": "rotated as · Use target's rotation"
-  },
   "app.lab.command-generator.execute.rotated.desc": {
     "message": "Change the execution rotation, keeping position and executor"
   },
   "app.lab.command-generator.execute.rotated.label": {
-    "message": "rotated · Change rotation"
+    "message": "rotated"
   },
-  "app.lab.command-generator.execute.store-result-bossbar.desc": {
-    "message": "Store the result into a boss bar's value or max"
+  "app.lab.command-generator.execute.run-required": {
+    "message": "Fill in the command to run: run has to be followed by a command"
   },
-  "app.lab.command-generator.execute.store-result-bossbar.label": {
-    "message": "store result bossbar · Store into boss bar"
+  "app.lab.command-generator.execute.store-block.desc": {
+    "message": "Store the value into a block's NBT data"
   },
-  "app.lab.command-generator.execute.store-result-score.desc": {
-    "message": "Store the command's actual result into a scoreboard"
+  "app.lab.command-generator.execute.store-bossbar.desc": {
+    "message": "Store the value into a boss bar's value or max"
   },
-  "app.lab.command-generator.execute.store-result-score.label": {
-    "message": "store result score · Store into scoreboard"
+  "app.lab.command-generator.execute.store-entity.desc": {
+    "message": "Store the value into an entity's NBT data"
   },
-  "app.lab.command-generator.execute.store-success-score.desc": {
-    "message": "Store 1 or 0 depending on the command's success"
+  "app.lab.command-generator.execute.store-score.desc": {
+    "message": "Store the value into a scoreboard"
   },
-  "app.lab.command-generator.execute.store-success-score.label": {
-    "message": "store success score · Store success flag"
+  "app.lab.command-generator.execute.store-storage.desc": {
+    "message": "Store the value into a command storage"
+  },
+  "app.lab.command-generator.execute.store.desc": {
+    "message": "Keep the result, or the success flag, somewhere the chain can read it"
+  },
+  "app.lab.command-generator.execute.store.label": {
+    "message": "store"
+  },
+  "app.lab.command-generator.execute.summon.desc": {
+    "message": "Summon an entity at the execution position and make it the executor"
+  },
+  "app.lab.command-generator.execute.summon.label": {
+    "message": "summon"
+  },
+  "app.lab.command-generator.execute.unless-biome.desc": {
+    "message": "Continue if the position is NOT in the given biome"
   },
   "app.lab.command-generator.execute.unless-block.desc": {
     "message": "Continue if the position is NOT the given block"
   },
-  "app.lab.command-generator.execute.unless-block.label": {
-    "message": "unless block · Check block (inverse)"
+  "app.lab.command-generator.execute.unless-blocks.desc": {
+    "message": "Continue if the regions do NOT match"
+  },
+  "app.lab.command-generator.execute.unless-data.desc": {
+    "message": "Continue if the NBT path does not exist"
+  },
+  "app.lab.command-generator.execute.unless-dimension.desc": {
+    "message": "Continue if the execution dimension differs"
   },
   "app.lab.command-generator.execute.unless-entity.desc": {
     "message": "Continue if the given entity does not exist"
   },
-  "app.lab.command-generator.execute.unless-entity.label": {
-    "message": "unless entity · Check entity absent"
+  "app.lab.command-generator.execute.unless-function.desc": {
+    "message": "Continue if the function does not return success"
+  },
+  "app.lab.command-generator.execute.unless-items.desc": {
+    "message": "Continue when the slot does not hold the item"
+  },
+  "app.lab.command-generator.execute.unless-loaded.desc": {
+    "message": "Continue if the chunk at the position is not loaded"
+  },
+  "app.lab.command-generator.execute.unless-predicate.desc": {
+    "message": "Continue if the predicate fails"
+  },
+  "app.lab.command-generator.execute.unless-score-matches.desc": {
+    "message": "Continue if the score is outside the range"
   },
   "app.lab.command-generator.execute.unless-score.desc": {
     "message": "Continue if the score comparison does not hold"
   },
-  "app.lab.command-generator.execute.unless-score.label": {
-    "message": "unless score · Compare scores (inverse)"
-  },
   "app.lab.command-generator.execute.unless-slots.desc": {
     "message": "Test slots on a block or entity using a slot source."
   },
-  "app.lab.command-generator.execute.unless-slots.label": {
-    "message": "unless slots"
+  "app.lab.command-generator.execute.unless-stopwatch.desc": {
+    "message": "Continue if the stopwatch value is outside the range"
+  },
+  "app.lab.command-generator.execute.unless.desc": {
+    "message": "Continue only when the condition fails"
+  },
+  "app.lab.command-generator.execute.unless.label": {
+    "message": "unless"
+  },
+  "app.lab.command-generator.execute.variant-required": {
+    "message": "Step {index} ({command}) has no form picked yet"
+  },
+  "app.lab.command-generator.execute.variant.count": {
+    "message": "{count} forms"
+  },
+  "app.lab.command-generator.execute.variant.field.condition": {
+    "message": "Condition"
+  },
+  "app.lab.command-generator.execute.variant.field.destination": {
+    "message": "Destination"
+  },
+  "app.lab.command-generator.execute.variant.field.orientation": {
+    "message": "Facing"
+  },
+  "app.lab.command-generator.execute.variant.field.positioning": {
+    "message": "Positioning"
+  },
+  "app.lab.command-generator.execute.variant.field.rotation": {
+    "message": "Rotation"
+  },
+  "app.lab.command-generator.execute.variant.form.facing-entity.label": {
+    "message": "Toward an entity"
+  },
+  "app.lab.command-generator.execute.variant.form.facing-pos.label": {
+    "message": "Toward coordinates"
+  },
+  "app.lab.command-generator.execute.variant.form.positioned-as.label": {
+    "message": "At a target's position"
+  },
+  "app.lab.command-generator.execute.variant.form.positioned-over.label": {
+    "message": "On a heightmap"
+  },
+  "app.lab.command-generator.execute.variant.form.positioned-pos.label": {
+    "message": "At coordinates"
+  },
+  "app.lab.command-generator.execute.variant.form.rotated-angle.label": {
+    "message": "By angles"
+  },
+  "app.lab.command-generator.execute.variant.form.rotated-as.label": {
+    "message": "As a target's rotation"
+  },
+  "app.lab.command-generator.execute.variant.form.store-block.label": {
+    "message": "Block NBT"
+  },
+  "app.lab.command-generator.execute.variant.form.store-bossbar.label": {
+    "message": "Boss bar"
+  },
+  "app.lab.command-generator.execute.variant.form.store-entity.label": {
+    "message": "Entity NBT"
+  },
+  "app.lab.command-generator.execute.variant.form.store-score.label": {
+    "message": "Scoreboard"
+  },
+  "app.lab.command-generator.execute.variant.form.store-storage.label": {
+    "message": "Command storage"
+  },
+  "app.lab.command-generator.execute.variant.placeholder": {
+    "message": "Choose one"
+  },
+  "app.lab.command-generator.execute.variant.unset": {
+    "message": "No form picked yet"
   },
   "app.lab.command-generator.filter.all": {
     "message": "All"
@@ -8537,6 +8774,21 @@
   "app.lab.command-generator.preset.item.netherite-ingot": {
     "message": "Netherite ingot"
   },
+  "app.lab.command-generator.preset.legacy": {
+    "message": "Legacy"
+  },
+  "app.lab.command-generator.preset.legacy.hint": {
+    "message": "Saved with the old one-id-per-form steps; it can be upgraded in place"
+  },
+  "app.lab.command-generator.preset.legacy.string-hint": {
+    "message": "Saved as a plain command string, so it cannot be upgraded automatically"
+  },
+  "app.lab.command-generator.preset.migrate": {
+    "message": "Migrate"
+  },
+  "app.lab.command-generator.preset.migrate.hint": {
+    "message": "Rewrite the saved steps in the current format"
+  },
   "app.lab.command-generator.preset.minutes.15": {
     "message": "15 minutes"
   },
@@ -8750,8 +9002,14 @@
   "app.lab.command-generator.preset.toast.loaded": {
     "message": "Preset \"{name}\" loaded"
   },
+  "app.lab.command-generator.preset.toast.migrated": {
+    "message": "Preset \"{name}\" upgraded to the current format"
+  },
   "app.lab.command-generator.preset.toast.name-required": {
     "message": "Please enter a preset name"
+  },
+  "app.lab.command-generator.preset.toast.not-migratable": {
+    "message": "This preset cannot be upgraded automatically"
   },
   "app.lab.command-generator.preset.toast.saved": {
     "message": "Preset \"{name}\" saved"

@@ -105,6 +105,12 @@ describe('command syntax regressions', () => {
     })
 
     it('uses historical locate syntax and introduces commands in their supported versions', () => {
+        const hasCondition = (kind: string) =>
+            findCommand('execute')!.chainCategories!.some((category) =>
+                category.subcommands.some((subcommand) =>
+                    subcommand.variants?.options.some((option) => option.id === kind),
+                ),
+            )
         initializeRegistry('1.16')
         expect(findCommand('item')).toBe(undefined)
         expect(findCommand('jfr')).toBe(undefined)
@@ -114,11 +120,7 @@ describe('command syntax regressions', () => {
         expect(buildCommand('locatebiome', { id: 'minecraft:plains' })).toBe(
             '/locatebiome minecraft:plains',
         )
-        expect(
-            !findCommand('execute')!.chainCategories!.some((c) =>
-                c.subcommands.some((s) => s.id === 'if-biome'),
-            ),
-        ).toBeTruthy()
+        expect(hasCondition('biome')).toBeFalsy()
         initializeRegistry('1.17')
         expect(findCommand('item')).toBeTruthy()
         expect(findCommand('jfr')).toBe(undefined)
@@ -129,11 +131,7 @@ describe('command syntax regressions', () => {
         expect(buildCommand('locate', { type: 'structure', id: 'minecraft:village_plains' })).toBe(
             '/locate structure minecraft:village_plains',
         )
-        expect(
-            findCommand('execute')!.chainCategories!.some((c) =>
-                c.subcommands.some((s) => s.id === 'if-biome'),
-            ),
-        ).toBeTruthy()
+        expect(hasCondition('biome')).toBeTruthy()
     })
 })
 

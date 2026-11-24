@@ -38,6 +38,112 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             'zh-CN': 'Axolotl Launcher 1.11.2-beta.3',
         },
         changes: {
+            added: [
+                {
+                    'en-US':
+                        'Added a page-size selector to Favorites and remembered the selected size.',
+                    'zh-CN': '收藏页面新增每页数量选择，并记住所选设置。',
+                },
+            ],
+            changed: [
+                {
+                    'en-US':
+                        'Improved startup and periodic backup performance for libraries with extensive recovery history.',
+                    'zh-CN': '优化包含大量恢复记录时的启动和周期备份速度。',
+                },
+                {
+                    'en-US':
+                        'Improved instance content updates by batching changes displayed in the same frame.',
+                    'zh-CN': '优化实例内容更新，将同一帧内的变化批量显示。',
+                },
+                {
+                    'en-US':
+                        'Improved launcher update downloads by retrying another distribution node when a selected node fails.',
+                    'zh-CN': '优化启动器更新下载，所选分发节点失败时会尝试其他节点。',
+                },
+                {
+                    'en-US':
+                        'Improved game launch by limiting how long it waits for pre-launch memory optimization.',
+                    'zh-CN': '优化游戏启动，限制启动前内存优化的等待时间。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed startup remaining on "Finishing migration..." after database migration had completed.',
+                    'zh-CN': '修复数据库迁移完成后，启动界面仍长时间停留在“正在完成迁移…”的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed database lock errors and stalled instance content loading when recovery copies were generated in the background.',
+                    'zh-CN':
+                        '修复后台生成实例恢复副本时，可能出现数据库锁定错误和实例内容加载卡顿的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed startup repeatedly reading waiting installation jobs for each instance.',
+                    'zh-CN': '修复启动时为每个实例重复读取等待中的安装任务的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed room status not refreshing when no local network ports had been detected.',
+                    'zh-CN': '修复尚未检测到局域网端口时，联机房间状态不刷新的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed Terracotta failing to start from its configured location on Windows.',
+                    'zh-CN': '修复 Windows 上 Terracotta 从配置位置启动失败的问题。',
+                },
+                {
+                    'en-US':
+                        "Fixed joining a Terracotta room when the guest address omitted Minecraft's default port.",
+                    'zh-CN':
+                        '修复 Terracotta 客户端地址省略 Minecraft 默认端口时无法加入房间的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed legacy server status checks failing to reuse resolved network addresses.',
+                    'zh-CN': '修复旧版服务器状态检测未复用已解析网络地址的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed Discover search becoming uneditable while filters were loading and carrying an unfinished query into another browse context.',
+                    'zh-CN':
+                        '修复发现页面加载筛选条件时无法编辑搜索，以及未提交的搜索内容被带入其他浏览上下文的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed linked Minecraft instances losing their configured paths when directories were moved or accessed through junctions.',
+                    'zh-CN':
+                        '修复关联的 Minecraft 目录被移动或通过目录联接访问时，实例丢失配置路径的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed Legacy Fabric metadata lookup attempting unsupported fallback sources.',
+                    'zh-CN': '修复 Legacy Fabric 元数据查询尝试使用不受支持的备用来源的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed modpack updates showing the wrong installed release after applying pack overrides.',
+                    'zh-CN': '修复应用整合包覆盖文件后，更新界面显示错误的已安装版本的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed progressing launcher update downloads exhausting the time reserved for other distribution nodes.',
+                    'zh-CN': '修复仍在传输的启动器更新下载耗尽其他分发节点重试时间的问题。',
+                },
+            ],
+        },
+    },
+    {
+        id: 'launcher-1.11.2-beta.3',
+        version: '1.11.2-beta.3',
+        publishedAt: '2026-11-21',
+        title: {
+            'en-US': 'Axolotl Launcher 1.11.2-beta.3',
+            'zh-CN': 'Axolotl Launcher 1.11.2-beta.3',
+        },
+        changes: {
             changed: [
                 {
                     'en-US':

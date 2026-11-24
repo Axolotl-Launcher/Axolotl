@@ -483,7 +483,7 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub(super) const CURRENT_VERSION: usize = 3;
+    const CURRENT_VERSION: usize = 3;
 
     pub(crate) fn advanced_download_info_enabled(&self) -> bool {
         self.developer_mode

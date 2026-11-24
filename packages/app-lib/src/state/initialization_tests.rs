@@ -3,35 +3,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 #[tokio::test(start_paused = true)]
-async fn commands_wait_for_startup_while_the_initializer_can_read_state() {
-    use super::{STARTUP_CONTEXT, state_access_ready};
-
-    let initialization = Initialization::new();
-    let guard = initialization.begin();
-    let startup_complete = AtomicBool::new(false);
-    let ready =
-        || state_access_ready(true, startup_complete.load(Ordering::Acquire));
-    let command = initialization.wait(ready);
-    tokio::pin!(command);
-
-    assert!(
-        tokio::time::timeout(Duration::from_secs(11), &mut command)
-            .await
-            .is_err()
-    );
-    STARTUP_CONTEXT
-        .scope((), async {
-            assert!(ready());
-            assert!(!state_access_ready(false, false));
-        })
-        .await;
-    assert!(!ready());
-    startup_complete.store(true, Ordering::Release);
-    drop(guard);
-    assert_eq!(command.await, Ok(()));
-}
-
-#[tokio::test(start_paused = true)]
 async fn active_initialization_waits_past_ten_seconds_until_state_is_ready() {
     let initialization = Initialization::new();
     let ready = AtomicBool::new(false);

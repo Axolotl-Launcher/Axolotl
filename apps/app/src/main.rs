@@ -278,6 +278,25 @@ async fn initialize_state(
             tracing::warn!(%error, "Could not notify frontend of offline account eligibility");
         }
     });
+    // A recreated webview must not recover or interrupt backup operations a second time.
+    static BACKUP_STARTUP: tokio::sync::OnceCell<()> =
+        tokio::sync::OnceCell::const_new();
+    BACKUP_STARTUP.get_or_try_init(|| async {
+        theseus::instance::recover_backup_repository().await?;
+        tauri::async_runtime::spawn(async {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            if let Some(state) = State::get_if_initialized()
+                && let Err(error) = state.maintain_database_backups().await
+            {
+                tracing::warn!(%error, "Failed to prune old database backups");
+            }
+            if let Err(error) = theseus::instance::maintain_backup_repository().await {
+                tracing::warn!(%error, "Failed to maintain the instance backup repository");
+            }
+        });
+        Ok::<(), theseus::Error>(())
+    }).await?;
+
     // The logger starts before the database is available, so the stored level
     // is applied here once settings can be read. Beta keeps enough detail for
     // diagnostics by requiring DEBUG or TRACE.

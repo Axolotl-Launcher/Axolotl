@@ -15,6 +15,8 @@ use std::{
     time::Duration,
 };
 const RECORD_BUDGET: Duration = Duration::from_secs(15);
+static STARTUP_INSPECTION: OnceLock<tokio::sync::watch::Receiver<bool>> =
+    OnceLock::new();
 static IMPORT_DONE: AtomicBool = AtomicBool::new(false);
 static FAIL_OK: OnceLock<DashSet<String>> = OnceLock::new();
 pub(crate) fn fail_ok(instance_id: &str) -> bool {
@@ -57,17 +59,27 @@ pub(crate) async fn before_launch(state: Arc<State>, instance_id: &str) {
     }
 }
 
-pub(crate) async fn run_at_startup(state: Arc<State>) {
-    let (send, mut receive) = tokio::sync::oneshot::channel();
-    let worker = Arc::clone(&state);
-    state.spawn_background(async move {
-        if let Err(error) = recovery_documents::interpret_all(&worker.pool).await {
-            tracing::warn!(%error, "Some recovery records remain opaque; other records continue");
-        }
-        let _ = send.send(());
-    });
-    match tokio::time::timeout(RECORD_BUDGET, &mut receive).await {
-        Ok(Ok(())) => execute_pending(&state).await,
+pub(crate) async fn start(state: Arc<State>) {
+    let mut inspection = STARTUP_INSPECTION
+        .get_or_init(|| {
+            let (complete, inspection) = tokio::sync::watch::channel(false);
+            let worker = Arc::clone(&state);
+            state.spawn_background(async move {
+                phases(
+                    async {
+                        if let Err(error) = recovery_documents::interpret_all(&worker.pool).await {
+                            tracing::warn!(%error, "Some recovery records remain opaque; other records continue");
+                        }
+                    },
+                    move |()| { complete.send_replace(true); },
+                    async { execute_pending(&worker).await },
+                ).await;
+            });
+            inspection
+        })
+        .clone();
+    match record_phase(inspection.wait_for(|done| *done)).await {
+        Ok(Ok(_)) => {}
         Ok(Err(error)) => {
             tracing::warn!(%error, "Startup recovery record inspection stopped")
         }
@@ -75,13 +87,6 @@ pub(crate) async fn run_at_startup(state: Arc<State>) {
             tracing::warn!(
                 "Recovery record inspection exceeded the startup budget; continuing in background"
             );
-            let worker = Arc::clone(&state);
-            state.spawn_background(async move {
-                // The delayed pass must not write alongside the other startup steps.
-                if receive.await.is_ok() && State::get().await.is_ok() {
-                    execute_pending(&worker).await;
-                }
-            });
         }
     }
 }
@@ -103,21 +108,16 @@ async fn execute_pending(state: &State) {
     }
 }
 
-#[cfg(test)]
-async fn phases<T, F, G>(
-    interpret: F,
-    report: tokio::sync::oneshot::Sender<T>,
-    execute: G,
-) where
+async fn phases<T, F, G>(interpret: F, report: impl FnOnce(T), execute: G)
+where
     F: std::future::Future<Output = T>,
     G: std::future::Future<Output = ()>,
 {
     let result = interpret.await;
-    let _ = report.send(result);
+    report(result);
     execute.await;
 }
 
-#[cfg(test)]
 async fn record_phase<F: std::future::Future>(
     records: F,
 ) -> Result<F::Output, tokio::time::error::Elapsed> {
@@ -133,7 +133,9 @@ mod tests {
         let (send, receive) = tokio::sync::oneshot::channel();
         let worker = tokio::spawn(phases(
             async { tokio::time::sleep(Duration::from_secs(5)).await },
-            send,
+            |result| {
+                let _ = send.send(result);
+            },
             async { tokio::time::sleep(Duration::from_secs(20)).await },
         ));
         record_phase(receive).await.unwrap().unwrap();
@@ -146,7 +148,9 @@ mod tests {
         let (send, receive) = tokio::sync::oneshot::channel();
         let worker = tokio::spawn(phases(
             async { tokio::time::sleep(Duration::from_secs(30)).await },
-            send,
+            |result| {
+                let _ = send.send(result);
+            },
             async { tokio::time::sleep(Duration::from_secs(20)).await },
         ));
         assert!(record_phase(receive).await.is_err());

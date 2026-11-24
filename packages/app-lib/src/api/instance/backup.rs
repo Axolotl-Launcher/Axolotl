@@ -2294,6 +2294,9 @@ async fn run_gc(repository: &Path, pool: &SqlitePool) -> crate::Result<()> {
 /// Completes interrupted restores before instances can be launched or edited.
 pub async fn recover_repository() -> crate::Result<()> {
     let state = State::get().await?;
+    if crate::state::store::recovery_mode::root(&state.pool).is_some() {
+        return Ok(());
+    }
     let _repository_guard = REPOSITORY_LOCK.lock().await;
     recover_interrupted_restores(&state).await?;
     let Some((_, pool)) = open_repository(&state, false).await? else {
@@ -2314,9 +2317,12 @@ pub async fn recover_repository() -> crate::Result<()> {
     Ok(())
 }
 
-/// Storage housekeeping serialized with operations against the same repository.
+/// Storage housekeeping is serialized with backup operations but does not gate startup.
 pub async fn maintain_repository() -> crate::Result<()> {
     let state = State::get().await?;
+    if crate::state::store::recovery_mode::root(&state.pool).is_some() {
+        return Ok(());
+    }
     let _repository_guard = REPOSITORY_LOCK.lock().await;
     cleanup_pending_repository_paths(&state).await?;
     cleanup_committed_restores(&state.directories.instances_dir()).await?;

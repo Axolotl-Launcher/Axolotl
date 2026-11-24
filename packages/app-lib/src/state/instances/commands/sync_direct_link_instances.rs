@@ -1,6 +1,10 @@
 use super::create_direct_link_instance::create_direct_link_instance;
-use crate::api::pack::import::direct_link::{
-    detect_direct_link_source, has_linked_version_manifest, resolve_direct_link,
+use crate::api::pack::import::{
+    ImportLauncherType,
+    direct_link::{
+        DirectLinkSource, detect_direct_link_source,
+        has_linked_version_manifest, resolve_direct_link,
+    },
 };
 use crate::event::{InstancePayloadType, emit::emit_instance};
 use crate::launcher::ExternalGameDirMode;
@@ -9,7 +13,10 @@ use crate::state::instances::{
 };
 use crate::state::{AppliedContentSetPatch, InstanceInstallStage, State};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    collections::{BTreeMap, HashSet},
+    path::{Path, PathBuf},
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,12 +50,14 @@ pub(crate) async fn sync_direct_link_instances(
 ) -> crate::Result<DirectLinkSyncReport> {
     tracing::debug!(roots = ?roots, "starting direct-link game directory sync");
     let mut report = DirectLinkSyncReport::default();
-    let mut canonical_roots = Vec::new();
+    let mut canonical_roots =
+        BTreeMap::<PathBuf, Vec<&ExternalMinecraftRoot>>::new();
     let mut unavailable_roots = Vec::new();
+    let mut unresolved_configured_root = false;
     for root in &roots {
         match crate::util::io::canonicalize(&root.path) {
             Ok(path) if path.is_dir() => {
-                canonical_roots.push((path, root.mode))
+                canonical_roots.entry(path).or_default().push(root);
             }
             Ok(_) => {
                 report.missing += 1;
@@ -61,6 +70,7 @@ pub(crate) async fn sync_direct_link_instances(
                 if error.kind() == std::io::ErrorKind::NotFound {
                     report.missing += 1;
                 } else {
+                    unresolved_configured_root = true;
                     unavailable_roots.push(root.path.clone());
                 }
                 report
@@ -69,20 +79,38 @@ pub(crate) async fn sync_direct_link_instances(
             }
         }
     }
-    canonical_roots.sort_by(|left, right| left.0.cmp(&right.0));
-    canonical_roots.dedup_by(|left, right| left.0 == right.0);
-
-    let existing = crate::state::list_instances(&state.pool)
-        .await?
-        .into_iter()
+    let existing = crate::state::list_instances(&state.pool).await?;
+    let existing_paths = existing
+        .iter()
+        .map(|metadata| {
+            let instance = &metadata.instance;
+            (
+                instance
+                    .linked_version_json_path
+                    .as_deref()
+                    .map(path_identity),
+                instance.game_dir_override.as_deref().map(path_identity),
+            )
+        })
         .collect::<Vec<_>>();
-    let mut seen_json = Vec::<PathBuf>::new();
+    let mut seen_json = HashSet::new();
 
-    for (root, mode) in &canonical_roots {
+    for (root, aliases) in &canonical_roots {
+        let Some(mode) = configured_mode(aliases) else {
+            unavailable_roots.push(root.clone());
+            report.errors.push(format!(
+                "{} has conflicting configured game directory modes",
+                root.display()
+            ));
+            continue;
+        };
         let versions = root.join("versions");
         let entries = match std::fs::read_dir(&versions) {
             Ok(entries) => entries,
             Err(error) => {
+                if error.kind() != std::io::ErrorKind::NotFound {
+                    unavailable_roots.push(root.clone());
+                }
                 report
                     .errors
                     .push(format!("{}: {error}", versions.display()));
@@ -107,7 +135,15 @@ pub(crate) async fn sync_direct_link_instances(
             // left by an interrupted install. They have no version manifest,
             // so they are not Minecraft instances and should not surface a
             // warning on every root synchronization.
-            let source = detect_direct_link_source(root, &folder);
+            let Some(source) =
+                detect_source_for_aliases(root, aliases, &folder)
+            else {
+                report.errors.push(format!(
+                    "{} has conflicting launcher associations through its configured paths",
+                    folder.display()
+                ));
+                continue;
+            };
             if !has_linked_version_manifest(&folder, source.launcher) {
                 continue;
             }
@@ -130,24 +166,26 @@ pub(crate) async fn sync_direct_link_instances(
                     continue;
                 }
             };
-            seen_json.push(resolved.version_json.clone());
+            if !seen_json.insert(resolved.version_json.clone()) {
+                continue;
+            }
 
-            let existing_instance = existing.iter().find(|metadata| {
-                metadata
-                    .instance
-                    .linked_version_json_path
-                    .as_deref()
-                    .is_some_and(|path| {
-                        Path::new(path) == resolved.version_json
-                    })
-                    || metadata
-                        .instance
-                        .game_dir_override
-                        .as_deref()
-                        .is_some_and(|path| Path::new(path) == folder)
-            });
+            let mut matches = existing.iter().zip(&existing_paths).filter(
+                |(_, (json, game_dir))| {
+                    json.as_ref() == Some(&resolved.version_json)
+                        || game_dir.as_ref() == Some(&resolved.version_dir)
+                },
+            );
+            let existing_instance = matches.next();
+            if matches.next().is_some() {
+                report.errors.push(format!(
+                    "Multiple instances refer to {}; their associations were preserved",
+                    resolved.version_json.display()
+                ));
+                continue;
+            }
 
-            if let Some(metadata) = existing_instance {
+            if let Some((metadata, _)) = existing_instance {
                 let instance = &metadata.instance;
                 if instance.symlink_target.is_some() {
                     // Symlink imports can point at the same external version,
@@ -264,7 +302,7 @@ pub(crate) async fn sync_direct_link_instances(
                         instance_path: Some(
                             folder.to_string_lossy().to_string(),
                         ),
-                        game_dir_mode: Some(*mode),
+                        game_dir_mode: Some(mode),
                     },
                     state,
                 )
@@ -309,6 +347,7 @@ pub(crate) async fn sync_direct_link_instances(
             continue;
         };
         if configured_root_matches(&root, &canonical_roots, &unavailable_roots)
+            || unresolved_configured_root
         {
             continue;
         }
@@ -323,7 +362,7 @@ pub(crate) async fn sync_direct_link_instances(
         report.removed += 1;
     }
 
-    for metadata in existing {
+    for (metadata, (json_identity, _)) in existing.iter().zip(&existing_paths) {
         if metadata.instance.symlink_target.is_some() {
             continue;
         }
@@ -341,6 +380,11 @@ pub(crate) async fn sync_direct_link_instances(
             &canonical_roots,
             &unavailable_roots,
         ) {
+            // An inaccessible configured alias may name this stored physical
+            // root. Only remove the association once every alias can be checked.
+            if unresolved_configured_root {
+                continue;
+            }
             // Configured roots are authoritative. Removing a root from Settings
             // only drops Axolotl's association; the external files remain intact.
             crate::state::remove_instance_preserving_external_files(
@@ -356,9 +400,11 @@ pub(crate) async fn sync_direct_link_instances(
             report.removed += 1;
             continue;
         }
-        let json_path = PathBuf::from(json_path);
-        if !json_path.exists()
-            && !seen_json.iter().any(|path| path == &json_path)
+        if !root_is_unavailable(Path::new(root), &unavailable_roots)
+            && !json_identity
+                .as_ref()
+                .is_some_and(|path| seen_json.contains(path))
+            && matches!(Path::new(json_path).try_exists(), Ok(false))
         {
             // External deletion is authoritative, but there is nothing left
             // to delete on disk. Only remove the stale Axolotl record.
@@ -378,6 +424,48 @@ pub(crate) async fn sync_direct_link_instances(
 
     tracing::debug!(report = ?report, "direct-link game directory sync finished");
     Ok(report)
+}
+
+fn configured_mode(
+    aliases: &[&ExternalMinecraftRoot],
+) -> Option<ExternalGameDirMode> {
+    let mut explicit = aliases
+        .iter()
+        .map(|root| root.mode)
+        .filter(|mode| *mode != ExternalGameDirMode::Automatic);
+    let mode = explicit.next().unwrap_or(ExternalGameDirMode::Automatic);
+    explicit.all(|other| other == mode).then_some(mode)
+}
+
+fn detect_source_for_aliases(
+    canonical_root: &Path,
+    aliases: &[&ExternalMinecraftRoot],
+    version_dir: &Path,
+) -> Option<DirectLinkSource> {
+    // Launcher configuration can live beside the configured junction, while
+    // the version folder and its contents live beneath the target directory.
+    let mut sources = aliases
+        .iter()
+        .map(|root| root.path.as_path())
+        .filter(|path| *path != canonical_root)
+        .chain(std::iter::once(canonical_root))
+        .map(|path| detect_direct_link_source(path, version_dir));
+    let Some(source) =
+        sources.find(|source| source.launcher != ImportLauncherType::Generic)
+    else {
+        return Some(DirectLinkSource {
+            launcher: ImportLauncherType::Generic,
+            launcher_root: canonical_root.to_path_buf(),
+        });
+    };
+    let launcher_root = path_identity(&source.launcher_root);
+    sources
+        .all(|other| {
+            other.launcher == ImportLauncherType::Generic
+                || (other.launcher == source.launcher
+                    && path_identity(&other.launcher_root) == launcher_root)
+        })
+        .then_some(source)
 }
 
 fn is_unpromoted_direct_link_candidate(
@@ -404,15 +492,27 @@ fn version_isolated_root(path: &str) -> Option<PathBuf> {
 /// a root that is confirmed missing is no longer authoritative.
 fn configured_root_matches(
     root: &Path,
-    canonical_roots: &[(PathBuf, ExternalGameDirMode)],
+    canonical_roots: &BTreeMap<PathBuf, Vec<&ExternalMinecraftRoot>>,
     unavailable_roots: &[PathBuf],
 ) -> bool {
-    canonical_roots
+    canonical_roots.contains_key(root)
+        || canonical_roots.contains_key(&path_identity(root))
+        || root_is_unavailable(root, unavailable_roots)
+}
+
+fn path_identity(path: impl AsRef<Path>) -> PathBuf {
+    let path = path.as_ref();
+    crate::util::io::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn root_is_unavailable(root: &Path, unavailable_roots: &[PathBuf]) -> bool {
+    if unavailable_roots.is_empty() {
+        return false;
+    }
+    let identity = path_identity(root);
+    unavailable_roots
         .iter()
-        .any(|(candidate, _)| candidate == root)
-        || unavailable_roots
-            .iter()
-            .any(|candidate| paths_match(candidate, root))
+        .any(|candidate| paths_match(candidate, root) || candidate == &identity)
 }
 
 fn paths_match(left: &Path, right: &Path) -> bool {
@@ -439,14 +539,18 @@ mod tests {
         let root = PathBuf::from("minecraft-root");
         let equivalent = PathBuf::from("minecraft-root").join(".");
 
-        assert!(configured_root_matches(&equivalent, &[], &[root],));
+        assert!(configured_root_matches(
+            &equivalent,
+            &BTreeMap::new(),
+            &[root],
+        ));
     }
 
     #[test]
     fn missing_root_does_not_keep_its_association() {
         assert!(!configured_root_matches(
             Path::new("minecraft-root"),
-            &[],
+            &BTreeMap::new(),
             &[],
         ));
     }

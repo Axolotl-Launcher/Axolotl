@@ -305,6 +305,189 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(any(windows, unix))]
+    #[tokio::test]
+    async fn syncing_a_moved_hmcl_root_preserves_the_instance_and_content()
+    -> crate::Result<()> {
+        use crate::state::instances::{
+            ExternalMinecraftRoot, adapters::filesystem,
+            commands::instance_content_root, sync_direct_link_instances,
+        };
+        use crate::state::{EditInstance, InstanceFile};
+
+        let (_data, state) = test_state_with_pool().await?;
+        let external = TempDir::new()?;
+        let launcher = external.path().join("hmcl");
+        let original = launcher.join(".minecraft");
+        let moved = external.path().join("moved").join(".minecraft");
+        let hmcl_config = launcher.join(".hmcl");
+        std::fs::create_dir_all(&hmcl_config)?;
+        std::fs::write(
+            hmcl_config.join("hmcl.json"),
+            br#"{"configurations":{"Local":{"gameDir":".minecraft"}}}"#,
+        )?;
+        write_version(
+            &original,
+            "linked",
+            "linked",
+            json!({ "id": "linked", "inheritsFrom": "1.20.1", "mainClass": "net.minecraft.client.main.Main" }),
+        )?;
+        std::fs::create_dir_all(original.join("mods"))?;
+        let relative_path = "mods/example.jar";
+        std::fs::write(original.join(relative_path), b"mod")?;
+
+        let configured = ExternalMinecraftRoot {
+            path: original.clone(),
+            mode: ExternalGameDirMode::Automatic,
+        };
+        let report =
+            sync_direct_link_instances(vec![configured.clone()], &state)
+                .await?;
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
+        assert_eq!(report.imported, 1);
+        let first = crate::state::list_instances(&state.pool)
+            .await?
+            .pop()
+            .unwrap();
+        assert_eq!(first.instance.linked_launcher.as_deref(), Some("hmcl"));
+        let id = &first.instance.id;
+        crate::state::edit_instance(
+            id,
+            EditInstance {
+                name: Some("My HMCL instance".to_string()),
+                recent_time_played: Some(615),
+                ..EditInstance::default()
+            },
+            &state.pool,
+        )
+        .await?;
+        let now = Utc::now();
+        let mut tx = state.pool.begin().await?;
+        files::upsert_instance_file(
+            &InstanceFile {
+                id: "tracked-mod".to_string(),
+                instance_id: id.clone(),
+                relative_path: relative_path.to_string(),
+                file_name: "example.jar".to_string(),
+                enabled: true,
+                sha1: "7dd30f0a95d522bfc058be4e75847f8b6df9f76b".to_string(),
+                size: 3,
+                missing: false,
+                added_at: now,
+                modified_at: now,
+                local_mod_data: None,
+                icon_path: None,
+            },
+            &mut tx,
+        )
+        .await?;
+        tx.commit().await?;
+
+        // The reported move takes place between launcher sessions. Release
+        // the original watch before renaming, as Windows holds its handles.
+        let original_watch_root =
+            instance_content_root(&state.directories, &first.instance)?;
+        crate::state::instances::watcher::unwatch_instance_folder(
+            &first.instance.path,
+            &original_watch_root,
+            &state.file_watcher,
+        )
+        .await;
+
+        std::fs::create_dir_all(moved.parent().unwrap())?;
+        let mut renamed = std::fs::rename(&original, &moved);
+        for _ in 0..20 {
+            if !cfg!(windows)
+                || !matches!(
+                    renamed
+                        .as_ref()
+                        .err()
+                        .and_then(std::io::Error::raw_os_error),
+                    Some(5 | 32)
+                )
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            renamed = std::fs::rename(&original, &moved);
+        }
+        renamed.expect("move the unwatched HMCL game directory");
+        #[cfg(windows)]
+        junction::create(&moved, &original).expect("create NTFS junction");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&moved, &original)?;
+
+        let report =
+            sync_direct_link_instances(vec![configured.clone()], &state)
+                .await?;
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
+        assert_eq!(
+            (report.imported, report.updated, report.removed),
+            (0, 1, 0)
+        );
+        let current = crate::state::get_instance(id, &state.pool)
+            .await?
+            .expect("the original instance survives the move");
+        assert_eq!(current.instance.name, "My HMCL instance");
+        assert_eq!(current.instance.recent_time_played, 615);
+        assert_eq!(current.instance.linked_launcher.as_deref(), Some("hmcl"));
+        assert_eq!(
+            current.applied_content_set.id,
+            first.applied_content_set.id
+        );
+        let root =
+            instance_content_root(&state.directories, &current.instance)?;
+        assert_eq!(
+            crate::util::io::canonicalize(&root)?,
+            crate::util::io::canonicalize(&moved)?
+        );
+        assert!(
+            filesystem::scan_content_files_from(&root, "")?
+                .iter()
+                .any(|file| file.relative_path == relative_path)
+        );
+        let files = files::get_instance_files(id, &state.pool).await?;
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].id, "tracked-mod");
+        assert!(!files[0].missing);
+
+        let physical = ExternalMinecraftRoot {
+            path: moved,
+            mode: ExternalGameDirMode::Automatic,
+        };
+        let unchanged = sync_direct_link_instances(
+            vec![physical.clone(), configured.clone()],
+            &state,
+        )
+        .await?;
+        assert!(unchanged.errors.is_empty(), "{:?}", unchanged.errors);
+        assert_eq!(
+            (unchanged.imported, unchanged.updated, unchanged.removed),
+            (0, 0, 0)
+        );
+
+        let conflict = sync_direct_link_instances(
+            vec![
+                ExternalMinecraftRoot {
+                    mode: ExternalGameDirMode::Shared,
+                    ..configured
+                },
+                ExternalMinecraftRoot {
+                    mode: ExternalGameDirMode::Isolated,
+                    ..physical
+                },
+            ],
+            &state,
+        )
+        .await?;
+        assert_eq!(conflict.errors.len(), 1);
+        assert_eq!(
+            (conflict.imported, conflict.updated, conflict.removed),
+            (0, 0, 0)
+        );
+        Ok(())
+    }
+
     #[tokio::test]
     async fn persists_resolved_direct_link_fields_without_creating_profile()
     -> crate::Result<()> {

@@ -36,6 +36,7 @@ export function useMultiplayerSession() {
     let mounted = false
     let pollTimer: ReturnType<typeof setTimeout> | undefined
     let pollPromise: Promise<void> | undefined
+    let portsPromise: Promise<void> | undefined
 
     const state = computed(() => multiplayerState.value?.terracotta ?? null)
     const hongshiState = computed(() => multiplayerState.value?.hongshi ?? null)
@@ -58,12 +59,24 @@ export function useMultiplayerSession() {
 
     async function pollState() {
         if (!mounted) return
+        if (!portsPromise) {
+            portsPromise = multiplayer
+                .getDetectedPorts()
+                .then((ports) => {
+                    if (mounted) detectedPorts.value = ports
+                })
+                .catch((error: unknown) => {
+                    if (mounted) console.error(error)
+                })
+                .finally(() => {
+                    portsPromise = undefined
+                })
+        }
         if (pollPromise) return pollPromise
-        pollPromise = Promise.all([multiplayer.getState(), multiplayer.getDetectedPorts()])
-            .then(([nextState, ports]) => {
-                if (!mounted) return
-                multiplayerState.value = nextState
-                detectedPorts.value = ports
+        pollPromise = multiplayer
+            .getState()
+            .then((nextState) => {
+                if (mounted) multiplayerState.value = nextState
             })
             .catch((error: unknown) => {
                 if (mounted) console.error(error)

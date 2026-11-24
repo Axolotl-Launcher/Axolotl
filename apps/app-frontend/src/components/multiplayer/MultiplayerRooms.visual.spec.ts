@@ -11,6 +11,7 @@ const fixture = vi.hoisted(() => ({
     state: null as MultiplayerState | null,
     query: {} as Record<string, string>,
     ports: [] as unknown[],
+    getDetectedPorts: vi.fn(),
     servers: null as unknown,
     host: vi.fn(),
     stop: vi.fn(),
@@ -32,7 +33,7 @@ vi.mock('@/helpers/multiplayer', async (original) => ({
                 cached: false,
             },
         ],
-        getDetectedPorts: async () => structuredClone(fixture.ports),
+        getDetectedPorts: fixture.getDetectedPorts,
         getPlayerName: async () => 'Player',
         hostHongshi: fixture.host,
         stop: fixture.stop,
@@ -197,6 +198,9 @@ beforeEach(() => {
     localStorage.setItem('axolotl-multiplayer-provider', 'hongshi')
     fixture.query = {}
     fixture.ports = []
+    fixture.getDetectedPorts
+        .mockReset()
+        .mockImplementation(async () => structuredClone(fixture.ports))
     fixture.state = {
         active_provider: null,
         providers: [],
@@ -221,6 +225,43 @@ afterEach(() => {
     wrappers.forEach((wrapper) => wrapper.unmount())
     wrappers = []
 })
+
+it.each(['pending', 'failed'] as const)(
+    'shows the guest connection and player list while port detection is %s',
+    async (portDetection) => {
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+        try {
+            if (portDetection === 'pending') {
+                fixture.getDetectedPorts.mockReturnValue(new Promise(() => {}))
+            } else {
+                fixture.getDetectedPorts.mockRejectedValue(new Error('LAN ports unavailable'))
+            }
+            fixture.state!.active_provider = 'terracotta'
+            const terracotta = fixture.state!.terracotta
+            Object.assign(terracotta, {
+                status: 'guest_connecting',
+                http_port: 53001,
+                binary_installed: true,
+                players: [],
+            })
+
+            const wrapper = await rooms()
+            expect(wrapper.text()).toContain('Joining room...')
+
+            Object.assign(terracotta, {
+                status: 'guest_ready',
+                server_port: 25565,
+                players: [{ machine_id: 'host', name: 'Room owner', vendor: 'test', kind: 'HOST' }],
+            })
+            await vi.waitFor(() => expect(wrapper.text()).toContain('Connected to room'))
+            expect(wrapper.text()).toContain('Room owner')
+            if (portDetection === 'pending')
+                expect(fixture.getDetectedPorts).toHaveBeenCalledTimes(1)
+        } finally {
+            consoleError.mockRestore()
+        }
+    },
+)
 
 it('first room automatically installs and can be cancelled while its request is pending', async () => {
     let reject!: (error: unknown) => void

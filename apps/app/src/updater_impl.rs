@@ -29,6 +29,9 @@ const UPDATE_ARTIFACT_BASE: &str = "https://dist.axlmc.org/";
 const UPDATE_NODE_DNS: &str = "saas.sin.fan";
 const UPDATE_NODE_PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 const UPDATE_NODE_PROBE_BYTES: u64 = 4 * 1024 * 1024;
+const UPDATE_NODE_PROBE_GRACE: Duration = Duration::from_secs(1);
+const MAX_UPDATE_NODES: usize = 3;
+const UPDATE_NODE_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
 // Bound the whole transfer, including retries and range requests.
 const UPDATE_DOWNLOAD_TIMEOUT: std::time::Duration =
@@ -646,54 +649,65 @@ pub async fn get_update_size<R: Runtime>(
     Ok(content_length)
 }
 
-async fn select_update_node(
+async fn select_update_nodes(
     asset: &UpdateArtifact,
     proxy: &theseus::ProxyConfig,
-) -> Option<(reqwest::Client, SocketAddr)> {
-    let origin = Url::parse(UPDATE_ARTIFACT_BASE).ok()?;
+) -> Vec<(reqwest::Client, SocketAddr)> {
+    let origin = Url::parse(UPDATE_ARTIFACT_BASE)
+        .expect("the update distribution origin is a valid URL");
     if asset.url.origin() != origin.origin()
         || proxy.mode == theseus::ProxyMode::Custom
         || asset.size == 0
     {
-        return None;
+        return Vec::new();
     }
-    tokio::time::timeout(UPDATE_NODE_PROBE_TIMEOUT, async {
-        let addresses: HashSet<_> =
-            tokio::net::lookup_host((UPDATE_NODE_DNS, 443))
-                .await
-                .ok()?
-                .collect();
-        let host = origin.host_str()?;
-        let mut probes: FuturesUnordered<_> = addresses
-            .into_iter()
-            .filter_map(|address| {
-                let builder = theseus::http_client_builder()
-                    .user_agent(launcher_user_agent())
-                    .read_timeout(Duration::from_secs(15))
-                    .redirect(reqwest::redirect::Policy::none())
-                    .no_gzip()
-                    .no_brotli()
-                    .no_deflate()
-                    .no_zstd()
-                    .resolve(host, address);
-                let client = proxy.apply(builder).ok()?.build().ok()?;
-                Some(async move {
-                    probe_update_node(&client, asset, address)
-                        .await
-                        .map(|()| (client, address))
-                })
-            })
-            .collect();
-        // The first complete sample wins because all nodes transfer the same bytes.
-        while let Some(result) = probes.next().await {
-            if result.is_some() {
-                return result;
-            }
-        }
-        None
-    })
+    let mut deadline = Instant::now() + UPDATE_NODE_PROBE_TIMEOUT;
+    let Ok(Ok(addresses)) = tokio::time::timeout_at(
+        deadline,
+        tokio::net::lookup_host((UPDATE_NODE_DNS, 443)),
+    )
     .await
-    .ok()?
+    else {
+        return Vec::new();
+    };
+    let addresses: HashSet<_> = addresses.collect();
+    let Some(host) = origin.host_str() else {
+        return Vec::new();
+    };
+    let mut probes: FuturesUnordered<_> = addresses
+        .into_iter()
+        .filter_map(|address| {
+            let builder = theseus::http_client_builder()
+                .user_agent(launcher_user_agent())
+                .read_timeout(Duration::from_secs(15))
+                .redirect(reqwest::redirect::Policy::none())
+                .no_gzip()
+                .no_brotli()
+                .no_deflate()
+                .no_zstd()
+                .resolve(host, address);
+            let client = proxy.apply(builder).ok()?.build().ok()?;
+            Some(async move {
+                probe_update_node(&client, asset, address)
+                    .await
+                    .map(|()| (client, address))
+            })
+        })
+        .collect();
+    let mut selected = Vec::new();
+    while let Ok(Some(result)) =
+        tokio::time::timeout_at(deadline, probes.next()).await
+    {
+        let Some(node) = result else { continue };
+        if selected.is_empty() {
+            deadline = deadline.min(Instant::now() + UPDATE_NODE_PROBE_GRACE);
+        }
+        selected.push(node);
+        if selected.len() == MAX_UPDATE_NODES {
+            break;
+        }
+    }
+    selected
 }
 
 async fn probe_update_node(
@@ -777,19 +791,17 @@ async fn download_update_artifact(
     progress: &mut FetchProgressFn<'_>,
 ) -> Result<Vec<u8>> {
     let state = theseus::State::get().await?;
-    let node = match state.proxy_config().await {
-        Ok(proxy) => select_update_node(asset, &proxy).await,
-        Err(_) => None,
-    };
     let bytes = tokio::time::timeout(
         UPDATE_DOWNLOAD_TIMEOUT,
         async {
-            if let Some(client) = node {
-                match download_from_update_node(client, asset, progress).await {
-                    Ok(bytes) => return Ok::<_, crate::api::TheseusSerializableError>(bytes),
-                    Err(error) => tracing::warn!(?error, "Selected update node failed; using the default download route"),
-                }
+            let nodes = match state.proxy_config().await {
+                Ok(proxy) => select_update_nodes(asset, &proxy).await,
+                Err(_) => Vec::new(),
+            };
+            if let Some(bytes) = download_from_update_nodes(nodes, asset, progress).await {
+                return Ok::<_, crate::api::TheseusSerializableError>(bytes);
             }
+            tracing::debug!(url = %asset.url, "Downloading update over the default distribution route");
             let directory = tempfile::tempdir().map_err(Error::Io)?;
             let destination = directory.path().join("update");
             let request = DownloadRequest::new(asset.url.as_str(), ResourceClass::Other)
@@ -816,6 +828,34 @@ async fn download_update_artifact(
         .into());
     }
     Ok(bytes)
+}
+
+async fn download_from_update_nodes(
+    nodes: Vec<(reqwest::Client, SocketAddr)>,
+    asset: &UpdateArtifact,
+    progress: &mut FetchProgressFn<'_>,
+) -> Option<Vec<u8>> {
+    let total = nodes.len();
+    for (index, node) in nodes.into_iter().enumerate() {
+        let address = node.1;
+        let attempt = index + 1;
+        tracing::debug!(%address, attempt, total, "Downloading update from a distribution node");
+        match tokio::time::timeout(
+            UPDATE_NODE_DOWNLOAD_TIMEOUT,
+            download_from_update_node(node, asset, progress),
+        )
+        .await
+        {
+            Ok(Ok(bytes)) => return Some(bytes),
+            Ok(Err(error)) => {
+                tracing::warn!(%address, attempt, total, ?error, "Update distribution node failed")
+            }
+            Err(_) => {
+                tracing::warn!(%address, attempt, total, "Update distribution node timed out")
+            }
+        }
+    }
+    None
 }
 
 fn verify_update_signature(
@@ -1300,6 +1340,64 @@ mod tests {
             );
             assert_eq!(result.is_some(), accepted);
         }
+    }
+
+    #[tokio::test]
+    async fn update_download_tries_another_node_after_a_short_body() {
+        use sha2::{Digest, Sha256};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+
+        async fn serve(listener: TcpListener, body: &'static str) {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            while !request.ends_with(b"\r\n\r\n") {
+                request.push(stream.read_u8().await.unwrap());
+            }
+            assert!(request.starts_with(b"GET /update HTTP/1.1\r\n"));
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\n{body}"
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+        }
+
+        let first = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let second = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let nodes = [&first, &second]
+            .into_iter()
+            .map(|listener| {
+                let address = listener.local_addr().unwrap();
+                let client = theseus::http_client_builder()
+                    .no_proxy()
+                    .resolve("update.test", address)
+                    .build()
+                    .unwrap();
+                (client, address)
+            })
+            .collect();
+        let asset = super::UpdateArtifact {
+            url: "http://update.test/update".parse().unwrap(),
+            sha256: format!("{:x}", Sha256::digest(b"test")),
+            size: 4,
+            signature: None,
+        };
+        let mut progress: Box<super::FetchProgressFn<'_>> =
+            Box::new(|_, _| Box::pin(async { Ok(()) }));
+        let (bytes, (), ()) =
+            tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                tokio::join!(
+                    super::download_from_update_nodes(
+                        nodes,
+                        &asset,
+                        &mut progress
+                    ),
+                    serve(first, "te"),
+                    serve(second, "test"),
+                )
+            })
+            .await
+            .expect("a truncated first node must lead to a second request");
+        assert_eq!(bytes.as_deref(), Some(b"test".as_slice()));
     }
 
     fn probe_exit_command(code: u8) -> tokio::process::Command {

@@ -493,10 +493,6 @@ export async function refreshServerData(
         }
     } catch (err) {
         console.error(`Refreshing addr ${address}`, protocolVersion, err)
-        if (!protocolVersion?.legacy) {
-            await refreshServerData(serverData, { version: 74, legacy: true }, address)
-            return
-        }
         if (!serverData.lastSuccessfulRefresh || serverData.lastSuccessfulRefresh <= refreshTime) {
             delete serverData.status
             delete serverData.rawMotd

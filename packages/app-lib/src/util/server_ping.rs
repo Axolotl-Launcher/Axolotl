@@ -81,6 +81,25 @@ pub async fn get_server_status(
     original_address: (&str, u16),
     protocol_version: Option<ProtocolVersion>,
 ) -> Result<ServerStatus> {
+    let status = ping_status(address, original_address, protocol_version).await;
+    if status.is_err()
+        && !protocol_version.is_some_and(|version| version.legacy)
+    {
+        return ping_status(
+            address,
+            original_address,
+            Some(ProtocolVersion::legacy(74)),
+        )
+        .await;
+    }
+    status
+}
+
+async fn ping_status(
+    address: &impl ToSocketAddrs,
+    original_address: (&str, u16),
+    protocol_version: Option<ProtocolVersion>,
+) -> Result<ServerStatus> {
     select! {
         res = async {
             match protocol_version {
@@ -91,6 +110,64 @@ pub async fn get_server_status(
         _ = tokio::time::sleep(SERVER_STATUS_TIMEOUT) => Err(ErrorKind::OtherError(
             format!("Ping of {}:{} timed out", original_address.0, original_address.1)
         ).into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    #[tokio::test]
+    async fn modern_status_failure_retries_the_resolved_endpoint_with_legacy_ping()
+     {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = async {
+            let (mut modern, _) = listener.accept().await.unwrap();
+            assert_ne!(modern.read_u8().await.unwrap(), 0xfe);
+            drop(modern);
+
+            let (mut legacy, _) = listener.accept().await.unwrap();
+            assert_eq!(legacy.read_u8().await.unwrap(), 0xfe);
+            assert_eq!(legacy.read_u8().await.unwrap(), 0x01);
+            assert_eq!(legacy.read_u8().await.unwrap(), 0xfa);
+            let channel_len = usize::from(legacy.read_u16().await.unwrap());
+            legacy
+                .read_exact(&mut vec![0; channel_len * 2])
+                .await
+                .unwrap();
+            let payload_len = usize::from(legacy.read_u16().await.unwrap());
+            legacy.read_exact(&mut vec![0; payload_len]).await.unwrap();
+            let response: Vec<_> =
+                ["§1", "74", "Legacy", "Test MOTD", "1", "10"]
+                    .join("\0")
+                    .encode_utf16()
+                    .collect();
+            legacy.write_u8(0xff).await.unwrap();
+            legacy.write_u16(response.len() as u16).await.unwrap();
+            for code in response {
+                legacy.write_u16(code).await.unwrap();
+            }
+        };
+
+        let (status, ()) =
+            tokio::time::timeout(Duration::from_secs(2), async {
+                tokio::join!(
+                    get_server_status(
+                        &address,
+                        ("example.invalid", 25565),
+                        None
+                    ),
+                    server
+                )
+            })
+            .await
+            .unwrap();
+        let status = status.unwrap();
+        assert!(status.version.unwrap().legacy);
+        assert_eq!(status.players.unwrap().online, 1);
     }
 }
 

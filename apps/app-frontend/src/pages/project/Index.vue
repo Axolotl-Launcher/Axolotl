@@ -1160,26 +1160,43 @@ async function loadSupplementalProjectData(project, requestedInstanceId, isCurre
                     instance.value = target
                     instanceReady.value = !!target
                     if (!target) supplementalFailed.value = true
-                    const installedFile = snapshot?.items.find(
+                    const presentItems =
+                        snapshot?.items.filter((item) => item.materializationState === 'present') ??
+                        []
+                    const isProject = (source, id) =>
+                        source === 'modrinth' && String(id) === project.id
+                    const exactRelease = presentItems
+                        .map((item) => item.artifactRef?.release)
+                        .find((release) =>
+                            isProject(release?.project.source, release?.project.projectId),
+                        )
+                    const installedFile = presentItems.find(
                         (item) =>
-                            item.materializationState === 'present' &&
-                            ((item.provider === 'modrinth' &&
-                                item.providerProjectId === project.id) ||
-                                item.content?.provider_refs.some(
-                                    (reference) =>
-                                        reference.provider === 'modrinth' &&
-                                        String(reference.project_id) === project.id,
-                                )),
+                            isProject(item.provider, item.providerProjectId) ||
+                            item.content?.provider_refs.some((reference) =>
+                                isProject(reference.provider, reference.project_id),
+                            ),
                     )
-                    installed.value = !!installedFile
+                    const content = installedFile?.content
+                    // The local snapshot orders the recorded origin first.
+                    const origin = content?.origin_provider ? content.provider_refs[0] : undefined
+                    const matchingReferences =
+                        content?.provider_refs.filter((reference) =>
+                            isProject(reference.provider, reference.project_id),
+                        ) ?? []
+                    const referencedVersion = isProject(origin?.provider, origin?.project_id)
+                        ? origin.version_id
+                        : matchingReferences.length === 1
+                          ? matchingReferences[0].version_id
+                          : null
+                    installed.value = !!(exactRelease || installedFile)
                     installedVersion.value =
-                        (installedFile?.provider === 'modrinth'
+                        exactRelease?.releaseId ??
+                        referencedVersion ??
+                        (installedFile?.overrideKind !== 'version' &&
+                        isProject(installedFile?.provider, installedFile?.providerProjectId)
                             ? installedFile.providerReleaseId
-                            : installedFile?.content?.provider_refs.find(
-                                  (reference) =>
-                                      reference.provider === 'modrinth' &&
-                                      String(reference.project_id) === project.id,
-                              )?.version_id) ?? null
+                            : null)
                     await syncContentSelectionTarget(isCurrent)
                 })
                 .catch((error) => {

@@ -402,77 +402,130 @@ it('keeps installation busy until the target instance has been synchronized', as
     }
 })
 
-it.each(['cross-provider version', 'snapshot failure'])(
-    'preserves the requested instance when reading %s',
-    async (scenario) => {
-        api.project.mockResolvedValue({
-            id: 'one',
-            slug: 'one',
-            title: 'Target project',
-            project_type: 'mod',
-            versions: [],
-            team: 'team',
-            categories: [],
-            game_versions: [],
-            loaders: [],
-            gallery: [],
+it.each([
+    ['cross-provider version', 'installed-release'],
+    ['updated pack member', 'new-release'],
+    ['legacy updated pack member', 'new-release'],
+    ['snapshot failure', null],
+])('preserves the requested instance when reading %s', async (scenario, expectedVersion) => {
+    api.project.mockResolvedValue({
+        id: 'one',
+        slug: 'one',
+        title: 'Target project',
+        project_type: 'mod',
+        versions: [],
+        team: 'team',
+        categories: [],
+        game_versions: [],
+        loaders: [],
+        gallery: [],
+    })
+    api.refreshInstances.mockReset().mockResolvedValue(undefined)
+    if (scenario === 'snapshot failure') {
+        api.snapshot.mockRejectedValueOnce(new Error('snapshot unavailable'))
+    } else if (scenario === 'cross-provider version') {
+        api.snapshot.mockResolvedValueOnce({
+            items: [
+                {
+                    materializationState: 'present',
+                    provider: 'curseforge',
+                    providerProjectId: '42',
+                    providerReleaseId: '123',
+                    content: {
+                        provider_refs: [
+                            {
+                                provider: 'modrinth',
+                                project_id: 'one',
+                                version_id: 'installed-release',
+                            },
+                        ],
+                    },
+                },
+            ],
         })
-        api.refreshInstances.mockReset().mockResolvedValue(undefined)
-        if (scenario === 'snapshot failure') {
-            api.snapshot.mockRejectedValueOnce(new Error('snapshot unavailable'))
-        } else {
-            api.snapshot.mockResolvedValueOnce({
-                items: [
-                    {
-                        materializationState: 'present',
-                        provider: 'curseforge',
-                        providerProjectId: '42',
-                        providerReleaseId: '123',
-                        content: {
-                            provider_refs: [
-                                {
-                                    provider: 'modrinth',
-                                    project_id: 'one',
-                                    version_id: 'installed-release',
-                                },
-                            ],
+    } else {
+        api.snapshot.mockResolvedValueOnce({
+            items: [
+                {
+                    materializationState: 'missing',
+                    artifactRef: {
+                        release: {
+                            project: { source: 'modrinth', projectId: 'one' },
+                            releaseId: 'missing-release',
                         },
                     },
-                ],
-            })
-        }
-        const wrapper = mount(Project, {
-            global: {
-                stubs: {
-                    Teleport: true,
-                    RouterView: defineComponent({
-                        name: 'TargetProjectDetails',
-                        props: ['instance', 'installedVersion', 'installing'],
-                        setup: () => () => null,
-                    }),
                 },
-                directives: { tooltip: {} },
-            },
+                {
+                    materializationState: 'present',
+                    provider: 'modrinth',
+                    providerProjectId: 'one',
+                    providerReleaseId: 'pack-default',
+                    overrideKind: 'version',
+                    artifactRef: {
+                        release: {
+                            project: {
+                                source:
+                                    scenario === 'updated pack member' ? 'modrinth' : 'curseforge',
+                                projectId: 'one',
+                            },
+                            releaseId:
+                                scenario === 'updated pack member'
+                                    ? 'new-release'
+                                    : 'unrelated-release',
+                        },
+                    },
+                    content: {
+                        enabled: false,
+                        origin_provider: 'modrinth',
+                        provider_refs: [
+                            {
+                                provider: 'modrinth',
+                                project_id: 'one',
+                                version_id:
+                                    scenario === 'updated pack member'
+                                        ? 'stale-release'
+                                        : 'new-release',
+                            },
+                            {
+                                provider: 'modrinth',
+                                project_id: 'one',
+                                version_id: 'pack-default',
+                            },
+                        ],
+                    },
+                },
+            ],
         })
-        try {
-            await vi.waitFor(() =>
-                expect(api.refreshInstances).toHaveBeenCalledWith(
-                    'target-instance',
-                    expect.any(Function),
-                ),
-            )
-            await flushPromises()
-            const details = wrapper.findComponent({ name: 'TargetProjectDetails' })
-            expect(details.props('instance').id).toBe('target-instance')
-            expect(details.props('installing')).toBe(false)
-            expect(details.props('installedVersion')).toBe(
-                scenario === 'snapshot failure' ? null : 'installed-release',
-            )
-        } finally {
-            wrapper.unmount()
-        }
-    },
-)
+    }
+    const wrapper = mount(Project, {
+        global: {
+            stubs: {
+                Teleport: true,
+                RouterView: defineComponent({
+                    name: 'TargetProjectDetails',
+                    props: ['instance', 'installedVersion', 'installing'],
+                    setup: () => () => null,
+                }),
+            },
+            directives: { tooltip: {} },
+        },
+    })
+    try {
+        await vi.waitFor(() =>
+            expect(api.refreshInstances).toHaveBeenCalledWith(
+                'target-instance',
+                expect.any(Function),
+            ),
+        )
+        await flushPromises()
+        const details = wrapper.findComponent({ name: 'TargetProjectDetails' })
+        expect(details.props('instance').id).toBe('target-instance')
+        expect(details.props('installing')).toBe(false)
+        expect(details.props('installedVersion')).toBe(expectedVersion)
+    } finally {
+        wrapper.unmount()
+    }
+})
 
 it('shows the project while release data is still loading', async () => {
     api.project.mockReset().mockResolvedValue({

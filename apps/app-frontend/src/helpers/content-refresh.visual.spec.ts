@@ -272,6 +272,75 @@ it('sorts and deduplicates events in one frame and reloads local state for gaps'
     test.subscription.dispose()
 })
 
+it('visits unchanged rows once per frame while applying ordered entry patches', async () => {
+    const initial = state()
+    const original = initial.snapshot.items[0]
+    let untouchedVisits = 0
+    const untouched = Array.from({ length: 1000 }, (_, index) => ({
+        ...original,
+        get entryId() {
+            untouchedVisits++
+            return `unrelated-${index}`
+        },
+    }))
+    initial.snapshot.items.push(...untouched)
+    const test = fixture(initial)
+    await test.subscription.connect(initial)
+
+    const success = event(1)
+    const failure = event(2)
+    if (failure.patch.kind === 'entry') {
+        failure.patch.update = {
+            candidate: null,
+            failed: true,
+            unresolved: false,
+            error: 'offline',
+        }
+    }
+    const stale = event(3)
+    if (stale.patch.kind === 'entry') stale.patch.sha1 = 'old-bytes'
+    test.receive(stale)
+    test.receive(failure)
+    test.receive(success)
+    await test.flush()
+
+    const refreshed: ContentRefreshState = test.change.mock.lastCall![0]
+    expect(untouchedVisits).toBe(untouched.length)
+    expect(refreshed.sequence).toBe(3)
+    expect(refreshed.snapshot.items[0].resourceUpdate).toBeNull()
+    expect(refreshed.snapshot.items[1]).toBe(untouched[0])
+    expect(refreshed.snapshot.warnings.map((warning) => warning.message)).toEqual(['offline'])
+    test.subscription.dispose()
+})
+
+it('applies entry patches on either side of a full content snapshot in sequence', async () => {
+    const initial = state()
+    const test = fixture(initial)
+    await test.subscription.connect(initial)
+    const replacement = state().snapshot
+    replacement.items[0].content!.id = 'new-hash'
+    replacement.revision++
+    const next = event(3)
+    if (next.patch.kind === 'entry') {
+        next.patch.sha1 = 'new-hash'
+        next.patch.update!.candidate!.releaseId = 'new-release'
+    }
+    const stale = event(4)
+    if (stale.patch.kind === 'entry') stale.patch.update!.candidate = null
+
+    test.receive(event(1))
+    test.receive({ ...event(2), patch: { kind: 'content', snapshot: replacement } })
+    test.receive(next)
+    test.receive(stale)
+    await test.flush()
+
+    const refreshed: ContentRefreshState = test.change.mock.lastCall![0]
+    expect(refreshed.sequence).toBe(4)
+    expect(refreshed.snapshot.items[0].content?.id).toBe('new-hash')
+    expect(refreshed.snapshot.items[0].resourceUpdate?.releaseId).toBe('new-release')
+    test.subscription.dispose()
+})
+
 it('reconnects to a cached list and applies external additions and removals without replacing unchanged rows', async () => {
     const initial = state()
     const original = initial.snapshot.items[0]

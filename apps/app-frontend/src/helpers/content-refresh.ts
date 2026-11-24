@@ -50,6 +50,7 @@ export type ContentRefreshEvent =
           patch: ContentRefreshPatch
           task: ContentRefreshTask
       }
+type EntryRefreshPatch = Extract<ContentRefreshPatch, { kind: 'entry' }>
 
 export function resourceStartContentRefresh(instanceId: string, mode: ContentRefreshMode) {
     return invoke<ContentRefreshTask>('plugin:axolotl-resources|resource_start_content_refresh', {
@@ -153,12 +154,16 @@ export function createContentRefreshSubscription(
             )
             .sort((left, right) => left.sequence - right.sequence)
         let changed = false
+        const entryPatches: EntryRefreshPatch[] = []
         if (resync || !state) await reload()
         for (let index = 0; index < ordered.length; index++) {
             const event = ordered[index]
             if (!state || disposed) break
             if (event.sequence <= state.sequence) continue
             if (event.sequence !== state.sequence + 1) {
+                const snapshot = applyEntryPatches(state.snapshot, entryPatches)
+                state = { ...state, snapshot }
+                entryPatches.length = 0
                 await reload()
                 if (!state || disposed || event.sequence <= state.sequence) continue
                 if (event.sequence !== state.sequence + 1) {
@@ -167,10 +172,22 @@ export function createContentRefreshSubscription(
                     break
                 }
             }
-            state = applyContentRefreshEvent(state, event)
+            const patch = event.patch
+            if (patch.kind === 'entry' || patch.kind === 'progress') {
+                if (patch.kind === 'entry') entryPatches.push(patch)
+                state = { ...state, sequence: event.sequence, task: event.task }
+            } else {
+                const snapshot = applyEntryPatches(state.snapshot, entryPatches)
+                entryPatches.length = 0
+                state = applyContentRefreshEvent({ ...state, snapshot }, event)
+            }
             changed = true
         }
-        if (!disposed && state && changed) onChange(state, 'stream')
+        if (!disposed && state && changed) {
+            const snapshot = applyEntryPatches(state.snapshot, entryPatches)
+            state = { ...state, snapshot }
+            onChange(state, 'stream')
+        }
         schedule()
     }
 
@@ -251,63 +268,87 @@ export function applyContentRefreshEvent(
             snapshot = shareContentSnapshot(snapshot, patch.snapshot)
         }
     } else if (patch.kind === 'entry') {
-        const matches = snapshot.items.some(
-            (item) =>
-                item.entryId === patch.entryId &&
-                item.fileId === patch.fileId &&
-                item.content?.id === patch.sha1,
-        )
-        if (!matches) return { snapshot, sequence: event.sequence, task: event.task }
-        let warnings = snapshot.warnings
-        if (patch.update && (!patch.update.failed || patch.update.error !== undefined)) {
-            warnings = warnings.filter(
-                (warning) =>
-                    warning.code !== 'resource_update_unavailable' ||
-                    warning.entryId !== patch.entryId,
-            )
-            if (patch.update.failed && patch.update.error) {
-                warnings = [
-                    ...warnings,
-                    {
-                        entryId: patch.entryId,
-                        code: 'resource_update_unavailable',
-                        message: patch.update.error,
-                        provider: null,
-                    },
-                ]
-            }
-        }
-        snapshot = {
-            ...snapshot,
-            warnings,
-            items: snapshot.items.map((item) => {
-                if (
-                    item.entryId !== patch.entryId ||
-                    item.fileId !== patch.fileId ||
-                    item.content?.id !== patch.sha1
-                )
-                    return item
-                const next = { ...item, capabilities: { ...item.capabilities } }
-                if (patch.artifactRef) next.artifactRef = patch.artifactRef
-                if (patch.presentation && next.content) {
-                    next.content = {
-                        ...next.content,
-                        project: patch.presentation.project,
-                        version: patch.presentation.version,
-                        owner: patch.presentation.owner ?? next.content.owner,
-                        environment: patch.presentation.environment,
-                        loader: patch.presentation.loader,
-                        external: patch.presentation.external,
-                    }
-                }
-                if (patch.update) {
-                    next.resourceUpdate = patch.update.candidate
-                    next.capabilities.canUpdate =
-                        !!patch.update.candidate && next.materializationState === 'present'
-                }
-                return replaceEqualDeep(item, next)
-            }),
-        }
+        snapshot = applyEntryPatches(snapshot, [patch])
     }
     return { snapshot, sequence: event.sequence, task: event.task }
+}
+
+function applyEntryPatches(
+    snapshot: InstanceContentSnapshot,
+    patches: readonly EntryRefreshPatch[],
+): InstanceContentSnapshot {
+    if (!patches.length) return snapshot
+
+    const byEntry = new Map<string, EntryRefreshPatch[]>()
+    for (const patch of patches) {
+        const existing = byEntry.get(patch.entryId)
+        if (existing) existing.push(patch)
+        else byEntry.set(patch.entryId, [patch])
+    }
+
+    const matched = new Set<EntryRefreshPatch>()
+    const items = snapshot.items.map((item) => {
+        const entryId = item.entryId
+        const matchingEntry = entryId == null ? undefined : byEntry.get(entryId)
+        if (!matchingEntry) return item
+        let next = item
+        for (const patch of matchingEntry) {
+            if (item.fileId !== patch.fileId || item.content?.id !== patch.sha1) continue
+            matched.add(patch)
+            next = applyEntryPatch(next, patch)
+        }
+        return next === item ? item : replaceEqualDeep(item, next)
+    })
+    if (!matched.size) return snapshot
+
+    const warningUpdates = new Map<string, string | undefined>()
+    for (const patch of patches) {
+        const update = patch.update
+        if (!matched.has(patch) || !update || (update.failed && update.error === undefined))
+            continue
+        warningUpdates.delete(patch.entryId)
+        warningUpdates.set(patch.entryId, update.failed ? (update.error ?? undefined) : undefined)
+    }
+    let warnings = snapshot.warnings
+    if (warningUpdates.size) {
+        warnings = warnings.filter(
+            (warning) =>
+                warning.code !== 'resource_update_unavailable' ||
+                warning.entryId == null ||
+                !warningUpdates.has(warning.entryId),
+        )
+        for (const [entryId, message] of warningUpdates) {
+            if (message) {
+                warnings.push({
+                    entryId,
+                    code: 'resource_update_unavailable',
+                    message,
+                    provider: null,
+                })
+            }
+        }
+    }
+    return { ...snapshot, items, warnings }
+}
+
+function applyEntryPatch(item: InstanceContentSnapshotItem, patch: EntryRefreshPatch) {
+    const next = { ...item, capabilities: { ...item.capabilities } }
+    if (patch.artifactRef) next.artifactRef = patch.artifactRef
+    if (patch.presentation && next.content) {
+        next.content = {
+            ...next.content,
+            project: patch.presentation.project,
+            version: patch.presentation.version,
+            owner: patch.presentation.owner ?? next.content.owner,
+            environment: patch.presentation.environment,
+            loader: patch.presentation.loader,
+            external: patch.presentation.external,
+        }
+    }
+    if (patch.update) {
+        next.resourceUpdate = patch.update.candidate
+        next.capabilities.canUpdate =
+            !!patch.update.candidate && next.materializationState === 'present'
+    }
+    return next
 }

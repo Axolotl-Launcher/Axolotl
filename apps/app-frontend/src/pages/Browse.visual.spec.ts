@@ -808,6 +808,50 @@ it('uses the latest search draft when required filter metadata recovers', async 
     }
 })
 
+it('discards the old search draft when switching categories before initialization', async () => {
+    const { useRoute } = await import('vue-router')
+    const route = useRoute()
+    route.params.projectType = 'mod'
+    route.query = { source: 'modrinth', v: '1.21.1', q: 'mod link' }
+    api.refresh.mockClear()
+    api.capability.mockResolvedValue({ configured: true })
+    let finish!: (versions: unknown[]) => void
+    const versions = [{ version: '1.21.1', version_type: 'release' }]
+    api.gameVersions
+        .mockReturnValueOnce(
+            new Promise((resolve) => {
+                finish = resolve
+            }),
+        )
+        .mockResolvedValue(versions)
+    api.initializeFilters.mockImplementationOnce((query) => {
+        query.value = String(route.query.q)
+    })
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const context = api.context as BrowseManagerContext
+        expect(context.filtersReady?.value).toBe(false)
+        context.query.value = 'unfinished mod search'
+        route.params.projectType = 'resourcepack'
+        route.query = { source: 'modrinth', v: '1.21.1', q: 'pack link' }
+        expect(context.query.value).toBe('pack link')
+        expect(api.refresh).not.toHaveBeenCalled()
+
+        finish(versions)
+        await vi.waitFor(() => expect(api.refresh).toHaveBeenCalledTimes(1))
+        expect(context.query.value).toBe('pack link')
+        expect(context.filtersReady?.value).toBe(true)
+    } finally {
+        wrapper.unmount()
+        api.initializeFilters.mockReset()
+        route.params.projectType = 'mod'
+        route.query = {}
+    }
+})
+
 it('keeps filters disabled until the implicit installed-content filter is initialized', async () => {
     const { useRoute } = await import('vue-router')
     const route = useRoute()

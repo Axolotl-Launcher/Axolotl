@@ -1956,7 +1956,17 @@ const searchState = useBrowseSearch({
     displayMode,
 })
 
+const browseContextKey = computed(() =>
+    JSON.stringify([route.params.projectType, route.query.i, route.query.from, route.query.source]),
+)
 const initialSearchDraft = ref<string | null>(null)
+watch(
+    browseContextKey,
+    () => {
+        initialSearchDraft.value = null
+    },
+    { flush: 'sync' },
+)
 const searchQuery = computed({
     get: () =>
         browseInitialized.value
@@ -2241,14 +2251,7 @@ async function initializeBrowse() {
     searchEnabled.value = false
     searchState.loading.value = true
     searchState.searchError.value = null
-    const contextKey = () =>
-        JSON.stringify([
-            route.params.projectType,
-            route.query.i,
-            route.query.from,
-            route.query.source,
-        ])
-    const requestedContext = contextKey()
+    const requestedContext = browseContextKey.value
     let restart = false
     initialization = (async () => {
         try {
@@ -2258,7 +2261,7 @@ async function initializeBrowse() {
                 initInstanceContext(),
             ])
             if (isUnmounted) return
-            if (contextKey() !== requestedContext) {
+            if (browseContextKey.value !== requestedContext) {
                 restart = true
                 return
             }
@@ -2283,7 +2286,7 @@ async function initializeBrowse() {
                     throw new Error('Installed content could not be loaded.')
             }
             if (isUnmounted) return
-            if (contextKey() !== requestedContext) {
+            if (browseContextKey.value !== requestedContext) {
                 restart = true
                 return
             }
@@ -2292,10 +2295,11 @@ async function initializeBrowse() {
             await nextTick()
             restoreBrowseReturnPage()
             await nextTick()
-            if (initialSearchDraft.value !== null) {
+            if (browseContextKey.value === requestedContext && initialSearchDraft.value !== null) {
                 searchState.query.value = initialSearchDraft.value
                 searchState.currentPage.value = 1
             }
+            initialSearchDraft.value = null
             initializedFilterType = projectType.value
             initializedFilterSource = contentSource.value
             browseInitialized.value = true
@@ -2306,7 +2310,7 @@ async function initializeBrowse() {
                 pendingRouteInstanceSwitch.value = null
             }
         } catch (error) {
-            if (contextKey() !== requestedContext) {
+            if (browseContextKey.value !== requestedContext) {
                 restart = true
                 return
             }

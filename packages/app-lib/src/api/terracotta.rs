@@ -749,7 +749,13 @@ async fn terracotta_get<T: serde::de::DeserializeOwned>(
 }
 
 fn terracotta_server_port(url: Option<&str>) -> Option<u16> {
-    url?.parse::<std::net::SocketAddr>()
+    let address = url?;
+    // Terracotta omits Minecraft's default port in guest-ok responses.
+    if address == "127.0.0.1" {
+        return Some(25565);
+    }
+    address
+        .parse::<std::net::SocketAddr>()
         .ok()
         .map(|url| url.port())
 }
@@ -1597,11 +1603,13 @@ mod tests {
 
     #[test]
     fn parses_guest_server_port() {
+        assert_eq!(terracotta_server_port(Some("127.0.0.1")), Some(25565));
         assert_eq!(
             terracotta_server_port(Some("127.0.0.1:38449")),
             Some(38449)
         );
         assert_eq!(terracotta_server_port(Some("invalid")), None);
+        assert_eq!(terracotta_server_port(Some("")), None);
         assert_eq!(terracotta_server_port(None), None);
     }
 

@@ -1,8 +1,8 @@
-use super::create_direct_link_instance::create_direct_link_instance;
+use super::create_direct_link_instance::create_direct_link_instance_at_root;
 use crate::api::pack::import::{
     ImportLauncherType,
     direct_link::{
-        DirectLinkSource, detect_direct_link_source,
+        DirectLinkSource, ResolvedDirectLink, detect_direct_link_source,
         has_linked_version_manifest, resolve_direct_link,
     },
 };
@@ -94,6 +94,7 @@ pub(crate) async fn sync_direct_link_instances(
         })
         .collect::<Vec<_>>();
     let mut seen_json = HashSet::new();
+    let mut retained = HashSet::new();
 
     for (root, aliases) in &canonical_roots {
         let Some(mode) = configured_mode(aliases) else {
@@ -150,7 +151,7 @@ pub(crate) async fn sync_direct_link_instances(
             tracing::debug!(root = %root.display(), version_dir = %folder.display(), mode = %mode.key(), "attempting direct-link instance sync");
             let folder_name = entry.file_name().to_string_lossy().to_string();
             let instance_folder = Path::new("versions").join(&folder_name);
-            let resolved = match resolve_direct_link(
+            let mut resolved = match resolve_direct_link(
                 source.launcher,
                 source.launcher_root.clone(),
                 instance_folder.to_string_lossy().to_string(),
@@ -185,6 +186,47 @@ pub(crate) async fn sync_direct_link_instances(
                 continue;
             }
 
+            if existing_instance.is_none() {
+                // Older builds persisted only the physical path. Once that
+                // root is gone, a matching HMCL version is a clue, not proof.
+                let mut uncertain = false;
+                for metadata in &existing {
+                    if could_be_moved_hmcl_instance(
+                        &metadata.instance,
+                        &resolved,
+                    ) {
+                        retained.insert(metadata.instance.id.as_str());
+                        uncertain = true;
+                    }
+                }
+                if uncertain {
+                    report.errors.push(format!(
+                        "{} may match an existing HMCL association at an unavailable path; the association was preserved",
+                        resolved.version_json.display()
+                    ));
+                    continue;
+                }
+            }
+
+            let configured_root = existing_instance
+                .and_then(|(metadata, _)| {
+                    metadata.instance.linked_dot_minecraft.as_deref()
+                })
+                .and_then(|stored| {
+                    aliases.iter().find(|alias| {
+                        paths_match(Path::new(stored), &alias.path)
+                    })
+                })
+                .or_else(|| {
+                    aliases.iter().find(|alias| {
+                        alias.path.parent().is_some_and(|parent| {
+                            path_identity(parent) == resolved.launcher_root
+                        })
+                    })
+                })
+                .unwrap_or(&aliases[0]);
+            resolved.retain_configured_root(&configured_root.path);
+
             if let Some((metadata, _)) = existing_instance {
                 let instance = &metadata.instance;
                 if instance.symlink_target.is_some() {
@@ -193,6 +235,7 @@ pub(crate) async fn sync_direct_link_instances(
                     // records owned by direct-link reconciliation.
                     continue;
                 }
+                retained.insert(instance.id.as_str());
                 if !instance.is_direct_linked()
                     && !is_unpromoted_direct_link_candidate(
                         instance.install_stage,
@@ -291,7 +334,7 @@ pub(crate) async fn sync_direct_link_instances(
                         .await;
                 report.updated += 1;
             } else {
-                let instance = match create_direct_link_instance(
+                let instance = match create_direct_link_instance_at_root(
                     CreateDirectLinkInstance {
                         name: Some(folder_name),
                         launcher_type: source.launcher,
@@ -304,6 +347,7 @@ pub(crate) async fn sync_direct_link_instances(
                         ),
                         game_dir_mode: Some(mode),
                     },
+                    Some(&configured_root.path),
                     state,
                 )
                 .await
@@ -329,7 +373,9 @@ pub(crate) async fn sync_direct_link_instances(
     // from Settings before the next scan promotes the record to a direct
     // link, drop only the Axolotl record here as well.
     for metadata in &existing {
-        if metadata.instance.linked_dot_minecraft.is_some() {
+        if metadata.instance.linked_dot_minecraft.is_some()
+            || retained.contains(metadata.instance.id.as_str())
+        {
             continue;
         }
         if !is_unpromoted_direct_link_candidate(
@@ -363,7 +409,9 @@ pub(crate) async fn sync_direct_link_instances(
     }
 
     for (metadata, (json_identity, _)) in existing.iter().zip(&existing_paths) {
-        if metadata.instance.symlink_target.is_some() {
+        if metadata.instance.symlink_target.is_some()
+            || retained.contains(metadata.instance.id.as_str())
+        {
             continue;
         }
         let Some(json_path) =
@@ -435,6 +483,36 @@ fn configured_mode(
         .filter(|mode| *mode != ExternalGameDirMode::Automatic);
     let mode = explicit.next().unwrap_or(ExternalGameDirMode::Automatic);
     explicit.all(|other| other == mode).then_some(mode)
+}
+
+fn could_be_moved_hmcl_instance(
+    instance: &crate::state::Instance,
+    resolved: &ResolvedDirectLink,
+) -> bool {
+    if resolved.launcher != ImportLauncherType::HMCL
+        || instance.linked_launcher.as_deref() != Some("hmcl")
+        || instance.linked_version_id.as_deref() != Some(&resolved.version_id)
+        || instance.symlink_target.is_some()
+    {
+        return false;
+    }
+    let (Some(launcher), Some(root), Some(manifest)) = (
+        instance.linked_launcher_root.as_deref(),
+        instance.linked_dot_minecraft.as_deref(),
+        instance.linked_version_json_path.as_deref(),
+    ) else {
+        return false;
+    };
+    let root = Path::new(root);
+    let old_manifest = Path::new(manifest).strip_prefix(root).ok();
+    let new_manifest = resolved
+        .version_json
+        .strip_prefix(&resolved.dot_minecraft)
+        .ok();
+    old_manifest.is_some()
+        && old_manifest == new_manifest
+        && path_identity(launcher) == resolved.launcher_root
+        && !matches!(root.try_exists(), Ok(true))
 }
 
 fn detect_source_for_aliases(

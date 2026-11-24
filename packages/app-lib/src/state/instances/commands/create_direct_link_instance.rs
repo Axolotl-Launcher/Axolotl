@@ -13,7 +13,7 @@ use crate::state::{
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::info;
 use uuid::Uuid;
 
@@ -40,15 +40,26 @@ pub(crate) async fn create_direct_link_instance(
     input: CreateDirectLinkInstance,
     state: &State,
 ) -> crate::Result<Instance> {
+    create_direct_link_instance_at_root(input, None, state).await
+}
+
+pub(super) async fn create_direct_link_instance_at_root(
+    input: CreateDirectLinkInstance,
+    configured_root: Option<&Path>,
+    state: &State,
+) -> crate::Result<Instance> {
     crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     let _metadata_usage = crate::storage::usage::lease().await?;
-    let resolved = resolve_direct_link(
+    let mut resolved = resolve_direct_link(
         input.launcher_type,
         input.base_path,
         input.instance_folder,
         input.instance_path,
     )
     .await?;
+    if let Some(root) = configured_root {
+        resolved.retain_configured_root(root);
+    }
 
     info!(
         launcher = resolved.launcher_key(),
@@ -423,7 +434,7 @@ mod tests {
         assert!(report.errors.is_empty(), "{:?}", report.errors);
         assert_eq!(
             (report.imported, report.updated, report.removed),
-            (0, 1, 0)
+            (0, 0, 0)
         );
         let current = crate::state::get_instance(id, &state.pool)
             .await?
@@ -431,6 +442,14 @@ mod tests {
         assert_eq!(current.instance.name, "My HMCL instance");
         assert_eq!(current.instance.recent_time_played, 615);
         assert_eq!(current.instance.linked_launcher.as_deref(), Some("hmcl"));
+        assert_eq!(
+            current.instance.linked_dot_minecraft,
+            first.instance.linked_dot_minecraft
+        );
+        assert_eq!(
+            current.instance.linked_version_json_path,
+            first.instance.linked_version_json_path
+        );
         assert_eq!(
             current.applied_content_set.id,
             first.applied_content_set.id
@@ -452,7 +471,7 @@ mod tests {
         assert!(!files[0].missing);
 
         let physical = ExternalMinecraftRoot {
-            path: moved,
+            path: moved.clone(),
             mode: ExternalGameDirMode::Automatic,
         };
         let unchanged = sync_direct_link_instances(
@@ -470,7 +489,7 @@ mod tests {
             vec![
                 ExternalMinecraftRoot {
                     mode: ExternalGameDirMode::Shared,
-                    ..configured
+                    ..configured.clone()
                 },
                 ExternalMinecraftRoot {
                     mode: ExternalGameDirMode::Isolated,
@@ -485,6 +504,70 @@ mod tests {
             (conflict.imported, conflict.updated, conflict.removed),
             (0, 0, 0)
         );
+
+        #[cfg(windows)]
+        junction::delete(&original)?;
+        #[cfg(unix)]
+        std::fs::remove_file(&original)?;
+        std::fs::rename(&moved, &original)?;
+
+        let other = ExternalMinecraftRoot {
+            path: external.path().join("other").join(".minecraft"),
+            mode: ExternalGameDirMode::Automatic,
+        };
+        std::fs::create_dir_all(other.path.join("versions/linked"))?;
+        std::fs::copy(
+            original.join("versions/linked/linked.json"),
+            other.path.join("versions/linked/linked.json"),
+        )?;
+        let returned = sync_direct_link_instances(
+            vec![configured.clone(), other.clone()],
+            &state,
+        )
+        .await?;
+        assert!(returned.errors.is_empty(), "{:?}", returned.errors);
+        assert_eq!(
+            (returned.imported, returned.updated, returned.removed),
+            (1, 0, 0)
+        );
+        let original_instance = crate::state::get_instance(id, &state.pool)
+            .await?
+            .expect("the original association survives the round trip");
+        assert_eq!(
+            original_instance.applied_content_set.id,
+            first.applied_content_set.id
+        );
+        assert_eq!(original_instance.instance.recent_time_played, 615);
+        assert!(original.join(relative_path).is_file());
+
+        let mut tx = state.pool.begin().await?;
+        instance_rows::set_direct_link_fields(
+            id,
+            &instance_rows::DirectLinkFields {
+                launcher: original_instance.instance.linked_launcher,
+                launcher_root: original_instance.instance.linked_launcher_root,
+                dot_minecraft: Some(moved.to_string_lossy().into_owned()),
+                version_id: original_instance.instance.linked_version_id,
+                version_json_path: Some(
+                    moved
+                        .join("versions/linked/linked.json")
+                        .to_string_lossy()
+                        .into_owned(),
+                ),
+                game_dir_mode: original_instance.instance.linked_game_dir_mode,
+            },
+            &mut tx,
+        )
+        .await?;
+        tx.commit().await?;
+        let uncertain =
+            sync_direct_link_instances(vec![configured, other], &state).await?;
+        assert_eq!(
+            (uncertain.imported, uncertain.updated, uncertain.removed),
+            (0, 0, 0)
+        );
+        assert_eq!(uncertain.errors.len(), 1);
+        assert!(crate::state::get_instance(id, &state.pool).await?.is_some());
         Ok(())
     }
 

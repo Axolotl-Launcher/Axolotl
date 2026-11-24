@@ -170,6 +170,27 @@ impl ResolvedDirectLink {
         launcher_key(self.launcher)
             .expect("resolved direct links always use a supported launcher")
     }
+
+    /// Preserve the configured route to a linked version across moves of the
+    /// underlying directory. Only keep an alias that names the same manifest.
+    pub(crate) fn retain_configured_root(&mut self, configured: &Path) {
+        let Ok(relative) = self.version_json.strip_prefix(&self.dot_minecraft)
+        else {
+            return;
+        };
+        let Ok(root) = std::path::absolute(configured) else {
+            return;
+        };
+        let manifest = root.join(relative);
+        if crate::util::io::canonicalize(&root).ok().as_ref()
+            == Some(&self.dot_minecraft)
+            && crate::util::io::canonicalize(&manifest).ok().as_ref()
+                == Some(&self.version_json)
+        {
+            self.dot_minecraft = root;
+            self.version_json = manifest;
+        }
+    }
 }
 
 /// Resolves the same launcher identity used by the existing import flow into

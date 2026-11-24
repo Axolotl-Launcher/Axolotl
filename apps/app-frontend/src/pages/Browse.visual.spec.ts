@@ -36,6 +36,7 @@ const api = vi.hoisted(() => ({
     archiveVersions: vi.fn().mockResolvedValue([]),
     planetAvailable: false,
     refresh: vi.fn(),
+    initializeFilters: vi.fn<(query: { value: string }) => void>(),
     saveMemory: vi.fn(),
     type: 'mod',
     source: 'all',
@@ -358,8 +359,9 @@ vi.mock('@modrinth/ui', async () => {
             api.automaticSort = options.automaticSort
             api.supportedSortNames = options.supportedSortNames
             api.extraQuery = options.getExtraQueryParams
+            const query = ref('')
             return {
-                query: ref(''),
+                query,
                 currentFilters: ref([]),
                 serverCurrentFilters: ref([]),
                 toggledGroups: ref([]),
@@ -374,7 +376,7 @@ vi.mock('@modrinth/ui', async () => {
                 totalHits: ref(0),
                 loading: ref(true),
                 searchError: ref(null),
-                initializeFilters: vi.fn(),
+                initializeFilters: () => api.initializeFilters(query),
                 refreshSearch: api.refresh,
             }
         },
@@ -760,6 +762,48 @@ it('retries optional filter metadata without restarting the search', async () =>
     } finally {
         wrapper.unmount()
         api.planetAvailable = false
+        route.query = {}
+    }
+})
+
+it('uses the latest search draft when required filter metadata recovers', async () => {
+    const { useRoute } = await import('vue-router')
+    const route = useRoute()
+    route.params.projectType = 'mod'
+    route.query = { source: 'modrinth', v: '1.21.1', q: 'from link' }
+    api.refresh.mockClear()
+    api.capability.mockResolvedValue({ configured: true })
+    let finish!: (versions: unknown[]) => void
+    api.gameVersions.mockRejectedValueOnce(new Error('offline')).mockReturnValueOnce(
+        new Promise((resolve) => {
+            finish = resolve
+        }),
+    )
+    api.initializeFilters.mockImplementationOnce((query) => {
+        query.value = String(route.query.q)
+    })
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const context = api.context as BrowseManagerContext
+        expect(context.filtersReady?.value).toBe(false)
+        expect(context.query.value).toBe('from link')
+        context.query.value = 'before retry'
+        ;(wrapper.vm as unknown as { retryFilterMetadata: () => void }).retryFilterMetadata()
+        await flushPromises()
+        context.query.value = 'latest draft'
+        expect(api.refresh).not.toHaveBeenCalled()
+
+        finish([{ version: '1.21.1', version_type: 'release' }])
+        await flushPromises()
+        expect(context.query.value).toBe('latest draft')
+        expect(context.filtersReady?.value).toBe(true)
+        expect(api.refresh).toHaveBeenCalledTimes(1)
+    } finally {
+        wrapper.unmount()
+        api.initializeFilters.mockReset()
         route.query = {}
     }
 })

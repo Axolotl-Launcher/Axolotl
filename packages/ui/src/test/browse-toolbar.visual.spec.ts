@@ -35,6 +35,7 @@ async function mountBrowseToolbar() {
     document.body.append(host)
     cleanup.push(() => host.remove())
     const query = ref('')
+    const filtersReady = ref(true)
     const translate = vi.fn()
     const chooseInstance = vi.fn()
     const source = ref('All sources')
@@ -44,6 +45,7 @@ async function mountBrowseToolbar() {
         tags: ref({ gameVersions: [], loaders: [], categories: [] }),
         projectType: ref('mod'),
         query,
+        filtersReady,
         filters: computed(() => []),
         currentFilters: ref([]),
         toggledGroups: ref([]),
@@ -161,8 +163,24 @@ async function mountBrowseToolbar() {
         global: { plugins: [router], stubs: { SearchFilterControl: true } },
     })
     cleanup.push(() => wrapper.unmount())
-    return { wrapper, host, query, translate, chooseInstance, context }
+    return { wrapper, host, query, translate, chooseInstance, context, filtersReady }
 }
+
+it('keeps the search input editable while filter controls are disabled', async () => {
+    const { wrapper, query, filtersReady } = await mountBrowseToolbar()
+    const input = wrapper.get<HTMLInputElement>('input[type="text"]')
+    filtersReady.value = false
+    await wrapper.vm.$nextTick()
+    expect(input.element.disabled).toBe(false)
+    expect(wrapper.findAll('[data-combobox] [aria-disabled="true"]')).toHaveLength(2)
+
+    await page.elementLocator(input.element).fill('Sodium')
+    filtersReady.value = true
+    await wrapper.vm.$nextTick()
+    expect(document.activeElement).toBe(input.element)
+    expect(input.element.value).toBe('Sodium')
+    expect(query.value).toBe('Sodium')
+})
 
 it('uses skeletons exclusively during both initial loading and replacement searches', async () => {
     const { wrapper, context } = await mountBrowseToolbar()

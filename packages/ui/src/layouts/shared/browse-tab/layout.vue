@@ -147,7 +147,6 @@ const skeletonCount = computed(() => {
         :variant="ctx.variant"
         :tabs="ctx.selectableProjectTypes.value"
         :show-tabs="ctx.showProjectTypeTabs.value"
-        :disabled="ctx.filtersReady?.value === false"
         :placeholder="
             formatMessage(messages.searchPlaceholder, {
                 projectType: formatProjectTypeSentence(formatMessage, ctx.projectType.value, 2),

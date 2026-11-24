@@ -1956,6 +1956,18 @@ const searchState = useBrowseSearch({
     displayMode,
 })
 
+const initialSearchDraft = ref<string | null>(null)
+const searchQuery = computed({
+    get: () =>
+        browseInitialized.value
+            ? searchState.query.value
+            : (initialSearchDraft.value ?? String(route.query.q ?? '')),
+    set: (value: string) => {
+        if (browseInitialized.value) searchState.query.value = value
+        else initialSearchDraft.value = value
+    },
+})
+
 function restoreBrowseReturnPage() {
     if (!browseReturnSnapshot || !Number.isInteger(browseReturnSnapshot.state.currentPage)) return
 
@@ -2280,6 +2292,10 @@ async function initializeBrowse() {
             await nextTick()
             restoreBrowseReturnPage()
             await nextTick()
+            if (initialSearchDraft.value !== null) {
+                searchState.query.value = initialSearchDraft.value
+                searchState.currentPage.value = 1
+            }
             initializedFilterType = projectType.value
             initializedFilterSource = contentSource.value
             browseInitialized.value = true
@@ -2424,6 +2440,11 @@ provideBrowseManager({
     tags,
     projectType,
     ...searchState,
+    query: searchQuery,
+    clearSearch: () => {
+        if (browseInitialized.value) searchState.clearSearch()
+        else searchQuery.value = ''
+    },
     filtersReady,
     refreshSearch: refreshBrowse,
     advancedFiltersCollapsed,

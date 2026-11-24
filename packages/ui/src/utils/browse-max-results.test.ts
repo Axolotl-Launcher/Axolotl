@@ -51,6 +51,18 @@ test('round-trips a chosen page size', () => {
     }
 })
 
+test('keeps a separately named page size preference independent', () => {
+    installStorage(new Map())
+    try {
+        persistMaxResults(50)
+        persistMaxResults(10, 'favorites-max-results')
+        assert.equal(readPersistedMaxResults(), 50)
+        assert.equal(readPersistedMaxResults('favorites-max-results'), 10)
+    } finally {
+        restoreStorage()
+    }
+})
+
 test('falls back to the default for unusable stored values', () => {
     for (const raw of ['', 'abc', '0', '-5', 'NaN']) {
         installStorage(new Map([[MAX_RESULTS_STORAGE_KEY, raw]]))

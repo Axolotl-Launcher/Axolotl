@@ -207,6 +207,8 @@ vi.mock('@/components/browse/BrowseInstanceSelector.vue', async () => {
 vi.mock('@/components/ui/InstanceIcon.vue', () => ({ default: { render: () => null } }))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h, ref } = await import('vue')
+    const MAX_RESULTS_DEFAULT = 20
+    const MAX_RESULTS_OPTIONS = [5, 10, 15, 20, 50, 100]
     const container = defineComponent({
         setup:
             (_, { slots }) =>
@@ -214,6 +216,32 @@ vi.mock('@modrinth/ui', async () => {
                 h('div', slots.default?.()),
     })
     return {
+        MAX_RESULTS_DEFAULT,
+        MAX_RESULTS_OPTIONS,
+        readPersistedMaxResults: (key: string) => Number(localStorage.getItem(key) ?? '20'),
+        persistMaxResults: (size: number, key: string) => localStorage.setItem(key, String(size)),
+        BrowsePageSizeSelector: defineComponent({
+            props: ['modelValue'],
+            emits: ['update:modelValue'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h(
+                        'select',
+                        {
+                            'data-page-size': '',
+                            value: props.modelValue,
+                            onChange: (event: Event) =>
+                                emit(
+                                    'update:modelValue',
+                                    Number((event.target as HTMLSelectElement).value),
+                                ),
+                        },
+                        MAX_RESULTS_OPTIONS.map((size) =>
+                            h('option', { value: size }, String(size)),
+                        ),
+                    ),
+        }),
         ...Object.fromEntries(
             [
                 'BrowseInstallHeader',
@@ -368,6 +396,7 @@ afterEach(() => {
     fixture.installSelected.mockReset().mockResolvedValue(true)
     fixture.updateFavoriteGroups.mockReset().mockResolvedValue(undefined)
     fixture.prefetch.mockReset().mockResolvedValue(new Map())
+    localStorage.removeItem('favorites-max-results')
 })
 function render() {
     const wrapper = mount(Favorites, { global: { directives: { tooltip: {} } } })
@@ -692,6 +721,36 @@ it('keeps pagination based on the saved collection while page metadata is pendin
     expect(wrapper.find('[data-page="2"]').exists()).toBe(true)
     expect(wrapper.findAll('[data-skeleton]')).toHaveLength(5)
     expect(fixture.replace).not.toHaveBeenCalled()
+})
+
+it('changes the favorite page size, resets to the first page and remembers the choice', async () => {
+    fixture.query = { page: '2', i: 'instance-1' }
+    fixture.load.mockResolvedValue(
+        Array.from({ length: 25 }, (_, index) => ({
+            ...archiveFavorite,
+            project_id: String(index),
+        })),
+    )
+    fixture.metadata.mockImplementation(() => new Promise(() => {}))
+    const { useRoute } = await import('vue-router')
+    fixture.replace.mockImplementationOnce(({ query }) => Object.assign(useRoute().query, query))
+    const wrapper = render()
+    await vi.waitFor(() =>
+        expect(wrapper.find('[data-count="2"][data-page="2"]').exists()).toBe(true),
+    )
+
+    await wrapper.get('[data-page-size]').setValue('10')
+    expect(fixture.replace).toHaveBeenCalledWith({
+        query: { page: undefined, i: 'instance-1', size: '10' },
+    })
+    await vi.waitFor(() =>
+        expect(wrapper.find('[data-count="3"][data-page="1"]').exists()).toBe(true),
+    )
+    expect(wrapper.findAll('[data-skeleton]')).toHaveLength(10)
+
+    fixture.query = {}
+    const reopened = render()
+    expect((reopened.get('[data-page-size]').element as HTMLSelectElement).value).toBe('10')
 })
 
 it('discards a removed favorite and its late metadata response', async () => {

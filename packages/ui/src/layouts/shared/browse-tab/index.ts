@@ -1,3 +1,4 @@
+export { default as BrowsePageSizeSelector } from './components/BrowsePageSizeSelector.vue'
 export { default as BrowseResultControls } from './components/BrowseResultControls.vue'
 export { default as BrowseSourceSelector } from './components/BrowseSourceSelector.vue'
 export { default as SelectAllButton } from './components/SelectAllButton.vue'

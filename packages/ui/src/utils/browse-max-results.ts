@@ -23,10 +23,10 @@ export const MAX_RESULTS_LIMIT = 100
  * opaque-origin context merely reading the global can throw, and that must not
  * take the browse page down with it.
  */
-export function readPersistedMaxResults(): number {
+export function readPersistedMaxResults(storageKey = MAX_RESULTS_STORAGE_KEY): number {
     try {
         if (typeof localStorage === 'undefined') return MAX_RESULTS_DEFAULT
-        const raw = localStorage.getItem(MAX_RESULTS_STORAGE_KEY)
+        const raw = localStorage.getItem(storageKey)
         if (!raw) return MAX_RESULTS_DEFAULT
         const parsed = Number.parseInt(raw, 10)
         if (!Number.isFinite(parsed) || parsed < 1) return MAX_RESULTS_DEFAULT
@@ -37,14 +37,14 @@ export function readPersistedMaxResults(): number {
     }
 }
 
-export function persistMaxResults(value: number): void {
+export function persistMaxResults(value: number, storageKey = MAX_RESULTS_STORAGE_KEY): void {
     // Only a real user choice is worth persisting. A value clamped down because
     // the current tab offers fewer options must not overwrite the preference the
     // user set on a tab that offered more.
     if (!Number.isFinite(value) || value < 1) return
     try {
         if (typeof localStorage === 'undefined') return
-        localStorage.setItem(MAX_RESULTS_STORAGE_KEY, String(Math.min(value, MAX_RESULTS_LIMIT)))
+        localStorage.setItem(storageKey, String(Math.min(value, MAX_RESULTS_LIMIT)))
     } catch {
         // A full or blocked storage quota must not break browsing.
     }

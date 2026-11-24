@@ -17,6 +17,7 @@ import {
     Admonition,
     type BrowseInstallContext,
     BrowseInstallHeader,
+    BrowsePageSizeSelector,
     Button,
     Checkbox,
     commonMessages,
@@ -27,12 +28,16 @@ import {
     formatCategory,
     getTargetInstallPreferences,
     injectNotificationManager,
+    MAX_RESULTS_DEFAULT,
+    MAX_RESULTS_OPTIONS,
     NavTabs,
     Pagination,
+    persistMaxResults,
     PopoutMenu,
     ProjectCard,
     ProjectCardList,
     ProjectCardSkeleton,
+    readPersistedMaxResults,
     SelectAllButton,
     SelectedProjectsFloatingBar,
     StyledInput,
@@ -109,6 +114,7 @@ type FavoritesView = {
     group: FavoriteGroupFilter
     categories: string[]
     page: number
+    pageSize: number
     projects: FavoriteProject[]
 }
 
@@ -116,7 +122,7 @@ type FavoritesReturnState = {
     projects: FavoriteProject[]
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE_STORAGE_KEY = 'favorites-max-results'
 const GROUP_ALL: FavoriteGroupFilter = 'all'
 const GROUP_NONE: FavoriteGroupFilter = 'none'
 const INSTALLED_CONTENT_EVENTS = [
@@ -167,6 +173,10 @@ const projectsLoadFailed = ref(false)
 const hasProjectsSnapshot = ref(!!browseReturnSnapshot)
 const metadataComplete = ref(false)
 const committedView = shallowRef<FavoritesView | null>(null)
+const storedPageSize = readPersistedMaxResults(PAGE_SIZE_STORAGE_KEY)
+const initialPageSize = MAX_RESULTS_OPTIONS.includes(storedPageSize)
+    ? storedPageSize
+    : MAX_RESULTS_DEFAULT
 
 const messages = defineMessages({
     schematics: { id: 'app.browse.schematics-project-type', defaultMessage: 'Schematics' },
@@ -359,7 +369,15 @@ function updateQuery(values: Record<string, string | undefined>) {
 }
 
 function browseResources() {
-    const { q: _q, kind: _kind, group: _group, cat: _cat, page: _page, ...query } = route.query
+    const {
+        q: _q,
+        kind: _kind,
+        group: _group,
+        cat: _cat,
+        page: _page,
+        size: _size,
+        ...query
+    } = route.query
     void router.push({ path: '/browse/mod', query })
 }
 
@@ -386,6 +404,18 @@ const filter = computed<FavoriteFilter>({
 const currentPage = computed({
     get: () => parsePage(route.query.page),
     set: (page: number) => updateQuery({ page: page > 1 ? String(page) : undefined }),
+})
+
+const pageSize = computed({
+    get: () => {
+        const requested = Number(queryValue(route.query.size))
+        return MAX_RESULTS_OPTIONS.includes(requested) ? requested : initialPageSize
+    },
+    set: (size: number) => {
+        if (!MAX_RESULTS_OPTIONS.includes(size) || size === pageSize.value) return
+        persistMaxResults(size, PAGE_SIZE_STORAGE_KEY)
+        updateQuery({ size: String(size), page: undefined })
+    },
 })
 
 const groupFilter = computed<FavoriteGroupFilter>({
@@ -857,6 +887,7 @@ watch(
         favoriteGroups.loaded,
         favoriteGroups.memberships,
         currentPage,
+        pageSize,
         loadingProjects,
         localizedTitles,
         () => i18n.global.locale.value,
@@ -880,8 +911,9 @@ watch(
                 categories: selectedCategories.value,
                 page: Math.min(
                     currentPage.value,
-                    Math.max(1, Math.ceil(matching.length / PAGE_SIZE)),
+                    Math.max(1, Math.ceil(matching.length / pageSize.value)),
                 ),
+                pageSize: pageSize.value,
                 projects: matching,
             }
         } else if (
@@ -901,6 +933,7 @@ watch(
                 group: GROUP_ALL,
                 categories: [],
                 page: currentPage.value,
+                pageSize: pageSize.value,
                 projects: [],
             }
         }
@@ -930,13 +963,17 @@ const displayRows = computed<FavoriteRow[]>(() => {
         project: known.get(JSON.stringify(favorite)),
     }))
 })
-const pageCount = computed(() => Math.max(1, Math.ceil(displayRows.value.length / PAGE_SIZE)))
+const displayedPageSize = computed(() => committedView.value?.pageSize ?? pageSize.value)
+const pageCount = computed(() =>
+    Math.max(1, Math.ceil(displayRows.value.length / displayedPageSize.value)),
+)
 const displayedPage = computed(() =>
     Math.min(committedView.value?.page ?? currentPage.value, pageCount.value),
 )
 const pagedRows = computed(() => {
-    const offset = (displayedPage.value - 1) * PAGE_SIZE
-    return displayRows.value.slice(offset, offset + PAGE_SIZE)
+    const size = displayedPageSize.value
+    const offset = (displayedPage.value - 1) * size
+    return displayRows.value.slice(offset, offset + size)
 })
 
 watch([pageCount, loadingProjects], ([count, loading]) => {
@@ -1433,6 +1470,7 @@ onMounted(() => {
                                 </div>
                             </template>
                         </PopoutMenu>
+                        <BrowsePageSizeSelector v-model="pageSize" />
                         <Pagination
                             :page="displayedPage"
                             :count="pageCount"

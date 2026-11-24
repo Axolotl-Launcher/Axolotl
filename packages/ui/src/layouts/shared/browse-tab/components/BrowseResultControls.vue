@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { ArrowUpDownIcon, EyeIcon } from '@modrinth/assets'
+import { ArrowUpDownIcon } from '@modrinth/assets'
 import { computed } from 'vue'
 
 import Button from '#ui/components/base/buttons/Button.vue'
 import Combobox, { type ComboboxOption } from '#ui/components/base/Combobox.vue'
 import Pagination from '#ui/components/base/Pagination.vue'
 import PopoutMenu from '#ui/components/base/PopoutMenu.vue'
-import { defineMessages, useVIntl } from '#ui/composables/i18n'
-import { MAX_RESULTS_OPTIONS } from '#ui/utils/browse-max-results'
+import { useVIntl } from '#ui/composables/i18n'
 import { commonMessages } from '#ui/utils/common-messages'
 
 import type { BrowseDisplayMode, BrowseDisplayModeOption } from '../types'
+import BrowsePageSizeSelector from './BrowsePageSizeSelector.vue'
 
 const props = withDefaults(
     defineProps<{
@@ -38,9 +38,6 @@ const emit = defineEmits<{
     'switch-page': [page: number]
 }>()
 const { formatMessage } = useVIntl()
-const messages = defineMessages({
-    viewPrefix: { id: 'browse.view-prefix', defaultMessage: 'View:' },
-})
 const currentSort = computed({
     get: () => props.sort,
     set: (sort: string) => emit('update:sort', sort),
@@ -49,12 +46,6 @@ const currentPageSize = computed({
     get: () => props.pageSize,
     set: (size: number) => emit('update:pageSize', size),
 })
-const sizes = computed<ComboboxOption<number>[]>(() =>
-    (props.pageSizeOptions ?? MAX_RESULTS_OPTIONS).map((value) => ({
-        value,
-        label: String(value),
-    })),
-)
 const selectedDisplayMode = computed(() =>
     props.displayModeOptions?.find((option) => option.id === props.displayMode),
 )
@@ -78,23 +69,11 @@ const selectedDisplayMode = computed(() =>
             }}</span></template
         >
     </Combobox>
-    <Combobox
+    <BrowsePageSizeSelector
         v-model="currentPageSize"
-        v-tooltip="{ content: formatMessage(messages.viewPrefix), triggers: ['hover'] }"
         :disabled="disabled"
-        width="content"
-        :options="sizes"
-        trigger-class="!min-h-10"
-    >
-        <template #prefix
-            ><EyeIcon class="size-5 shrink-0 text-[var(--color-text-default)]"
-        /></template>
-        <template #selected="{ label }"
-            ><span class="font-semibold text-[var(--color-text-tertiary)]">{{
-                label
-            }}</span></template
-        >
-    </Combobox>
+        :options="pageSizeOptions"
+    />
     <slot name="filters-button" />
     <PopoutMenu v-if="displayMode && displayModeOptions?.length" placement="bottom-end">
         <template #trigger>

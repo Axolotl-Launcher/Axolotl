@@ -521,11 +521,29 @@ async fn fetch_loader_manifest_uncached(
         }
     });
 
+    complete_loader_manifest(
+        loader,
+        game_version,
+        fallback_url,
+        fetch_semaphore,
+        official,
+    )
+    .await
+}
+
+async fn complete_loader_manifest(
+    loader: &str,
+    game_version: Option<&str>,
+    fallback_url: &str,
+    fetch_semaphore: &FetchSemaphore,
+    official: crate::Result<Manifest>,
+) -> crate::Result<CachedLoaderManifest> {
     match official {
         Ok(manifest) => Ok(CachedLoaderManifest {
             loader: loader.to_string(),
             manifest,
         }),
+        Err(error) if loader == "legacy_fabric" => Err(error),
         Err(error) => {
             tracing::warn!(
                 loader,
@@ -625,7 +643,7 @@ async fn fetch_fabric_manifest(
             .collect(),
         "fabric",
         FABRIC_META_URL,
-        0,
+        Some(0),
     ))
 }
 
@@ -672,7 +690,7 @@ async fn fetch_quilt_manifest(
             .collect(),
         "quilt",
         QUILT_META_URL,
-        1,
+        Some(1),
     ))
 }
 
@@ -717,7 +735,7 @@ async fn fetch_legacy_fabric_manifest(
             .collect(),
         "legacy_fabric",
         LEGACY_FABRIC_META_URL,
-        0,
+        None,
     ))
 }
 
@@ -1034,7 +1052,7 @@ fn meta_api_manifest(
     mut loaders: Vec<(String, bool)>,
     loader: &str,
     official_base_url: &str,
-    fallback_format_version: usize,
+    fallback_format_version: Option<usize>,
 ) -> Manifest {
     loaders.sort_by(|left, right| compare_versions(&right.0, &left.0));
     let group_id = format!("{loader}-official");
@@ -1047,14 +1065,9 @@ fn meta_api_manifest(
             ),
             stable,
             profile_source: LoaderProfileSource::Json,
-            fallback_url: Some(format!(
-                "{}{}{}{}{}",
-                env!("MODRINTH_LAUNCHER_META_URL"),
-                loader,
-                "/v",
-                fallback_format_version,
-                format!("/versions/{version}.json"),
-            )),
+            fallback_url: fallback_format_version.map(|format_version| {
+                fallback_profile_url(loader, format_version, &version)
+            }),
         })
         .collect();
     Manifest {
@@ -1550,6 +1563,14 @@ fn compare_versions(left: &str, right: &str) -> Ordering {
     }
 }
 
+fn launcher_meta_profile_fallback(loader: &LoaderVersion) -> Option<&str> {
+    // Manifests cached by older builds can still advertise this route.
+    if loader.url.starts_with(LEGACY_FABRIC_META_URL) {
+        return None;
+    }
+    loader.fallback_url.as_deref()
+}
+
 pub(crate) async fn resolve_loader_profile(
     state: &State,
     game_version: &str,
@@ -1596,7 +1617,9 @@ pub(crate) async fn resolve_loader_profile(
     match primary {
         Ok(profile) => Ok(profile),
         Err(primary_error) => {
-            let Some(fallback_url) = &loader_version.fallback_url else {
+            let Some(fallback_url) =
+                launcher_meta_profile_fallback(loader_version)
+            else {
                 return Err(primary_error);
             };
             let fallback_url =
@@ -3130,7 +3153,7 @@ mod tests {
             vec![("0.16.9".to_string(), false), ("0.16.14".to_string(), true)],
             "fabric",
             FABRIC_META_URL,
-            0,
+            Some(0),
         );
         let version = &manifest.game_versions[0];
         let loaders = &manifest.version_groups[0].loaders;
@@ -3148,6 +3171,67 @@ mod tests {
                 .unwrap()
                 .ends_with("fabric/v0/versions/0.16.14.json")
         );
+    }
+
+    #[test]
+    fn legacy_fabric_profiles_ignore_obsolete_launcher_meta_fallbacks() {
+        let manifest = meta_api_manifest(
+            vec![MetaGameVersion {
+                version: "1.12.2".into(),
+                stable: true,
+            }],
+            vec![("0.16.14".into(), true)],
+            "legacy_fabric",
+            LEGACY_FABRIC_META_URL,
+            None,
+        );
+        let mut profile = manifest.version_groups[0].loaders[0].clone();
+        assert!(profile.url.starts_with(LEGACY_FABRIC_META_URL));
+        assert!(profile.fallback_url.is_none());
+
+        profile.fallback_url =
+            Some(fallback_profile_url("legacy_fabric", 0, &profile.id));
+        assert!(launcher_meta_profile_fallback(&profile).is_none());
+
+        profile.url =
+            profile.url.replace(LEGACY_FABRIC_META_URL, FABRIC_META_URL);
+        profile.fallback_url =
+            Some(fallback_profile_url("fabric", 0, &profile.id));
+        assert_eq!(
+            launcher_meta_profile_fallback(&profile),
+            profile.fallback_url.as_deref()
+        );
+    }
+
+    #[tokio::test]
+    async fn legacy_fabric_keeps_the_official_manifest_error_without_a_fallback_request()
+     {
+        let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(0));
+        for scope in [None, Some("1.12.2")] {
+            let result = tokio::time::timeout(
+                Duration::from_secs(1),
+                complete_loader_manifest(
+                    "legacy_fabric",
+                    scope,
+                    "https://example.invalid/legacy_fabric/v0/manifest.json",
+                    &semaphore,
+                    Err(crate::ErrorKind::OtherError(
+                        "official legacy catalog unavailable".into(),
+                    )
+                    .into()),
+                ),
+            )
+            .await
+            .expect(
+                "an official failure must not attempt the unsupported fallback",
+            );
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("official legacy catalog unavailable")
+            );
+        }
     }
 
     #[test]

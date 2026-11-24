@@ -4,7 +4,8 @@ use super::*;
 use crate::State;
 use crate::install::{InstallJobEventKind, InstallProgressReporter};
 use crate::state::ContentProvider;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
+use uuid::Uuid;
 
 pub(crate) async fn reconcile_curseforge_waiting_jobs_for_instance(
     instance_id: &str,
@@ -39,11 +40,20 @@ where
     F: FnMut(uuid::Uuid) -> Fut,
     Fut: std::future::Future<Output = crate::Result<()>>,
 {
+    let started = std::time::Instant::now();
     let jobs = crate::install::store::list(false, state).await?;
-    for instance_id in curseforge_waiting_job_instance_ids(&jobs) {
-        reconcile_curseforge_waiting_jobs_for_instance_with_resume(
-            &instance_id,
+    let waiting = curseforge_waiting_jobs_by_instance(&jobs);
+    tracing::debug!(
+        elapsed_ms = started.elapsed().as_millis(),
+        unfinished_jobs = jobs.len(),
+        instances_with_waiting_jobs = waiting.len(),
+        "Loaded persisted CurseForge waiting jobs for startup reconciliation"
+    );
+    for (instance_id, job_ids) in waiting {
+        reconcile_curseforge_waiting_jobs(
+            instance_id,
             state,
+            job_ids,
             resume_job,
         )
         .await?;
@@ -51,28 +61,39 @@ where
     Ok(())
 }
 
-pub(crate) fn curseforge_waiting_job_instance_ids(
+pub(crate) fn curseforge_waiting_jobs_by_instance(
     jobs: &[crate::install::store::InstallJobRecord],
-) -> Vec<String> {
-    let mut instance_ids = jobs
+) -> BTreeMap<&str, Vec<Uuid>> {
+    let mut waiting = BTreeMap::<_, Vec<_>>::new();
+    for job in jobs
         .iter()
         .filter(|job| is_reconcilable_curseforge_waiting_job(job))
-        .filter_map(|job| job.instance_id.clone())
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    instance_ids.sort_unstable();
-    instance_ids
+    {
+        if let Some(instance_id) = job.instance_id.as_deref() {
+            waiting.entry(instance_id).or_default().push(job.id);
+        }
+    }
+    waiting
 }
 
 pub(crate) async fn reconcile_curseforge_waiting_jobs_for_instance_with_state(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<()> {
+    let jobs = crate::install::store::list(false, state).await?;
+    let job_ids = jobs
+        .iter()
+        .filter(|job| {
+            job.instance_id.as_deref() == Some(instance_id)
+                && is_reconcilable_curseforge_waiting_job(job)
+        })
+        .map(|job| job.id)
+        .collect();
     let mut resume_job = resume_curseforge_install_job;
-    reconcile_curseforge_waiting_jobs_for_instance_with_resume(
+    reconcile_curseforge_waiting_jobs(
         instance_id,
         state,
+        job_ids,
         &mut resume_job,
     )
     .await
@@ -85,18 +106,19 @@ pub(super) async fn resume_curseforge_install_job(
     Ok(())
 }
 
-pub(super) async fn reconcile_curseforge_waiting_jobs_for_instance_with_resume<
-    F,
-    Fut,
->(
+async fn reconcile_curseforge_waiting_jobs<F, Fut>(
     instance_id: &str,
     state: &State,
+    job_ids: Vec<Uuid>,
     resume_job: &mut F,
 ) -> crate::Result<()>
 where
     F: FnMut(uuid::Uuid) -> Fut,
     Fut: std::future::Future<Output = crate::Result<()>>,
 {
+    if job_ids.is_empty() {
+        return Ok(());
+    }
     let pending = crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
         instance_id,
         &state.pool,
@@ -116,14 +138,7 @@ where
     .into_iter()
     .collect::<HashSet<_>>();
 
-    let jobs = crate::install::store::list(false, state).await?;
-    let waiting_job_count = jobs
-        .iter()
-        .filter(|job| {
-            job.instance_id.as_deref() == Some(instance_id)
-                && is_reconcilable_curseforge_waiting_job(job)
-        })
-        .count();
+    let waiting_job_count = job_ids.len();
     tracing::debug!(
         instance_id,
         pending_key_count = pending.len(),
@@ -132,22 +147,19 @@ where
     );
     let mut recovered_item_count = 0usize;
     let mut resume_job_called = false;
-    for job in jobs {
-        if job.instance_id.as_deref() != Some(instance_id)
-            || !is_reconcilable_curseforge_waiting_job(&job)
-        {
-            continue;
-        }
-
+    for job_id in job_ids {
         let operation_lock = state
             .install_job_operation_locks
-            .entry(job.id)
+            .entry(job_id)
             .or_default()
             .clone();
         let _operation_guard = operation_lock.lock().await;
-        let current =
-            crate::install::store::get_required(job.id, state).await?;
-        if current.instance_id.as_deref() != Some(instance_id)
+        let Some(current) = crate::install::store::get(job_id, state).await?
+        else {
+            continue;
+        };
+        if current.dismissed
+            || current.instance_id.as_deref() != Some(instance_id)
             || !is_reconcilable_curseforge_waiting_job(&current)
         {
             continue;
@@ -186,7 +198,7 @@ where
                 .await?;
         }
 
-        let latest = crate::install::store::get_required(job.id, state).await?;
+        let latest = crate::install::store::get_required(job_id, state).await?;
         if latest.status != crate::install::InstallJobStatus::WaitingForUser {
             continue;
         }

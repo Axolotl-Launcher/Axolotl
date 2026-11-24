@@ -263,12 +263,15 @@ async fn initialize_state(
     }
     tracing::info!("Initializing app event state...");
     theseus::EventState::init(app.clone()).await?;
+    startup_phase("event_state_initialized");
 
     tracing::info!("Initializing app state...");
     State::init(app.config().identifier.clone()).await?;
+    startup_phase("launcher_state_initialized");
     api::resources::initialize_content_refresh_events(&app).await?;
     api::mcp::initialize(&app).await;
     api::observability_mcp::initialize(&app).await;
+    startup_phase("app_services_initialized");
     let anti_piracy_app = app.clone();
     tauri::async_runtime::spawn(async move {
         let status = theseus::anti_piracy::check_region().await;
@@ -282,7 +285,9 @@ async fn initialize_state(
     static BACKUP_STARTUP: tokio::sync::OnceCell<()> =
         tokio::sync::OnceCell::const_new();
     BACKUP_STARTUP.get_or_try_init(|| async {
+        startup_phase("backup_repository_recovery_started");
         theseus::instance::recover_backup_repository().await?;
+        startup_phase("backup_repository_recovery_completed");
         tauri::async_runtime::spawn(async {
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             if let Some(state) = State::get_if_initialized()
@@ -338,6 +343,7 @@ async fn initialize_state(
             tracing::warn!("Could not read the stored log level: {error}");
         }
     }
+    startup_phase("startup_log_level_resolved");
 
     let state = State::get().await?;
     // Do not start accepting group writes until the legacy import succeeds.
@@ -345,6 +351,7 @@ async fn initialize_state(
     // this error would let a fallback Favorites-only store overwrite groups
     // that still exist in SQLite.
     theseus::state::instance_groups::ensure_imported(&state).await?;
+    startup_phase("instance_groups_initialized");
 
     app.asset_protocol_scope()
         .allow_directory(state.directories.caches_dir(), true)?;

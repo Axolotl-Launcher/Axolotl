@@ -848,10 +848,15 @@ impl State {
 
     pub async fn init(app_identifier: String) -> crate::Result<()> {
         let initialization = INITIALIZATION.begin();
+        let started = Instant::now();
         let state = LAUNCHER_STATE
             .get_or_try_init(move || Self::initialize_state(app_identifier))
             .await?;
         drop(initialization);
+        tracing::info!(
+            elapsed_ms = started.elapsed().as_millis(),
+            "Initialized launcher state and storage"
+        );
 
         STARTUP_WORK
             .get_or_try_init(|| Self::start_background(Arc::clone(state)))
@@ -868,7 +873,13 @@ impl State {
             // replay, adoption, cleanup, directory migration or watcher writes.
             return Ok(());
         }
+        let started = Instant::now();
         recovery::coordinator::start(Arc::clone(&state)).await;
+        tracing::info!(
+            elapsed_ms = started.elapsed().as_millis(),
+            "Finished waiting for startup recovery records"
+        );
+        let started = Instant::now();
         if let Err(e) =
             crate::api::curseforge::reconcile_persisted_curseforge_waiting_jobs(
                 &state,
@@ -879,7 +890,16 @@ impl State {
                 "Error reconciling persisted CurseForge waiting install jobs: {e}"
             );
         }
+        tracing::info!(
+            elapsed_ms = started.elapsed().as_millis(),
+            "Finished startup CurseForge reconciliation"
+        );
+        let started = Instant::now();
         crate::scheduler::reconcile::at_startup(&state).await;
+        tracing::info!(
+            elapsed_ms = started.elapsed().as_millis(),
+            "Finished startup scheduler reconciliation"
+        );
         crate::scheduler::quota::check_at_startup();
 
         state.spawn_background({

@@ -13,7 +13,7 @@ use crate::api::curseforge::dto::{
 };
 use crate::api::curseforge::manual::{
     CurseForgeManualDownloadIntegrityMetadata,
-    curseforge_waiting_job_instance_ids,
+    curseforge_waiting_jobs_by_instance,
     ensure_manual_download_integrity_metadata_with,
     find_manual_download_candidate, import_pending_manual_download_file,
     import_pending_manual_download_file_with_integrity_resolver,
@@ -214,9 +214,22 @@ fn curseforge_startup_selects_only_reconcilable_jobs() {
             post_install_edit: None,
         },
     );
+    let first_id = curseforge_job.id;
+    let mut second_job = curseforge_job.clone();
+    second_job.id = uuid::Uuid::new_v4();
+    let second_id = second_job.id;
+    let mut other_job = curseforge_job.clone();
+    other_job.id = uuid::Uuid::new_v4();
+    other_job.instance_id = Some("another-instance".into());
+    let other_id = other_job.id;
+    let jobs = [curseforge_job, modrinth_job, second_job, other_job];
+    let grouped = curseforge_waiting_jobs_by_instance(&jobs);
     assert_eq!(
-        curseforge_waiting_job_instance_ids(&[curseforge_job, modrinth_job,]),
-        vec!["curseforge-instance".to_string()]
+        grouped.into_iter().collect::<Vec<_>>(),
+        [
+            ("another-instance", vec![other_id]),
+            ("curseforge-instance", vec![first_id, second_id]),
+        ]
     );
 
     let mut items =

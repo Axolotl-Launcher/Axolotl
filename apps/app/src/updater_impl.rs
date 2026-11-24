@@ -31,7 +31,7 @@ const UPDATE_NODE_PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 const UPDATE_NODE_PROBE_BYTES: u64 = 4 * 1024 * 1024;
 const UPDATE_NODE_PROBE_GRACE: Duration = Duration::from_secs(1);
 const MAX_UPDATE_NODES: usize = 3;
-const UPDATE_NODE_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(3 * 60);
+const DEFAULT_UPDATE_ROUTE_RESERVE: Duration = Duration::from_secs(3 * 60);
 
 // Bound the whole transfer, including retries and range requests.
 const UPDATE_DOWNLOAD_TIMEOUT: std::time::Duration =
@@ -791,14 +791,16 @@ async fn download_update_artifact(
     progress: &mut FetchProgressFn<'_>,
 ) -> Result<Vec<u8>> {
     let state = theseus::State::get().await?;
-    let bytes = tokio::time::timeout(
-        UPDATE_DOWNLOAD_TIMEOUT,
+    let deadline = Instant::now() + UPDATE_DOWNLOAD_TIMEOUT;
+    let bytes = tokio::time::timeout_at(
+        deadline,
         async {
             let nodes = match state.proxy_config().await {
                 Ok(proxy) => select_update_nodes(asset, &proxy).await,
                 Err(_) => Vec::new(),
             };
-            if let Some(bytes) = download_from_update_nodes(nodes, asset, progress).await {
+            let node_deadline = deadline - DEFAULT_UPDATE_ROUTE_RESERVE;
+            if let Some(bytes) = download_from_update_nodes(nodes, asset, progress, node_deadline).await {
                 return Ok::<_, crate::api::TheseusSerializableError>(bytes);
             }
             tracing::debug!(url = %asset.url, "Downloading update over the default distribution route");
@@ -834,14 +836,17 @@ async fn download_from_update_nodes(
     nodes: Vec<(reqwest::Client, SocketAddr)>,
     asset: &UpdateArtifact,
     progress: &mut FetchProgressFn<'_>,
+    deadline: Instant,
 ) -> Option<Vec<u8>> {
     let total = nodes.len();
     for (index, node) in nodes.into_iter().enumerate() {
         let address = node.1;
         let attempt = index + 1;
         tracing::debug!(%address, attempt, total, "Downloading update from a distribution node");
-        match tokio::time::timeout(
-            UPDATE_NODE_DOWNLOAD_TIMEOUT,
+        // The client's read timeout catches stalls. All nodes share the
+        // remaining time before the default route must get its turn.
+        match tokio::time::timeout_at(
+            deadline,
             download_from_update_node(node, asset, progress),
         )
         .await
@@ -851,7 +856,8 @@ async fn download_from_update_nodes(
                 tracing::warn!(%address, attempt, total, ?error, "Update distribution node failed")
             }
             Err(_) => {
-                tracing::warn!(%address, attempt, total, "Update distribution node timed out")
+                tracing::warn!(%address, attempt, total, "Update distribution node budget expired");
+                break;
             }
         }
     }
@@ -1389,7 +1395,9 @@ mod tests {
                     super::download_from_update_nodes(
                         nodes,
                         &asset,
-                        &mut progress
+                        &mut progress,
+                        super::Instant::now()
+                            + std::time::Duration::from_secs(5),
                     ),
                     serve(first, "te"),
                     serve(second, "test"),
@@ -1397,6 +1405,60 @@ mod tests {
             })
             .await
             .expect("a truncated first node must lead to a second request");
+        assert_eq!(bytes.as_deref(), Some(b"test".as_slice()));
+    }
+
+    #[tokio::test]
+    async fn update_download_keeps_a_node_while_its_body_is_progressing() {
+        use sha2::{Digest, Sha256};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener =
+            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let client = theseus::http_client_builder()
+            .no_proxy()
+            .read_timeout(std::time::Duration::from_millis(500))
+            .build()
+            .unwrap();
+        let asset = super::UpdateArtifact {
+            url: format!("http://{address}/update").parse().unwrap(),
+            sha256: format!("{:x}", Sha256::digest(b"test")),
+            size: 4,
+            signature: None,
+        };
+        let mut progress: Box<super::FetchProgressFn<'_>> =
+            Box::new(|_, _| Box::pin(async { Ok(()) }));
+        let serve = async {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            while !request.ends_with(b"\r\n\r\n") {
+                request.push(stream.read_u8().await.unwrap());
+            }
+            stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\n").await.unwrap();
+            for byte in b"test" {
+                if stream.write_all(&[*byte]).await.is_err() {
+                    return;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(180)).await;
+            }
+        };
+        let deadline =
+            super::Instant::now() + std::time::Duration::from_secs(5);
+        let (bytes, ()) = tokio::time::timeout_at(deadline, async {
+            tokio::join!(
+                super::download_from_update_nodes(
+                    vec![(client, address)],
+                    &asset,
+                    &mut progress,
+                    deadline
+                ),
+                serve,
+            )
+        })
+        .await
+        .expect(
+            "the progressing transfer must finish within the shared budget",
+        );
         assert_eq!(bytes.as_deref(), Some(b"test".as_slice()));
     }
 

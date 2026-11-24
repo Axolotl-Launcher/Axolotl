@@ -1,4 +1,19 @@
 use serde::Serialize;
+#[cfg(target_os = "windows")]
+use std::sync::atomic::{AtomicBool, Ordering};
+
+#[cfg(target_os = "windows")]
+static ACTIVE_OPTIMIZATION: AtomicBool = AtomicBool::new(false);
+
+#[cfg(target_os = "windows")]
+struct ActiveOptimization;
+
+#[cfg(target_os = "windows")]
+impl Drop for ActiveOptimization {
+    fn drop(&mut self) {
+        ACTIVE_OPTIMIZATION.store(false, Ordering::Release);
+    }
+}
 
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct MemoryOptimizationResult {
@@ -35,6 +50,14 @@ fn optimize_blocking() -> crate::Result<MemoryOptimizationResult> {
 
 #[cfg(target_os = "windows")]
 fn optimize_blocking() -> crate::Result<MemoryOptimizationResult> {
+    // A launcher can stop waiting while Windows still has a pending UAC prompt.
+    if ACTIVE_OPTIMIZATION.swap(true, Ordering::AcqRel) {
+        return Err(crate::ErrorKind::OtherError(
+            "Memory optimization is already running".into(),
+        )
+        .as_error());
+    }
+    let _active = ActiveOptimization;
     let before_available_bytes = super::jre::system_available_memory_bytes();
     let direct_result = optimize_windows_memory();
     let result = match direct_result {

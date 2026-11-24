@@ -3,7 +3,7 @@ use crate::state::{
     Credentials, InstanceInstallStage, ProcessMetadata, Settings, State,
 };
 use crate::util::io::IOError;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::process::Command;
 
 pub use crate::launcher::jvm_args::{GcLaunchIntent, GcLaunchReport};
@@ -11,6 +11,34 @@ pub use crate::launcher::jvm_args::{GcLaunchIntent, GcLaunchReport};
 const DEFAULT_LAUNCH_PREPARATION_TIMEOUT: u64 = 60;
 const MIN_LAUNCH_PREPARATION_TIMEOUT: u64 = 30;
 const MAX_LAUNCH_PREPARATION_TIMEOUT: u64 = 600;
+const LAUNCH_MEMORY_OPTIMIZATION_BUDGET: Duration = Duration::from_secs(5);
+
+async fn optimize_memory_before_launch(
+    optimize: impl Future<
+        Output = crate::Result<crate::api::memory::MemoryOptimizationResult>,
+    >,
+) {
+    let started = Instant::now();
+    tracing::info!("Optimizing memory before launching Minecraft");
+    match tokio::time::timeout(LAUNCH_MEMORY_OPTIMIZATION_BUDGET, optimize)
+        .await
+    {
+        Ok(Ok(result)) => tracing::info!(
+            elapsed_ms = started.elapsed().as_millis(),
+            reclaimed_bytes = result.reclaimed_bytes,
+            "Finished pre-launch memory optimization"
+        ),
+        Ok(Err(error)) => tracing::warn!(
+            elapsed_ms = started.elapsed().as_millis(),
+            %error,
+            "Pre-launch memory optimization failed; continuing launch"
+        ),
+        Err(_) => tracing::warn!(
+            elapsed_ms = started.elapsed().as_millis(),
+            "Stopped waiting for pre-launch memory optimization; continuing launch"
+        ),
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum QuickPlayType {
@@ -308,11 +336,11 @@ async fn run_credentials(
     if memory.optimize_before_launch
         && crate::api::memory::optimization_supported()
     {
-        tracing::info!("Optimizing memory before launching Minecraft");
-        crate::api::memory::optimize().await?;
+        optimize_memory_before_launch(crate::api::memory::optimize()).await;
     }
 
     if memory.automatic {
+        let started = Instant::now();
         let instance_path =
             crate::state::instances::commands::instance_content_root(
                 &state.directories,
@@ -333,6 +361,7 @@ async fn run_credentials(
             ),
         );
         tracing::info!(
+            elapsed_ms = started.elapsed().as_millis(),
             "Automatically allocated {} MiB of memory",
             memory.maximum
         );
@@ -362,6 +391,18 @@ async fn run_credentials(
     )
     .await?;
     Ok((process, gc_report))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn slow_memory_optimization_only_uses_its_own_launch_budget() {
+        let started = tokio::time::Instant::now();
+        optimize_memory_before_launch(std::future::pending()).await;
+        assert_eq!(started.elapsed(), LAUNCH_MEMORY_OPTIMIZATION_BUDGET);
+    }
 }
 
 pub async fn kill(instance_id: &str) -> crate::Result<()> {

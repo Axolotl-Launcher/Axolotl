@@ -4,7 +4,7 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
 use std::collections::VecDeque;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, LazyLock};
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
@@ -910,6 +910,28 @@ fn terracotta_port_file() -> PathBuf {
         .join(format!("terracotta_port_{}.json", std::process::id()))
 }
 
+fn terracotta_launch_command(
+    binary: &Path,
+    port_file: &Path,
+) -> eyre::Result<Command> {
+    #[cfg(target_os = "windows")]
+    let binary = std::path::absolute(binary)
+        .wrap_err("failed to resolve the Terracotta executable path")?;
+
+    let mut command = Command::new(&binary);
+    #[cfg(target_os = "windows")]
+    command.current_dir(binary.parent().ok_or_else(|| {
+        eyre::eyre!("Terracotta executable has no parent directory")
+    })?);
+
+    if cfg!(target_os = "macos") {
+        command.arg("--daemon");
+    } else {
+        command.arg("--hmcl").arg(port_file);
+    }
+    Ok(command)
+}
+
 pub async fn start_terracotta(
     binary_path: Option<String>,
     auto_download: bool,
@@ -961,15 +983,13 @@ pub async fn start_terracotta(
     }
 
     let port_file = terracotta_port_file();
+    #[cfg(target_os = "windows")]
+    let port_file = std::path::absolute(port_file)
+        .wrap_err("failed to resolve the Terracotta port file path")?;
     let _ = std::fs::remove_file(&port_file);
 
     let is_macos = cfg!(target_os = "macos");
-    let mut command = Command::new(&final_path);
-    if is_macos {
-        command.arg("--daemon");
-    } else {
-        command.arg("--hmcl").arg(&port_file);
-    }
+    let mut command = terracotta_launch_command(&final_path, &port_file)?;
     let mut child = command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -978,9 +998,18 @@ pub async fn start_terracotta(
         .spawn()
         .wrap_err_with(|| {
             let mode = if is_macos { "daemon" } else { "--hmcl" };
+            let command = command.as_std();
+            let binary = Path::new(command.get_program());
+            if let Some(directory) = command.get_current_dir() {
+                return format!(
+                    "failed to start terracotta {mode} at {} with working directory {}",
+                    binary.display(),
+                    directory.display()
+                );
+            }
             format!(
                 "failed to start terracotta {mode} at {}",
-                final_path.display()
+                binary.display()
             )
         })?;
 
@@ -1434,7 +1463,23 @@ pub async fn get_diagnostic_report() -> eyre::Result<String> {
 ))]
 mod tests {
     use super::*;
-    use std::path::Path;
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_launch_uses_the_binary_directory_and_an_absolute_port_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let directory = temp.path().join("自定义 terracotta");
+        let binary = directory.join("terracotta.exe");
+        let port_file = temp.path().join("port.json");
+        let command = terracotta_launch_command(&binary, &port_file).unwrap();
+        let command = command.as_std();
+        assert_eq!(command.get_program(), binary.as_os_str());
+        assert_eq!(command.get_current_dir(), Some(directory.as_path()));
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            [std::ffi::OsStr::new("--hmcl"), port_file.as_os_str()]
+        );
+    }
 
     fn executable_magic() -> [u8; 4] {
         #[cfg(target_os = "macos")]

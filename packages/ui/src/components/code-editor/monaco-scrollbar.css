@@ -1,0 +1,22 @@
+/**
+ * Monaco paints its scrollbars itself: the slider is a rectangle filling the
+ * whole track, coloured from three theme variables and otherwise left square.
+ * Every other scrollbar in the app is a thin pill inset in a transparent track
+ * (`::-webkit-scrollbar-thumb` in `styles/defaults.scss`, and the
+ * OverlayScrollbars handle in `Combobox` / `MultiSelect`).
+ *
+ * The colour comes from the theme (`scrollbarSlider.*` in `CodeEditor.vue`),
+ * because Monaco resolves it through the colour registry. The shape cannot, so
+ * it lives here. `background-clip: content-box` is what produces the inset: it
+ * keeps the colour inside the transparent border instead of painting under it.
+ *
+ * The selector covers every scrollable element Monaco renders -- the editor,
+ * the completion list and its documentation pane -- so the three stay in step.
+ */
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider {
+    box-sizing: border-box;
+    border: 3px solid transparent;
+    border-radius: var(--radius-lg, 1rem);
+    background-clip: content-box;
+}

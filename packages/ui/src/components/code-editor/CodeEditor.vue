@@ -74,6 +74,12 @@ function themeColors(): Monaco.editor.IColors {
         'editorSuggestWidget.selectedBackground': cssVariable('--surface-4'),
         'editorSuggestWidget.highlightForeground': cssVariable('--color-brand'),
         'editorSuggestWidget.focusHighlightForeground': cssVariable('--color-text-primary'),
+        // Every other scrollbar in the app is a pill in `--color-scrollbar`
+        // (`::-webkit-scrollbar-thumb` and the OverlayScrollbars handle); Monaco
+        // ships a translucent grey rectangle instead.
+        'scrollbarSlider.background': cssVariable('--color-scrollbar'),
+        'scrollbarSlider.hoverBackground': cssVariable('--color-scrollbar'),
+        'scrollbarSlider.activeBackground': cssVariable('--color-scrollbar'),
     }
     return Object.fromEntries(Object.entries(colors).filter(([, color]) => color))
 }

@@ -348,10 +348,65 @@ pub async fn remove_java_default_version(
     .await
 }
 
-/// Removes a configured Java version by its executable path.
+/// Removes the launcher-managed installation directory that contains
+/// `java_path`, so that removing an installation actually uninstalls the files
+/// instead of only dropping the registration record (which
+/// `register_managed_java_versions` re-creates on the next page load).
+/// Returns whether a managed installation directory was deleted. Runtimes
+/// outside the managed root (system installs) are only ever unregistered.
+async fn remove_managed_install_files(
+    root: &Path,
+    java_path: &str,
+) -> crate::Result<bool> {
+    let java = Path::new(java_path);
+    // The file may already be gone (or never existed); canonicalizing the
+    // surviving ancestor keeps the containment check robust against symlinks
+    // and Windows path casing.
+    let Ok(root) = root.canonicalize() else {
+        return Ok(false);
+    };
+    if let Ok(java) = java.canonicalize() {
+        if !java.starts_with(&root) {
+            return Ok(false);
+        }
+    } else if !java.starts_with(&root) {
+        return Ok(false);
+    }
+
+    let mut entries = tokio::fs::read_dir(&root).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        let install_root = entry.path();
+        if !entry.file_type().await?.is_dir()
+            || jre::is_java_install_staging_path(&install_root)
+        {
+            continue;
+        }
+        if java.starts_with(&install_root) {
+            tokio::fs::remove_dir_all(&install_root).await?;
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+/// Removes a configured Java version by its executable path. For runtimes the
+/// launcher manages itself (installed under the managed `java_versions`
+/// directory) this deletes the installation's files as well, so the entry
+/// cannot be resurrected by the next discovery pass.
 pub async fn remove_java_version(path: String) -> crate::Result<()> {
     let state = State::get().await?;
-    JavaVersion::delete(&path, &documents::Documents::new(&state)).await
+    let documents = documents::Documents::new(&state);
+
+    let java_path = Path::new(&path).to_path_buf();
+    let root = state.directories.java_versions_dir();
+    if remove_managed_install_files(&root, &java_path.to_string_lossy()).await? {
+        // Drop the discovery-cache entry eagerly; the signature check would
+        // prune it anyway once the files are gone.
+        DiscoveredJava::remove(&path, &state.derived).await?;
+    }
+
+    JavaVersion::delete(&path, &documents).await
 }
 
 const JAVA_RESCAN_DEBOUNCE: Duration = Duration::from_secs(60);
@@ -2784,5 +2839,51 @@ mod tests {
     fn automatic_memory_matches_mod_targets() {
         assert_eq!(automatic_memory_max_mb(8 * GIB, 100, true), 5836);
         assert_eq!(automatic_memory_max_mb(0, 300, true), 2560);
+    }
+
+    #[tokio::test]
+    async fn removing_a_managed_install_deletes_its_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let install = root.path().join("temurin-21-jdk-21");
+        std::fs::create_dir_all(install.join("bin")).unwrap();
+        let java = install.join("bin").join("java");
+        std::fs::write(&java, b"stub").unwrap();
+        // An unrelated install must survive.
+        let other = root.path().join("graal-17-jdk-17");
+        std::fs::create_dir_all(other).unwrap();
+
+        let removed =
+            remove_managed_install_files(root.path(), &java.to_string_lossy())
+                .await
+                .unwrap();
+
+        assert!(removed);
+        assert!(!install.exists());
+        assert!(other.exists());
+    }
+
+    #[tokio::test]
+    async fn removing_keeps_staging_directories_and_outside_paths() {
+        let root = tempfile::tempdir().unwrap();
+        let staging = root.path().join(".temurin-21-downloading.part");
+        std::fs::create_dir_all(staging.join("bin")).unwrap();
+        let staging_java = staging.join("bin").join("java");
+        std::fs::write(&staging_java, b"stub").unwrap();
+        let system_java = std::env::temp_dir().join("system-java/bin/java");
+
+        let removed = remove_managed_install_files(
+            root.path(),
+            &staging_java.to_string_lossy(),
+        )
+        .await
+        .unwrap();
+        assert!(!removed);
+        assert!(staging.exists());
+
+        let removed =
+            remove_managed_install_files(root.path(), &system_java.to_string_lossy())
+                .await
+                .unwrap();
+        assert!(!removed);
     }
 }

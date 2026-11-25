@@ -4,7 +4,7 @@ use super::files::{
     checkpoint, finish_checkpoint, instance_game_dir, instance_is_running,
     nbt_from_bytes, nbt_to_bytes, publish_detached_copy,
     read_detached_projection, read_nbt_file, safe_instance_id, sha1_bytes,
-    sync_files_are_protected,
+    sibling_wrote_file, sync_files_are_protected,
 };
 use super::orchestration::{
     backup_bytes, create_synced_directories, option_effective,
@@ -21,7 +21,7 @@ use crate::state::{InstanceMetadata, SyncedOption};
 use crate::util::io;
 use crate::{ErrorKind, State};
 use quartz_nbt::{NbtCompound, NbtList, NbtTag};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const COMPONENTS_DATA_VERSION_FLOOR: i32 = 3837;
 pub(super) const HOTBAR_SCHEMA_VERSION: i64 = 2;
@@ -121,7 +121,7 @@ pub(super) async fn ensure_hotbar(
         seed_from_instance(metadata, SyncedOption::CreativeHotbars, state)
             .await?;
     }
-    write_hotbar_projection(metadata, state).await
+    write_hotbar_projection(metadata, state, None).await
 }
 
 pub(super) async fn reconcile_hotbar(
@@ -137,11 +137,20 @@ pub(super) async fn reconcile_hotbar(
     {
         return Ok(());
     }
-    let local = instance_game_dir(metadata, state)?.join(HOTBAR_FILE);
-    if !local.exists() {
+    let game_dir = instance_game_dir(metadata, state)?;
+    if !game_dir.join(HOTBAR_FILE).exists() {
         return ensure_hotbar(metadata, state).await;
     }
     let family = hotbar_family(metadata, state).await?;
+    reconcile_hotbar_projection(metadata, state, family, &game_dir).await
+}
+
+async fn reconcile_hotbar_projection(
+    metadata: &InstanceMetadata,
+    state: &State,
+    family: HotbarFamily,
+    game_dir: &Path,
+) -> crate::Result<()> {
     let current_checkpoint = checkpoint(
         &metadata.instance.id,
         SyncedOption::CreativeHotbars,
@@ -153,12 +162,15 @@ pub(super) async fn reconcile_hotbar(
         .as_ref()
         .is_some_and(|value| value.status == CheckpointStatus::Pending)
     {
-        return write_hotbar_projection(metadata, state).await;
+        return write_hotbar_projection(metadata, state, Some(family)).await;
     }
-    let Some(bytes) =
-        read_detached_projection(&local, MAX_PROJECTION_BYTES).await?
+    let Some(bytes) = read_detached_projection(
+        &game_dir.join(HOTBAR_FILE),
+        MAX_PROJECTION_BYTES,
+    )
+    .await?
     else {
-        return write_hotbar_projection(metadata, state).await;
+        return write_hotbar_projection(metadata, state, Some(family)).await;
     };
     let actual = sha1_bytes(&bytes);
     let mut sync_state = read_hotbar_state(state).await?;
@@ -172,7 +184,19 @@ pub(super) async fn reconcile_hotbar(
         }) {
             return Ok(());
         }
-        return write_hotbar_projection(metadata, state).await;
+        return write_hotbar_projection(metadata, state, Some(family)).await;
+    }
+    if sibling_wrote_file(
+        &metadata.instance.id,
+        game_dir,
+        SyncedOption::CreativeHotbars,
+        &actual,
+        Some(sync_state.revision),
+        state,
+    )
+    .await?
+    {
+        return Ok(());
     }
 
     let (changed_family, checkpoint) = if current_checkpoint.is_none() {
@@ -188,7 +212,8 @@ pub(super) async fn reconcile_hotbar(
             if previous_checkpoint.status == CheckpointStatus::Pending
                 || previous_checkpoint.expected_sha1 == actual
             {
-                return write_hotbar_projection(metadata, state).await;
+                return write_hotbar_projection(metadata, state, Some(family))
+                    .await;
             }
             (previous_family, Some(previous_checkpoint))
         } else {
@@ -199,6 +224,9 @@ pub(super) async fn reconcile_hotbar(
     };
 
     let changed = nbt_from_bytes(bytes)?;
+    if changed == hotbar_family_root(&sync_state.nbt, family) {
+        return Ok(());
+    }
     let merge_base = checkpoint
         .and_then(|value| value.merge_base)
         .map(nbt_from_bytes)
@@ -212,8 +240,9 @@ pub(super) async fn reconcile_hotbar(
     ) {
         increment_hotbar_revision(&mut sync_state);
         write_hotbar_state(state, &sync_state).await?;
+        return regenerate_hotbars(state).await;
     }
-    regenerate_hotbars(state).await
+    write_hotbar_projection(metadata, state, Some(family)).await
 }
 
 pub(super) async fn instance_hotbars_differ_from_synced(
@@ -455,7 +484,7 @@ pub(super) async fn regenerate_hotbars(state: &State) -> crate::Result<()> {
         if option_effective(&metadata, SyncedOption::CreativeHotbars, state)
             .await?
         {
-            write_hotbar_projection(&metadata, state).await?;
+            write_hotbar_projection(&metadata, state, None).await?;
         }
     }
     Ok(())
@@ -464,6 +493,7 @@ pub(super) async fn regenerate_hotbars(state: &State) -> crate::Result<()> {
 async fn write_hotbar_projection(
     metadata: &InstanceMetadata,
     state: &State,
+    family: Option<HotbarFamily>,
 ) -> crate::Result<()> {
     if sync_files_are_protected(metadata)
         || instance_is_running(metadata, state).await?
@@ -471,7 +501,10 @@ async fn write_hotbar_projection(
         return Ok(());
     }
     let sync_state = read_hotbar_state(state).await?;
-    let family = hotbar_family(metadata, state).await?;
+    let family = match family {
+        Some(family) => family,
+        None => hotbar_family(metadata, state).await?,
+    };
     let root = hotbar_family_root(&sync_state.nbt, family);
     let bytes = nbt_to_bytes(&root)?;
     let expected = sha1_bytes(&bytes);
@@ -633,6 +666,156 @@ pub(super) fn generated_hotbar_path(
 #[cfg(test)]
 mod native_preservation_tests {
     use super::*;
+
+    #[tokio::test]
+    async fn synced_hotbars_converge_when_instances_share_one_game_directory() {
+        use crate::state::store::instance_sync_preferences::{
+            InstancePreferenceKey, InstancePreferenceRecord,
+            InstanceSyncPreferences,
+        };
+        use crate::state::sync_state::{manifest, root};
+
+        let temp = tempfile::tempdir().unwrap();
+        let dirs = crate::state::DirectoryInfo {
+            settings_dir: temp.path().join("settings"),
+            config_dir: temp.path().join("content"),
+            app_identifier: "hotbar-sync-test".into(),
+        };
+        let shared_game_dir = dirs.instances_dir().join("a");
+        tokio::fs::create_dir_all(&shared_game_dir).await.unwrap();
+        let pool = crate::state::store::databases::open(&dirs.settings_dir)
+            .await
+            .unwrap();
+        for id in ["a", "b"] {
+            let content_set = format!("set-{id}");
+            sqlx::query("INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified, game_dir_override) VALUES (?, ?, 'installed', 'none', ?, 1, 1, ?)")
+                .bind(id).bind(id).bind(id).bind(shared_game_dir.to_str().unwrap()).execute(&pool).await.unwrap();
+            sqlx::query("INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified) VALUES (?, ?, 'Default', 'local', 'available', '1.21', 'vanilla', 1, 1)")
+                .bind(&content_set).bind(id).execute(&pool).await.unwrap();
+            sqlx::query(
+                "UPDATE instances SET applied_content_set_id = ? WHERE id = ?",
+            )
+            .bind(content_set)
+            .bind(id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+        let state = crate::state::test_state(dirs, pool).await.unwrap();
+        let mut instances =
+            crate::state::list_instances(&state.pool).await.unwrap();
+        instances.sort_by(|a, b| a.instance.id.cmp(&b.instance.id));
+        let [a, b] = instances.as_slice() else {
+            panic!("expected the two shared instances")
+        };
+        let game_dir = instance_game_dir(a, &state).unwrap();
+        assert_eq!(instance_game_dir(b, &state).unwrap(), game_dir);
+        for metadata in [a, b] {
+            InstanceSyncPreferences::set(
+                &state.data,
+                &InstancePreferenceKey {
+                    instance_id: metadata.instance.id.clone(),
+                    feature: SyncedOption::CreativeHotbars.as_str().into(),
+                },
+                Some(&InstancePreferenceRecord { enabled: true }),
+            )
+            .await
+            .unwrap();
+        }
+
+        let mut legacy = empty_hotbar_root();
+        legacy.insert("DataVersion", 3465_i32);
+        let mut components = empty_hotbar_root();
+        components.insert("DataVersion", COMPONENTS_DATA_VERSION_FLOOR);
+        let mut nbt = NbtCompound::new();
+        nbt.insert("Legacy", legacy.clone());
+        nbt.insert("Components", components);
+        write_hotbar_state(
+            &state,
+            &HotbarState {
+                schema_version: HOTBAR_SCHEMA_VERSION,
+                revision: 7,
+                nbt,
+            },
+        )
+        .await
+        .unwrap();
+        write_hotbar_projection(a, &state, Some(HotbarFamily::Legacy))
+            .await
+            .unwrap();
+        write_hotbar_projection(b, &state, Some(HotbarFamily::Components))
+            .await
+            .unwrap();
+
+        let root = root(&state.persistence).await.unwrap();
+        let path = game_dir.join(HOTBAR_FILE);
+        let a_bytes = tokio::fs::read(generated_hotbar_path(
+            &state,
+            HotbarFamily::Legacy,
+            "a",
+        ))
+        .await
+        .unwrap();
+        let b_bytes = tokio::fs::read(&path).await.unwrap();
+        assert_ne!(a_bytes, b_bytes);
+        let published = manifest::load(&root).await.unwrap().0.transaction;
+        let modified = tokio::fs::metadata(&path)
+            .await
+            .unwrap()
+            .modified()
+            .unwrap();
+        for _ in 0..4 {
+            reconcile_hotbar_projection(
+                a,
+                &state,
+                HotbarFamily::Legacy,
+                &game_dir,
+            )
+            .await
+            .unwrap();
+            reconcile_hotbar_projection(
+                b,
+                &state,
+                HotbarFamily::Components,
+                &game_dir,
+            )
+            .await
+            .unwrap();
+        }
+        assert_eq!(
+            manifest::load(&root).await.unwrap().0.transaction,
+            published
+        );
+        assert_eq!(tokio::fs::read(&path).await.unwrap(), b_bytes);
+        assert_eq!(
+            tokio::fs::metadata(&path)
+                .await
+                .unwrap()
+                .modified()
+                .unwrap(),
+            modified
+        );
+
+        // Reordering NBT keys is also a no-op on a stable projection,
+        // even when its hash matches neither instance checkpoint.
+        let reordered = (0..64)
+            .map(|_| {
+                nbt_to_bytes(&nbt_from_bytes(a_bytes.clone()).unwrap()).unwrap()
+            })
+            .find(|bytes| bytes != &a_bytes)
+            .expect("find a different encoding of the same NBT compound");
+        assert_eq!(nbt_from_bytes(reordered.clone()).unwrap(), legacy);
+        tokio::fs::write(&path, &reordered).await.unwrap();
+        reconcile_hotbar_projection(a, &state, HotbarFamily::Legacy, &game_dir)
+            .await
+            .unwrap();
+        assert_eq!(tokio::fs::read(&path).await.unwrap(), reordered);
+        assert_eq!(
+            manifest::load(&root).await.unwrap().0.transaction,
+            published
+        );
+    }
+
     #[test]
     fn family_merge_preserves_unknown_authored_tags_and_opposite_family() {
         let base = empty_hotbar_root();

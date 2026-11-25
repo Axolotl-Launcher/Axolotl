@@ -11,11 +11,11 @@ const HOTBAR_FILE: &str = "hotbar.nbt";
 pub use self::command_history::{get_command_history, set_command_history};
 pub(super) use self::files::{
     CheckpointProof, CheckpointStatus, LinkMode, atomic_native_write,
-    begin_checkpoint, checkpoint, ensure_link, finish_checkpoint,
-    finish_plain_checkpoint, instance_game_dir, instance_is_running,
-    instance_option_enabled, nbt_from_bytes, nbt_to_bytes,
+    begin_checkpoint, checkpoint, ensure_link, existing_game_dir,
+    finish_checkpoint, finish_plain_checkpoint, instance_game_dir,
+    instance_is_running, instance_option_enabled, nbt_from_bytes, nbt_to_bytes,
     publish_detached_copy, read_detached_projection, safe_instance_id,
-    sha1_bytes, sync_files_are_protected,
+    sha1_bytes, sibling_wrote_file, sync_files_are_protected,
 };
 pub(super) use self::orchestration::instance_option_supported;
 pub use self::orchestration::{

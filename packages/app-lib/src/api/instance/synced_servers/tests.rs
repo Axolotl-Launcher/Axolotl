@@ -185,24 +185,52 @@ async fn generated_file_provenance_requires_the_same_physical_directory() {
     publish_instance(&metadata, &root, &state).await.unwrap();
     let actual = sha1_bytes(&std::fs::read(root.join(SERVERS_FILE)).unwrap());
     assert!(
-        sibling_wrote_file("sibling", &root, &actual, &state)
-            .await
-            .unwrap()
+        sibling_wrote_file(
+            "sibling",
+            &root,
+            SyncedOption::MultiplayerServers,
+            &actual,
+            None,
+            &state
+        )
+        .await
+        .unwrap()
     );
     assert!(
-        !sibling_wrote_file("sibling", temp.path(), &actual, &state)
-            .await
-            .unwrap()
+        !sibling_wrote_file(
+            "sibling",
+            temp.path(),
+            SyncedOption::MultiplayerServers,
+            &actual,
+            None,
+            &state
+        )
+        .await
+        .unwrap()
     );
     assert!(
-        !sibling_wrote_file("sibling", &root, "user edited file", &state)
-            .await
-            .unwrap()
+        !sibling_wrote_file(
+            "sibling",
+            &root,
+            SyncedOption::MultiplayerServers,
+            "user edited file",
+            None,
+            &state
+        )
+        .await
+        .unwrap()
     );
     assert!(
-        !sibling_wrote_file("a", &root, &actual, &state)
-            .await
-            .unwrap()
+        !sibling_wrote_file(
+            "a",
+            &root,
+            SyncedOption::MultiplayerServers,
+            &actual,
+            None,
+            &state
+        )
+        .await
+        .unwrap()
     );
 }
 

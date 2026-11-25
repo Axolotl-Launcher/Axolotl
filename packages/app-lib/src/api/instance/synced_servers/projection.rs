@@ -1,50 +1,5 @@
-use super::super::synced_options::instance_game_dir;
-use crate::state::InstanceMetadata;
-use crate::state::store::instance_sync_checkpoints::InstanceSyncCheckpoints;
-use crate::{ErrorKind, State};
-use std::path::{Path, PathBuf};
-
-pub(super) fn existing_game_dir(
-    metadata: &InstanceMetadata,
-    state: &State,
-) -> crate::Result<Option<PathBuf>> {
-    match instance_game_dir(metadata, state) {
-        Ok(path) => Ok(Some(path)),
-        Err(error)
-            if matches!(error.raw.as_ref(), ErrorKind::IOError(error)
-            if error.kind() == std::io::ErrorKind::NotFound) =>
-        {
-            Ok(None)
-        }
-        Err(error) => Err(error),
-    }
-}
-
-/// Check provenance by physical directory as well as hash: two records may
-/// refer to the same servers.dat, but have different per-instance projections.
-pub(super) async fn sibling_wrote_file(
-    instance_id: &str,
-    game_dir: &Path,
-    actual_sha1: &str,
-    state: &State,
-) -> crate::Result<bool> {
-    let ids = InstanceSyncCheckpoints::instances_with_expected_sha1(
-        &state.data,
-        "multiplayer_servers",
-        actual_sha1,
-        instance_id,
-    )
-    .await?;
-    for id in ids {
-        if let Some(metadata) =
-            crate::state::get_instance(&id, &state.pool).await?
-            && existing_game_dir(&metadata, state)?.as_deref() == Some(game_dir)
-        {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
+use crate::ErrorKind;
+use std::path::Path;
 
 /// Break a link by replacing it with a copy of its current contents. Never
 /// restore a deleted file from generated output, and never read a large file

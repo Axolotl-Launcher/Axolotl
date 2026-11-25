@@ -67,6 +67,50 @@ pub(crate) fn instance_game_dir(
     )
 }
 
+pub(in crate::api::instance) fn existing_game_dir(
+    metadata: &InstanceMetadata,
+    state: &State,
+) -> crate::Result<Option<PathBuf>> {
+    match instance_game_dir(metadata, state) {
+        Ok(path) => Ok(Some(path)),
+        Err(error)
+            if matches!(error.raw.as_ref(), crate::ErrorKind::IOError(error)
+            if error.kind() == std::io::ErrorKind::NotFound) =>
+        {
+            Ok(None)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+/// Two instances can publish different bytes to the same physical game directory.
+pub(in crate::api::instance) async fn sibling_wrote_file(
+    instance_id: &str,
+    game_dir: &Path,
+    option: SyncedOption,
+    actual_sha1: &str,
+    ready_revision: Option<i64>,
+    state: &State,
+) -> crate::Result<bool> {
+    let ids = InstanceSyncCheckpoints::instances_with_expected_sha1(
+        &state.data,
+        option.as_str(),
+        actual_sha1,
+        instance_id,
+        ready_revision,
+    )
+    .await?;
+    for id in ids {
+        if let Some(metadata) =
+            crate::state::get_instance(&id, &state.pool).await?
+            && existing_game_dir(&metadata, state)?.as_deref() == Some(game_dir)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 pub(in crate::api::instance) fn sync_files_are_protected(
     metadata: &InstanceMetadata,
 ) -> bool {
@@ -146,7 +190,8 @@ pub(in crate::api::instance) async fn atomic_native_write(
 
 pub(super) const MAX_PROJECTION_BYTES: u64 = 16 * 1024 * 1024;
 
-/// Read only a regular projection whose open file has no other hard links.
+/// Return no bytes for missing files and known aliases. Metadata failures
+/// propagate so a watcher cannot mistake them for a request to replace a file.
 pub(in crate::api::instance) async fn read_detached_projection(
     path: &Path,
     limit: u64,
@@ -218,29 +263,63 @@ async fn is_detached(file: &tokio::fs::File) -> crate::Result<bool> {
 
 #[cfg(windows)]
 async fn is_detached(file: &tokio::fs::File) -> crate::Result<bool> {
+    use std::os::windows::fs::MetadataExt;
     use std::os::windows::io::AsRawHandle;
     use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT;
+    let metadata = file.metadata().await?;
+    if !metadata.is_file()
+        || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+    {
+        return Ok(false);
+    }
+    Ok(windows_link_count(HANDLE(file.as_raw_handle()))? == 1)
+}
+
+#[cfg(windows)]
+fn windows_link_count(
+    handle: windows::Win32::Foundation::HANDLE,
+) -> std::io::Result<u32> {
     use windows::Win32::Storage::FileSystem::{
-        BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_REPARSE_POINT,
-        GetFileInformationByHandle,
+        BY_HANDLE_FILE_INFORMATION, FILE_STANDARD_INFO, FileStandardInfo,
+        GetFileInformationByHandle, GetFileInformationByHandleEx,
     };
-    let mut information = BY_HANDLE_FILE_INFORMATION::default();
-    let verified = unsafe {
-        GetFileInformationByHandle(
-            HANDLE(file.as_raw_handle()),
-            &raw mut information,
+    let mut info = FILE_STANDARD_INFO::default();
+    let standard = unsafe {
+        GetFileInformationByHandleEx(
+            handle,
+            FileStandardInfo,
+            (&raw mut info).cast(),
+            size_of::<FILE_STANDARD_INFO>() as u32,
         )
-        .is_ok()
     };
-    Ok(verified
-        && information.nNumberOfLinks == 1
-        && information.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 == 0
-        && file.metadata().await?.is_file())
+    if standard.is_ok() && info.NumberOfLinks > 0 {
+        return Ok(info.NumberOfLinks);
+    }
+    let mut legacy = BY_HANDLE_FILE_INFORMATION::default();
+    unsafe { GetFileInformationByHandle(handle, &raw mut legacy) }.map_err(
+        |error| {
+            std::io::Error::from_raw_os_error(
+                crate::util::io::win32_from_hresult(error.code().0),
+            )
+        },
+    )?;
+    if legacy.nNumberOfLinks == 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Windows did not report a link count for the sync projection",
+        ));
+    }
+    Ok(legacy.nNumberOfLinks)
 }
 
 #[cfg(not(any(windows, unix)))]
 async fn is_detached(_file: &tokio::fs::File) -> crate::Result<bool> {
-    Ok(false)
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "Cannot verify that the sync projection is detached",
+    )
+    .into())
 }
 
 async fn read_projection_bytes(path: &Path) -> crate::Result<Vec<u8>> {
@@ -452,6 +531,16 @@ pub(in crate::api::instance) fn nbt_from_bytes(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn synced_projection_link_query_failure_is_an_error() {
+        use windows::Win32::Foundation::{
+            ERROR_INVALID_HANDLE, INVALID_HANDLE_VALUE,
+        };
+        let error = windows_link_count(INVALID_HANDLE_VALUE).unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(ERROR_INVALID_HANDLE.0 as i32));
+    }
     #[test]
     fn generated_state_ids_preserve_exact_identity_without_separator_collisions()
      {

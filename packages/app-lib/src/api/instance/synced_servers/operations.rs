@@ -1,7 +1,8 @@
 use super::super::synced_options::{
-    CheckpointStatus, checkpoint, finish_checkpoint, instance_game_dir,
-    instance_is_running, instance_option_enabled, instance_option_supported,
-    read_detached_projection, sha1_bytes, sync_files_are_protected,
+    CheckpointStatus, checkpoint, existing_game_dir, finish_checkpoint,
+    instance_game_dir, instance_is_running, instance_option_enabled,
+    instance_option_supported, read_detached_projection, sha1_bytes,
+    sibling_wrote_file, sync_files_are_protected,
 };
 use crate::state::store::Collection as _;
 use crate::state::store::instance_sync_checkpoints::{
@@ -24,9 +25,7 @@ use super::modpack::{
     is_modpack_link, pack_state_exists, pack_state_matches_link,
     reconstruct_modpack_servers,
 };
-use super::projection::{
-    detach_existing_file, existing_game_dir, sibling_wrote_file,
-};
+use super::projection::detach_existing_file;
 use super::storage::{
     begin_server_checkpoint, canonical_exists, commit_server_state,
     generated_path, load_local, load_projection_entries, read_canonical,
@@ -263,7 +262,16 @@ pub(in crate::api::instance) async fn reconcile_servers(
         return compose_instance(metadata, state).await;
     }
 
-    if sibling_wrote_file(&metadata.instance.id, &root, &actual, state).await? {
+    if sibling_wrote_file(
+        &metadata.instance.id,
+        &root,
+        SyncedOption::MultiplayerServers,
+        &actual,
+        None,
+        state,
+    )
+    .await?
+    {
         return Ok(());
     }
     let current = servers_from_bytes(bytes)?;

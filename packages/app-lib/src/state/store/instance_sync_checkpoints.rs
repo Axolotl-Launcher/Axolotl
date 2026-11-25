@@ -310,6 +310,7 @@ impl InstanceSyncCheckpoints {
         feature: &str,
         expected_sha1: &str,
         except: &str,
+        ready_revision: Option<i64>,
     ) -> crate::Result<Vec<String>> {
         Ok(Self::get_all(handle)
             .await?
@@ -318,6 +319,10 @@ impl InstanceSyncCheckpoints {
                 key.feature == feature
                     && record.expected_sha1 == expected_sha1
                     && key.instance_id != except
+                    && ready_revision.is_none_or(|revision| {
+                        record.status == CheckpointStatus::Ready
+                            && record.source_revision == revision
+                    })
             })
             .map(|(key, _)| key.instance_id)
             .collect())

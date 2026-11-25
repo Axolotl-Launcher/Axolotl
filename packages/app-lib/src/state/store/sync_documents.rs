@@ -559,6 +559,97 @@ pub(crate) async fn cleanup_history(
     .await
 }
 
+const HISTORY_CLEANUP_RECEIPT: &str = "state/history-cleanup-v1.complete";
+const STARTUP_CLEANUP_BATCH: usize = 16;
+
+pub(crate) async fn cleanup_history_at_startup(
+    handle: &super::Handle,
+) -> crate::Result<()> {
+    use sync_state::gc;
+    super::recovery_mode::ensure_writable(handle.pool())?;
+    let persistence = handle.persistence();
+    super::recovery_mode::ensure_path_writable(persistence.root())?;
+    let root = sync_state::root(&persistence).await?;
+    let receipt = root.join(HISTORY_CLEANUP_RECEIPT);
+    gc::require_path(&root, true).await?;
+    gc::require_path(&root.join("state"), true).await?;
+    if gc::checked_path(&receipt, false).await?.is_some() {
+        return Ok(());
+    }
+    authority(&persistence).await?;
+
+    let mut report = gc::SyncCleanupReport::default();
+    if let Some(mut entries) = gc::open_journals(&root).await? {
+        let mut batch = Vec::with_capacity(STARTUP_CLEANUP_BATCH);
+        let mut retention = None;
+        loop {
+            batch.clear();
+            for _ in 0..STARTUP_CLEANUP_BATCH {
+                let Some(token) = gc::next_journal(&mut entries).await? else {
+                    break;
+                };
+                batch.push(token);
+            }
+            if batch.is_empty() {
+                break;
+            }
+            cleanup_startup_batch(
+                handle,
+                &root,
+                &batch,
+                &mut retention,
+                &mut report,
+            )
+            .await?;
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+    if report.failed == 0 {
+        crate::state::persistence::document::write_blob(
+            &receipt,
+            b"complete\n".to_vec(),
+        )
+        .await?;
+    }
+    if report.removed > 0 || report.failed > 0 {
+        tracing::info!(
+            removed = report.removed,
+            bytes = report.removed_bytes,
+            failed = report.failed,
+            "Finished startup sync history scan"
+        );
+    }
+    Ok(())
+}
+
+async fn cleanup_startup_batch(
+    handle: &super::Handle,
+    root: &Path,
+    tokens: &[String],
+    retention: &mut Option<sync_state::gc::Retention>,
+    report: &mut sync_state::gc::SyncCleanupReport,
+) -> crate::Result<()> {
+    let mut connection = handle.pool().acquire().await?;
+    sync_state::gc::require_path(&root.join("state/transaction.lock"), false)
+        .await?;
+    let _lock = sync_state::journal::initial_lock(root).await?;
+    // As in read_collections, publication holds this lock through the SQL
+    // decision and head update. Read the token in autocommit, with no writer reservation.
+    let token = decision(&mut connection).await?;
+    drop(connection);
+    sync_state::gc::refresh_retention(root, token, retention).await?;
+    let retention = retention.as_ref().expect("validated recovery roots");
+    for token in tokens {
+        if let Err(error) =
+            retention.process_journal(root, token, true, report).await
+        {
+            report.failed += 1;
+            tracing::warn!(%token, %error, "Could not reclaim sync history entry");
+        }
+    }
+    Ok(())
+}
+
 async fn same_sync_directory(
     stored: &std::path::Path,
     current: &std::path::Path,
@@ -603,6 +694,87 @@ mod tests {
     use crate::state::store::synced_game_option_state::{
         GameOptionStateRecord, Singleton, SyncedGameOptionState,
     };
+
+    #[tokio::test]
+    async fn startup_history_cleanup_resumes_and_records_completion() {
+        let root = tempfile::tempdir().unwrap();
+        let pool = super::super::databases::open(root.path()).await.unwrap();
+        let handle = super::super::Handle::new(pool.clone());
+        let shared = authority(&handle.persistence()).await.unwrap();
+        let journal =
+            |token: &str| shared.join(format!("state/journals/{token}.json"));
+        let receipt = shared.join(HISTORY_CLEANUP_RECEIPT);
+        let mut tokens = Vec::new();
+        for revision in 1..=(STARTUP_CLEANUP_BATCH as i64 + 4) {
+            SyncedGameOptionState::set(
+                &handle,
+                &Singleton,
+                Some(&GameOptionStateRecord {
+                    revision,
+                    catalog_revision: 0,
+                }),
+            )
+            .await
+            .unwrap();
+            tokens.push(manifest::load(&shared).await.unwrap().0.transaction);
+        }
+        let (old, retained) = tokens.split_at(tokens.len() - 2);
+        let mut sql = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+        let mut sync =
+            sync_state::journal::Transaction::begin(shared.clone(), None)
+                .await
+                .unwrap();
+        sync.changed = true;
+        let pending = sync.prepare().await.unwrap().unwrap();
+        decide(&mut sql, &pending).await.unwrap();
+        sql.commit().await.unwrap();
+        drop(sync);
+
+        // Finish one batch, then start again without a completion receipt.
+        let mut retention = None;
+        let mut report = sync_state::gc::SyncCleanupReport::default();
+        cleanup_startup_batch(
+            &handle,
+            &shared,
+            &old[..1],
+            &mut retention,
+            &mut report,
+        )
+        .await
+        .unwrap();
+        assert_eq!(report.removed, 1);
+        assert!(!receipt.exists());
+        assert!(journal(&old[1]).exists());
+
+        // A reserved core writer can wait for the file lock without blocking
+        // the cleanup's autocommit read of the published decision.
+        let writer = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            cleanup_history_at_startup(&handle),
+        )
+        .await
+        .expect("cleanup must not reserve the core writer")
+        .unwrap();
+        writer.rollback().await.unwrap();
+        assert!(receipt.is_file());
+        assert!(old.iter().all(|token| !journal(token).exists()));
+        assert!(retained.iter().all(|token| journal(token).is_file()));
+        assert!(journal(&pending).is_file());
+
+        sync_state::journal::replay(&shared, &pending)
+            .await
+            .unwrap();
+        assert_eq!(
+            manifest::load(&shared).await.unwrap().0.transaction,
+            pending
+        );
+        cleanup_history_at_startup(&handle).await.unwrap();
+        assert!(
+            journal(&retained[0]).is_file(),
+            "completed startup work must not scan again"
+        );
+    }
 
     #[tokio::test]
     async fn history_cleanup_requires_ownership_and_honors_committed_decision()

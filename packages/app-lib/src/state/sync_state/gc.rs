@@ -1,4 +1,4 @@
-//! Offline cleanup of superseded, journaled sync generations.
+//! Cleanup of superseded, journaled sync generations.
 
 use super::{ensure_supported_generation, journal, manifest};
 use crate::ErrorKind;
@@ -221,22 +221,51 @@ fn journal_path(root: &Path, token: &str) -> PathBuf {
     root.join("state/journals").join(format!("{token}.json"))
 }
 
-async fn roots(
+#[derive(PartialEq)]
+struct RecoveryHeads {
+    current: manifest::Head,
+    previous: Option<manifest::Head>,
+    decision: Option<String>,
+}
+
+pub(crate) struct Retention {
+    heads: RecoveryHeads,
+    oldest: u64,
+    tokens: HashSet<String>,
+}
+
+/// Called under the sync transaction lock. Reuse validation of immutable
+/// generations until publication changes a recovery head or its decision.
+pub(crate) async fn refresh_retention(
     root: &Path,
-    decision: Option<&str>,
-) -> crate::Result<(u64, HashSet<String>)> {
+    decision: Option<String>,
+    cached: &mut Option<Retention>,
+) -> crate::Result<()> {
     let current = read_head(&root.join("state/head.json"))
         .await?
         .ok_or_else(|| invalid("Current sync head is missing"))?;
     let previous = read_head(&root.join("state/head.json.previous")).await?;
+    let heads = RecoveryHeads {
+        current,
+        previous,
+        decision,
+    };
+    if cached.as_ref().is_some_and(|cached| cached.heads == heads) {
+        return Ok(());
+    }
+    let RecoveryHeads {
+        current,
+        previous,
+        decision,
+    } = &heads;
     if previous.as_ref().is_some_and(|head| {
-        head.revision >= current.revision && head != &current
+        head.revision >= current.revision && head != current
     }) {
         return Err(invalid("Current and previous sync heads disagree"));
     }
     let mut tokens = HashSet::new();
     let mut oldest = current.revision;
-    for head in std::iter::once(&current).chain(previous.as_ref()) {
+    for head in std::iter::once(current).chain(previous.as_ref()) {
         validate_root(root, head).await?;
         oldest = oldest.min(head.revision);
         tokens.insert(head.transaction.clone());
@@ -251,13 +280,13 @@ async fn roots(
             return Err(invalid("Sync head and journal disagree"));
         }
     }
-    if let Some(token) = decision {
+    if let Some(token) = decision.as_deref() {
         if !is_token(token) {
             return Err(invalid("Unknown coordinator sync decision"));
         }
         require_path(&journal_path(root, token), false).await?;
         let intent = journal::read_intent(root, token, true).await?;
-        if intent.desired != current && intent.expected != current.revision {
+        if intent.desired != *current && intent.expected != current.revision {
             return Err(invalid(
                 "Coordinator decision cannot be replayed against sync head",
             ));
@@ -265,7 +294,12 @@ async fn roots(
         validate_root(root, &intent.desired).await?;
         tokens.insert(token.to_owned());
     }
-    Ok((oldest, tokens))
+    *cached = Some(Retention {
+        heads,
+        oldest,
+        tokens,
+    });
+    Ok(())
 }
 
 struct Candidate {
@@ -375,8 +409,67 @@ async fn inspect_file(
     Ok((path, size))
 }
 
-/// The caller holds coordinator ownership, its SQL writer reservation, and the
-/// sync transaction lock throughout enumeration and removal.
+pub(crate) async fn open_journals(
+    root: &Path,
+) -> crate::Result<Option<fs::ReadDir>> {
+    checked_path(&root.join("state/generations"), true).await?;
+    let journals = root.join("state/journals");
+    if checked_path(&journals, true).await?.is_some() {
+        return Ok(Some(fs::read_dir(journals).await?));
+    }
+    Ok(None)
+}
+
+pub(crate) async fn next_journal(
+    entries: &mut fs::ReadDir,
+) -> crate::Result<Option<String>> {
+    while let Some(entry) = entries.next_entry().await? {
+        let name = entry.file_name();
+        if let Some(token) = name
+            .to_str()
+            .and_then(|name| name.strip_suffix(".json"))
+            .filter(|name| is_token(name))
+        {
+            return Ok(Some(token.to_owned()));
+        }
+    }
+    Ok(None)
+}
+
+impl Retention {
+    /// Evaluate and optionally remove a journal while holding the sync lock.
+    pub(crate) async fn process_journal(
+        &self,
+        root: &Path,
+        token: &str,
+        apply: bool,
+        report: &mut SyncCleanupReport,
+    ) -> crate::Result<()> {
+        report.journals_scanned += 1;
+        if self.tokens.contains(token) {
+            report.retained_for_recovery += 1;
+            return Ok(());
+        }
+        require_path(&journal_path(root, token), false).await?;
+        let intent = journal::read_intent(root, token, true).await?;
+        if intent.desired.revision >= self.oldest {
+            report.retained_recent_or_uncommitted += 1;
+            return Ok(());
+        }
+        let candidate =
+            Candidate::inspect(root, token, &intent.desired).await?;
+        report.candidates += 1;
+        report.candidate_files += candidate.files.len() + 1;
+        report.candidate_bytes += candidate.journal_bytes
+            + candidate.files.iter().map(|(_, bytes)| bytes).sum::<u64>();
+        if apply {
+            candidate.remove(report).await?;
+        }
+        Ok(())
+    }
+}
+
+/// Offline entry point. The caller holds both coordinator and sync locks.
 pub(crate) async fn scan(
     root: &Path,
     decision: Option<&str>,
@@ -386,54 +479,21 @@ pub(crate) async fn scan(
     mut failure: impl FnMut(&str, &crate::Error),
 ) -> crate::Result<SyncCleanupReport> {
     let mut report = SyncCleanupReport::default();
-    checked_path(&root.join("state/generations"), true).await?;
-    let journals = root.join("state/journals");
-    let has_journals = checked_path(&journals, true).await?.is_some();
-    let (oldest, keep) = roots(root, decision).await?;
-    if !has_journals {
+    let entries = open_journals(root).await?;
+    let mut retention = None;
+    refresh_retention(root, decision.map(str::to_owned), &mut retention)
+        .await?;
+    let retention = retention.expect("validated recovery roots");
+    let Some(mut entries) = entries else {
         return Ok(report);
-    }
-    let mut entries = fs::read_dir(journals).await?;
-    while let Some(entry) = entries.next_entry().await? {
-        let name = entry.file_name();
-        let Some(token) = name
-            .to_str()
-            .and_then(|name| name.strip_suffix(".json"))
-            .filter(|name| is_token(name))
-        else {
-            continue;
-        };
-        report.journals_scanned += 1;
-        if keep.contains(token) {
-            report.retained_for_recovery += 1;
-        } else {
-            let result = async {
-                require_path(&entry.path(), false).await?;
-                let intent = journal::read_intent(root, token, true).await?;
-                if intent.desired.revision >= oldest {
-                    report.retained_recent_or_uncommitted += 1;
-                    return Ok(());
-                }
-                let candidate =
-                    Candidate::inspect(root, token, &intent.desired).await?;
-                report.candidates += 1;
-                report.candidate_files += candidate.files.len() + 1;
-                report.candidate_bytes += candidate.journal_bytes
-                    + candidate
-                        .files
-                        .iter()
-                        .map(|(_, bytes)| bytes)
-                        .sum::<u64>();
-                if apply {
-                    candidate.remove(&mut report).await?;
-                }
-                Ok(())
-            }
-            .await;
-            if let Err(error) = result {
-                report.failed += 1;
-                failure(token, &error);
-            }
+    };
+    while let Some(token) = next_journal(&mut entries).await? {
+        if let Err(error) = retention
+            .process_journal(root, &token, apply, &mut report)
+            .await
+        {
+            report.failed += 1;
+            failure(&token, &error);
         }
         if report.journals_scanned % BATCH == 0 {
             progress(&report);

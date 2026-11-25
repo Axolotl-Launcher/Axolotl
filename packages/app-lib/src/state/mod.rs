@@ -919,6 +919,16 @@ impl State {
 
         crate::telemetry::start(Arc::clone(&state));
 
+        state.spawn_background({
+            let state = Arc::clone(&state);
+            async move {
+                wait_for_frontend_ready("sync history cleanup").await;
+                if let Err(error) = store::sync_documents::cleanup_history_at_startup(&state.data).await {
+                    tracing::warn!(%error, "Startup sync history cleanup paused");
+                }
+            }
+        });
+
         state.spawn_background(async move {
             wait_for_frontend_ready("Google Translate IP preload").await;
             crate::google_ip::preload().await;

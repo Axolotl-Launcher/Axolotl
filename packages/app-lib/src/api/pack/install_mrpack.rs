@@ -2002,6 +2002,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                 let pending_overrides = Arc::clone(&pending_overrides);
                 async move {
                     let mut extracted = Vec::new();
+                    let mut skipped: Vec<(String, String)> = Vec::new();
                     let mut reader = MrpackZipReader::new(&file).await?;
                     loop {
                         let Some(spec) =
@@ -2077,15 +2078,37 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                                 progress,
                             )
                             .await;
-                        let (size, hash) = reporter
+                        let entry_name = spec.entry_name.clone();
+                        // A damaged override entry must not abort the whole install:
+                        // the manifest content is downloaded separately and stays
+                        // valid, so the pack can still produce a usable instance.
+                        // Record the entry and let the caller surface it once every
+                        // entry has been attempted.
+                        match reporter
                             .preserve_failure_context(
                                 override_context,
                                 extract_result,
                             )
-                            .await?;
-                        extracted.push(ExtractedOverride { spec, size, hash });
+                            .await
+                        {
+                            Ok((size, hash)) => {
+                                extracted.push(ExtractedOverride {
+                                    spec,
+                                    size,
+                                    hash,
+                                });
+                            }
+                            Err(error) => {
+                                tracing::warn!(
+                                    entry = %entry_name,
+                                    %error,
+                                    "Skipping unreadable modpack override entry"
+                                );
+                                skipped.push((entry_name, error.to_string()));
+                            }
+                        }
                     }
-                    Ok::<_, crate::Error>(extracted)
+                    Ok::<_, crate::Error>((extracted, skipped))
                 }
             })
             .buffer_unordered(OVERRIDE_EXTRACTION_CONCURRENCY)
@@ -2094,7 +2117,24 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             .into_iter()
             .collect::<crate::Result<Vec<_>>>();
     let mut extracted_overrides = match extraction_result {
-        Ok(extracted) => extracted.into_iter().flatten().collect::<Vec<_>>(),
+        Ok(chunks) => {
+            let mut extracted = Vec::new();
+            let mut skipped = Vec::new();
+            for (chunk, skipped_here) in chunks {
+                extracted.extend(chunk);
+                skipped.extend(skipped_here);
+            }
+            if !skipped.is_empty() {
+                // Reported once with the totals; the per-entry warning already
+                // names each damaged file and its reason.
+                tracing::warn!(
+                    extracted = extracted.len(),
+                    skipped = skipped.len(),
+                    "Modpack overrides were partially unreadable; the install continues without them"
+                );
+            }
+            extracted
+        }
         Err(error) => {
             let cleanup_targets = override_targets.clone();
             let cleanup_result = tokio::task::spawn_blocking(move || {

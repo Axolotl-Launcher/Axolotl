@@ -145,6 +145,20 @@ Remove-Item -Recurse -Force target\debug
 
 维护层的显式离线恢复入口为 `state::store::maintenance::restore_snapshot(root, bundle, content_root)`；它要求启动器已关闭并独占原始协调库，验证快照后保留旧文件、重绑定引用并发布恢复收据。启动流程只继续已经明确发起并写入收据的恢复。该入口尚未接入桌面恢复界面，不应以手工逐个替换文件代替这一协议。
 
+#### 回收同步历史快照
+
+关闭启动器后，从仓库根目录运行以下命令。先预览，再按需执行。首个参数是包含 `data/system.db` 和 `data/sync/` 的启动器原始数据根。Windows 默认值如下。
+
+```powershell
+$syncCleanupRoot = Join-Path $env:APPDATA 'red.ghs.axolotl'
+cargo run -p theseus --bin sync-history-cleanup -- $syncCleanupRoot
+cargo run -p theseus --bin sync-history-cleanup -- $syncCleanupRoot --apply --limit 128
+```
+
+工具报告候选快照、文件数和逻辑字节数，每扫描 128 份 journal 输出一次进度。只有修订号早于所有恢复根、且路径与 journal 记录一致的快照才会进入候选。`--limit` 可以限制本次处理量。按 Ctrl+C 停止后可重新运行，未完成的候选会在下次扫描时继续处理。
+
+大量历史积累时，先把已关闭启动器的协调库和同步目录一起复制，在副本上跑预览和执行。把第一个参数换成副本的数据根，并添加 `--copied-from $syncCleanupRoot`。工具在副本中回收文件，以原路径核对复制过来的权威描述。清理保留当前与上一份 head、协调库提交决定、共享分片和二进制对象、无法验证的日志和没有匹配日志的目录。
+
 存在未完成且依赖绝对路径的文件恢复操作时，应先完成恢复再移动内容目录；不要批量替换日志中的任意字符串。恢复到不同目录同样需要确认日志记录的文件根仍有效，无法解释的记录保留并暂停相应修改。
 
 **本地构建与已安装的正式版共用这份数据目录。** 启动桌面开发进程可能接管正在使用的数据；开发和恢复验证必须隔离。下面的 SQLx 降级脚本仅用于旧 `app.db`，不用于新核心或文档体系；不要手工修改 `_sqlx_migrations` 或套用旧脚本处理新库。

@@ -20,7 +20,7 @@ vi.mock('@/components/lab/command-generator/CommandGeneratorItemPickerModal.vue'
     default: { render: () => null },
 }))
 vi.mock('@modrinth/ui', async () => {
-    const { defineComponent, h } = await import('vue')
+    const { defineComponent, h, ref } = await import('vue')
     return {
         commonMessages: { clearButton: { id: 'button.clear', defaultMessage: 'Clear' } },
         Button: defineComponent({
@@ -36,6 +36,33 @@ vi.mock('@modrinth/ui', async () => {
                         },
                         slots.default?.(),
                     ),
+        }),
+        NewModal: defineComponent({
+            setup: (_, { slots, expose }) => {
+                const visible = ref(false)
+                expose({
+                    show: () => (visible.value = true),
+                    hide: () => (visible.value = false),
+                })
+                return () =>
+                    visible.value
+                        ? h('div', [slots.header?.(), slots.default?.(), slots.actions?.()])
+                        : null
+            },
+        }),
+        Checkbox: defineComponent({
+            props: { modelValue: Boolean, label: String, disabled: Boolean },
+            emits: ['update:modelValue'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h('input', {
+                        type: 'checkbox',
+                        checked: props.modelValue,
+                        disabled: props.disabled,
+                        onChange: (event: Event) =>
+                            emit('update:modelValue', (event.target as HTMLInputElement).checked),
+                    }),
         }),
         Toggle: defineComponent({ render: () => null }),
         StyledInput: defineComponent({
@@ -71,6 +98,10 @@ vi.mock('@modrinth/ui', async () => {
                         ),
                     ),
         }),
+        CodeEditor: defineComponent({ render: () => null }),
+        attachSnbtCompletion: () => ({ dispose: () => {} }),
+        formatSnbt: (value: string) => value,
+        registerSnbt: () => {},
         defineMessages: (messages: unknown) => messages,
         useVIntl: () => ({
             formatMessage: (message: { id: string; defaultMessage?: string }) =>

@@ -324,7 +324,7 @@ defineExpose({ show, hide })
                     >
                         <span
                             v-tooltip="typeTitle(spec)"
-                            class="mt-0.5 w-9 shrink-0 rounded bg-surface-5 px-1 py-0.5 text-center font-mono text-[0.625rem] leading-4 text-[var(--color-text-secondary)]"
+                            class="mt-0.5 w-9 shrink-0 rounded bg-surface-5 px-1 py-0.5 text-center font-mono text-[0.625rem] leading-4 text-[var(--color-text-tertiary)]"
                             >{{ typeBadge(spec) }}</span
                         >
                         <span class="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -333,7 +333,7 @@ defineExpose({ show, hide })
                                     class="truncate font-mono text-sm text-[var(--color-text-primary)]"
                                     >{{ spec.key }}</span
                                 >
-                                <span class="truncate text-xs text-[var(--color-text-secondary)]">{{
+                                <span class="truncate text-xs text-[var(--color-text-tertiary)]">{{
                                     fieldLabel(spec, locale)
                                 }}</span>
                                 <span

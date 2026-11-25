@@ -361,7 +361,7 @@ defineExpose({ show, hide })
             :class="element ? '' : 'h-[min(30rem,64vh)]'"
         >
             <template v-if="element">
-                <p class="m-0 text-sm text-[var(--color-text-secondary)]">
+                <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
                     {{ formatMessage(messages.elementHint) }}
                 </p>
                 <Button type="outlined" class="self-start" @click="addElement">
@@ -431,7 +431,7 @@ defineExpose({ show, hide })
                         >
                             <span
                                 v-tooltip="typeTitle(spec)"
-                                class="mt-0.5 w-9 shrink-0 rounded bg-surface-5 px-1 py-0.5 text-center font-mono text-[0.625rem] leading-4 text-[var(--color-text-secondary)]"
+                                class="mt-0.5 w-9 shrink-0 rounded bg-surface-5 px-1 py-0.5 text-center font-mono text-[0.625rem] leading-4 text-[var(--color-text-tertiary)]"
                                 >{{ typeBadge(spec) }}</span
                             >
                             <span class="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -441,7 +441,7 @@ defineExpose({ show, hide })
                                         >{{ spec.key }}</span
                                     >
                                     <span
-                                        class="truncate text-xs text-[var(--color-text-secondary)]"
+                                        class="truncate text-xs text-[var(--color-text-tertiary)]"
                                         >{{ fieldLabel(spec, locale) }}</span
                                     >
                                     <span
@@ -476,7 +476,7 @@ defineExpose({ show, hide })
                                         v-for="form in variants(spec)"
                                         :key="form.type + (form.desc ?? '')"
                                         type="button"
-                                        class="rounded bg-surface-5 px-1.5 py-0.5 font-mono text-[0.625rem] text-[var(--color-text-secondary)] hover:bg-surface-4"
+                                        class="rounded bg-surface-5 px-1.5 py-0.5 font-mono text-[0.625rem] text-[var(--color-text-tertiary)] hover:bg-surface-4"
                                         :title="form.desc"
                                         @click.stop="pick(spec, form)"
                                     >

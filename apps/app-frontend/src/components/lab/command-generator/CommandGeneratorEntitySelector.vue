@@ -590,7 +590,7 @@ defineExpose({ focus: () => focusInput() })
                 :class="
                     activeVariable === variableId
                         ? 'bg-brand text-brand-inverted font-semibold'
-                        : 'bg-surface-4 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                        : 'bg-surface-4 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
                 "
                 :aria-pressed="activeVariable === variableId"
                 @click="setVariable(variableId)"
@@ -692,7 +692,7 @@ defineExpose({ focus: () => focusInput() })
                 class="flex min-w-0 flex-wrap items-end gap-2 rounded-lg bg-surface-3 p-2"
             >
                 <div class="flex min-w-0 flex-1 flex-col gap-1">
-                    <span class="font-mono text-xs text-[var(--color-text-secondary)]">{{
+                    <span class="font-mono text-xs text-[var(--color-text-tertiary)]">{{
                         card.argument.key
                     }}</span>
                     <!-- 英文界面没有独立的参数名，重复显示一遍 key 没有意义 -->

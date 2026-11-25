@@ -191,7 +191,7 @@ defineExpose({ show, hide })
                                 >
                                 <span
                                     v-if="option.detail"
-                                    class="truncate text-xs text-[var(--color-text-secondary)]"
+                                    class="truncate text-xs text-[var(--color-text-tertiary)]"
                                     >{{ option.detail }}</span
                                 >
                                 <span

@@ -144,7 +144,7 @@ defineExpose({ focus: () => inputRef.value?.focus() })
                     segment.kind === 'key'
                         ? 'bg-surface-4 text-[var(--color-text-primary)]'
                         : segment.kind === 'index'
-                          ? 'bg-surface-5 text-[var(--color-text-secondary)]'
+                          ? 'bg-surface-5 text-[var(--color-text-tertiary)]'
                           : 'bg-surface-5 text-[var(--color-text-tertiary)]'
                 "
                 >{{ segment.text }}</span

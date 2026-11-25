@@ -1,5 +1,6 @@
 //! Independent shared-source publication and per-instance projection state.
 pub(crate) mod collection;
+pub(crate) mod gc;
 pub(crate) mod journal;
 pub(crate) mod manifest;
 pub(crate) mod servers;
@@ -23,6 +24,13 @@ pub(crate) fn key(raw: &serde_json::Value) -> crate::Result<String> {
 }
 pub(crate) async fn ensure_supported(root: &Path) -> crate::Result<()> {
     let (head, collections) = manifest::load(root).await?;
+    ensure_supported_generation(&head, &collections)
+}
+
+fn ensure_supported_generation(
+    head: &manifest::Head,
+    collections: &manifest::Collections,
+) -> crate::Result<()> {
     if head.legacy_extensions_present
         || !head.extra.is_empty()
         || head.native.values().any(|native| !native.extra.is_empty())
@@ -78,20 +86,26 @@ pub(crate) async fn native_text(
         )
         .into());
     }
-    let raw = transaction
+    let rows = transaction
         .collections
         .entry("native_text".into())
-        .or_default()
-        .entry(name)
-        .or_insert_with(|| serde_json::json!({"record":{}}));
-    if !supported(raw) || !supported(&raw["record"]) {
+        .or_default();
+    let original = rows.get(name);
+    let mut raw = original
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({"record":{}}));
+    if !supported(&raw) || !supported(&raw["record"]) {
         return Err(crate::ErrorKind::InputError(
             "Unknown native text source retained".into(),
         )
         .into());
     }
     raw["record"]["document"] = serde_json::to_value(bytes)?;
-    transaction.changed = true;
+    let actual_change = original != Some(&raw);
+    if actual_change {
+        rows.insert(name.into(), raw);
+    }
+    transaction.changed |= actual_change;
     unit.commit().await
 }
 
@@ -99,26 +113,22 @@ pub(crate) async fn native_text_read(
     state: &crate::State,
     name: &str,
 ) -> crate::Result<Option<Vec<u8>>> {
-    let mut unit = crate::state::store::atom(&state.data).await?;
-    let transaction = unit.sync().await?;
-    let result = match transaction
-        .collections
+    let collections =
+        crate::state::store::sync_documents::read_collections(&state.data)
+            .await?;
+    match collections
         .get("native_text")
         .and_then(|entries| entries.get(name))
     {
-        Some(raw) if supported(raw) => {
-            Some(serde_json::from_value(raw["record"]["document"].clone())?)
-        }
-        Some(_) => {
-            return Err(crate::ErrorKind::InputError(
-                "Unknown native text source retained".into(),
-            )
-            .into());
-        }
-        None => None,
-    };
-    unit.commit().await?;
-    Ok(result)
+        Some(raw) if supported(raw) => Ok(Some(serde_json::from_value(
+            raw["record"]["document"].clone(),
+        )?)),
+        Some(_) => Err(crate::ErrorKind::InputError(
+            "Unknown native text source retained".into(),
+        )
+        .into()),
+        None => Ok(None),
+    }
 }
 
 /// Optional instance metadata is retired independently of the instance row.

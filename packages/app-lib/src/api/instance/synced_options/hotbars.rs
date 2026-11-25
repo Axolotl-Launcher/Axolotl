@@ -1,9 +1,10 @@
 use super::HOTBAR_FILE;
 use super::files::{
-    CheckpointStatus, LinkMode, begin_checkpoint, checkpoint,
-    finish_checkpoint, instance_game_dir, instance_is_running, nbt_from_bytes,
-    nbt_to_bytes, publish_detached_copy, read_nbt_file, safe_instance_id,
-    sha1_bytes, sha1_file, sync_files_are_protected,
+    CheckpointStatus, LinkMode, MAX_PROJECTION_BYTES, begin_checkpoint,
+    checkpoint, finish_checkpoint, instance_game_dir, instance_is_running,
+    nbt_from_bytes, nbt_to_bytes, publish_detached_copy,
+    read_detached_projection, read_nbt_file, safe_instance_id, sha1_bytes,
+    sync_files_are_protected,
 };
 use super::orchestration::{
     backup_bytes, create_synced_directories, option_effective,
@@ -154,17 +155,21 @@ pub(super) async fn reconcile_hotbar(
     {
         return write_hotbar_projection(metadata, state).await;
     }
-    let actual = sha1_file(&local).await?;
+    let Some(bytes) =
+        read_detached_projection(&local, MAX_PROJECTION_BYTES).await?
+    else {
+        return write_hotbar_projection(metadata, state).await;
+    };
+    let actual = sha1_bytes(&bytes);
     let mut sync_state = read_hotbar_state(state).await?;
     if current_checkpoint
         .as_ref()
         .map(|value| value.expected_sha1.as_str())
         == Some(actual.as_str())
     {
-        if current_checkpoint
-            .as_ref()
-            .is_some_and(|value| value.source_revision == sync_state.revision)
-        {
+        if current_checkpoint.as_ref().is_some_and(|value| {
+            value.matches_projection(&actual, sync_state.revision)
+        }) {
             return Ok(());
         }
         return write_hotbar_projection(metadata, state).await;
@@ -193,7 +198,7 @@ pub(super) async fn reconcile_hotbar(
         (family, current_checkpoint)
     };
 
-    let changed = read_nbt_file(&local).await?;
+    let changed = nbt_from_bytes(bytes)?;
     let merge_base = checkpoint
         .and_then(|value| value.merge_base)
         .map(nbt_from_bytes)

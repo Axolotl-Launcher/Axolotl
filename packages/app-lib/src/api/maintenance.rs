@@ -349,3 +349,25 @@ mod tests {
         assert!(database_backup_info(&bundle).await.unwrap().is_none());
     }
 }
+pub use crate::state::sync_state::gc::SyncCleanupReport;
+
+/// Inspect or remove superseded generations while the launcher is closed.
+/// An explicitly named source lets a copied authority be checked in isolation.
+pub async fn cleanup_sync_history(
+    settings_root: &std::path::Path,
+    copied_from: Option<&std::path::Path>,
+    apply: bool,
+    limit: Option<usize>,
+    progress: impl FnMut(&SyncCleanupReport),
+    failure: impl FnMut(&str, &crate::Error),
+) -> crate::Result<SyncCleanupReport> {
+    crate::state::store::sync_documents::cleanup_history(
+        settings_root,
+        copied_from,
+        apply,
+        limit,
+        progress,
+        failure,
+    )
+    .await
+}

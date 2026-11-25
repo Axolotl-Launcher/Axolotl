@@ -3,7 +3,7 @@ use super::manifest::Collections;
 use super::{key, supported};
 use crate::state::store::{Atom, Handle, atom};
 use serde::{Serialize, de::DeserializeOwned};
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 pub(crate) trait Collection {
     type Key: PartialEq + Clone + Serialize + DeserializeOwned;
     type Scope;
@@ -189,11 +189,11 @@ pub(crate) trait Collection {
                 .into());
             }
         }
-        let rows = transaction
+        let original = transaction
             .collections
-            .entry(Self::NAME.into())
-            .or_default();
-        if let Some(raw) = rows.get(&id) {
+            .get(Self::NAME)
+            .and_then(|rows| rows.get(&id));
+        if let Some(raw) = original {
             if !supported(raw) || !Self::record_supported(&raw["record"]) {
                 return Err(crate::ErrorKind::InputError(
                     "Sync record uses newer protocol; retained".into(),
@@ -210,9 +210,10 @@ pub(crate) trait Collection {
                 .into());
             }
         }
+        let mut actual_change = false;
         if let Some(record) = record {
-            let raw = rows.entry(id).or_insert_with(|| json!({}));
-            raw["key"] = serde_json::to_value(wanted)?;
+            let mut raw = original.cloned().unwrap_or_else(|| json!({}));
+            raw["key"] = encoded_key.clone();
             let desired = serde_json::to_value(record)?;
             if let (Some(previous), Some(desired)) = (
                 raw.get_mut("record").and_then(Value::as_object_mut),
@@ -224,13 +225,20 @@ pub(crate) trait Collection {
             } else {
                 raw["record"] = desired;
             }
-        } else {
-            rows.remove(&id);
+            if original != Some(&raw) {
+                transaction
+                    .collections
+                    .entry(Self::NAME.into())
+                    .or_default()
+                    .insert(id, raw);
+                actual_change = true;
+            }
+        } else if let Some(rows) = transaction.collections.get_mut(Self::NAME) {
+            actual_change = rows.remove(&id).is_some();
         }
         if record.is_none()
             && matches!(Self::NAME, "synced_servers" | "synced_pack_catalog")
         {
-            let target = serde_json::to_value(wanted)?;
             let dependent = if Self::NAME == "synced_servers" {
                 "instance_servers"
             } else {
@@ -239,18 +247,23 @@ pub(crate) trait Collection {
             if let Some(rows) = transaction.collections.get_mut(dependent) {
                 if Self::NAME == "synced_servers" {
                     for raw in rows.values_mut() {
-                        if raw["record"]["excluded_synced_server_id"] == target
+                        if raw["record"]["excluded_synced_server_id"]
+                            == encoded_key
+                            && !encoded_key.is_null()
                         {
                             raw["record"]["excluded_synced_server_id"] =
                                 Value::Null;
+                            actual_change = true;
                         }
                     }
                 } else {
-                    rows.retain(|_, raw| raw["key"]["pack_id"] != target);
+                    let count = rows.len();
+                    rows.retain(|_, raw| raw["key"]["pack_id"] != encoded_key);
+                    actual_change |= rows.len() != count;
                 }
             }
         }
-        transaction.changed = true;
+        transaction.changed |= actual_change;
         Ok(())
     }
     async fn atom_set_all(

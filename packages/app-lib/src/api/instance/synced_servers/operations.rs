@@ -1,7 +1,7 @@
 use super::super::synced_options::{
     CheckpointStatus, checkpoint, finish_checkpoint, instance_game_dir,
     instance_is_running, instance_option_enabled, instance_option_supported,
-    sha1_bytes, sync_files_are_protected,
+    read_detached_projection, sha1_bytes, sync_files_are_protected,
 };
 use crate::state::store::Collection as _;
 use crate::state::store::instance_sync_checkpoints::{
@@ -239,7 +239,14 @@ pub(in crate::api::instance) async fn reconcile_servers(
     {
         return compose_instance(metadata, state).await;
     }
-    let bytes = read_server_bytes(&local_path).await?;
+    let Some(bytes) = read_detached_projection(
+        &local_path,
+        super::limits::MAX_SERVER_BYTES as u64,
+    )
+    .await?
+    else {
+        return compose_instance(metadata, state).await;
+    };
     let actual = sha1_bytes(&bytes);
     let revision = server_revision(state).await?;
     if checkpoint
@@ -249,7 +256,7 @@ pub(in crate::api::instance) async fn reconcile_servers(
     {
         if checkpoint
             .as_ref()
-            .is_some_and(|value| value.source_revision == revision)
+            .is_some_and(|value| value.matches_projection(&actual, revision))
         {
             return Ok(());
         }

@@ -127,6 +127,15 @@ impl Transaction {
     }
 }
 pub(crate) async fn replay(root: &Path, token: &str) -> crate::Result<()> {
+    let intent = read_intent(root, token, false).await?;
+    manifest::publish(root, intent.desired, intent.expected).await
+}
+
+pub(super) async fn read_intent(
+    root: &Path,
+    token: &str,
+    strict: bool,
+) -> crate::Result<Intent> {
     uuid::Uuid::parse_str(token)?;
     let bytes = manifest::read_bounded(
         &root.join(format!("state/journals/{token}.json")),
@@ -140,8 +149,9 @@ pub(crate) async fn replay(root: &Path, token: &str) -> crate::Result<()> {
         .into());
     }
     let raw: serde_json::Value = serde_json::from_slice(&bytes)?;
-    if raw.get("protocol").and_then(serde_json::Value::as_str)
-        != Some("axolotl-sync-commit")
+    if (strict && raw.as_object().is_none_or(|object| object.len() != 4))
+        || raw.get("protocol").and_then(serde_json::Value::as_str)
+            != Some("axolotl-sync-commit")
         || raw
             .get("schema_version")
             .and_then(serde_json::Value::as_u64)
@@ -165,5 +175,5 @@ pub(crate) async fn replay(root: &Path, token: &str) -> crate::Result<()> {
         )
         .into());
     }
-    manifest::publish(root, intent.desired, intent.expected).await
+    Ok(intent)
 }

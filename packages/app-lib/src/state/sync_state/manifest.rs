@@ -8,7 +8,8 @@ use std::path::Path;
 pub(crate) type Collections = BTreeMap<String, Map<String, Value>>;
 const SHARD_LIMIT: usize = 1 << 20;
 const MAX_SHARDS: usize = 4096;
-#[derive(Clone, Serialize, Deserialize)]
+pub(super) const SHARED_SHARDS: &str = "state/generations/shared";
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Shard {
     pub collection: String,
     pub file: String,
@@ -17,7 +18,7 @@ pub(crate) struct Shard {
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Native {
     pub file: String,
     pub bytes: usize,
@@ -25,7 +26,7 @@ pub(crate) struct Native {
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Head {
     pub revision: u64,
     pub transaction: String,
@@ -186,14 +187,7 @@ pub(crate) async fn prepare(
                 .into());
             }
             if size + length > SHARD_LIMIT && !chunk.is_empty() {
-                write_chunk(
-                    root,
-                    &transaction,
-                    collection,
-                    &mut shards,
-                    &chunk,
-                )
-                .await?;
+                write_chunk(root, collection, &mut shards, &chunk).await?;
                 chunk.clear();
                 size = 2;
             }
@@ -201,8 +195,7 @@ pub(crate) async fn prepare(
             size += length + 1;
         }
         if !chunk.is_empty() {
-            write_chunk(root, &transaction, collection, &mut shards, &chunk)
-                .await?;
+            write_chunk(root, collection, &mut shards, &chunk).await?;
         }
     }
     Ok(Head {
@@ -216,7 +209,6 @@ pub(crate) async fn prepare(
 }
 async fn write_chunk(
     root: &Path,
-    token: &str,
     collection: &str,
     shards: &mut Vec<Shard>,
     entries: &Map<String, Value>,
@@ -228,13 +220,17 @@ async fn write_chunk(
         .into());
     }
     let body = serde_json::to_vec(entries)?;
-    let file = format!("state/generations/{token}/{}.json", shards.len());
-    document::write_json(&root.join(&file), body.clone()).await?;
+    let sha256 = format!("{:x}", Sha256::digest(&body));
+    // The v1 reader already accepts JSON shard paths under generations/.
+    // Keep the content-addressed pool within that prefix for older readers.
+    let file = format!("{SHARED_SHARDS}/{sha256}.json");
+    let bytes = body.len();
+    document::write_blob(&root.join(&file), body).await?;
     shards.push(Shard {
         collection: collection.into(),
         file,
-        bytes: body.len(),
-        sha256: format!("{:x}", Sha256::digest(body)),
+        bytes,
+        sha256,
         extra: Map::new(),
     });
     Ok(())
@@ -681,7 +677,7 @@ pub(crate) async fn backup(
         .await?;
     Ok(())
 }
-fn collect_blob_paths(
+pub(super) fn collect_blob_paths(
     value: &Value,
     files: &mut std::collections::HashSet<String>,
 ) -> crate::Result<()> {

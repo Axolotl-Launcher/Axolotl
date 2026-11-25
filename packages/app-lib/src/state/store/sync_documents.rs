@@ -436,7 +436,6 @@ pub(crate) async fn validate_parents(
 pub(crate) async fn authority(
     persistence: &Persistence,
 ) -> crate::Result<std::path::PathBuf> {
-    let configured = sync_state::root(persistence).await?;
     let read = persistence
         .document(layout::SYNC_AUTHORITY, "axolotl-sync-authority", 1)?
         .read()
@@ -453,6 +452,15 @@ pub(crate) async fn authority(
     }
     let snapshot = read.snapshot.expect("descriptor");
     let data = snapshot.data().expect("descriptor payload");
+    let configured = sync_state::root(persistence).await?;
+    verify_authority(data, &configured).await?;
+    Ok(configured)
+}
+
+async fn verify_authority(
+    data: &Map<String, Value>,
+    expected: &Path,
+) -> crate::Result<()> {
     if data.get("contract").and_then(Value::as_u64) != Some(1)
         || data.get("protocol").is_some()
         || ["schema_version", "schemaVersion"].iter().any(|key| {
@@ -469,14 +477,86 @@ pub(crate) async fn authority(
         crate::ErrorKind::InputError("Sync authority root missing".into())
     })?;
     let stored = std::path::Path::new(stored);
-    if stored != configured && !same_sync_directory(stored, &configured).await {
+    if stored != expected && !same_sync_directory(stored, expected).await {
         return Err(crate::ErrorKind::FSError(
             "Sync storage moved without its authority; original state retained"
                 .into(),
         )
         .into());
     }
-    Ok(configured)
+    Ok(())
+}
+
+pub(crate) async fn cleanup_history(
+    settings_root: &Path,
+    copied_from: Option<&Path>,
+    apply: bool,
+    limit: Option<usize>,
+    progress: impl FnMut(&sync_state::gc::SyncCleanupReport),
+    failure: impl FnMut(&str, &crate::Error),
+) -> crate::Result<sync_state::gc::SyncCleanupReport> {
+    use sync_state::gc::{checked_path, read_envelope, require_path};
+    let settings_root = tokio::fs::canonicalize(settings_root).await?;
+    let data = layout::data(&settings_root);
+    require_path(&data, true).await?;
+    let persistence = Persistence::new(settings_root);
+    let root = sync_state::root(&persistence).await?;
+    require_path(&root, true).await?;
+    let database = data.join("system.db");
+    require_path(&database, false).await?;
+    checked_path(&data.join("system.db.ownership.lock"), false).await?;
+    let _ownership =
+        crate::state::db::acquire_domain_ownership(&database).await?;
+    for suffix in ["-journal", "-wal", "-shm", ".replacement.json"] {
+        if checked_path(&data.join(format!("system.db{suffix}")), false)
+            .await?
+            .is_some()
+        {
+            return Err(crate::ErrorKind::InputError(
+                "Recover the coordinator with the launcher before cleaning sync history".into(),
+            ).into());
+        }
+    }
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(database)
+        .create_if_missing(false)
+        .busy_timeout(std::time::Duration::ZERO);
+    let mut connection = SqliteConnection::connect_with(&options).await?;
+    // Reserve the same coordinator writer as Atom before the sync file lock.
+    // No sync prepare/decision can race the recovery-root snapshot below.
+    sqlx::query("BEGIN IMMEDIATE")
+        .execute(&mut connection)
+        .await?;
+    let token = decision(&mut connection).await?;
+    let _lock = sync_state::gc::lock(&root).await?;
+    let authority = read_envelope(
+        &persistence.root().join(layout::SYNC_AUTHORITY),
+        "axolotl-sync-authority",
+    )
+    .await?
+    .ok_or_else(|| {
+        crate::ErrorKind::InputError(
+            "Sync authority descriptor is missing".into(),
+        )
+    })?;
+    let authority = authority.as_object().expect("authority payload");
+    if authority.len() != 2 {
+        return Err(crate::ErrorKind::InputError(
+            "Unknown sync authority metadata".into(),
+        )
+        .into());
+    }
+    let expected = copied_from.map(|path| path.join(layout::SYNC_ROOT));
+    verify_authority(authority, expected.as_deref().unwrap_or(&root)).await?;
+    sync_state::gc::scan(
+        &root,
+        token.as_deref(),
+        apply,
+        limit,
+        progress,
+        failure,
+    )
+    .await
 }
 
 async fn same_sync_directory(
@@ -523,6 +603,54 @@ mod tests {
     use crate::state::store::synced_game_option_state::{
         GameOptionStateRecord, Singleton, SyncedGameOptionState,
     };
+
+    #[tokio::test]
+    async fn history_cleanup_requires_ownership_and_honors_committed_decision()
+    {
+        let root = tempfile::tempdir().unwrap();
+        let pool = super::super::databases::open(root.path()).await.unwrap();
+        let persistence = Persistence::new(root.path());
+        let shared = authority(&persistence).await.unwrap();
+        let mut sql = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+        let mut sync =
+            sync_state::journal::Transaction::begin(shared.clone(), None)
+                .await
+                .unwrap();
+        sync.changed = true;
+        let token = sync.prepare().await.unwrap().unwrap();
+        decide(&mut sql, &token).await.unwrap();
+        assert!(
+            cleanup_history(root.path(), None, false, None, |_| {}, |_, _| {})
+                .await
+                .is_err()
+        );
+        sql.commit().await.unwrap();
+        pool.close().await;
+        drop(pool);
+        assert!(
+            cleanup_history(root.path(), None, false, None, |_| {}, |_, _| {})
+                .await
+                .is_err()
+        );
+        drop(sync);
+        let report = cleanup_history(
+            root.path(),
+            None,
+            false,
+            None,
+            |_| {},
+            |_, error| panic!("{error}"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(report.retained_for_recovery, 1);
+        assert_eq!(manifest::load(&shared).await.unwrap().0.revision, 0);
+        assert!(
+            shared
+                .join(format!("state/journals/{token}.json"))
+                .is_file()
+        );
+    }
 
     #[tokio::test]
     async fn raw_import_keeps_every_table_cell_and_unknown_column() {

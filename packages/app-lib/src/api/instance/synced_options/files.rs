@@ -19,6 +19,14 @@ pub(in crate::api::instance) struct SyncCheckpoint {
     pub status: CheckpointStatus,
 }
 
+impl SyncCheckpoint {
+    pub fn matches_projection(&self, sha1: &str, revision: i64) -> bool {
+        self.status == CheckpointStatus::Ready
+            && self.expected_sha1 == sha1
+            && self.source_revision == revision
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(in crate::api::instance) enum CheckpointStatus {
     Pending,
@@ -136,22 +144,127 @@ pub(in crate::api::instance) async fn atomic_native_write(
     publish_detached_copy(path, bytes.to_vec()).await
 }
 
-const MAX_PROJECTION_BYTES: u64 = 16 * 1024 * 1024;
+pub(super) const MAX_PROJECTION_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Read only a regular projection whose open file has no other hard links.
+pub(in crate::api::instance) async fn read_detached_projection(
+    path: &Path,
+    limit: u64,
+) -> crate::Result<Option<Vec<u8>>> {
+    let Some(file) = open_detached_projection(path).await? else {
+        return Ok(None);
+    };
+    read_bounded_projection(file, limit).await.map(Some)
+}
+
+pub(super) async fn detached_projection_matches(
+    path: &Path,
+    expected: &[u8],
+) -> crate::Result<bool> {
+    let Some(file) = open_detached_projection(path).await? else {
+        return Ok(false);
+    };
+    let size = expected.len() as u64;
+    if file.metadata().await?.len() != size {
+        return Ok(false);
+    }
+    Ok(read_bounded_projection(file, size).await? == expected)
+}
+
+async fn open_detached_projection(
+    path: &Path,
+) -> crate::Result<Option<tokio::fs::File>> {
+    let metadata = match tokio::fs::symlink_metadata(path).await {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(None);
+        }
+        Err(error) => return Err(error.into()),
+    };
+    if !metadata.is_file() {
+        return Ok(None);
+    }
+    let mut options = tokio::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    #[cfg(windows)]
+    options.custom_flags(
+        windows::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT.0,
+    );
+    let file = match options.open(path).await {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(None);
+        }
+        #[cfg(unix)]
+        Err(error) if error.raw_os_error() == Some(libc::ELOOP) => {
+            return Ok(None);
+        }
+        Err(error) => return Err(error.into()),
+    };
+    if !is_detached(&file).await? {
+        return Ok(None);
+    }
+    Ok(Some(file))
+}
+
+#[cfg(unix)]
+async fn is_detached(file: &tokio::fs::File) -> crate::Result<bool> {
+    use std::os::unix::fs::MetadataExt;
+    let metadata = file.metadata().await?;
+    Ok(metadata.is_file() && metadata.nlink() == 1)
+}
+
+#[cfg(windows)]
+async fn is_detached(file: &tokio::fs::File) -> crate::Result<bool> {
+    use std::os::windows::io::AsRawHandle;
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::Storage::FileSystem::{
+        BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_REPARSE_POINT,
+        GetFileInformationByHandle,
+    };
+    let mut information = BY_HANDLE_FILE_INFORMATION::default();
+    let verified = unsafe {
+        GetFileInformationByHandle(
+            HANDLE(file.as_raw_handle()),
+            &raw mut information,
+        )
+        .is_ok()
+    };
+    Ok(verified
+        && information.nNumberOfLinks == 1
+        && information.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 == 0
+        && file.metadata().await?.is_file())
+}
+
+#[cfg(not(any(windows, unix)))]
+async fn is_detached(_file: &tokio::fs::File) -> crate::Result<bool> {
+    Ok(false)
+}
 
 async fn read_projection_bytes(path: &Path) -> crate::Result<Vec<u8>> {
+    read_bounded_projection(
+        tokio::fs::File::open(path).await?,
+        MAX_PROJECTION_BYTES,
+    )
+    .await
+}
+
+async fn read_bounded_projection(
+    file: tokio::fs::File,
+    limit: u64,
+) -> crate::Result<Vec<u8>> {
     use tokio::io::AsyncReadExt;
-    let file = tokio::fs::File::open(path).await?;
-    if file.metadata().await?.len() > MAX_PROJECTION_BYTES {
+    if file.metadata().await?.len() > limit {
         return Err(crate::ErrorKind::InputError(
             "Sync projection exceeds size limit".into(),
         )
         .into());
     }
     let mut bytes = Vec::new();
-    file.take(MAX_PROJECTION_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .await?;
-    if bytes.len() as u64 > MAX_PROJECTION_BYTES {
+    file.take(limit + 1).read_to_end(&mut bytes).await?;
+    if bytes.len() as u64 > limit {
         return Err(crate::ErrorKind::InputError(
             "Sync projection grew beyond size limit".into(),
         )
@@ -296,12 +409,6 @@ pub(in crate::api::instance) async fn checkpoint(
             StoredStatus::Ready => CheckpointStatus::Ready,
         },
     }))
-}
-
-pub(in crate::api::instance) async fn sha1_file(
-    path: &Path,
-) -> crate::Result<String> {
-    Ok(Sha1::from(io::read(path).await?).digest().to_string())
 }
 
 pub(in crate::api::instance) fn sha1_bytes(bytes: &[u8]) -> String {

@@ -147,7 +147,9 @@ Remove-Item -Recurse -Force target\debug
 
 #### 回收同步历史快照
 
-关闭启动器后，从仓库根目录运行以下命令。先预览，再按需执行。首个参数是包含 `data/system.db` 和 `data/sync/` 的启动器原始数据根。Windows 默认值如下。
+升级后首次启动会在界面就绪后自动分批回收过期快照。中途退出时，下次启动继续清理剩余快照。完成后会记录回执，后续启动跳过这次历史清理。
+
+手动维护时，先关闭启动器，再从仓库根目录运行以下命令。先预览，再按需执行。首个参数是包含 `data/system.db` 和 `data/sync/` 的启动器原始数据根。Windows 默认值如下。
 
 ```powershell
 $syncCleanupRoot = Join-Path $env:APPDATA 'red.ghs.axolotl'

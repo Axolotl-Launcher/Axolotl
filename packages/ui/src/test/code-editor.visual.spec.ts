@@ -318,3 +318,18 @@ it('draws the completion popup on the app surface tokens', async () => {
         provider.dispose()
     }
 }, 30000)
+
+it('draws the editor scrollbars as the app inset pill', async () => {
+    const { wrapper } = await openEditor()
+
+    const slider = wrapper.element.querySelector<HTMLElement>('.scrollbar.vertical > .slider')
+    if (!slider) throw new Error('the editor rendered no vertical scrollbar')
+    const thumb = getComputedStyle(slider)
+
+    // Same token, radius and 3px inset as `::-webkit-scrollbar-thumb`, so the
+    // thumb reads as a 6px pill inside the track rather than a full-width bar.
+    expect(thumb.backgroundColor).toBe(tokenColor('--color-scrollbar'))
+    expect(thumb.borderRadius).toBe('16px')
+    expect(thumb.borderTopWidth).toBe('3px')
+    expect(thumb.backgroundClip).toBe('content-box')
+}, 30000)

@@ -124,6 +124,10 @@ onMounted(async () => {
             readOnly: props.readOnly,
             renderWhitespace: 'selection',
             scrollBeyondLastLine: false,
+            // Monaco falls back to the editor line height (~19px at 14px on
+            // Windows), which leaves the rows too tight for the popup's radius
+            // and padding. 24px matches the density of the app's list rows.
+            suggestLineHeight: 24,
             theme: 'axolotl-studio',
             ...props.options,
             model: null,

@@ -23,6 +23,9 @@ import 'monaco-editor/languages/definitions/go/register.js'
 import 'monaco-editor/languages/definitions/markdown/register.js'
 import 'monaco-editor/languages/definitions/ini/register.js'
 import 'monaco-editor/languages/definitions/xml/register.js'
+// Loads with the runtime, not with the component: the popup is only ever
+// rendered by Monaco, and a component-level import would arrive a frame late.
+import './monaco-suggest.css'
 
 import * as monaco from 'monaco-editor/editor/editor.api.js'
 import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker'

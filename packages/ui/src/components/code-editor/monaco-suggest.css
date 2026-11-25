@@ -1,0 +1,44 @@
+/**
+ * The completion popup is the Monaco surface users see constantly, and the
+ * standalone build leaves it square and flat: `suggest.css` asks for
+ * `--vscode-cornerRadius-large` and `--vscode-shadow-lg`, but nothing in the
+ * package defines either, so both declarations resolve to their initial value.
+ * These rules give it the geometry of `.menu-surface` (`src/styles/overlays.css`),
+ * the surface every other popup in the app is built on.
+ *
+ * Colours are not set here: Monaco resolves them through its colour registry,
+ * so they live in the `axolotl-studio` theme in `CodeEditor.vue`.
+ *
+ * The popup can be re-hosted outside the editor (`fixedOverflowWidgets`, used
+ * where a scaled modal would otherwise clip it), so the selectors start at
+ * `.monaco-editor` instead of at the component root.
+ */
+
+.monaco-editor .suggest-widget,
+.monaco-editor .suggest-details {
+    --vscode-cornerRadius-large: var(--radius-md, 0.75rem);
+    --vscode-shadow-lg: 3px 3px 0.8rem rgba(0, 0, 0, 0.3);
+}
+
+/* The documentation pane is a second widget, not a child of the list. */
+.monaco-editor .suggest-details {
+    overflow: hidden;
+    border-radius: var(--radius-md, 0.75rem);
+    box-shadow: var(--vscode-shadow-lg);
+}
+
+/**
+ * The selected row uses the app's selected-row treatment, the same pair of
+ * tokens as `bg-brand-highlight text-brand`; the text colour comes from the
+ * theme. Monaco injects the row background as
+ * `.monaco-list.monaco-list-<id> .monaco-list-row.focused` -- four classes --
+ * so this needs one more class than that rule, plus a `:hover` variant, because
+ * Monaco injects a focused-and-hovered rule at the same specificity.
+ */
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused,
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused:hover {
+    background-color: var(
+        --color-brand-highlight,
+        color-mix(in srgb, var(--color-brand) 25%, transparent)
+    );
+}

@@ -106,6 +106,7 @@ vi.mock('@modrinth/ui', async () => {
         useVIntl: () => ({
             formatMessage: (message: { id: string; defaultMessage?: string }) =>
                 message.defaultMessage ?? message.id,
+            locale: ref('en-US'),
         }),
     }
 })

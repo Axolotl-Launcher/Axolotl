@@ -8082,7 +8082,7 @@
     "message": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing."
   },
   "app.lab.command-generator.nbt.desc.item.bees.entity_data.UUID": {
-    "message": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant."
+    "message": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant."
   },
   "app.lab.command-generator.nbt.desc.item.bees.min_ticks_in_hive": {
     "message": "The minimum amount of time in ticks for this entity to stay in the hive."
@@ -8343,7 +8343,7 @@
     "message": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing."
   },
   "app.lab.command-generator.nbt.desc.item.entity_data.UUID": {
-    "message": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant."
+    "message": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant."
   },
   "app.lab.command-generator.nbt.desc.item.equippable": {
     "message": "If present, this item can be equipped in the specified slot."

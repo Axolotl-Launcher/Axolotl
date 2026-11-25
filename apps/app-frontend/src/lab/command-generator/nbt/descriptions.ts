@@ -167,7 +167,7 @@ export const ITEM_DESCRIPTIONS = defineMessages({
     'bees.entity_data.UUID': {
         id: 'app.lab.command-generator.nbt.desc.item.bees.entity_data.UUID',
         defaultMessage:
-            "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+            "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
     },
     'bees.min_ticks_in_hive': {
         id: 'app.lab.command-generator.nbt.desc.item.bees.min_ticks_in_hive',
@@ -581,7 +581,7 @@ export const ITEM_DESCRIPTIONS = defineMessages({
     'entity_data.UUID': {
         id: 'app.lab.command-generator.nbt.desc.item.entity_data.UUID',
         defaultMessage:
-            "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+            "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
     },
     equippable: {
         id: 'app.lab.command-generator.nbt.desc.item.equippable',

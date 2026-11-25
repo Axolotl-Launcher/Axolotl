@@ -2392,7 +2392,7 @@
         {
           "key": "UUID",
           "type": "int_array",
-          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+          "desc": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
           "category": "basic",
           "zh": "UUID"
         }
@@ -6612,7 +6612,7 @@
         {
           "key": "UUID",
           "type": "int_array",
-          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+          "desc": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
           "category": "data",
           "zh": "UUID"
         }
@@ -7658,7 +7658,7 @@
             {
               "key": "UUID",
               "type": "int_array",
-              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+              "desc": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
               "category": "data",
               "zh": "UUID"
             }
@@ -8024,7 +8024,7 @@
         {
           "key": "UUID",
           "type": "int_array",
-          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+          "desc": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
           "category": "basic",
           "zh": "UUID"
         }
@@ -8205,7 +8205,7 @@
         {
           "key": "UUID",
           "type": "int_array",
-          "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+          "desc": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
           "category": "basic",
           "zh": "UUID"
         }
@@ -8637,7 +8637,7 @@
             {
               "key": "UUID",
               "type": "int_array",
-              "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+              "desc": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
               "category": "basic",
               "zh": "UUID"
             }
@@ -8939,7 +8939,7 @@
                 {
                   "key": "UUID",
                   "type": "int_array",
-                  "desc": "This entity's Universally Unique IDentifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+                  "desc": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
                   "category": "basic",
                   "zh": "UUID"
                 }
@@ -9778,7 +9778,7 @@
         "group": "entity"
       },
       "zh": "UUID",
-      "desc": "This entity's Universally Unique IDentifier."
+      "desc": "This entity's Universally Unique Identifier."
     },
     {
       "key": "Value",

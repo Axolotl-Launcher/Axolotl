@@ -84,9 +84,8 @@ pub async fn remove_java_default_version(major_version: u32) -> Result<()> {
 
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
-pub async fn remove_java_version(path: String) -> Result<()> {
-    jre::remove_java_version(path).await?;
-    Ok(())
+pub async fn remove_java_version(path: String) -> Result<bool> {
+    Ok(jre::remove_java_version(path).await?)
 }
 
 // Finds the installation of Java 8, if it exists

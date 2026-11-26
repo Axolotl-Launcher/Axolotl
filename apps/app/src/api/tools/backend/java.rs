@@ -153,9 +153,10 @@ pub(super) async fn execute(command: Command) -> Result<Value, ToolError> {
                 .await
                 .map_err(business_error)?;
             registered(&versions.runtimes, &registered_path, None)?;
-            let files_deleted = theseus::jre::remove_java_version(registered_path.clone())
-                .await
-                .map_err(business_error)?;
+            let files_deleted =
+                theseus::jre::remove_java_version(registered_path.clone())
+                    .await
+                    .map_err(business_error)?;
             Ok(
                 json!({"registered_path":registered_path,"registration_removed":true,"files_deleted":files_deleted}),
             )

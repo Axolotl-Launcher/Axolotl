@@ -400,7 +400,8 @@ pub async fn remove_java_version(path: String) -> crate::Result<()> {
 
     let java_path = Path::new(&path).to_path_buf();
     let root = state.directories.java_versions_dir();
-    if remove_managed_install_files(&root, &java_path.to_string_lossy()).await? {
+    if remove_managed_install_files(&root, &java_path.to_string_lossy()).await?
+    {
         // Drop the discovery-cache entry eagerly; the signature check would
         // prune it anyway once the files are gone.
         DiscoveredJava::remove(&path, &state.derived).await?;
@@ -2880,10 +2881,12 @@ mod tests {
         assert!(!removed);
         assert!(staging.exists());
 
-        let removed =
-            remove_managed_install_files(root.path(), &system_java.to_string_lossy())
-                .await
-                .unwrap();
+        let removed = remove_managed_install_files(
+            root.path(),
+            &system_java.to_string_lossy(),
+        )
+        .await
+        .unwrap();
         assert!(!removed);
     }
 }

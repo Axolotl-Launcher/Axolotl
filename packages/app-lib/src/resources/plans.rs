@@ -273,8 +273,9 @@ fn conflict_issue(
     node: &SelectionId,
     blocking: bool,
     message: impl Into<String>,
-    conflict: ResourceConflictDetails,
+    mut conflict: ResourceConflictDetails,
 ) {
+    normalize_conflict_details(&mut conflict);
     plan.issues.push(ResourcePlanIssue {
         code: ResourceIssueCode::VersionConflict,
         selection_id: Some(node.clone()),
@@ -284,6 +285,22 @@ fn conflict_issue(
         conflict: Some(conflict),
         context: None,
     });
+}
+
+/// Keep the expected and selected values available, using the formatter's
+/// generic dependency label when a separate dependency name is unavailable.
+fn normalize_conflict_details(details: &mut ResourceConflictDetails) {
+    match details.reason {
+        ResourceConflictReason::ConflictingReleases => details.related = None,
+        ResourceConflictReason::DependencyVersion
+            if details.related.is_some()
+                && (details.related == details.required
+                    || details.related == details.actual) =>
+        {
+            details.related = None;
+        }
+        _ => {}
+    }
 }
 
 fn selection_failure(
@@ -914,7 +931,10 @@ impl ResourceService {
                                 .artifact
                                 .as_ref()
                                 .map(artifact_file),
-                            related: node.artifact.as_ref().map(artifact_file),
+                            // This message names the required file and the
+                            // selected file; `related` would repeat the
+                            // former, so it stays unreported.
+                            related: None,
                             required: node.artifact.as_ref().map(artifact_file),
                             actual: existing
                                 .artifact
@@ -1705,7 +1725,10 @@ impl ResourceService {
                                 reason:
                                     ResourceConflictReason::ConflictingReleases,
                                 subject: selected.as_ref().map(artifact_file),
-                                related: expected_file.clone(),
+                                // `expected_file` already fills `required`;
+                                // reporting it as `related` too would say the
+                                // same file twice in one sentence.
+                                related: None,
                                 required: expected_file,
                                 actual: selected.as_ref().map(artifact_file),
                             },
@@ -2189,7 +2212,9 @@ impl ResourceService {
                     let details = ResourceConflictDetails {
                         reason: ResourceConflictReason::ConflictingReleases,
                         subject: Some(metadata.title.clone()),
-                        related: node.artifact.as_ref().map(artifact_file),
+                        // `required` and `actual` already name both files, so
+                        // `related` would duplicate the selected one.
+                        related: None,
                         required: Some(artifact_file(&artifact)),
                         actual: node.artifact.as_ref().map(artifact_file),
                     };
@@ -3699,8 +3724,18 @@ pub(crate) async fn load(
                 && !record.queued
         })
         .ok_or_else(|| invalid("plan was revised or already queued"))?;
-    crate::state::store::compatibility::decode_payload(&record.payload)
-        .map_err(Into::into)
+    let mut draft: OperationDraft =
+        crate::state::store::compatibility::decode_payload(&record.payload)?;
+    // Pending plans can have been prepared before conflict formatting changed.
+    for details in draft
+        .plan
+        .issues
+        .iter_mut()
+        .filter_map(|issue| issue.conflict.as_mut())
+    {
+        normalize_conflict_details(details);
+    }
+    Ok(draft)
 }
 
 impl ResourceService {

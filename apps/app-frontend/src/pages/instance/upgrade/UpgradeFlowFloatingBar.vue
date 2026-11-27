@@ -142,6 +142,7 @@ const showBlockerTooltip = computed(
     () =>
         route.path.endsWith('/upgrade/compatibility') &&
         (flow.plan.value?.blockingIssues.length ?? 0) > 0 &&
+        !canNext.value &&
         !busy.value,
 )
 const blockerTooltip = computed(() => {

@@ -1,6 +1,6 @@
 import type { RouteMeta as VueRouterRouteMeta } from 'vue-router'
 
-export type UpgradeRouteRequirement = 'plan' | 'unblocked-plan' | 'selection' | 'job' | 'result'
+export type UpgradeRouteRequirement = 'plan' | 'customize' | 'selection' | 'job' | 'result'
 
 export interface BreadcrumbCrumb {
     name: string

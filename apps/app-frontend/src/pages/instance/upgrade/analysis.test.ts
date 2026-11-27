@@ -523,17 +523,23 @@ it('fixed constraints replace and remove by physical content without duplicates'
     expect(customConstraintsEqual(replaced, [{ ...first, versionId: 'two' }])).toBe(true)
 })
 
-it('editable roots exclude automatic dependencies', () => {
+it('editable roots exclude automatic dependencies and unchanged files unless a pin can be cleared', () => {
     const root = {
-        contentId: 'root',
-        autoDependency: false,
-        provider: 'modrinth',
-        projectId: 'root',
+        ...planItem('root'),
         candidateReleaseIds: ['one'],
     }
     const dependency = { ...root, contentId: 'dependency', autoDependency: true }
-    const plan = partialPlan({ items: [root, dependency], customConstraints: [] })
+    const disabled = {
+        ...root,
+        contentId: 'disabled',
+        resolution: { ...root.resolution, action: 'disable' },
+    }
+    const plan = partialPlan({ items: [root, dependency, disabled], customConstraints: [] })
     expect(editableUpgradeRoots(plan).map((item) => item.contentId)).toEqual(['root'])
+    plan.customConstraints = [
+        { contentId: 'disabled', provider: 'modrinth', projectId: 'root', versionId: 'one' },
+    ]
+    expect(editableUpgradeRoots(plan).map((item) => item.contentId)).toEqual(['root', 'disabled'])
 })
 
 it('unavailable minimal solution is not selectable', () => {

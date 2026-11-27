@@ -20489,6 +20489,9 @@
   "instance.upgrade.compatibility.content": {
     "message": "Content"
   },
+  "instance.upgrade.compatibility.choose-versions": {
+    "message": "Choose versions"
+  },
   "instance.upgrade.compatibility.content-count": {
     "message": "{count, plural, one {# item} other {# items}}"
   },
@@ -20956,6 +20959,9 @@
   },
   "instance.upgrade.issue.search-limit-reached": {
     "message": "The bounded compatibility search could not prove a valid solution."
+  },
+  "instance.upgrade.issue.search-limit-recovery": {
+    "message": "No compatible set of versions has been verified yet. Choose specific versions and check again."
   },
   "instance.upgrade.issue.shader": {
     "message": "Shader compatibility issue"

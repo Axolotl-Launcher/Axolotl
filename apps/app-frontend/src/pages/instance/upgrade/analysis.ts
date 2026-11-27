@@ -609,10 +609,19 @@ export function editableUpgradeRoots(plan: InstanceUpgradePlan) {
             !item.autoDependency &&
             (item.provider === 'modrinth' || item.provider === 'curseforge') &&
             item.projectId !== null &&
-            (item.candidateReleaseIds.length > 0 ||
+            ((item.resolution.action === 'upgrade' && item.candidateReleaseIds.length > 0) ||
                 plan.customConstraints.some(
                     (constraint) => constraint.contentId === item.contentId,
                 )),
+    )
+}
+
+export function canCustomizeUpgrade(plan: InstanceUpgradePlan): boolean {
+    return (
+        plan.blockingIssues.length === 0 ||
+        plan.customConstraints.length > 0 ||
+        (plan.blockingIssues.every((issue) => issue.code === 'search_limit_reached') &&
+            editableUpgradeRoots(plan).length > 0)
     )
 }
 

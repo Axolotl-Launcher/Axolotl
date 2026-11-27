@@ -20489,6 +20489,9 @@
   "instance.upgrade.compatibility.content": {
     "message": "内容"
   },
+  "instance.upgrade.compatibility.choose-versions": {
+    "message": "选择版本"
+  },
   "instance.upgrade.compatibility.content-count": {
     "message": "{count} 个项目"
   },
@@ -20956,6 +20959,9 @@
   },
   "instance.upgrade.issue.search-limit-reached": {
     "message": "有限兼容性搜索无法证明存在有效方案。"
+  },
+  "instance.upgrade.issue.search-limit-recovery": {
+    "message": "尚未验证出一组兼容的版本。请选择具体版本后重新检查。"
   },
   "instance.upgrade.issue.shader": {
     "message": "光影兼容性问题"

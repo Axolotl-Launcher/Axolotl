@@ -574,11 +574,13 @@ const router = useRouter()
 const { formatMessage } = useVIntl()
 const plan = computed(() => flow.plan.value!)
 const activeStrategy = ref<InstanceUpgradeSolutionKind>(
-    initialCustomizeStrategy(
-        flow.customizeActiveStrategy.value,
-        plan.value.selectedSolution?.kind,
-        'custom',
-    ),
+    plan.value.blockingIssues.length > 0
+        ? 'custom'
+        : initialCustomizeStrategy(
+              flow.customizeActiveStrategy.value,
+              plan.value.selectedSolution?.kind,
+              'custom',
+          ),
 )
 flow.customizeActiveStrategy.value = activeStrategy.value
 const draftConstraints = ref<InstanceUpgradeFixedConstraint[]>(
@@ -684,7 +686,7 @@ const canApplyCustom = computed(
     () =>
         activeStrategy.value === 'custom' &&
         !requestBusy.value &&
-        (customDraftDirty.value || !customWasResolved.value),
+        (customDraftDirty.value || (!plan.value.blockingIssues.length && !customWasResolved.value)),
 )
 const canContinue = computed(
     () =>
@@ -867,7 +869,10 @@ function constraintOptions(item: InstanceUpgradePlanItem): string[] {
     const selected = draftChoice(item.contentId)
     return [
         AUTOMATIC,
-        ...new Set([...item.candidateReleaseIds, ...(selected === AUTOMATIC ? [] : [selected])]),
+        ...new Set([
+            ...(item.resolution.action === 'upgrade' ? item.candidateReleaseIds : []),
+            ...(selected === AUTOMATIC ? [] : [selected]),
+        ]),
     ]
 }
 

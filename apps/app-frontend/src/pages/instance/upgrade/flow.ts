@@ -11,8 +11,11 @@ import type {
     SharedUpgradeMode,
 } from '@/helpers/instance-upgrade'
 import type { GameInstance } from '@/helpers/types'
+import type { UpgradeRouteRequirement } from '@/routes/meta'
 
-export type UpgradeRouteRequirement = 'plan' | 'unblocked-plan' | 'selection' | 'job' | 'result'
+import { canCustomizeUpgrade } from './analysis'
+
+export type { UpgradeRouteRequirement } from '@/routes/meta'
 export type UpgradeJobRecoveryState = 'idle' | 'loading' | 'ready'
 
 export function upgradeDownloadsLocation(jobId: string) {
@@ -219,8 +222,8 @@ export function isUpgradeRouteAvailable(
     switch (requirement) {
         case 'plan':
             return flow.plan.value !== null
-        case 'unblocked-plan':
-            return flow.plan.value !== null && flow.plan.value.blockingIssues.length === 0
+        case 'customize':
+            return flow.plan.value !== null && canCustomizeUpgrade(flow.plan.value)
         case 'selection':
             return (
                 flow.plan.value !== null &&

@@ -50,6 +50,38 @@ it('selection route requires an unblocked plan with a selected solution', () => 
     ).toBe(true)
 })
 
+it('allows version choices after an inconclusive search without unlocking execution', () => {
+    const issue = { code: 'search_limit_reached' }
+    const item = {
+        contentId: 'mod-a',
+        provider: 'modrinth',
+        projectId: 'a',
+        candidateReleaseIds: ['a-1', 'a-2'],
+        resolution: { action: 'upgrade' },
+    }
+    const limited = {
+        blockingIssues: [issue],
+        items: [item],
+        customConstraints: [],
+        selectedSolution: null,
+    }
+    const afterLimit = selectionFlow(partialPlan(limited))
+    expect(isUpgradeRouteAvailable('customize', afterLimit)).toBe(true)
+    expect(isUpgradeRouteAvailable('selection', afterLimit)).toBe(false)
+
+    const conflict = { code: 'incompatible_dependency' }
+    const confirmed = { ...limited, blockingIssues: [issue, conflict] }
+    expect(isUpgradeRouteAvailable('customize', selectionFlow(partialPlan(confirmed)))).toBe(false)
+    expect(
+        isUpgradeRouteAvailable('customize', selectionFlow(partialPlan({ ...limited, items: [] }))),
+    ).toBe(false)
+    const chooseAgain = selectionFlow(
+        partialPlan({ ...confirmed, customConstraints: [{ contentId: 'mod-a' }] }),
+    )
+    expect(isUpgradeRouteAvailable('customize', chooseAgain)).toBe(true)
+    expect(isUpgradeRouteAvailable('selection', chooseAgain)).toBe(false)
+})
+
 it('upgrade execution and Progress recovery target focused Downloads', () => {
     expect(upgradeDownloadsLocation('job/a')).toEqual({
         path: '/downloads',

@@ -128,7 +128,7 @@ function safeEntryPath(instanceId: string) {
 }
 
 function requirementFallback(instanceId: string, requirement: UpgradeRouteRequirement | undefined) {
-    if ((requirement === 'unblocked-plan' || requirement === 'selection') && flow.plan.value) {
+    if ((requirement === 'customize' || requirement === 'selection') && flow.plan.value) {
         return `${safeEntryPath(instanceId)}/compatibility`
     }
     return safeEntryPath(instanceId)

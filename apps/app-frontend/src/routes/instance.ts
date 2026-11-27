@@ -37,7 +37,7 @@ export const instanceRoutes: RouteRecordRaw[] = [
                         path: 'customize',
                         name: 'InstanceUpgradeCustomize',
                         component: () => import('@/pages/instance/upgrade/Customize.vue'),
-                        meta: { upgradeRequirement: 'unblocked-plan' },
+                        meta: { upgradeRequirement: 'customize' },
                     },
                     {
                         path: 'confirm',

@@ -489,6 +489,7 @@ import { parkUpgradeFlow, upgradeProjectPath } from '@/store/navigation-return'
 
 import {
     actionableWarningContentIds,
+    canCustomizeUpgrade,
     captureInitialUpgradeBlockingIssues,
     compatibilitySummary,
     contentIdentityKeys,
@@ -606,6 +607,10 @@ const messages = defineMessages({
     },
     back: { id: 'instance.upgrade.compatibility.back', defaultMessage: 'Back' },
     continue: { id: 'instance.upgrade.compatibility.continue', defaultMessage: 'Continue' },
+    chooseVersions: {
+        id: 'instance.upgrade.compatibility.choose-versions',
+        defaultMessage: 'Choose versions',
+    },
     resolveBeforeContinue: {
         id: 'instance.upgrade.compatibility.resolve-before-continue',
         defaultMessage: 'Resolve blocking issues before continuing.',
@@ -701,6 +706,11 @@ const messages = defineMessages({
     issueSearchLimit: {
         id: 'instance.upgrade.issue.search-limit-reached',
         defaultMessage: 'The bounded compatibility search could not prove a valid solution.',
+    },
+    issueSearchLimitRecovery: {
+        id: 'instance.upgrade.issue.search-limit-recovery',
+        defaultMessage:
+            'No compatible set of versions has been verified yet. Choose specific versions and check again.',
     },
     issueKeepIncompatible: {
         id: 'instance.upgrade.issue.keep-incompatible',
@@ -861,10 +871,13 @@ const targetLoaderLabel = computed(() => {
 })
 const canContinue = computed(
     () =>
-        plan.value.blockingIssues.length === 0 &&
+        canCustomizeUpgrade(plan.value) &&
         resolutionBusy.value.size === 0 &&
         bulkAction.value === null &&
         !flow.busy.value,
+)
+const needsVersionChoices = computed(
+    () => plan.value.blockingIssues.length > 0 && canCustomizeUpgrade(plan.value),
 )
 
 const bulkControlsDisabled = computed(
@@ -875,13 +888,15 @@ function registerControls() {
     flow.registerStepControls({
         canNext: canContinue,
         busy: computed(() => bulkAction.value !== null || resolutionBusy.value.size > 0),
-        nextLabel: formatMessage(messages.continue),
+        nextLabel: formatMessage(
+            needsVersionChoices.value ? messages.chooseVersions : messages.continue,
+        ),
         onNext: continueUpgrade,
         onBack: goBack,
     })
 }
 onMounted(registerControls)
-watch([canContinue, bulkAction, resolutionBusy], registerControls)
+watch([canContinue, needsVersionChoices, bulkAction, resolutionBusy], registerControls)
 onBeforeUnmount(() => flow.registerStepControls(null))
 
 function contentMetadata(item: InstanceUpgradePlanItem) {
@@ -1041,7 +1056,13 @@ function issueDescription(issue: InstanceUpgradeIssue): string {
     }
     if (issue.code === 'unidentified') return formatMessage(messages.issueUnidentified)
     if (issue.code === 'unsupported_content_type') return formatMessage(messages.issueUnsupported)
-    if (issue.code === 'search_limit_reached') return formatMessage(messages.issueSearchLimit)
+    if (issue.code === 'search_limit_reached') {
+        return formatMessage(
+            needsVersionChoices.value
+                ? messages.issueSearchLimitRecovery
+                : messages.issueSearchLimit,
+        )
+    }
     if (issue.code === 'keep_incompatible') return formatMessage(messages.issueKeepIncompatible)
     if (
         ['dependency_conflict', 'missing_required_dependency', 'incompatible_dependency'].includes(

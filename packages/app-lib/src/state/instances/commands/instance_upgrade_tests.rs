@@ -1622,6 +1622,43 @@ fn candidate_limit_returns_limit_issue_instead_of_false_conflict() {
 }
 
 #[test]
+fn choosing_a_release_can_resolve_an_inconclusive_automatic_search() {
+    let roots = [root("a", "a-old", true)];
+    let mut newest = candidate("a", "a-newest", 3);
+    newest.dependencies.push(required("x", None));
+    let mut x = candidate("x", "x-one", 2);
+    x.dependencies.push(required("y", None));
+    let catalog = catalog([
+        (key("a"), vec![newest, candidate("a", "a-simple", 1)]),
+        (key("x"), vec![x]),
+        (key("y"), vec![candidate("y", "y-one", 1)]),
+    ]);
+    let solve = |fixed| {
+        solve_for_strategy_with_limit(
+            SolveStrategy::Newest,
+            &roots,
+            &catalog,
+            &fixed,
+            &HashSet::new(),
+            &InstalledAliasIndex::default(),
+            3,
+        )
+    };
+
+    let automatic = solve(HashMap::new());
+    assert!(automatic.solution.is_none());
+    assert_eq!(
+        automatic.issue.unwrap().code,
+        InstanceUpgradeIssueCode::SearchLimitReached
+    );
+
+    let selected = solve(HashMap::from([(key("a"), "a-simple".to_string())]));
+    assert!(selected.issue.is_none());
+    let solution = selected.solution.unwrap();
+    assert_eq!(solution.assignments[&key("a")].version_id, "a-simple");
+}
+
+#[test]
 fn failed_truncated_branch_does_not_block_valid_solution() {
     let roots = vec![root("a", "old-a", true), root("b", "old-b", true)];
     let mut conflicting = candidate("a", "a-conflict", 3);

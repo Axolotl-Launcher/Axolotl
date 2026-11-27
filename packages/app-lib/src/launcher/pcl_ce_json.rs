@@ -59,10 +59,18 @@ pub(crate) fn read(path: &Path) -> crate::Result<Value> {
             path.display()
         ))
     })?;
-    let text = decode(&bytes)
+    let mut document = parse_raw(path, &bytes)?;
+    canonicalize_document(&mut document).map_err(|key| {
+        invalid_document(path, &format!("multiple spellings of `{key}`"))
+    })?;
+    Ok(document)
+}
+
+pub(super) fn parse_raw(path: &Path, bytes: &[u8]) -> crate::Result<Value> {
+    let text = decode(bytes)
         .ok_or_else(|| invalid_document(path, "invalid text encoding"))?;
-    let UniqueValue(mut document) = serde_json_lenient::from_str(&text)
-        .map_err(|error| {
+    let UniqueValue(document) =
+        serde_json_lenient::from_str(&text).map_err(|error| {
             let detail = if error.to_string().starts_with(DUPLICATE_PROPERTY) {
                 DUPLICATE_PROPERTY
             } else {
@@ -80,9 +88,6 @@ pub(crate) fn read(path: &Path) -> crate::Result<Value> {
     if !document.is_object() {
         return Err(invalid_document(path, "expected a JSON object"));
     }
-    canonicalize_document(&mut document).map_err(|key| {
-        invalid_document(path, &format!("multiple spellings of `{key}`"))
-    })?;
     Ok(document)
 }
 

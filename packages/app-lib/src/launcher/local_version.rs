@@ -284,6 +284,8 @@ pub struct MergedVersion {
     pub hmcl_settings: HmclVersionSettings,
     #[serde(skip)]
     pub(super) pcl_ce_jar: Option<PclCeJarSources>,
+    #[serde(skip)]
+    pub(super) manifest_paths: Vec<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -398,20 +400,21 @@ fn load_generic_version_chain_from(
     version_id: &str,
     version_json: Option<&Path>,
 ) -> crate::Result<MergedVersion> {
-    let mut requested = match version_json {
-        Some(path) => read_document_path(path)?,
+    let (path, mut requested) = match version_json {
+        Some(path) => (path.to_path_buf(), read_document_path(path)?),
         None => read_document(root, version_id)?,
     };
     requested.id = version_id.to_string();
     let mut visited = HashSet::new();
-    let mut merged = resolve_generic_document(root, requested, &mut visited)?;
+    let mut merged =
+        resolve_generic_document(root, (path, requested), &mut visited)?;
     merged.id = version_id.to_string();
     Ok(merged)
 }
 
 fn resolve_generic_document(
     root: &Path,
-    document: RawVersionDocument,
+    (path, document): (PathBuf, RawVersionDocument),
     visited: &mut HashSet<String>,
 ) -> crate::Result<MergedVersion> {
     if !visited.insert(document.id.clone()) {
@@ -435,6 +438,7 @@ fn resolve_generic_document(
             Some(document.jar.clone().unwrap_or_else(|| document.id.clone()));
     }
     merged.id = document.id.clone();
+    merged.manifest_paths.push(path);
     visited.remove(&document.id);
     Ok(merged)
 }
@@ -444,14 +448,15 @@ fn load_hmcl_version_chain_from(
     version_id: &str,
     version_json: Option<&Path>,
 ) -> crate::Result<MergedVersion> {
-    let mut requested = match version_json {
-        Some(path) => read_document_path(path)?,
+    let (path, mut requested) = match version_json {
+        Some(path) => (path.to_path_buf(), read_document_path(path)?),
         None => read_document(root, version_id)?,
     };
     requested.id = version_id.to_string();
     let requested_id = version_id.to_string();
     let mut visited = HashSet::new();
-    let mut merged = resolve_hmcl_document(root, requested, &mut visited)?;
+    let mut merged =
+        resolve_hmcl_document(root, (path, requested), &mut visited)?;
     merged.id = requested_id;
     merged.libraries = hmcl_unique_libraries(merged.libraries);
     Ok(merged)
@@ -459,7 +464,7 @@ fn load_hmcl_version_chain_from(
 
 fn resolve_hmcl_document(
     root: &Path,
-    document: RawVersionDocument,
+    (path, document): (PathBuf, RawVersionDocument),
     visited: &mut HashSet<String>,
 ) -> crate::Result<MergedVersion> {
     if !visited.insert(document.id.clone()) {
@@ -497,6 +502,7 @@ fn resolve_hmcl_document(
             Some(document.jar.clone().unwrap_or_else(|| document.id.clone()));
     }
     merged.id = document.id.clone();
+    merged.manifest_paths.push(path);
     visited.remove(&document.id);
     Ok(merged)
 }
@@ -577,6 +583,7 @@ fn load_pcl_version_chain(
 ) -> crate::Result<MergedVersion> {
     let mut visited = HashSet::new();
     let mut pcl_ce = PclCeInheritance::default();
+    let mut manifest_paths = Vec::new();
     let (path, mut value) = resolve_pcl_json(
         root,
         version_id,
@@ -584,6 +591,7 @@ fn load_pcl_version_chain(
         dialect,
         &mut visited,
         &mut pcl_ce,
+        &mut manifest_paths,
     )?;
     if dialect == LinkedLauncherDialect::PclCe {
         collect_pcl_ce_arguments(&mut value, pcl_ce.argument_layers, &path)?;
@@ -598,6 +606,7 @@ fn load_pcl_version_chain(
         parse_merged_version_json(&path, &value)?;
     document.id = version_id.to_string();
     let mut merged = merged_from_document(&document)?;
+    merged.manifest_paths = manifest_paths;
     if dialect == LinkedLauncherDialect::PclCe {
         merged.pcl_ce_jar = Some(PclCeJarSources {
             explicit: pcl_ce.explicit_jar.flatten(),
@@ -626,6 +635,7 @@ fn resolve_pcl_json(
     dialect: LinkedLauncherDialect,
     visited: &mut HashSet<String>,
     pcl_ce: &mut PclCeInheritance,
+    manifest_paths: &mut Vec<PathBuf>,
 ) -> crate::Result<(PathBuf, Value)> {
     if !visited.insert(version_id.to_string()) {
         return Err(crate::ErrorKind::InputError(format!(
@@ -836,6 +846,7 @@ fn resolve_pcl_json(
             dialect,
             visited,
             pcl_ce,
+            manifest_paths,
         )?;
         let inherited_jar = parent
             .get("jar")
@@ -876,6 +887,7 @@ fn resolve_pcl_json(
     } else {
         child
     };
+    manifest_paths.push(path.clone());
     visited.remove(version_id);
     Ok((path, result))
 }
@@ -1148,8 +1160,10 @@ fn pcl_merge(target: &mut Value, source: &Value) {
 fn read_document(
     root: &Path,
     version_id: &str,
-) -> crate::Result<RawVersionDocument> {
-    read_document_path(&discover_version_json(root, version_id)?)
+) -> crate::Result<(PathBuf, RawVersionDocument)> {
+    let path = discover_version_json(root, version_id)?;
+    let document = read_document_path(&path)?;
+    Ok((path, document))
 }
 
 fn read_document_path<T: DeserializeOwned>(path: &Path) -> crate::Result<T> {
@@ -1186,6 +1200,7 @@ fn merged_from_document(
         compliance_level: document.compliance_level,
         hmcl_settings: settings,
         pcl_ce_jar: None,
+        manifest_paths: Vec::new(),
     })
 }
 
@@ -1209,6 +1224,7 @@ fn empty_merged(id: String) -> MergedVersion {
         compliance_level: None,
         hmcl_settings: HmclVersionSettings::default(),
         pcl_ce_jar: None,
+        manifest_paths: Vec::new(),
     }
 }
 
@@ -1875,6 +1891,40 @@ mod tests {
         )
         .unwrap();
         assert_eq!(merged.main_class.as_deref(), Some("child.Main"));
+    }
+
+    #[test]
+    fn linked_version_resolution_tracks_the_source_manifests() {
+        let dir = tempdir().unwrap();
+        let base = dir.path().join("versions/base/base.json");
+        let child = dir.path().join("versions/child/custom.json");
+        write_json(
+            dir.path(),
+            "base",
+            "base.json",
+            json!({"id":"base", "mainClass":"base.Main"}),
+        );
+        write_json(
+            dir.path(),
+            "child",
+            "custom.json",
+            json!({"id":"child", "inheritsFrom":"base"}),
+        );
+        for dialect in [
+            LinkedLauncherDialect::Generic,
+            LinkedLauncherDialect::Hmcl,
+            LinkedLauncherDialect::Pcl,
+            LinkedLauncherDialect::PclCe,
+        ] {
+            let merged = load_version_for_dialect(
+                dir.path(),
+                "child",
+                Some(&child),
+                dialect,
+            )
+            .unwrap();
+            assert_eq!(merged.manifest_paths, [base.clone(), child.clone()]);
+        }
     }
 
     #[test]

@@ -2348,6 +2348,78 @@ fn fallback_progress_units(
     u32::from(fetched)..logical_items
 }
 
+pub(super) async fn ensure_launch_freetype(
+    st: &State,
+    libraries_dir: &Path,
+    libraries: &[Library],
+    game_version: &str,
+    java_arch: &str,
+    minecraft_updated: bool,
+    local_runtime_only: bool,
+) -> crate::Result<()> {
+    let mut checked = HashSet::new();
+    for library in libraries {
+        if !super::freetype::is_patched_library(library)
+            || library.rules.as_deref().is_some_and(|rules| {
+                !parse_rules(
+                    rules,
+                    java_arch,
+                    &QuickPlayType::None,
+                    minecraft_updated,
+                )
+            })
+            || !checked.insert(&library.name)
+        {
+            continue;
+        }
+        let artifact = library
+            .downloads
+            .as_ref()
+            .and_then(|downloads| downloads.artifact.as_ref())
+            .ok_or_else(|| {
+                crate::ErrorKind::LauncherError(format!(
+                    "Missing download metadata for updated FreeType library {}",
+                    library.name
+                ))
+            })?;
+        let destination =
+            libraries_dir.join(d::get_path_from_artifact(&library.name)?);
+        let sha1 = Some(artifact.sha1.as_str());
+        let size = Some(artifact.size as u64);
+        if local_runtime_only {
+            if !super::direct_ensure::file_is_current(&destination, sha1, size)
+                .await
+            {
+                return Err(crate::ErrorKind::LauncherError(format!(
+                    "The updated FreeType library {} is missing or invalid. Launch online to repair it.",
+                    library.name
+                ))
+                .into());
+            }
+            continue;
+        }
+        let context = InstallErrorContext::new("update Minecraft FreeType")
+            .minecraft_version(game_version.to_owned())
+            .file_path(library.name.clone())
+            .target_path(destination.display().to_string())
+            .build();
+        download_minecraft_file(
+            st,
+            &artifact.url,
+            sha1,
+            size,
+            &destination,
+            ResourceClass::MinecraftLibrary,
+            ContentValidation::Jar,
+            false,
+            None,
+            context,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
 #[tracing::instrument(skip_all, level = "info", fields(version))]
 #[allow(clippy::too_many_arguments)]
 pub async fn download_libraries(

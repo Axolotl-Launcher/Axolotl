@@ -65,6 +65,8 @@ pub(crate) use args::get_processor_arguments;
 mod direct_ensure;
 mod direct_link;
 pub(crate) mod external_version;
+mod freetype;
+mod freetype_manifest;
 pub(crate) mod instance_runtime;
 mod local_artifact;
 mod natives;
@@ -2166,6 +2168,7 @@ pub async fn launch_minecraft(
     let cache_behaviour =
         local_runtime_only.then_some(CacheBehaviour::CacheOnly);
     let mut linked_libraries = None;
+    let manifest_paths;
     let mut pcl_ce_client = None;
     let mut mmc_profile = None;
 
@@ -2196,7 +2199,7 @@ pub async fn launch_minecraft(
     }
 
     let (
-        version_info,
+        mut version_info,
         minecraft_updated,
         version_jar,
         launch_version_id,
@@ -2205,12 +2208,13 @@ pub async fn launch_minecraft(
         hmcl_settings,
         launch_release_time,
     ) = if let Some(direct) = &direct_launch {
-        // The dialect-specific resolver has already folded the linked manifest;
-        // no version metadata is downloaded and no repair pass runs.
+        // The dialect-specific resolver has already folded the external
+        // version JSONs into the manifest used for this launch.
         let mut merged = resolved_linked
             .take()
             .expect("direct launch resolution accompanies direct metadata")
             .merged;
+        manifest_paths = std::mem::take(&mut merged.manifest_paths);
         pcl_ce_client = direct.pcl_ce_client_jar(
             &mut merged,
             content_set.loader,
@@ -2339,11 +2343,16 @@ pub async fn launch_minecraft(
             local_runtime_only,
         )
         .await?;
-
         let version_jar =
             loader_version.as_ref().map_or(version.id.clone(), |it| {
                 format!("{}-{}", version.id.clone(), it.id.clone())
             });
+        manifest_paths = vec![
+            state
+                .directories
+                .version_dir(&version_jar)
+                .join(format!("{version_jar}.json")),
+        ];
 
         if version_info.logging.is_none() {
             let requires_logging_info = version_index
@@ -2715,11 +2724,78 @@ pub async fn launch_minecraft(
         .as_error());
     }
 
+    // Resolve the FreeType replacement after loader overrides and Java
+    // selection. Publish it to the source manifests only after verification.
+    if !recovery_mode {
+        let game_version = &content_set.game_version;
+        let java_arch = &java_version.architecture;
+        let patched = if let Some(libraries) = &mut linked_libraries {
+            let patched = freetype::patch_linked_libraries(
+                game_version,
+                libraries,
+                java_arch,
+            );
+            // PCL-CE normalizes for the host and then discards library rules.
+            // Select FreeType natives for the JVM even on subsequent launches.
+            let pcl_ce_freetype = pcl_ce.is_some()
+                && freetype::affected_game_version(game_version);
+            if pcl_ce_freetype {
+                libraries.retain(|linked| {
+                    freetype::matches_fixed_native_target(
+                        &linked.library,
+                        java_arch,
+                    )
+                });
+            }
+            if patched || pcl_ce_freetype {
+                version_info.libraries = libraries
+                    .iter()
+                    .map(|linked| linked.library.clone())
+                    .collect();
+            }
+            patched
+        } else {
+            freetype::patch_libraries(
+                game_version,
+                &mut version_info.libraries,
+                java_arch,
+            )
+        };
+
+        if patched {
+            tracing::info!(
+                instance = %instance.id,
+                %game_version,
+                %java_arch,
+                "Preparing updated FreeType libraries for launch"
+            );
+            download::ensure_launch_freetype(
+                &state,
+                &runtime.libraries_dir(&state.directories),
+                &version_info.libraries,
+                game_version,
+                java_arch,
+                minecraft_updated,
+                local_runtime_only,
+            )
+            .await?;
+            let versions_dir = direct_launch.as_ref().map_or_else(
+                || state.directories.versions_dir(),
+                |direct| direct.dot_minecraft.join("versions"),
+            );
+            freetype_manifest::persist(
+                &manifest_paths,
+                &versions_dir,
+                direct_launch.as_ref().map(|direct| direct.dialect),
+            )
+            .await?;
+        }
+    }
+
     // Ensure phase (HMCL/PCL parity): before anything reads from the linked
     // installation, complete its missing libraries, assets, and logging
-    // config in the standard shared locations. Version JSONs, launcher
-    // private configuration, and game data are never written. Offline mode
-    // forbids network fetches, so it keeps the previous strict behavior.
+    // config in the standard shared locations. Offline mode forbids fetching
+    // any of these dependencies.
     if !local_runtime_only
         && let (Some(direct), Some(libraries)) =
             (&direct_launch, linked_libraries.as_deref())

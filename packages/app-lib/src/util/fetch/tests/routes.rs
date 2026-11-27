@@ -374,6 +374,47 @@ fn loader_libraries_prefer_mirrors_with_an_official_fallback() {
 }
 
 #[test]
+fn neoforge_releases_include_a_forgecdn_route_without_credentials() {
+    for (path, resource) in [
+        (
+            "/releases/net/neoforged/neoforge/maven-metadata.xml",
+            ResourceClass::Metadata,
+        ),
+        (
+            "/releases/net/neoforged/neoforge/21.1.219/neoforge-21.1.219-installer.jar",
+            ResourceClass::Loader,
+        ),
+        (
+            "/releases/net/neoforged/installertools/installertools/2.1.2/installertools-2.1.2.jar",
+            ResourceClass::MinecraftLibrary,
+        ),
+    ] {
+        let official = format!("https://maven.neoforged.net{path}");
+        let routes = resolve_download_routes_for(
+            &official,
+            resource,
+            crate::state::DownloadSourceMode::OfficialPreferred,
+        );
+        assert_eq!(routes.len(), 3);
+        assert_eq!(routes[0].url, official);
+        assert_eq!(routes[1].source, DownloadRouteSource::Bmclapi);
+        let cdn = &routes[2];
+        assert_eq!(cdn.url, format!("https://neoforged.forgecdn.net{path}"));
+        assert!(cdn.is_mirror);
+        assert!(!cdn.allow_sensitive_headers);
+        assert_eq!(cdn.supports_range, resource != ResourceClass::Metadata);
+        assert_eq!(
+            resolve_download_routes_for(
+                &official,
+                resource,
+                crate::state::DownloadSourceMode::OfficialOnly,
+            ),
+            routes[..1]
+        );
+    }
+}
+
+#[test]
 fn loader_indexes_follow_metadata_routes_without_reclassifying_artifacts() {
     let _guard = fixtures::AUTO_SOURCE_TEST_LOCK.lock().unwrap();
     let previous_health = std::mem::take(&mut *ROUTE_HEALTH.lock());

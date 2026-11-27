@@ -319,6 +319,14 @@ pub(crate) fn explicit_mirror_routes(
                 format!("/maven/{}", path.trim_start_matches("/releases/")),
                 DownloadRouteSource::Bmclapi,
             );
+            if path.starts_with("/releases/net/neoforged/") {
+                push_mirror(
+                    &mut routes,
+                    "https://neoforged.forgecdn.net/",
+                    path.to_string(),
+                    DownloadRouteSource::Alternate,
+                );
+            }
         }
         FETCH_META_FABRICMC_NET => {
             push_mirror(

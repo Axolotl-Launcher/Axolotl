@@ -1275,19 +1275,53 @@ pub async fn install_linux_package(
             .args(args)
             .arg(install_path)
             .output()
+            .map_err(|error| {
+                std::io::Error::new(
+                    error.kind(),
+                    format!("Could not start pkexec for {program}: {error}"),
+                )
+            })
     })
     .await?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(catalog_error(format!(
-            "{program} {} failed: {}",
-            args.join(" "),
-            stderr.trim()
+        return Err(catalog_error(package_install_failure(
+            program,
+            output.status.code(),
+            &output.stderr,
+            &output.stdout,
         )));
     }
 
     Ok(())
+}
+
+fn package_install_failure(
+    program: &str,
+    code: Option<i32>,
+    stderr: &[u8],
+    stdout: &[u8],
+) -> String {
+    let reason = match code {
+        Some(126) => "the authorization request was dismissed",
+        Some(127) => {
+            "authorization failed or the package manager could not start"
+        }
+        _ => "the package manager command failed",
+    };
+    let status = code.map_or_else(
+        || "terminated without an exit code".into(),
+        |code| format!("exit code {code}"),
+    );
+    let stderr = String::from_utf8_lossy(stderr);
+    let stdout = String::from_utf8_lossy(stdout);
+    let detail = [stderr.trim(), stdout.trim()]
+        .into_iter()
+        .find(|output| !output.is_empty())
+        .unwrap_or("No output was reported.");
+    format!(
+        "{program} installation via pkexec failed ({status}). {reason}. {detail}"
+    )
 }
 
 /// Owns the private package until the consumer completes. Keeping creation and
@@ -1856,6 +1890,36 @@ mod tests {
         assert_eq!((apt.variant, apt.program), ("deb", "apt"));
         let rpm = UpdateMethod::Rpm.package_installer().unwrap();
         assert_eq!((rpm.variant, rpm.program), ("rpm", "rpm"));
+    }
+
+    #[test]
+    fn package_install_failures_keep_authorization_status_and_available_output()
+    {
+        use super::package_install_failure;
+
+        let dismissed = package_install_failure("apt", Some(126), b"", b"");
+        assert!(dismissed.contains("exit code 126"));
+        assert!(dismissed.contains("authorization request was dismissed"));
+        assert!(dismissed.contains("No output was reported"));
+
+        let denied =
+            package_install_failure("apt", Some(127), b"\n", b"Denied\n");
+        assert!(denied.contains("exit code 127"));
+        assert!(denied.contains("authorization failed"));
+        assert!(denied.ends_with("Denied"));
+
+        let apt = package_install_failure(
+            "apt",
+            Some(100),
+            b"APT error",
+            b"Progress",
+        );
+        assert!(apt.contains("exit code 100"));
+        assert!(apt.ends_with("APT error"));
+        assert!(
+            package_install_failure("rpm", None, b"", b"")
+                .contains("terminated without an exit code")
+        );
     }
 
     /// Primary artifact shape emitted by the catalog generator. The live API

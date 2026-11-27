@@ -96,6 +96,36 @@ it('cancels the root prompt when it is closed without a choice', async () => {
     }
 })
 
+it('distinguishes modpack candidates in a folder and confirms the selected archive', async () => {
+    const folder = 'C:\\Downloads\\Packs'
+    const first = `${folder}\\first\\example.zip`
+    const second = `${folder}\\second\\example.zip`
+    const wrapper = mount(ConfirmDropTypeModal, {
+        props: {
+            fileName: 'Packs',
+            classification: {
+                item_type: 'multiple',
+                file_path: folder,
+                choices: [
+                    { itemType: 'modpack', filePath: first },
+                    { itemType: 'modpack', filePath: second },
+                ],
+            },
+        },
+    })
+    try {
+        const options = wrapper.findAllComponents(BigOptionButton)
+        expect(options.map((option) => option.props('note'))).toEqual([
+            'first/example.zip',
+            'second/example.zip',
+        ])
+        await options[1].trigger('click')
+        expect(wrapper.emitted('confirm')).toEqual([['modpack', undefined, second]])
+    } finally {
+        wrapper.unmount()
+    }
+})
+
 it.each<ClassificationResult>([
     { item_type: 'launcher', launcher_type: 'PCL2', base_path: 'C:\\PCL' },
     { item_type: 'launcher', launcher_type: 'Generic', base_path: 'C:\\packs\\instance.zip' },

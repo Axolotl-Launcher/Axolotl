@@ -23,12 +23,14 @@
             <div v-if="!isMinecraftRoot" class="grid grid-cols-2 gap-3">
                 <BigOptionButton
                     v-for="option in visibleOptions"
-                    :key="`${option.type}-${option.innerBase ?? ''}`"
+                    :key="JSON.stringify([option.type, option.filePath, option.innerBase])"
                     :icon="option.icon"
                     :title="formatMessage(option.titleMsg)"
                     :description="formatMessage(option.descMsg)"
+                    :note="option.sourceLabel"
+                    :disabled="busy"
                     no-icon-border
-                    @click="emit('confirm', option.type, option.innerBase)"
+                    @click="emit('confirm', option.type, option.innerBase, option.filePath)"
                 />
             </div>
         </div>
@@ -213,7 +215,9 @@ interface DropOption {
     icon: Component
     titleMsg: { id: string; defaultMessage: string }
     descMsg: { id: string; defaultMessage: string }
+    filePath?: string
     innerBase?: string
+    sourceLabel?: string
 }
 
 const optionByType: Record<string, DropOption> = {
@@ -276,10 +280,11 @@ const optionByType: Record<string, DropOption> = {
 const props = defineProps<{
     classification: ClassificationResult | null
     fileName: string
+    busy?: boolean
 }>()
 
 const emit = defineEmits<{
-    (e: 'confirm', type: string, innerBase?: string): void
+    (e: 'confirm', type: string, innerBase?: string, filePath?: string): void
     (e: 'cancel' | 'help'): void
 }>()
 
@@ -421,18 +426,29 @@ const visibleOptions = computed((): DropOption[] => {
 
     if (itemType === 'multiple' && classification.choices?.length) {
         const result: DropOption[] = []
+        const root = classification.file_path?.replaceAll('\\', '/').replace(/\/$/, '')
         for (const choice of classification.choices) {
-            const baseOption = optionByType[choice.itemType]
-            if (!baseOption) continue
-            if (choice.itemType === 'resource_pack' && choice.candidates?.length) {
-                for (const candidate of choice.candidates) {
-                    const candidateOption = optionByType[candidate]
-                    if (candidateOption) {
-                        result.push({ ...candidateOption, innerBase: choice.innerBase })
-                    }
+            const path = choice.filePath?.replaceAll('\\', '/')
+            const sourceLabel =
+                path && path !== root
+                    ? root && path.startsWith(`${root}/`)
+                        ? path.slice(root.length + 1)
+                        : path
+                    : choice.innerBase
+            const types =
+                choice.itemType === 'resource_pack' && choice.candidates?.length
+                    ? choice.candidates
+                    : [choice.itemType]
+            for (const candidateType of types) {
+                const option = optionByType[candidateType]
+                if (option) {
+                    result.push({
+                        ...option,
+                        filePath: choice.filePath,
+                        innerBase: choice.innerBase,
+                        sourceLabel,
+                    })
                 }
-            } else {
-                result.push({ ...baseOption, innerBase: choice.innerBase })
             }
         }
         debug('visibleOptions: multiple choices', {

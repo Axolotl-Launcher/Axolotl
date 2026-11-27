@@ -8,6 +8,7 @@ import type {
     BatchDropGroup,
     BatchDropItem,
     BatchDropPhase,
+    ClassificationChoice,
     ClassificationResult,
     FileDropProvider,
     SymlinkMethodChoice,
@@ -106,7 +107,7 @@ export interface DropImportOptions {
         path: string,
         name: string,
         options: { persistUntilDone: boolean },
-    ) => Promise<void>
+    ) => Promise<boolean>
     /** Content install provider functions */
     contentInstall: ContentInstallContext
     /** File drop handler from providers */
@@ -174,7 +175,7 @@ export function useDropImport(options: DropImportOptions) {
     const { isInInstance, instanceId } = useInstanceContext()
 
     // ── Modal refs (to be bound externally) ──────────────────────────────
-    const confirmDropModal = ref<{ show: () => void; hide: () => void } | null>(null)
+    const confirmDropModal = ref<{ show: () => void; hide: () => Promise<void> } | null>(null)
     const genericInstallModal = ref<{
         show: (options: {
             contentType: string
@@ -221,6 +222,12 @@ export function useDropImport(options: DropImportOptions) {
     const dropFileName = ref('')
     const dropFilePath = ref('')
     const lastDroppedPath = ref('')
+    const pendingModpackConfirmation = ref<{ classification: ClassificationResult | null } | null>(
+        null,
+    )
+    const confirmingDroppedModpack = computed(
+        () => pendingModpackConfirmation.value?.classification === dropClassification.value,
+    )
     const scanningInstances = ref(false)
     const pendingInstall = ref<PendingInstall | null>(null)
     const pendingDropIncompatibility = ref<PendingDropIncompatibility | null>(null)
@@ -720,14 +727,46 @@ export function useDropImport(options: DropImportOptions) {
         handleDropCancel()
     }
 
-    async function handleConfirmDropConfirm(type: string, innerBase?: string) {
+    async function confirmDroppedModpack(
+        filePath: string,
+        fileName: string,
+        classification: ClassificationResult | null,
+    ) {
+        if (confirmingDroppedModpack.value) return
+        clearDropProcessingNotification()
+        const sourcePath = dropFilePath.value
+        pendingModpackConfirmation.value = { classification }
+        const confirmation = pendingModpackConfirmation.value
+        let accepted: boolean
+        try {
+            accepted = await installModpackFromPath(filePath, fileName, {
+                persistUntilDone: true,
+            })
+        } finally {
+            if (pendingModpackConfirmation.value === confirmation) {
+                pendingModpackConfirmation.value = null
+            }
+        }
+        if (dropFilePath.value !== sourcePath || dropClassification.value !== classification) return
+        if (!accepted) return
+        dropClassification.value = null
+        await confirmDropModal.value?.hide()
+        trackEvent('InstanceCreate', { source: 'DropConfirmModpack' })
+        await router.push('/library')
+    }
+
+    async function handleConfirmDropConfirm(
+        type: string,
+        innerBase?: string,
+        candidatePath?: string,
+    ) {
         if (batchGroupMode) {
             batchGroupMode = false
             confirmDropModal.value?.hide()
-            onBatchGroupConfirm(type)
+            onBatchGroupConfirm(type, innerBase, candidatePath)
             return
         }
-        await handleDropConfirm(type, innerBase)
+        await handleDropConfirm(type, innerBase, candidatePath)
     }
 
     async function handleConfirmDropHelp() {
@@ -739,10 +778,29 @@ export function useDropImport(options: DropImportOptions) {
         await handleDropHelp()
     }
 
-    async function handleDropConfirm(type: string, innerBase?: string) {
+    async function handleDropConfirm(type: string, innerBase?: string, candidatePath?: string) {
+        if (confirmingDroppedModpack.value) return
         const classification = dropClassification.value
+        const filePath = candidatePath ?? classification?.file_path ?? dropFilePath.value
+        const fileName =
+            filePath?.split(/[/\\]/).pop() ??
+            classification?.base_path?.split(/[/\\]/).pop() ??
+            'file'
+
+        if (type === 'modpack') {
+            if (filePath) {
+                await confirmDroppedModpack(filePath, fileName, classification)
+            } else {
+                addNotification({
+                    title: formatMessage(messages.dropModpackInstallFailed),
+                    type: 'error',
+                })
+            }
+            return
+        }
+
         dropClassification.value = null
-        confirmDropModal.value?.hide()
+        void confirmDropModal.value?.hide()
 
         dropDebug('handleDropConfirm: entry', {
             type,
@@ -754,18 +812,13 @@ export function useDropImport(options: DropImportOptions) {
             classification?.item_type === 'launcher' ||
             classification?.item_type === 'hmcl_launcher'
 
-        if (!isLauncherImport && !classification?.file_path && !dropFilePath.value) {
+        if (!isLauncherImport && !filePath) {
             dropDebug(
                 'handleDropConfirm: no filePath available (classification and dropFilePath both empty), aborting',
             )
             return
         }
 
-        const filePath = classification?.file_path ?? dropFilePath.value
-        const fileName =
-            filePath?.split(/[/\\]/).pop() ??
-            classification?.base_path?.split(/[/\\]/).pop() ??
-            'file'
         dropDebug('handleDropConfirm: routing decision', {
             type,
             isLauncherImport,
@@ -819,9 +872,8 @@ export function useDropImport(options: DropImportOptions) {
                 try {
                     const tempDir = await extractZipToTemp(basePath)
                     launcherZipTempDir.value = tempDir
-                    scanBasePath = classification?.innerBase
-                        ? await join(tempDir, classification.innerBase)
-                        : tempDir
+                    const archiveBase = innerBase ?? classification?.innerBase
+                    scanBasePath = archiveBase ? await join(tempDir, archiveBase) : tempDir
                     dropDebug('handleDropConfirm: extracted launcher zip', {
                         tempDir,
                         innerBase: classification?.innerBase,
@@ -922,25 +974,6 @@ export function useDropImport(options: DropImportOptions) {
 
             dropDebug('handleDropConfirm: multiple instances, showing launcher import modal')
             launcherImportModal.value?.show(results)
-            return
-        }
-
-        if (type === 'modpack') {
-            dropDebug('handleDropConfirm: modpack branch', { filePath, fileName })
-
-            if (!filePath) {
-                dropDebug('handleDropConfirm: modpack — no filePath, aborting')
-                addNotification({
-                    title: formatMessage(messages.dropModpackInstallFailed),
-                    type: 'error',
-                })
-                return
-            }
-
-            clearDropProcessingNotification()
-            await installModpackFromPath(filePath, fileName, { persistUntilDone: true })
-            trackEvent('InstanceCreate', { source: 'DropConfirmModpack' })
-            await router.push('/library')
             return
         }
 
@@ -1761,6 +1794,7 @@ export function useDropImport(options: DropImportOptions) {
                 break
             case 'modpack':
                 item.itemType = 'modpack'
+                item.sourcePath = resolved.file_path ?? item.sourcePath
                 break
             case 'resource_pack': {
                 const candidates = (resolved as { candidates?: string[] }).candidates ?? []
@@ -1776,12 +1810,10 @@ export function useDropImport(options: DropImportOptions) {
             }
             case 'multiple':
                 item.itemType = 'ambiguous'
-                item.choices = (resolved as { choices?: Array<{ itemType: string }> }).choices
+                item.choices = resolved.choices
                 item.candidates = [
                     ...new Set(
-                        ((resolved as { choices?: Array<{ itemType: string }> }).choices ?? [])
-                            .map((choice) => choice.itemType)
-                            .filter(Boolean),
+                        (resolved.choices ?? []).map((choice) => choice.itemType).filter(Boolean),
                     ),
                 ]
                 break
@@ -1988,19 +2020,15 @@ export function useDropImport(options: DropImportOptions) {
             if (item.selected === false || !item.itemType || item.itemType === 'launcher_container')
                 continue
             if (item.scanState !== 'done') continue
-            const groupKey =
-                item.itemType === 'ambiguous'
-                    ? `${item.itemType}:${[
-                          ...new Set(
-                              (
-                                  item.choices ??
-                                  (item.candidates ?? []).map((itemType) => ({ itemType }))
-                              ).map(({ itemType }) => itemType),
-                          ),
-                      ]
-                          .sort()
-                          .join(',')}`
-                    : item.itemType
+            let groupKey = item.itemType
+            if (item.itemType === 'ambiguous') {
+                const types = item.choices?.map(({ itemType }) => itemType) ?? item.candidates ?? []
+                const uniqueTypes = [...new Set(types)].sort()
+                groupKey =
+                    uniqueTypes.length < types.length
+                        ? item.id
+                        : `${item.itemType}:${uniqueTypes.join(',')}`
+            }
             const list = byType.get(groupKey) ?? []
             list.push(item)
             byType.set(groupKey, list)
@@ -2064,21 +2092,25 @@ export function useDropImport(options: DropImportOptions) {
 
         let classification: ClassificationResult
         if (group.type === 'ambiguous') {
-            const choices = group.items
-                .flatMap((item) =>
-                    item.choices?.length
-                        ? item.choices
-                        : (item.candidates ?? []).map((candidate) => ({ itemType: candidate })),
-                )
-                .filter(
-                    (choice, index, all) =>
-                        all.findIndex((c) => c.itemType === choice.itemType) === index,
-                )
+            const choices = group.items.flatMap<ClassificationChoice>((item) =>
+                item.choices?.length
+                    ? item.choices
+                    : (item.candidates ?? []).map((candidate) => ({ itemType: candidate })),
+            )
             classification = {
                 item_type: 'multiple',
                 file_path: group.items[0]?.sourcePath,
-                choices,
-            } as unknown as ClassificationResult
+                choices:
+                    group.items.length === 1
+                        ? choices
+                        : choices
+                              .filter(
+                                  (choice, index, all) =>
+                                      all.findIndex((c) => c.itemType === choice.itemType) ===
+                                      index,
+                              )
+                              .map(({ itemType, candidates }) => ({ itemType, candidates })),
+            }
         } else {
             classification = { item_type: group.type } as unknown as ClassificationResult
         }
@@ -2091,7 +2123,7 @@ export function useDropImport(options: DropImportOptions) {
         confirmDropModal.value?.show()
     }
 
-    function onBatchGroupConfirm(type: string) {
+    function onBatchGroupConfirm(type: string, innerBase?: string, candidatePath?: string) {
         const group = batchCurrentGroup.value
         if (!group) return
         console.log('[BatchDrop] onBatchGroupConfirm group=', group.type, 'type=', type)
@@ -2099,8 +2131,15 @@ export function useDropImport(options: DropImportOptions) {
             item.selected = true
             item.confirmedType = type
             item.itemType = type
-            const choice = item.choices?.find((c) => c.itemType === type)
-            if (choice?.innerBase !== undefined) {
+            const choice = item.choices?.find(
+                (candidate) =>
+                    (candidate.itemType === type || candidate.candidates?.includes(type)) &&
+                    (!candidatePath ||
+                        (candidate.filePath === candidatePath &&
+                            candidate.innerBase === innerBase)),
+            )
+            if (choice) {
+                item.sourcePath = choice.filePath ?? item.sourcePath
                 item.innerBase = choice.innerBase
             }
         }
@@ -2578,6 +2617,7 @@ export function useDropImport(options: DropImportOptions) {
         // State
         isDragging,
         isProcessing,
+        confirmingDroppedModpack,
         batchActive,
         batchPhase,
         batchItems,

@@ -75,6 +75,8 @@ beforeEach(() => {
 
 function setup() {
     const addNotification = vi.fn(() => ({ id: 'notification' }))
+    const installModpackFromPath = vi.fn<DropImportOptions['installModpackFromPath']>()
+    const push = vi.fn()
     const flow = useDropImport({
         notificationManager: { addNotification, removeNotification: vi.fn() },
         popupNotificationManager: { addPopupNotification: vi.fn() },
@@ -84,7 +86,7 @@ function setup() {
         isSchematicFile: () => false,
         fileDrop: vi.fn(),
         trackEvent: vi.fn(),
-        router: { push: vi.fn() },
+        router: { push },
         contentInstall: {
             incompatibilityWarningVersions: ref([]),
             incompatibilityWarningCurrentGameVersion: ref(''),
@@ -94,12 +96,12 @@ function setup() {
             incompatibilityWarningMessage: ref(''),
             incompatibilityWarningInstalling: ref(false),
         },
-        installModpackFromPath: vi.fn(),
+        installModpackFromPath,
     } as unknown as DropImportOptions)
     const showImportMethods = vi.fn()
-    flow.confirmDropModal.value = { show: vi.fn(), hide: vi.fn() }
+    flow.confirmDropModal.value = { show: vi.fn(), hide: vi.fn().mockResolvedValue(undefined) }
     flow.symlinkCardsModal.value = { show: showImportMethods, hide: vi.fn() }
-    return { flow, showImportMethods, addNotification }
+    return { flow, showImportMethods, addNotification, installModpackFromPath, push }
 }
 
 it('provides localized folder guidance for file-picker imports without rewriting other reasons', () => {
@@ -329,6 +331,46 @@ it('imports a chosen instance candidate without falling through to content insta
 
     expect(scanLauncherInstances).toHaveBeenCalledWith('Generic', path)
     expect(showImportMethods).toHaveBeenCalledOnce()
+})
+
+it('previews the chosen modpack instead of its parent folder and keeps the choices on failure', async () => {
+    const { flow, installModpackFromPath, push } = setup()
+    const folder = 'D:/Downloads/Packs'
+    const archive = `${folder}/Example.zip`
+    const classification: ClassificationResult = {
+        item_type: 'multiple',
+        file_path: folder,
+        choices: [
+            { itemType: 'modpack', filePath: archive },
+            { itemType: 'world_save', filePath: `${folder}/World` },
+        ],
+    }
+    const preview = Promise.withResolvers<boolean>()
+    installModpackFromPath.mockReturnValueOnce(preview.promise).mockResolvedValueOnce(true)
+    dropCallbacks.onImportStart!('content', classification)
+
+    expect(flow.confirmDropModal.value?.show).toHaveBeenCalledOnce()
+    expect(installModpackFromPath).not.toHaveBeenCalled()
+
+    const confirmation = flow.handleConfirmDropConfirm('modpack', undefined, archive)
+    expect(flow.confirmingDroppedModpack.value).toBe(true)
+    await flow.handleConfirmDropConfirm('modpack', undefined, archive)
+    preview.resolve(false)
+    await confirmation
+
+    expect(installModpackFromPath).toHaveBeenCalledExactlyOnceWith(archive, 'Example.zip', {
+        persistUntilDone: true,
+    })
+    expect(flow.dropClassification.value).toEqual(classification)
+    expect(flow.confirmingDroppedModpack.value).toBe(false)
+    expect(flow.confirmDropModal.value?.hide).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+
+    await flow.handleConfirmDropConfirm('modpack', undefined, archive)
+
+    expect(flow.dropClassification.value).toBeNull()
+    expect(flow.confirmDropModal.value?.hide).toHaveBeenCalledOnce()
+    expect(push).toHaveBeenCalledExactlyOnceWith('/library')
 })
 
 it('imports only the chosen shared-root version using its metadata directory', async () => {

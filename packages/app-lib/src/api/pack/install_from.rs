@@ -23,6 +23,7 @@ use crate::util::fetch::{
     FetchProgressFn, Integrity, ResourceClass, download_to_path, fetch,
     write_cached_icon,
 };
+use crate::util::io;
 use path_util::SafeRelativeUtf8UnixPathBuf;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -372,6 +373,13 @@ pub async fn get_instance_from_pack(
             ..Default::default()
         }),
         CreatePackLocation::FromFile { path } => {
+            if !io::metadata(&path).await?.is_file() {
+                return Err(crate::ErrorKind::InputError(format!(
+                    "Choose a modpack archive file. This path is not a file: {}",
+                    path.display()
+                ))
+                .into());
+            }
             let file_name = path
                 .file_stem()
                 .unwrap_or_default()
@@ -381,7 +389,7 @@ pub async fn get_instance_from_pack(
             // Validate ZIP structure before proceeding — fail fast on corrupt archives
             // rather than discovering the error later during extraction.
             let file = std::fs::File::open(&path)
-                .map_err(crate::ErrorKind::StdIOError)?;
+                .map_err(|error| io::IOError::with_path(error, &path))?;
             ZipArchive::new(file).map_err(|e| {
                 crate::ErrorKind::InputError(format!(
                     "Invalid or corrupt modpack archive ({}): {e}",
@@ -1006,6 +1014,38 @@ mod local_preview_tests {
         }
         zip.finish().unwrap();
         (directory, path)
+    }
+
+    #[tokio::test]
+    async fn modpack_preview_explains_when_a_directory_was_selected() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().to_path_buf();
+        let error = get_instance_from_pack(CreatePackLocation::FromFile {
+            path: path.clone(),
+        })
+        .await
+        .err()
+        .expect("a directory cannot be previewed as an archive");
+        assert!(
+            matches!(error.raw.as_ref(), crate::ErrorKind::InputError(message)
+            if message.contains("Choose a modpack archive file") && message.contains(path.to_string_lossy().as_ref()))
+        );
+    }
+
+    #[tokio::test]
+    async fn modpack_preview_preserves_the_path_of_a_missing_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("missing.mrpack");
+        let error = get_instance_from_pack(CreatePackLocation::FromFile {
+            path: path.clone(),
+        })
+        .await
+        .err()
+        .expect("a missing archive cannot be previewed");
+        assert!(
+            matches!(error.raw.as_ref(), crate::ErrorKind::IOError(io::IOError::IOPathError { source, path: failed_path })
+            if source.kind() == std::io::ErrorKind::NotFound && failed_path.as_str() == path.to_string_lossy().as_ref())
+        );
     }
 
     #[tokio::test]

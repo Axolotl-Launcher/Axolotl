@@ -2345,6 +2345,7 @@ const {
     // State
     isDragging,
     isProcessing,
+    confirmingDroppedModpack,
     batchActive,
     batchPhase,
     batchItems,
@@ -3603,6 +3604,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     <ConfirmDropTypeModal
         ref="confirmDropModal"
         :key="batchGroupKey"
+        :busy="confirmingDroppedModpack"
         :classification="dropClassification"
         :file-name="dropFileName"
         @confirm="handleConfirmDropConfirm"

@@ -4,9 +4,52 @@
  * These wrap the Tauri `invoke()` calls so the frontend can classify
  * dropped files, scan launcher instances, and detect file locks.
  */
-import type { ClassificationResult } from '@modrinth/ui'
+import type { ClassificationChoice, ClassificationResult } from '@modrinth/ui'
 
 import { invoke } from '@/helpers/invoke'
+
+type NativeClassificationResult = Omit<
+    ClassificationResult,
+    'candidates' | 'choices' | 'item_type' | 'resolved_to'
+> &
+    (
+        | { item_type: 'multiple'; candidates: ClassificationChoice[] }
+        | {
+              item_type: Exclude<ClassificationResult['item_type'], 'multiple'>
+              candidates?: string[]
+              resolved_to?: NativeClassificationResult
+          }
+    )
+
+function normalizeClassification(result: NativeClassificationResult): ClassificationResult {
+    if (result.item_type === 'multiple') {
+        const { candidates, ...classification } = result
+        const source = result.file_path?.replaceAll('\\', '/').replace(/\/$/, '')
+        return {
+            ...classification,
+            choices: candidates.map((candidate) => {
+                const path = candidate.filePath?.replaceAll('\\', '/')
+                if (!source || !path?.startsWith(`${source}/`) || !candidate.innerBase)
+                    return candidate
+                // A candidate on disk has its own path. Keep only the part
+                // of the base that describes a location inside its archive.
+                const relative = path.slice(source.length + 1)
+                if (candidate.innerBase === relative) return { ...candidate, innerBase: undefined }
+                if (candidate.innerBase.startsWith(`${relative}/`)) {
+                    return {
+                        ...candidate,
+                        innerBase: candidate.innerBase.slice(relative.length + 1),
+                    }
+                }
+                return candidate
+            }),
+        }
+    }
+    const { resolved_to, ...classification } = result
+    return resolved_to
+        ? { ...classification, resolved_to: normalizeClassification(resolved_to) }
+        : classification
+}
 
 /**
  * Information about a process that has a file handle open.
@@ -24,11 +67,15 @@ export interface LockingProcess {
  * @param path Absolute filesystem path to the dropped item
  * @returns Classification result indicating what kind of content it is
  */
-export function classifyDroppedItem(
+export async function classifyDroppedItem(
     path: string,
     allowNestedExtraction = false,
 ): Promise<ClassificationResult> {
-    return invoke('plugin:drop|drop_classify', { path, allowNestedExtraction })
+    const result = await invoke<NativeClassificationResult>('plugin:drop|drop_classify', {
+        path,
+        allowNestedExtraction,
+    })
+    return normalizeClassification(result)
 }
 
 /**
@@ -44,8 +91,13 @@ export function classifyDroppedItem(
  * @param path Absolute filesystem path to the ZIP file
  * @returns Classification result after extraction and analysis
  */
-export function classifyDroppedItemWithExtraction(path: string): Promise<ClassificationResult> {
-    return invoke('plugin:drop|drop_classify_extract', { path })
+export async function classifyDroppedItemWithExtraction(
+    path: string,
+): Promise<ClassificationResult> {
+    const result = await invoke<NativeClassificationResult>('plugin:drop|drop_classify_extract', {
+        path,
+    })
+    return normalizeClassification(result)
 }
 
 /**

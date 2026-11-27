@@ -16,6 +16,7 @@ import type ModpackAlreadyInstalledModal from '@/components/ui/modal/ModpackAlre
 import { trackEvent } from '@/helpers/analytics'
 import { get_project_versions, get_search_results } from '@/helpers/cache.js'
 import { getCurseForgeFiles, hasCompatibleCurseForgeFile } from '@/helpers/curseforge'
+import { errorText } from '@/helpers/error-text'
 import { install_job_listener } from '@/helpers/events.js'
 import {
     type CreatePackLocation,
@@ -41,6 +42,10 @@ const modpackMessages = defineMessages({
     installingFile: {
         id: 'app.drop.installing-file',
         defaultMessage: 'Installing {name}...',
+    },
+    previewFailed: {
+        id: 'app.drop.modpack-preview-failed',
+        defaultMessage: 'Could not open the modpack {name}',
     },
     unknownFileType: {
         id: 'app.drop.unknown-force-analysis-title',
@@ -270,24 +275,30 @@ export function setupCreationModal(
             handleError(e)
             return null
         })
-        if (!job) return
+        if (!job) return false
 
         // Single-use listener that auto-cleans up when the job reaches a terminal state
-        const unlisten = await install_job_listener((updatedJob: InstallJobSnapshot) => {
-            if (updatedJob.job_id !== job.job_id) return
+        try {
+            const unlisten = await install_job_listener((updatedJob: InstallJobSnapshot) => {
+                if (updatedJob.job_id !== job.job_id) return
 
-            if (updatedJob.status === 'succeeded') {
-                notificationManager.removeNotification(installingNotify.id)
-                notificationManager.addNotification({
-                    title: formatMessage(modpackMessages.installed),
-                    type: 'success',
-                })
-                unlisten()
-            } else if (['failed', 'canceled', 'interrupted'].includes(updatedJob.status)) {
-                notificationManager.removeNotification(installingNotify.id)
-                unlisten()
-            }
-        })
+                if (updatedJob.status === 'succeeded') {
+                    notificationManager.removeNotification(installingNotify.id)
+                    notificationManager.addNotification({
+                        title: formatMessage(modpackMessages.installed),
+                        type: 'success',
+                    })
+                    unlisten()
+                } else if (['failed', 'canceled', 'interrupted'].includes(updatedJob.status)) {
+                    notificationManager.removeNotification(installingNotify.id)
+                    unlisten()
+                }
+            })
+        } catch (error) {
+            notificationManager.removeNotification(installingNotify.id)
+            handleError(error)
+        }
+        return true
     }
 
     async function handleModpackDuplicateCreateAnyway() {
@@ -352,12 +363,16 @@ export function setupCreationModal(
 
             if (!isMrpack) {
                 // .zip needs preview to determine manifest
-                const preview = await install_get_modpack_preview(location).catch((e) => {
+                const preview = await install_get_modpack_preview(location).catch((error) => {
                     notificationManager.removeNotification(currentNotify.id)
-                    handleError(e)
+                    notificationManager.addNotification({
+                        title: formatMessage(modpackMessages.previewFailed, { name: fileName }),
+                        text: errorText(error),
+                        type: 'error',
+                    })
                     return null
                 })
-                if (!preview) return
+                if (!preview) return false
 
                 if (preview.unknownFile) {
                     notificationManager.removeNotification(currentNotify.id)
@@ -375,18 +390,18 @@ export function setupCreationModal(
                             await doInstallModpackFile(location)
                         }
                     }, fileName)
-                    return
+                    return true
                 }
             }
 
             if (persistUntilDone) {
-                await doInstallModpackFile(location, { existingNotify: currentNotify })
-            } else {
-                await doInstallModpackFile(location)
+                return await doInstallModpackFile(location, { existingNotify: currentNotify })
             }
+            return await doInstallModpackFile(location)
         } catch (e) {
             notificationManager.removeNotification(currentNotify?.id)
             handleError(e as Error)
+            return false
         }
     }
 

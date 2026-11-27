@@ -94,6 +94,8 @@ it('saves the Minecraft executable preference and restores it on reopening', asy
     const wrapper = await openSettings()
     const toggle = wrapper.get('#settings-target-java-use-console')
     expect(toggle.attributes('aria-checked')).toBe('false')
+    expect(toggle.attributes('aria-describedby')).toBe('java-use-console-description')
+    expect(wrapper.get('#java-use-console-description').text()).toContain('javaw.exe')
     expect(backend.patches).toEqual([])
     await toggle.trigger('click')
     await flushPromises()
@@ -111,6 +113,7 @@ it('saves the Minecraft executable preference and restores it on reopening', asy
 it.each(['linux', 'macos'])('hides the Windows executable switch on %s', async (platform) => {
     const wrapper = await openSettings(platform)
     expect(wrapper.find('#settings-target-java-use-console').exists()).toBe(false)
+    expect(wrapper.find('#java-use-console-description').exists()).toBe(false)
     expect(backend.patches).toEqual([])
 })
 

@@ -16784,6 +16784,9 @@
   "app.settings.java.reset-location": {
     "message": "恢复自动选择"
   },
+  "app.settings.java.runtime-name.description": {
+    "message": "Java(TM) 等名称来自 Java 发行版。可通过版本和可执行文件路径区分不同的安装。"
+  },
   "app.settings.java.scan-anyway": {
     "message": "仍然扫描"
   },
@@ -16804,6 +16807,9 @@
   },
   "app.settings.java.use-console-java": {
     "message": "启动 Minecraft 时使用 java 而不是 javaw"
+  },
+  "app.settings.java.use-console-java.description": {
+    "message": "在 Windows 上，java.exe 启动游戏时可能会打开控制台窗口，javaw.exe 启动时不会打开控制台窗口。"
   },
   "app.settings.java.view-installed": {
     "message": "查看已安装的 Java"

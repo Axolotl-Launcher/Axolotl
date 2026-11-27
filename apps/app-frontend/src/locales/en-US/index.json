@@ -16784,6 +16784,9 @@
   "app.settings.java.reset-location": {
     "message": "Use automatic selection"
   },
+  "app.settings.java.runtime-name.description": {
+    "message": "Names such as Java(TM) identify the distribution. Use the version and executable path to tell installations apart."
+  },
   "app.settings.java.scan-anyway": {
     "message": "Scan Anyway"
   },
@@ -16804,6 +16807,9 @@
   },
   "app.settings.java.use-console-java": {
     "message": "Use java instead of javaw when launching Minecraft"
+  },
+  "app.settings.java.use-console-java.description": {
+    "message": "On Windows, java.exe can open a console window when the game starts. javaw.exe starts without a console window."
   },
   "app.settings.java.view-installed": {
     "message": "View installed Java"

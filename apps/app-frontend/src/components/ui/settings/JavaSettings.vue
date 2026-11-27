@@ -73,6 +73,16 @@ const messages = defineMessages({
         id: 'app.settings.java.use-console-java',
         defaultMessage: 'Use java instead of javaw when launching Minecraft',
     },
+    useConsoleJavaDescription: {
+        id: 'app.settings.java.use-console-java.description',
+        defaultMessage:
+            'On Windows, java.exe can open a console window when the game starts. javaw.exe starts without a console window.',
+    },
+    runtimeNameDescription: {
+        id: 'app.settings.java.runtime-name.description',
+        defaultMessage:
+            'Names such as Java(TM) identify the distribution. Use the version and executable path to tell installations apart.',
+    },
     autoHighPerformanceMode: {
         id: 'app.settings.java.auto-high-performance-mode',
         defaultMessage: 'Automatically use high-performance GPU for Java',
@@ -316,6 +326,9 @@ async function onJavaDownloaded(job) {
     <InstalledJavaModal ref="installedJavaModal" @changed="reloadDefaults" />
 
     <div class="settings-page flex flex-col gap-6">
+        <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
+            {{ formatMessage(messages.runtimeNameDescription) }}
+        </p>
         <SettingsSection
             v-for="(javaVersion, index) in supportedJavaVersions"
             :key="`java-${javaVersion}`"
@@ -429,15 +442,24 @@ async function onJavaDownloaded(job) {
             v-if="currentPlatform === 'windows'"
             class="flex items-center justify-between gap-4 border-0 border-t border-solid border-button-border pt-5"
         >
-            <label
-                for="settings-target-java-use-console"
-                class="text-sm font-semibold text-[var(--color-text-primary)]"
-            >
-                {{ formatMessage(messages.useConsoleJava) }}
-            </label>
+            <div class="flex min-w-0 flex-col gap-1">
+                <label
+                    for="settings-target-java-use-console"
+                    class="text-sm font-semibold text-[var(--color-text-primary)]"
+                >
+                    {{ formatMessage(messages.useConsoleJava) }}
+                </label>
+                <p
+                    id="java-use-console-description"
+                    class="m-0 text-sm text-[var(--color-text-tertiary)]"
+                >
+                    {{ formatMessage(messages.useConsoleJavaDescription) }}
+                </p>
+            </div>
             <Toggle
                 id="settings-target-java-use-console"
                 v-model="useConsoleJava"
+                aria-describedby="java-use-console-description"
                 :disabled="!settings"
             />
         </div>

@@ -441,7 +441,9 @@ const skeletonCount = computed(() => {
             </template>
         </ProjectCardList>
 
-        <div :class="ctx.variant === 'web' ? 'pagination-after mt-3' : 'flex justify-end mt-3'">
+        <div
+            :class="ctx.variant === 'web' ? 'pagination-after mt-3' : 'mt-3 flex justify-end pr-14'"
+        >
             <Pagination
                 :page="resultContext?.page ?? ctx.currentPage.value"
                 :count="ctx.pageCount.value"

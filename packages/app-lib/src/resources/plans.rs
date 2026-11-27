@@ -273,8 +273,9 @@ fn conflict_issue(
     node: &SelectionId,
     blocking: bool,
     message: impl Into<String>,
-    conflict: ResourceConflictDetails,
+    mut conflict: ResourceConflictDetails,
 ) {
+    normalize_conflict_details(&mut conflict);
     plan.issues.push(ResourcePlanIssue {
         code: ResourceIssueCode::VersionConflict,
         selection_id: Some(node.clone()),
@@ -284,6 +285,26 @@ fn conflict_issue(
         conflict: Some(conflict),
         context: None,
     });
+}
+
+fn normalize_conflict_details(conflict: &mut ResourceConflictDetails) {
+    match conflict.reason {
+        ResourceConflictReason::ConflictingReleases => {
+            conflict.related = None;
+            if conflict.subject == conflict.required
+                || conflict.subject == conflict.actual
+            {
+                conflict.subject = None;
+            }
+        }
+        ResourceConflictReason::DependencyVersion
+            if conflict.related == conflict.required
+                || conflict.related == conflict.actual =>
+        {
+            conflict.related = None;
+        }
+        _ => {}
+    }
 }
 
 fn selection_failure(
@@ -373,6 +394,12 @@ struct SelectionKey {
     scope: InstallScope,
     kind: ResourceType,
     entry: Option<InstalledEntryId>,
+}
+
+#[derive(Default, PartialEq, Eq)]
+struct DependencySeeds {
+    constraints: HashMap<SelectionKey, Vec<String>>,
+    releases: HashMap<SelectionKey, ReleaseSelection>,
 }
 
 fn selection_key(selection: &ResourceSelection) -> SelectionKey {
@@ -1543,7 +1570,17 @@ impl ResourceService {
             }
         };
         let original = draft.clone();
-        let mut seeded: HashMap<SelectionKey, Vec<String>> = HashMap::new();
+        let automatic_roots: HashSet<_> = original
+            .plan
+            .selections
+            .iter()
+            .filter(|selection| {
+                matches!(selection.release, ReleaseSelection::Automatic)
+                    && original.plan.active_roots.contains(&selection.id)
+            })
+            .map(|selection| &selection.id)
+            .collect();
+        let mut seeded = DependencySeeds::default();
         for pass in 0..32 {
             tracing::debug!(
                 instance_id = draft.plan.instance_id,
@@ -1576,7 +1613,7 @@ impl ResourceService {
             {
                 return Ok(result);
             }
-            let mut next: HashMap<SelectionKey, Vec<String>> = HashMap::new();
+            let mut next = DependencySeeds::default();
             let nodes: HashMap<_, _> = result
                 .plan
                 .nodes
@@ -1589,25 +1626,39 @@ impl ResourceService {
                 {
                     continue;
                 }
-                let Some(constraint) = &edge.version_constraint else {
-                    continue;
-                };
                 let Some(node) = nodes.get(&edge.child) else {
                     continue;
                 };
                 let Some(kind) = node.resource_type else {
                     continue;
                 };
-                next.entry(SelectionKey {
+                let key = SelectionKey {
                     resource: node.resource.clone(),
                     scope: node.scope.clone(),
                     kind,
                     entry: None,
-                })
-                .or_default()
-                .push(constraint.clone());
+                };
+                if let Some(constraint) = &edge.version_constraint {
+                    next.constraints
+                        .entry(key.clone())
+                        .or_default()
+                        .push(constraint.clone());
+                }
+                // A dependency can pin a release without declaring a version range.
+                // Retry automatic roots with that pin and let edge validation
+                // report any remaining requirements that cannot be satisfied.
+                if edge.kind == ResourceDependencyKind::Required
+                    && node
+                        .root_selection_ids
+                        .iter()
+                        .any(|root| automatic_roots.contains(root))
+                    && let Some(release) = edge.release_selection.as_ref()
+                    && !matches!(release, ReleaseSelection::Automatic)
+                {
+                    next.releases.entry(key).or_insert_with(|| release.clone());
+                }
             }
-            for values in next.values_mut() {
+            for values in next.constraints.values_mut() {
                 values.sort();
                 values.dedup();
             }
@@ -1626,7 +1677,7 @@ impl ResourceService {
         installed: &[InstalledResource],
         cancel: &CancellationToken,
         reporter: &mut OperationReporter<'_>,
-        seeded: &HashMap<SelectionKey, Vec<String>>,
+        seeded: &DependencySeeds,
         memo: Option<&analysis::AnalysisMemo>,
     ) -> ResourceResult<OperationDraft> {
         let preferred = self.preferred_source().await?;
@@ -1650,7 +1701,7 @@ impl ResourceService {
                 target,
                 &preferred,
                 &draft.retained_requirements,
-                seeded,
+                &seeded.constraints,
                 cancel,
             )
             .await?;
@@ -1743,14 +1794,22 @@ impl ResourceService {
                         continue;
                     }
                 };
-            if selection.id.as_str().starts_with("dependency:")
-                && matches!(selection.release, ReleaseSelection::Automatic)
-                && let Some(fixed) = queue.iter().find(|other| {
-                    other.id == selection.id
-                        && !matches!(other.release, ReleaseSelection::Automatic)
-                })
-            {
-                selection.release = fixed.release.clone();
+            if matches!(selection.release, ReleaseSelection::Automatic) {
+                if selection.id.as_str().starts_with("dependency:")
+                    && let Some(fixed) = queue.iter().find(|other| {
+                        other.id == selection.id
+                            && !matches!(
+                                other.release,
+                                ReleaseSelection::Automatic
+                            )
+                    })
+                {
+                    selection.release = fixed.release.clone();
+                } else if let Some(release) =
+                    seeded.releases.get(&selection_key(&selection))
+                {
+                    selection.release = release.clone();
+                }
             }
             let previous_release = if draft.plan.intent
                 == ResourceOperationIntent::Update
@@ -1785,7 +1844,9 @@ impl ResourceService {
                 })
                 .filter_map(|edge| edge.version_constraint.clone())
                 .collect();
-            if let Some(previous) = seeded.get(&selection_key(&selection)) {
+            if let Some(previous) =
+                seeded.constraints.get(&selection_key(&selection))
+            {
                 constraints.extend(previous.iter().cloned());
                 constraints.sort();
                 constraints.dedup();
@@ -3699,8 +3760,17 @@ pub(crate) async fn load(
                 && !record.queued
         })
         .ok_or_else(|| invalid("plan was revised or already queued"))?;
-    crate::state::store::compatibility::decode_payload(&record.payload)
-        .map_err(Into::into)
+    let mut draft: OperationDraft =
+        crate::state::store::compatibility::decode_payload(&record.payload)?;
+    for conflict in draft
+        .plan
+        .issues
+        .iter_mut()
+        .filter_map(|issue| issue.conflict.as_mut())
+    {
+        normalize_conflict_details(conflict);
+    }
+    Ok(draft)
 }
 
 impl ResourceService {

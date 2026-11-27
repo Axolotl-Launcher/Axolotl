@@ -2586,6 +2586,78 @@ async fn dependency_conflicts_and_foreign_entry_ownership_block_a_plan() {
 }
 
 #[tokio::test]
+async fn a_required_exact_release_pins_an_automatic_batch_root_in_either_order()
+{
+    let mut parent = release("root0000", "1", 'a');
+    let required = release("dep00000", "1", 'c');
+    let newer = release("dep00000", "2", 'e');
+    requires(&mut parent, &required, ResourceDependencyKind::Required);
+    let (_directory, service) =
+        service(vec![parent.clone(), required.clone(), newer.clone()]).await;
+    let parent = selection("parent", &parent, None);
+    let mut automatic = selection("dependency-root", &newer, None);
+    automatic.release = ReleaseSelection::Automatic;
+    let cancel = CancellationToken::new();
+    let memo = plans::analysis::AnalysisMemo::default();
+
+    let alone = service
+        .build_operation(
+            draft(vec![automatic.clone()], ResourceOperationIntent::Install),
+            &target(),
+            &[],
+            &cancel,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        alone.plan.actions[0].target.reference.release,
+        newer.reference
+    );
+
+    for roots in [
+        vec![parent.clone()],
+        vec![parent.clone(), automatic.clone()],
+        vec![automatic.clone(), parent.clone()],
+    ] {
+        let dependency_root = roots.len() == 2;
+        let plan = service
+            .build_operation_with_memo(
+                draft(roots, ResourceOperationIntent::Install),
+                &target(),
+                &[],
+                &cancel,
+                None,
+                Some(&memo),
+            )
+            .await
+            .unwrap()
+            .plan;
+        assert!(
+            !plan.issues.iter().any(|issue| issue.blocking),
+            "{:?}",
+            plan.issues
+        );
+        let dependency = plan
+            .nodes
+            .iter()
+            .find(|node| {
+                node.artifact.as_ref().is_some_and(|artifact| {
+                    artifact.reference.release == required.reference
+                })
+            })
+            .unwrap();
+        assert_eq!(plan.actions.len(), 2);
+        assert_eq!(plan.edges.len(), 1);
+        assert_eq!(plan.edges[0].child, dependency.id);
+        assert_eq!(
+            dependency.root_selection_ids.contains(&automatic.id),
+            dependency_root
+        );
+    }
+    service.cache().close().await;
+}
+
+#[tokio::test]
 async fn an_existing_root_does_not_swallow_a_different_exact_dependency_artifact()
  {
     let mut a = release("root0000", "1", 'a');
@@ -2609,13 +2681,96 @@ async fn an_existing_root_does_not_swallow_a_different_exact_dependency_artifact
         .await
         .unwrap()
         .plan;
-    assert!(
-        plan.issues
+    for (message, required) in [
+        (
+            "required dependency conflicts with an active root release or artifact",
+            "dep00000-2.jar",
+        ),
+        (
+            "parent dependency requirement is not satisfied by the selected artifact",
+            "2",
+        ),
+    ] {
+        let issue = plan
+            .issues
             .iter()
-            .any(|issue| issue.code == ResourceIssueCode::VersionConflict
-                && issue.blocking)
+            .find(|issue| issue.message == message)
+            .unwrap();
+        assert!(issue.blocking);
+        let conflict = issue.conflict.as_ref().unwrap();
+        assert_eq!(conflict.reason, ResourceConflictReason::DependencyVersion);
+        assert_eq!(conflict.related, None);
+        assert_eq!(conflict.required.as_deref(), Some(required));
+        assert_eq!(conflict.actual.as_deref(), Some("dep00000-1.jar"));
+    }
+    assert!(
+        plan.nodes
+            .iter()
+            .any(|node| node.artifact.as_ref().is_some_and(|artifact| {
+                artifact.reference.release == d1.reference
+            }))
     );
     service.cache().close().await;
+}
+
+#[tokio::test]
+async fn loading_a_pending_plan_preserves_the_required_and_selected_files() {
+    use crate::state::store::Collection as _;
+    use crate::state::store::resource_operation_plans::{
+        ResourceOperationPlanRecord, ResourceOperationPlans,
+    };
+
+    let (_directory, state, _, _, _) =
+        crate::resources::execution::tests::fixture().await;
+    let mut original = draft(vec![], ResourceOperationIntent::Install);
+    original.plan.issues.push(ResourcePlanIssue {
+        code: ResourceIssueCode::VersionConflict,
+        selection_id: None,
+        entry_id: None,
+        blocking: true,
+        message: "saved conflict".into(),
+        conflict: Some(ResourceConflictDetails {
+            reason: ResourceConflictReason::DependencyVersion,
+            subject: Some("Parent mod".into()),
+            related: Some("required.jar".into()),
+            required: Some("required.jar".into()),
+            actual: Some("selected.jar".into()),
+        }),
+        context: None,
+    });
+    let key = original.plan.id.as_str().to_owned();
+    let payload = serde_json::to_string(&original).unwrap();
+    let record = ResourceOperationPlanRecord {
+        instance_id: original.plan.instance_id.clone(),
+        revision: i64::from(original.plan.revision),
+        payload: payload.clone(),
+        job_id: None,
+        queued: false,
+        completed: false,
+    };
+    ResourceOperationPlans::set(&state.data, &key, Some(&record))
+        .await
+        .unwrap();
+
+    let loaded =
+        plans::load(&state.data, &original.plan.id, original.plan.revision)
+            .await
+            .unwrap();
+    let conflict = loaded.plan.issues[0].conflict.as_ref().unwrap();
+    assert!(loaded.plan.issues[0].blocking);
+    assert_eq!(conflict.subject.as_deref(), Some("Parent mod"));
+    assert_eq!(conflict.related, None);
+    assert_eq!(conflict.required.as_deref(), Some("required.jar"));
+    assert_eq!(conflict.actual.as_deref(), Some("selected.jar"));
+    assert_eq!(
+        ResourceOperationPlans::get(&state.data, &key)
+            .await
+            .unwrap()
+            .unwrap()
+            .payload,
+        payload
+    );
+    state.pool.close().await;
 }
 
 #[tokio::test]

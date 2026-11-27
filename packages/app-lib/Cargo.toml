@@ -194,6 +194,8 @@ zbus = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cidre = { workspace = true, features = ["blocks", "nw"] }
+
+[target."cfg(unix)".dependencies]
 libc = { workspace = true }
 
 [target."cfg(windows)".dependencies]

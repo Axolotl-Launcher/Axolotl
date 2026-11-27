@@ -15,9 +15,11 @@ use crate::util::fetch::IoSemaphore;
 use chrono::Utc;
 use dashmap::DashSet;
 use sqlx::SqlitePool;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
+use tokio::io::AsyncWriteExt;
 
 pub const CACHES_FOLDER_NAME: &str = "caches";
 pub const LAUNCHER_LOGS_FOLDER_NAME: &str = "launcher_logs";
@@ -31,6 +33,92 @@ pub struct DirectoryInfo {
     pub settings_dir: PathBuf, // Base settings directory- app database
     pub config_dir: PathBuf, // Base config directory- instances, minecraft downloads, etc. Changeable as a setting.
     pub app_identifier: String,
+}
+
+async fn create_move_destination<'a>(
+    destination: &'a Path,
+    created: &mut Vec<&'a Path>,
+) -> std::io::Result<()> {
+    let mut missing = Vec::new();
+    for directory in destination
+        .ancestors()
+        .filter(|path| !path.as_os_str().is_empty())
+    {
+        match fs::metadata(directory).await {
+            Ok(metadata) if metadata.is_dir() => break,
+            Ok(_) => {
+                return Err(std::io::Error::new(
+                    ErrorKind::NotADirectory,
+                    format!("{} is not a directory", directory.display()),
+                ));
+            }
+            Err(error) if error.kind() == ErrorKind::NotFound => {
+                missing.push(directory);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    for directory in missing.into_iter().rev() {
+        match fs::create_dir(directory).await {
+            Ok(()) => created.push(directory),
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => {
+                if !fs::metadata(directory).await?.is_dir() {
+                    return Err(std::io::Error::new(
+                        ErrorKind::NotADirectory,
+                        format!("{} is not a directory", directory.display()),
+                    ));
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(())
+}
+
+async fn prepare_move_destination(destination: &Path) -> crate::Result<()> {
+    let mut created = Vec::new();
+    let result = async {
+        create_move_destination(destination, &mut created).await?;
+        let probe = destination
+            .join(format!(".axolotl-directory-move-{}", uuid::Uuid::new_v4()));
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&probe)
+            .await?;
+        let written = async {
+            file.write_all(b"test").await?;
+            file.flush().await
+        }
+        .await;
+        drop(file);
+        let removed = fs::remove_file(&probe).await;
+        written.and(removed)
+    }
+    .await;
+
+    if let Err(error) = result {
+        for directory in created.into_iter().rev() {
+            if let Err(cleanup_error) = fs::remove_dir(directory).await
+                && !matches!(
+                    cleanup_error.kind(),
+                    ErrorKind::NotFound | ErrorKind::DirectoryNotEmpty
+                )
+            {
+                tracing::warn!(
+                    path = %directory.display(),
+                    %cleanup_error,
+                    "Failed to remove a newly created migration directory"
+                );
+            }
+        }
+        return Err(crate::ErrorKind::DirectoryMoveError(format!(
+            "Cannot prepare the launcher data directory at {}: {error}",
+            destination.display()
+        ))
+        .into());
+    }
+    Ok(())
 }
 
 async fn prepare_directory_move(
@@ -371,25 +459,6 @@ impl DirectoryInfo {
                 .as_ref()
                 .map_or_else(|| app_dir.clone(), PathBuf::from);
 
-            async fn is_dir_writable(
-                new_config_dir: &Path,
-            ) -> crate::Result<bool> {
-                let temp_path = new_config_dir.join(".tmp");
-                match fs::write(temp_path.clone(), "test").await {
-                    Ok(_) => {
-                        fs::remove_file(temp_path).await?;
-                        Ok(true)
-                    }
-                    Err(e) => {
-                        tracing::error!(
-                            "Error writing to new config dir: {}",
-                            e
-                        );
-                        Ok(false)
-                    }
-                }
-            }
-
             fn get_disk_usage(path: &Path) -> crate::Result<Option<u64>> {
                 let path = crate::util::io::canonicalize(path)?;
 
@@ -415,6 +484,7 @@ impl DirectoryInfo {
                     pool, &prev_dir,
                 )
                 .await?;
+                prepare_move_destination(&move_dir).await?;
                 let loader_bar_id = init_loading(
                     LoadingBarType::DirectoryMove {
                         old: prev_dir.clone(),
@@ -424,10 +494,6 @@ impl DirectoryInfo {
                     "Moving launcher directory",
                 )
                 .await?;
-
-                if !is_dir_writable(&move_dir).await? {
-                    return Err(crate::ErrorKind::DirectoryMoveError(format!("Cannot move directory to {}: directory is not writable", move_dir.display())).into());
-                }
 
                 if settings.backup_repository_path.is_none() {
                     let old_repository =
@@ -753,7 +819,63 @@ impl DirectoryInfo {
 
 #[cfg(test)]
 mod directory_move_tests {
-    use super::prepare_directory_move;
+    use super::{prepare_directory_move, prepare_move_destination};
+
+    #[tokio::test]
+    async fn migration_preflight_creates_a_missing_destination() {
+        let temp = tempfile::tempdir().unwrap();
+        let destination = temp.path().join("new/storage");
+
+        prepare_move_destination(&destination).await.unwrap();
+
+        assert!(destination.is_dir());
+        assert!(
+            tokio::fs::read_dir(destination)
+                .await
+                .unwrap()
+                .next_entry()
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn migration_preflight_preserves_existing_temporary_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let existing = temp.path().join(".tmp");
+        tokio::fs::write(&existing, b"keep this file")
+            .await
+            .unwrap();
+
+        prepare_move_destination(temp.path()).await.unwrap();
+
+        assert_eq!(tokio::fs::read(existing).await.unwrap(), b"keep this file");
+    }
+
+    #[tokio::test]
+    async fn migration_preflight_reports_an_occupied_destination() {
+        let temp = tempfile::tempdir().unwrap();
+        let destination = temp.path().join("existing-file");
+        tokio::fs::write(&destination, b"existing data")
+            .await
+            .unwrap();
+
+        let error = prepare_move_destination(&destination)
+            .await
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            error.contains(destination.to_string_lossy().as_ref()),
+            "{error}"
+        );
+        assert!(error.contains("not a directory"), "{error}");
+        assert_eq!(
+            tokio::fs::read(destination).await.unwrap(),
+            b"existing data"
+        );
+    }
 
     #[tokio::test]
     async fn missing_old_storage_does_not_block_switching_directories() {

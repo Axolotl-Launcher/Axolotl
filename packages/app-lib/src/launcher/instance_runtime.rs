@@ -88,26 +88,16 @@ impl InstanceRuntimeAdapter {
             {
                 direct.version_dir()
             }
-            Self::MinecraftShared { direct } => match direct.resolve() {
-                Ok(resolved) => resolved.game_dir,
-                Err(error) => {
-                    tracing::warn!(
-                        %error,
-                        "Falling back after the external instance version chain could not be resolved"
-                    );
-                    direct.dot_minecraft.clone()
-                }
-            },
-            Self::MinecraftIsolated { direct } => match direct.resolve() {
-                Ok(resolved) => resolved.game_dir,
-                Err(error) => {
-                    tracing::warn!(
-                        %error,
-                        "Falling back to the external instance version directory"
-                    );
-                    direct.version_dir()
-                }
-            },
+            // Path-only callers can still browse a present folder before its
+            // version JSON exists. Launch validates the manifest separately.
+            Self::MinecraftShared { direct } => direct.resolve().map_or_else(
+                |_| direct.dot_minecraft.clone(),
+                |resolved| resolved.game_dir,
+            ),
+            Self::MinecraftIsolated { direct } => direct.resolve().map_or_else(
+                |_| direct.version_dir(),
+                |resolved| resolved.game_dir,
+            ),
         }
     }
 

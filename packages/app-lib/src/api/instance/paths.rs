@@ -23,7 +23,19 @@ pub fn full_path_for_instance(
     // `profiles`; interactive APIs (open folder, worlds, servers, ...) must
     // operate on the linked `.minecraft` instead.
     let adapter = InstanceRuntimeAdapter::for_instance(instance, directories)?;
-    Ok(io::canonicalize(adapter.game_dir())?)
+    let game_dir = adapter.game_dir();
+    match io::canonicalize(&game_dir) {
+        Err(error)
+            if adapter.direct_link().is_some()
+                && error.kind() == std::io::ErrorKind::NotFound =>
+        {
+            Err(crate::ErrorKind::InputError(format!(
+                "The linked Minecraft directory at {} is unavailable. Restore the folder or update its location in the launcher settings.",
+                game_dir.display(),
+            )).into())
+        }
+        result => Ok(result?),
+    }
 }
 
 #[tracing::instrument(skip_all, level = "info")]
@@ -94,6 +106,34 @@ mod tests {
             .unwrap()
             .expect("metadata for created fixture");
         (minecraft, metadata)
+    }
+
+    #[tokio::test]
+    async fn missing_external_directory_explains_where_to_restore_it() {
+        let state = global_state().await;
+        let label = "paths missing directory";
+        let (minecraft, mut metadata) =
+            create_direct_link_fixture("paths-unavailable").await;
+        metadata.instance.linked_launcher = Some("pcl".into());
+        let folder = minecraft.path().join("versions").join(label);
+        metadata.instance.linked_version_json_path = Some(
+            folder
+                .join("paths-unavailable.json")
+                .to_string_lossy()
+                .into_owned(),
+        );
+        let reason =
+            full_path_for_instance(&metadata.instance, &state.directories)
+                .unwrap_err()
+                .to_string();
+        assert!(reason.contains(label), "{reason}");
+        assert!(reason.contains("Restore the folder"), "{reason}");
+        std::fs::create_dir(&folder).unwrap();
+        assert_eq!(
+            full_path_for_instance(&metadata.instance, &state.directories)
+                .unwrap(),
+            io::canonicalize(folder).unwrap(),
+        );
     }
 
     #[tokio::test]

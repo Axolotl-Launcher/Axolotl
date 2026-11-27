@@ -1,23 +1,23 @@
 <script setup lang="ts">
 import { CheckIcon } from '@modrinth/assets'
-import { defineMessages, NewModal, useVIntl } from '@modrinth/ui'
-import { nextTick, ref } from 'vue'
+import { commonMessages, defineMessages, NewModal, useVIntl } from '@modrinth/ui'
+import { computed, nextTick, ref } from 'vue'
 
 import InstancePickerList from '@/components/ui/instance/InstancePickerList.vue'
 import type { GameInstance } from '@/helpers/types'
 
-defineProps<{
+const props = defineProps<{
     instances: GameInstance[]
-    selectedInstanceId?: string | null
-}>()
-
-const emit = defineEmits<{
-    select: [instance: GameInstance]
+    selectedInstanceId: string | null
+    selectionPending: boolean
+    saveSelection: (instance: GameInstance) => Promise<boolean>
 }>()
 
 const { formatMessage } = useVIntl()
 const modal = ref<InstanceType<typeof NewModal>>()
 const instancePicker = ref<InstanceType<typeof InstancePickerList>>()
+const submitting = ref(false)
+const busy = computed(() => submitting.value || props.selectionPending)
 
 const messages = defineMessages({
     title: {
@@ -48,9 +48,17 @@ function show() {
     void nextTick(() => instancePicker.value?.focus())
 }
 
-function selectInstance(instance: GameInstance) {
-    emit('select', instance)
-    modal.value?.hide()
+async function selectInstance(instance: GameInstance) {
+    if (busy.value) return
+
+    submitting.value = true
+    try {
+        if (!(await props.saveSelection(instance))) return
+    } finally {
+        submitting.value = false
+    }
+    await nextTick()
+    await modal.value?.hide()
 }
 
 defineExpose({ show })
@@ -60,12 +68,16 @@ defineExpose({ show })
     <NewModal
         ref="modal"
         :header="formatMessage(messages.title)"
+        :disable-close="busy"
         max-width="560px"
         width="min(560px, calc(100vw - 2rem))"
         scrollable
         max-content-height="min(36rem, 70vh)"
     >
-        <div class="flex min-w-0 flex-col gap-4">
+        <p v-if="busy" role="status" class="m-0 mb-2 text-sm text-[var(--color-text-tertiary)]">
+            {{ formatMessage(commonMessages.savingButton) }}
+        </p>
+        <fieldset :disabled="busy" class="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
             <InstancePickerList
                 ref="instancePicker"
                 :instances="instances"
@@ -85,6 +97,6 @@ defineExpose({ show })
                     />
                 </template>
             </InstancePickerList>
-        </div>
+        </fieldset>
     </NewModal>
 </template>

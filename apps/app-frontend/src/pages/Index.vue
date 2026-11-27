@@ -48,6 +48,7 @@ import HomeMinecraftNews from '@/components/home/HomeMinecraftNews.vue'
 import HomeMinimal from '@/components/home/HomeMinimal.vue'
 import HomeMinimalCustomizer from '@/components/home/HomeMinimalCustomizer.vue'
 import HomePlayInsights from '@/components/home/HomePlayInsights.vue'
+import { useHomeInstanceSelection } from '@/components/home/use-home-instance-selection'
 import { useInstanceList } from '@/composables/instances/use-instance-list'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { get_default_user, users } from '@/helpers/auth'
@@ -56,7 +57,6 @@ import {
     appSettingsQueryOptions,
     update as updateSettings,
 } from '@/helpers/settings'
-import type { GameInstance } from '@/helpers/types'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
 import { useTheming } from '@/store/state'
 import type { FeatureFlag, HomeLayout } from '@/store/theme'
@@ -123,6 +123,11 @@ breadcrumbs.setRootContext({ name: formatMessage(messages.home), link: route.pat
 
 const { data: instanceData, load: loadInstances } = useInstanceList(handleError)
 const instances = computed(() => instanceData.value ?? [])
+const {
+    selectedInstanceId,
+    selecting,
+    select: selectMinimalInstance,
+} = useHomeInstanceSelection(instanceData, handleError)
 const playerName = ref<string | null>(null)
 const playerAccountId = ref<string | null>(null)
 const dashboardConfig = ref<HomeDashboardConfig | null>(null)
@@ -177,6 +182,7 @@ onClickOutside(
 )
 
 function changeMinimalInstance() {
+    if (selecting.value) return
     minimalCustomizerOpen.value = false
     instancePicker.value?.show()
 }
@@ -195,23 +201,6 @@ const animateSidebarShow = ref(false)
 const sidebarTimer = setTimeout(() => {
     animateSidebarShow.value = true
 }, 200)
-
-async function clearMissingMinimalInstance() {
-    const selectedId = themeStore.minimalHomeInstanceId
-    if (!selectedId || instances.value.some((instance) => instance.id === selectedId)) return
-
-    themeStore.minimalHomeInstanceId = null
-    try {
-        const settings = await updateSettings({ minimal_home_instance_id: null })
-        queryClient.setQueryData(appSettingsKeys.all, settings)
-    } catch (error) {
-        handleError(error)
-    }
-}
-
-watch(instanceData, (data) => {
-    if (data) void clearMissingMinimalInstance()
-})
 
 async function fetchPlayerName() {
     const [selectedUser, accounts] = await Promise.all([
@@ -343,22 +332,14 @@ function resetDashboardConfig() {
     updateDashboardConfig({ ...createDefaultHomeDashboard(), ...(minimal ? { minimal } : {}) })
 }
 
-async function selectMinimalInstance(instance: GameInstance) {
-    try {
-        await updateSettings({ minimal_home_instance_id: instance.id })
-        themeStore.minimalHomeInstanceId = instance.id
-    } catch (error) {
-        handleError(error)
-    }
-}
-
 function createInstance() {
     void router.push('/create')
 }
 
 provide(HOME_LAUNCH_KEY, {
-    selectedInstanceId: computed(() => themeStore.minimalHomeInstanceId ?? null),
-    choose: () => instancePicker.value?.show(),
+    selectedInstanceId,
+    selecting,
+    choose: changeMinimalInstance,
     select: (instance) => void selectMinimalInstance(instance),
     create: createInstance,
 })
@@ -407,7 +388,6 @@ const [loadedInstances] = await Promise.all([
     loadInstances().catch(() => undefined),
     loadDashboardConfig(),
 ])
-if (loadedInstances && !disposed) void clearMissingMinimalInstance()
 if (!loadedInstances || loadedInstances.length > 0) void fetchPlayerName()
 </script>
 
@@ -415,8 +395,9 @@ if (!loadedInstances || loadedInstances.length > 0) void fetchPlayerName()
     <HomeInstancePickerModal
         ref="instancePicker"
         :instances="instances"
-        :selected-instance-id="themeStore.minimalHomeInstanceId"
-        @select="selectMinimalInstance"
+        :selected-instance-id="selectedInstanceId"
+        :selection-pending="selecting"
+        :save-selection="selectMinimalInstance"
     />
     <HomeGreetingAccountModal
         ref="greetingAccountModal"
@@ -556,7 +537,7 @@ if (!loadedInstances || loadedInstances.length > 0) void fetchPlayerName()
         ref="minimalCustomizer"
         :style="minimalCustomizerStyle"
         :options="dashboardConfig?.minimal"
-        :can-change-instance="instances.length > 0"
+        :can-change-instance="instances.length > 0 && !selecting"
         @update="updateMinimalOptions"
         @close="minimalCustomizerOpen = false"
         @change-instance="changeMinimalInstance"

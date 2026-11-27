@@ -72,6 +72,7 @@ const { formatMessage } = useVIntl()
 const formatRelativeTime = useRelativeTime()
 const { offline } = useNetworkStatus()
 const launch = inject(HOME_LAUNCH_KEY, null)
+const selecting = computed(() => launch?.selecting.value ?? false)
 const runtime = useOptionalHomeDashboardRuntime()
 
 const messages = defineMessages({
@@ -437,13 +438,24 @@ const iconSize = computed(() => {
                                     : undefined
                             "
                             type="button"
-                            class="home-launch-switch"
-                            :aria-label="formatMessage(messages.switchInstance)"
+                            class="home-launch-switch disabled:opacity-60"
+                            :aria-label="
+                                formatMessage(
+                                    selecting
+                                        ? commonMessages.savingButton
+                                        : messages.switchInstance,
+                                )
+                            "
+                            :disabled="selecting"
                             @click="launch.choose()"
                         >
                             <ArrowLeftRightIcon aria-hidden="true" />
                             <span class="home-launch-switch-label">{{
-                                formatMessage(messages.switchInstance)
+                                formatMessage(
+                                    selecting
+                                        ? commonMessages.savingButton
+                                        : messages.switchInstance,
+                                )
                             }}</span>
                         </button>
                     </div>
@@ -462,7 +474,8 @@ const iconSize = computed(() => {
                             :key="instance.id"
                             v-tooltip="formatMessage(messages.switchTo, { name: instance.name })"
                             type="button"
-                            class="home-launch-switch-avatar"
+                            class="home-launch-switch-avatar disabled:opacity-60"
+                            :disabled="selecting"
                             :aria-label="formatMessage(messages.switchTo, { name: instance.name })"
                             @click="launch.select(instance)"
                         >
@@ -501,6 +514,7 @@ const iconSize = computed(() => {
                             color="brand"
                             size="xl"
                             class="home-launch-primary"
+                            :loading="!fresh && selecting"
                             @click="fresh ? launch?.create() : launch?.choose()"
                         >
                             <PlusIcon v-if="fresh" aria-hidden="true" />
@@ -544,7 +558,8 @@ const iconSize = computed(() => {
                             :key="instance.id"
                             v-tooltip="instance.name"
                             type="button"
-                            class="home-launch-switch-avatar"
+                            class="home-launch-switch-avatar disabled:opacity-60"
+                            :disabled="selecting"
                             :aria-label="formatMessage(messages.switchTo, { name: instance.name })"
                             @click="launch.select(instance)"
                         >
@@ -573,7 +588,8 @@ const iconSize = computed(() => {
                 }}</span>
                 <button
                     type="button"
-                    class="home-launch-recent-all home-legible"
+                    class="home-launch-recent-all home-legible disabled:opacity-60"
+                    :disabled="selecting"
                     @click="launch.choose()"
                 >
                     <span>{{ formatMessage(messages.allInstances) }}</span>
@@ -585,7 +601,8 @@ const iconSize = computed(() => {
                     <button
                         v-tooltip="formatMessage(messages.switchTo, { name: instance.name })"
                         type="button"
-                        class="home-launch-recent-card home-surface"
+                        class="home-launch-recent-card home-surface disabled:opacity-60"
+                        :disabled="selecting"
                         @click="launch.select(instance)"
                     >
                         <InstanceIcon

@@ -10,6 +10,7 @@ import { resolveHomeLaunchInstance } from './home-utils'
  */
 export type HomeLaunchContext = {
     selectedInstanceId: Readonly<Ref<string | null>>
+    selecting: Readonly<Ref<boolean>>
     /** Opens the instance picker. */
     choose: () => void
     /** Makes this instance the Home instance. */

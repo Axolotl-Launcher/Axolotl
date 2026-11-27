@@ -91,6 +91,7 @@ function launchContext(selectedId: string | null) {
     const selectedInstanceId = ref(selectedId)
     const context: HomeLaunchContext = {
         selectedInstanceId: computed(() => selectedInstanceId.value),
+        selecting: ref(false),
         choose: vi.fn(),
         select: vi.fn((instance: GameInstance) => {
             selectedInstanceId.value = instance.id

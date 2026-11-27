@@ -1071,6 +1071,112 @@ pub(crate) async fn strict_all<T: DeserializeOwned>(
     Ok(rows)
 }
 
+/// Recover paths copied with the data root while keeping active file work
+/// fenced. A matching envelope authenticates the publication's identity, not
+/// the absolute paths that may still be embedded in pending file work.
+pub(crate) async fn rebind_copied_history(
+    pool: &sqlx::SqlitePool,
+    settings_root: &Path,
+    content_root: &Path,
+) -> crate::Result<()> {
+    let mut connection = pool.acquire().await?;
+    if !active(&mut connection).await? {
+        return Ok(());
+    }
+    let records: Vec<(String, String, Option<String>, i64, String, String, Option<String>)> = sqlx::query_as(
+        "SELECT p.kind,p.id,p.instance_id,p.revision,p.object_path,p.sha256,i.path \
+         FROM main.operation_publications p \
+         LEFT JOIN instances.instances i ON i.id=p.instance_id AND i.symlink_target IS NULL \
+             AND i.game_dir_override IS NULL AND i.linked_dot_minecraft IS NULL \
+             AND NOT EXISTS(SELECT 1 FROM main.operation_detached_owners d WHERE d.instance_id=i.id) \
+         WHERE p.deleted=0 AND p.kind IN ('install_jobs','resource_operation_plans','resource_entry_graphs') \
+             AND NOT EXISTS(SELECT 1 FROM main.operation_opaque o WHERE o.kind=p.kind)",
+    ).fetch_all(&mut *connection).await?;
+    drop(connection);
+    let settings = tokio::fs::canonicalize(settings_root).await?;
+    let profiles_dir = Path::new(crate::state::INSTANCES_FOLDER_NAME);
+    let profiles_root = content_root.join(profiles_dir);
+    let profiles = tokio::fs::canonicalize(&profiles_root).await.ok();
+    for (kind, key, owner, revision, old, hash, profile) in records {
+        let old_path = Path::new(&old);
+        if !old_path.is_absolute()
+            || !matches!(tokio::fs::symlink_metadata(old_path).await, Err(error) if error.kind() == std::io::ErrorKind::NotFound)
+        {
+            continue;
+        }
+        let external = Path::new(crate::state::layout::EXTERNAL_OPERATIONS)
+            .join(crate::state::instances::manifest::id_key(
+                owner.as_deref().unwrap_or("_launcher"),
+            ))
+            .join("operations");
+        let Some(filename) = old_path.file_name().filter(|_| {
+            old_path
+                .extension()
+                .is_some_and(|extension| extension == "json")
+        }) else {
+            continue;
+        };
+        let candidate = if old_path.ends_with(external.join(filename)) {
+            let relative = external.join(filename);
+            Some((settings_root.join(&relative), settings.join(relative)))
+        } else {
+            profiles.as_ref().zip(profile.as_deref()).and_then(
+                |(profiles, profile)| {
+                    let relative = crate::util::io::safe_relative_join(
+                        Path::new(""),
+                        profile,
+                    )
+                    .ok()?
+                    .join(".axolotl/operations")
+                    .join(filename);
+                    old_path.ends_with(profiles_dir.join(&relative)).then(
+                        || {
+                            (
+                                profiles_root.join(&relative),
+                                profiles.join(relative),
+                            )
+                        },
+                    )
+                },
+            )
+        };
+        let Some((candidate, canonical_candidate)) = candidate else {
+            continue;
+        };
+        // Canonical equality also excludes junctions or links below the
+        // current roots. The envelope reader checks every shard separately.
+        if !matches!(tokio::fs::canonicalize(&candidate).await, Ok(path) if path == canonical_candidate)
+        {
+            continue;
+        }
+        let read = |path| {
+            crate::state::recovery::record::read(
+                path,
+                &hash,
+                &kind,
+                &key,
+                owner.as_deref(),
+                revision,
+            )
+        };
+        let Ok(value) = read(&candidate).await else {
+            continue;
+        };
+        if validate_value(&kind, &value).is_err()
+            || has_file_obligation(&kind, &value)
+            || (kind == "resource_operation_plans"
+                && value["queued"].as_bool() != Some(false)
+                && value["completed"].as_bool() != Some(true))
+            || read(old_path).await.is_ok()
+        {
+            continue;
+        }
+        sqlx::query("UPDATE main.operation_publications SET object_path=? WHERE kind=? AND id=? AND revision=? AND sha256=? AND object_path=? AND deleted=0")
+            .bind(candidate.to_string_lossy().as_ref()).bind(kind).bind(key).bind(revision).bind(hash).bind(old).execute(pool).await?;
+    }
+    Ok(())
+}
+
 pub(crate) async fn interpret_all(
     pool: &sqlx::SqlitePool,
 ) -> crate::Result<()> {
@@ -1537,6 +1643,105 @@ mod tests {
             .into_iter()
             .find(|record| record.1 == key)
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn copied_history_rebinds_only_verified_records_without_pending_file_work()
+     {
+        let (root, pool, profile) = removal_fixture().await;
+        let previous = tempfile::tempdir().unwrap();
+        let managed = profile.join(".axolotl/operations");
+        let external = Path::new(crate::state::layout::EXTERNAL_OPERATIONS)
+            .join(crate::state::instances::manifest::id_key("other"))
+            .join("operations");
+        tokio::fs::create_dir_all(&managed).await.unwrap();
+        tokio::fs::create_dir_all(root.path().join(&external))
+            .await
+            .unwrap();
+
+        for (id, owner, relative, queued, corrupt) in [
+            (
+                "managed",
+                "first",
+                PathBuf::from("profiles/first/.axolotl/operations"),
+                false,
+                false,
+            ),
+            ("external", "other", external, false, false),
+            (
+                "pending",
+                "first",
+                PathBuf::from("profiles/first/.axolotl/operations"),
+                true,
+                false,
+            ),
+            (
+                "corrupt",
+                "first",
+                PathBuf::from("profiles/first/.axolotl/operations"),
+                false,
+                true,
+            ),
+        ] {
+            let kind = "resource_operation_plans";
+            let relative = relative.join(format!("{id}.json"));
+            let candidate = root.path().join(&relative);
+            let hash = crate::state::recovery::record::write(
+                &candidate, kind, id, Some(owner), 1,
+                json!({"instance_id": owner, "payload": "{}", "queued": queued, "completed": false}),
+            ).await.unwrap();
+            sqlx::query("INSERT INTO main.operation_publications(kind,id,instance_id,revision,object_path,sha256) VALUES(?,?,?,1,?,?)")
+                .bind(kind).bind(id).bind(owner).bind(previous.path().join(&relative).to_string_lossy().as_ref())
+                .bind(if corrupt { "bad-hash" } else { &hash }).execute(&pool).await.unwrap();
+        }
+
+        rebind_copied_history(&pool, root.path(), root.path())
+            .await
+            .unwrap();
+
+        for id in ["managed", "external", "pending", "corrupt"] {
+            let path: String = sqlx::query_scalar("SELECT object_path FROM main.operation_publications WHERE id=?")
+                .bind(id).fetch_one(&pool).await.unwrap();
+            let mut connection = pool.acquire().await.unwrap();
+            let value =
+                read::<Value>(&mut connection, "resource_operation_plans", id)
+                    .await;
+            if matches!(id, "pending" | "corrupt") {
+                assert!(Path::new(&path).starts_with(previous.path()));
+                assert!(value.is_err());
+            } else {
+                assert!(Path::new(&path).starts_with(root.path()));
+                assert!(value.unwrap().is_some());
+            }
+        }
+
+        let next = tempfile::tempdir().unwrap();
+        let relative =
+            Path::new("profiles/first/.axolotl/operations/managed.json");
+        let next_path = next.path().join(relative);
+        let hash: String = sqlx::query_scalar(
+            "SELECT sha256 FROM main.operation_publications WHERE id='managed'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        crate::state::recovery::record::copy_exact(
+            &root.path().join(relative),
+            &next_path,
+            &hash,
+            "resource_operation_plans",
+            "managed",
+            Some("first"),
+            1,
+        )
+        .await
+        .unwrap();
+        move_authority(&pool, root.path(), root.path(), next.path())
+            .await
+            .unwrap();
+        let path: String = sqlx::query_scalar("SELECT object_path FROM main.operation_publications WHERE id='managed'")
+            .fetch_one(&pool).await.unwrap();
+        assert_eq!(Path::new(&path), next_path);
     }
 
     #[tokio::test]

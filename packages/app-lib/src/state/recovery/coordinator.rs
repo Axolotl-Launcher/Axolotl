@@ -67,6 +67,11 @@ pub(crate) async fn start(state: Arc<State>) {
             state.spawn_background(async move {
                 phases(
                     async {
+                        if let Err(error) = recovery_documents::rebind_copied_history(
+                            &worker.pool, &worker.directories.settings_dir, &worker.directories.config_dir,
+                        ).await {
+                            tracing::warn!(%error, "Could not rebind history copied with the launcher data directory");
+                        }
                         if let Err(error) = recovery_documents::interpret_all(&worker.pool).await {
                             tracing::warn!(%error, "Some recovery records remain opaque; other records continue");
                         }

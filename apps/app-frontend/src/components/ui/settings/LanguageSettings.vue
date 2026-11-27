@@ -161,21 +161,29 @@ function retrySave() {
                 <SettingsSaveStatus :status="saveStatus" :retry="retrySave" />
             </template>
             <div class="flex flex-col gap-4 p-4">
-                <Admonition type="warning">
-                    {{ formatMessage(languageSelectorMessages.languageWarning, { platform }) }}
+                <Admonition type="info">
+                    <div class="flex flex-col gap-2 text-sm leading-normal">
+                        <p class="m-0">
+                            <IntlFormatted
+                                :message-id="languageSelectorMessages.languagesDescription"
+                                :values="{ platform }"
+                            >
+                                <template #~crowdin-link="{ children }">
+                                    <AutoLink to="https://translate.modrinth.com">
+                                        <component :is="() => children" />
+                                    </AutoLink>
+                                </template>
+                            </IntlFormatted>
+                        </p>
+                        <p class="m-0 text-[var(--color-text-tertiary)]">
+                            {{
+                                formatMessage(languageSelectorMessages.languageWarning, {
+                                    platform,
+                                })
+                            }}
+                        </p>
+                    </div>
                 </Admonition>
-                <p class="settings-page-description">
-                    <IntlFormatted
-                        :message-id="languageSelectorMessages.languagesDescription"
-                        :values="{ platform }"
-                    >
-                        <template #~crowdin-link="{ children }">
-                            <AutoLink to="https://translate.modrinth.com">
-                                <component :is="() => children" />
-                            </AutoLink>
-                        </template>
-                    </IntlFormatted>
-                </p>
                 <div class="flex flex-col gap-1.5">
                     <label class="text-sm font-semibold text-[var(--color-text-primary)]">
                         {{ formatMessage(commonSettingsMessages.language) }}
@@ -227,13 +235,6 @@ function retrySave() {
 </template>
 
 <style scoped>
-.settings-page-description {
-    margin: 0;
-    color: var(--color-text-tertiary);
-    font-size: 0.875rem;
-    line-height: 1.5;
-}
-
 .language-system-toggle:hover:not(:disabled) {
     border-color: var(--surface-5);
     color: var(--color-text-primary);

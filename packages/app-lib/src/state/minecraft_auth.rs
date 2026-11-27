@@ -553,7 +553,15 @@ impl Credentials {
             });
 
         Self {
-            credential_persistence: Some(persistence),
+            credential_persistence: Some(
+                if yggdrasil.as_ref().is_some_and(|account| {
+                    account.client_token.trim().is_empty()
+                }) {
+                    CredentialPersistence::RequiresLogin
+                } else {
+                    persistence
+                },
+            ),
             account_id: Some(account_id),
             offline_profile: MinecraftProfile {
                 id: Uuid::parse_str(&record.uuid).unwrap_or_default(),
@@ -580,6 +588,10 @@ impl Credentials {
         }
         if self.access_token.is_empty()
             || (self.is_microsoft() && self.refresh_token.is_empty())
+            || (self.is_yggdrasil()
+                && self.yggdrasil.as_ref().is_none_or(|account| {
+                    account.client_token.trim().is_empty()
+                }))
         {
             self.credential_persistence =
                 Some(CredentialPersistence::RequiresLogin);
@@ -1998,6 +2010,39 @@ mod refresh_coalescing_tests {
         credential.refresh_token = "old-refresh".into();
         credential.expires = Utc::now() - Duration::minutes(1);
         credential
+    }
+
+    #[tokio::test]
+    async fn stored_yggdrasil_account_with_no_client_token_requires_login() {
+        let profile = Uuid::new_v4();
+        let id = profile.to_string();
+        let mut credential = Credentials::from_stored(
+            id.clone(),
+            MinecraftUserRecord {
+                uuid: id,
+                active: true,
+                username: "ExternalPlayer".into(),
+                account_type: to_stored_account_type(
+                    MinecraftAccountType::Yggdrasil,
+                ),
+                access_token: "stored-access".into(),
+                refresh_token: String::new(),
+                expires: (Utc::now() + Duration::hours(1)).timestamp(),
+                yggdrasil_api_root: "https://example.test/api".into(),
+                yggdrasil_server_name: "External".into(),
+                yggdrasil_login: "ExternalPlayer".into(),
+                yggdrasil_client_token: String::new(),
+            },
+            CredentialPersistence::Keyring,
+        );
+
+        assert!(matches!(
+            credential.credential_persistence,
+            Some(CredentialPersistence::RequiresLogin)
+        ));
+        let error = credential.refresh(&handle()).await.unwrap_err();
+        assert!(error.to_string().contains("sign in again"));
+        assert_eq!(credential.offline_profile.id, profile);
     }
     #[tokio::test]
     async fn concurrent_readers_reuse_completed_refresh_without_network() {

@@ -496,11 +496,20 @@
     },
     {
       "file": "apps/app/src/exit_barrier.rs",
-      "form": "tauri::async_runtime::spawn",
+      "form": "std::thread::spawn",
       "count": 1,
-      "reason": "exit hard-cap watchdog: started once by the first exit pass, follows the re-armable deadline (15 s normal, 30 s restart, disarmed for a pending update) and exits the process at the cap (spec §8.6)",
+      "reason": "Exit hard-cap timer runs once per process on an OS thread so a stalled Tauri runtime cannot stop it. It observes the re-armable deadline and exits without waiting on shutdown tasks or loss reporting.",
       "sites": [
-        "watch_hard_cap: tauri::async_runtime::spawn(async move {"
+        "watch_hard_cap: std::thread::spawn(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/exit_barrier.rs",
+      "form": "std::thread::sleep",
+      "count": 1,
+      "reason": "The shutdown watchdog waits on its dedicated OS thread for at most 250 ms before rechecking the deadline. No scheduler work or business lock is held.",
+      "sites": [
+        "watch_hard_cap: std::thread::sleep(wait);"
       ]
     },
     {

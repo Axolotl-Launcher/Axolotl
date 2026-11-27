@@ -1241,7 +1241,7 @@ fn main() {
                         exit_barrier::cap_for(intent),
                     );
                     if let Some(_pass) = pass {
-                        exit_barrier::watch_hard_cap(exit_losses);
+                        exit_barrier::watch_hard_cap();
                         run_exit_steps(app);
                         // Steps 6–7 still get the ordinary cap after a
                         // restart's extended pass. An update is disarmed until
@@ -1266,7 +1266,7 @@ fn main() {
                         exit_barrier::cap_for(intent),
                     );
                     if let Some(_pass) = pass {
-                        exit_barrier::watch_hard_cap(exit_losses);
+                        exit_barrier::watch_hard_cap();
                         run_exit_steps(app);
                     }
                 }

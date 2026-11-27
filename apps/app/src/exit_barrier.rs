@@ -20,8 +20,8 @@
 //! overhead. A user-requested restart or a pending update gets [`RESTART_CAP`]
 //! for steps 1–5; a restart then gets the ordinary cap again for steps 6–7,
 //! while an update disarms it for the install and [`rearm`] bounds the steps
-//! after it returns. At the cap the barrier records the losses and exits the
-//! process; L3 work is never killed by the barrier, it ends with the process
+//! after it returns. At the cap the watchdog exits the process without waiting
+//! on the runtime or on loss reporting. L3 work ends with the process
 //! and is settled as interrupted on the next start.
 //!
 //! Exit paths: the frontend's `exit_app`, the tray's quit, the frontend's
@@ -174,8 +174,13 @@ pub enum CapCheck {
     Reached,
 }
 
+#[cfg(test)]
 pub fn check_cap(now_ms: u64) -> CapCheck {
-    match deadline_ms() {
+    check_deadline(deadline_ms(), now_ms)
+}
+
+fn check_deadline(deadline_ms: u64, now_ms: u64) -> CapCheck {
+    match deadline_ms {
         0 => CapCheck::Disarmed,
         deadline if now_ms >= deadline => CapCheck::Reached,
         deadline => {
@@ -185,27 +190,33 @@ pub fn check_cap(now_ms: u64) -> CapCheck {
 }
 
 /// Starts the hard-cap watchdog once. It follows the deadline as it is
-/// re-armed; when the cap is reached it records the losses and exits.
-pub fn watch_hard_cap(losses: fn() -> Vec<Loss>) {
+/// re-armed. Its only job is to terminate the process if shutdown stalls.
+pub fn watch_hard_cap() {
     if WATCHDOG_STARTED.swap(true, Ordering::AcqRel) {
         return;
     }
-    tauri::async_runtime::spawn(async move {
+    std::thread::spawn(move || {
         loop {
-            match check_cap(now_millis()) {
-                CapCheck::Disarmed => {
-                    // Re-armed by a later exit; keep following it.
-                    tokio::time::sleep(Duration::from_millis(250)).await;
-                }
-                CapCheck::Wait(wait) => tokio::time::sleep(wait).await,
+            let deadline = deadline_ms();
+            let wait = match check_deadline(deadline, now_millis()) {
+                CapCheck::Disarmed => Duration::from_millis(250),
+                CapCheck::Wait(wait) => wait,
                 CapCheck::Reached => {
-                    tracing::error!(
-                        "Exit did not finish within its hard cap; exiting without waiting further"
-                    );
-                    record(&losses());
-                    std::process::exit(0);
+                    if EXIT_DEADLINE_MS
+                        .compare_exchange(
+                            deadline,
+                            0,
+                            Ordering::AcqRel,
+                            Ordering::Acquire,
+                        )
+                        .is_ok()
+                    {
+                        std::process::exit(0);
+                    }
+                    continue;
                 }
-            }
+            };
+            std::thread::sleep(wait);
         }
     });
 }

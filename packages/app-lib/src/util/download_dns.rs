@@ -117,6 +117,10 @@ impl CachedAddresses {
     fn is_fresh(&self) -> bool {
         self.resolved_at.elapsed() < self.ttl
     }
+
+    fn expire(&mut self) {
+        self.ttl = Duration::ZERO;
+    }
 }
 
 #[derive(Clone)]
@@ -341,7 +345,7 @@ impl DownloadDnsResolver {
         {
             return false;
         }
-        entry.resolved_at = Instant::now() - CACHE_TTL;
+        entry.expire();
         entry.prefer_system = self.doh_enabled;
         true
     }
@@ -353,7 +357,7 @@ impl DownloadDnsResolver {
         // sched-order: theseus::util::download_dns::DownloadDnsResolver.last_resolved
         let mut cached = self.last_resolved.lock();
         if let Some(entry) = cached.get_mut(host) {
-            entry.resolved_at = Instant::now() - CACHE_TTL;
+            entry.expire();
             entry.prefer_system = true;
         }
     }
@@ -785,7 +789,7 @@ impl DownloadDnsResolver {
                     .last_resolved
                     .lock()
                     .get(&host)
-                    .map(|entry| entry.resolved_at + CACHE_TTL)
+                    .map(|entry| entry.resolved_at + entry.ttl)
                     .unwrap_or(now);
                 let answer = DnsAnswer {
                     queried_host: resolution_host,
@@ -1074,7 +1078,7 @@ impl DownloadDnsResolver {
     #[cfg(test)]
     fn expire_cache(&self, host: &str) {
         if let Some(entry) = self.last_resolved.lock().get_mut(host) {
-            entry.resolved_at = Instant::now() - CACHE_TTL;
+            entry.expire();
         }
     }
 
@@ -1803,6 +1807,26 @@ mod tests {
         resolver.record_host_success("late-success.test", address);
 
         assert!(resolver.resolved_addresses("late-success.test").is_empty());
+    }
+
+    #[test]
+    fn system_recovery_expires_the_cache_without_backdating_its_timestamp() {
+        let resolver = DownloadDnsResolver::with_doh(true).unwrap();
+        let host = "system-recovery.test";
+        resolver.cache_addresses(
+            host.to_string(),
+            vec![SocketAddr::from((Ipv4Addr::LOCALHOST, 0))],
+            CACHE_TTL,
+        );
+        let resolved_at = resolver.last_resolved.lock()[host].resolved_at;
+
+        resolver.request_system_recovery(host);
+
+        let cache = resolver.last_resolved.lock();
+        let entry = &cache[host];
+        assert_eq!(entry.resolved_at, resolved_at);
+        assert!(entry.prefer_system);
+        assert!(!entry.is_fresh());
     }
 
     #[tokio::test]

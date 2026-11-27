@@ -9,19 +9,66 @@ use crate::util::{fetch, io};
 use super::direct_link::LinkedLauncherDialect;
 use super::{freetype, pcl_ce_json, version_json};
 
-/// Persist the verified FreeType replacement in the version manifests that
-/// supplied the launch profile, without flattening inheritance.
-pub(super) async fn persist(
+#[derive(Default)]
+pub(super) struct PreparedManifestRepair {
+    write: Option<ManifestWrite>,
+    dialect: Option<LinkedLauncherDialect>,
+}
+
+struct ManifestWrite {
+    path: PathBuf,
+    original: Vec<u8>,
+    contents: Vec<u8>,
+    downloads: Vec<LibraryDownload>,
+}
+
+impl PreparedManifestRepair {
+    pub(super) fn downloads(&self) -> &[LibraryDownload] {
+        self.write
+            .as_ref()
+            .map_or(&[], |write| write.downloads.as_slice())
+    }
+
+    /// Publish atomically after verifying every JAR in the updated manifest.
+    pub(super) async fn persist(self) -> crate::Result<()> {
+        let Some(write) = self.write else {
+            return Ok(());
+        };
+        let lock = fetch::destination_download_lock(&write.path);
+        let _guard = lock.lock().await;
+        let latest = io::read(&write.path).await?;
+        if latest == write.original {
+            io::write(write.path, write.contents).await?;
+        } else if !matches!(
+            patched_manifest(&write.path, &latest, self.dialect)?,
+            ManifestPatch::Unchanged
+        ) {
+            return Err(crate::ErrorKind::FSError(format!(
+                "Version manifest {} changed while updating FreeType",
+                write.path.display()
+            ))
+            .into());
+        }
+        Ok(())
+    }
+}
+
+/// Inspect the entire inheritance chain and prepare a single atomic write
+/// when all changes belong to the same manifest.
+pub(super) async fn prepare(
     paths: &[PathBuf],
     versions_dir: &Path,
     dialect: Option<LinkedLauncherDialect>,
-) -> crate::Result<()> {
+) -> crate::Result<PreparedManifestRepair> {
     if paths.is_empty() {
-        return Ok(());
+        return Ok(PreparedManifestRepair::default());
     }
     let versions_dir = io::canonicalize(versions_dir)?;
     let mut seen = HashSet::new();
-    let mut pending = Vec::new();
+    let mut repair = PreparedManifestRepair {
+        dialect,
+        ..Default::default()
+    };
     for path in paths {
         let path = io::canonicalize(path)?;
         if !path.starts_with(&versions_dir) || path == versions_dir {
@@ -36,55 +83,82 @@ pub(super) async fn persist(
             continue;
         }
         let bytes = io::read(&path).await?;
-        if let Some(output) = patched_manifest(&path, &bytes, dialect)? {
-            pending.push((path, bytes, output));
+        match patched_manifest(&path, &bytes, dialect)? {
+            ManifestPatch::Unchanged => {}
+            // An untouched custom native declaration could still require the old
+            // Java binding. Keep all manifests in the chain as they were.
+            ManifestPatch::Unsupported => {
+                return Ok(PreparedManifestRepair::default());
+            }
+            ManifestPatch::Changed {
+                contents,
+                mut downloads,
+            } => {
+                if repair.write.is_some() {
+                    tracing::debug!(
+                        "Keeping the FreeType repair in memory because it spans multiple version manifests"
+                    );
+                    return Ok(PreparedManifestRepair::default());
+                }
+                let mut artifact_paths = HashSet::new();
+                downloads.retain(|download| {
+                    artifact_paths.insert(download.path.clone())
+                });
+                repair.write = Some(ManifestWrite {
+                    path,
+                    original: bytes,
+                    contents,
+                    downloads,
+                });
+            }
         }
     }
+    Ok(repair)
+}
 
-    for (path, original, contents) in pending {
-        let lock = fetch::destination_download_lock(&path);
-        let _guard = lock.lock().await;
-        let latest = io::read(&path).await?;
-        if latest == original {
-            io::write(path, contents).await?;
-        } else if patched_manifest(&path, &latest, dialect)?.is_some() {
-            return Err(crate::ErrorKind::FSError(format!(
-                "Version manifest {} changed while updating FreeType; retry the launch",
-                path.display()
-            ))
-            .into());
-        }
-    }
-    Ok(())
+enum ManifestPatch {
+    Unchanged,
+    Unsupported,
+    Changed {
+        contents: Vec<u8>,
+        downloads: Vec<LibraryDownload>,
+    },
 }
 
 fn patched_manifest(
     path: &Path,
     bytes: &[u8],
     dialect: Option<LinkedLauncherDialect>,
-) -> crate::Result<Option<Vec<u8>>> {
+) -> crate::Result<ManifestPatch> {
     let mut manifest = if dialect == Some(LinkedLauncherDialect::PclCe) {
         pcl_ce_json::parse_raw(path, bytes)?
     } else {
         version_json::parse_version_json(path, bytes, true)?
     };
-    if !patch_manifest(&mut manifest, dialect) {
-        return Ok(None);
+    let mut downloads = Vec::new();
+    if patch_manifest(&mut manifest, dialect, &mut downloads).is_err() {
+        return Ok(ManifestPatch::Unsupported);
     }
-    let mut output = serde_json::to_vec_pretty(&manifest)?;
-    output.push(b'\n');
-    Ok(Some(output))
+    if downloads.is_empty() {
+        return Ok(ManifestPatch::Unchanged);
+    }
+    let mut contents = serde_json::to_vec_pretty(&manifest)?;
+    contents.push(b'\n');
+    Ok(ManifestPatch::Changed {
+        contents,
+        downloads,
+    })
 }
 
 fn patch_manifest(
     manifest: &mut Value,
     dialect: Option<LinkedLauncherDialect>,
-) -> bool {
+    downloads: &mut Vec<LibraryDownload>,
+) -> Result<(), ()> {
     let Some(manifest) = manifest.as_object_mut() else {
-        return false;
+        return Ok(());
     };
     let case_insensitive = dialect == Some(LinkedLauncherDialect::PclCe);
-    let mut changed = false;
     let pcl_patches = matches!(
         dialect,
         Some(LinkedLauncherDialect::Pcl | LinkedLauncherDialect::PclCe)
@@ -98,7 +172,7 @@ fn patch_manifest(
         && manifest.get("inheritsFrom").is_none_or(Value::is_null);
 
     if !pcl_patches && !hmcl_empty_root {
-        changed |= patch_libraries(manifest, case_insensitive);
+        patch_libraries(manifest, case_insensitive, downloads)?;
     }
     if (pcl_patches || hmcl_patches)
         && let Some(patches) =
@@ -110,31 +184,35 @@ fn patch_manifest(
                 || get_field(patch, "id", case_insensitive)
                     .is_some_and(|id| !id.is_null())
             {
-                changed |= patch_libraries(patch, case_insensitive);
+                patch_libraries(patch, case_insensitive, downloads)?;
             }
         }
     }
-    changed
+    Ok(())
 }
 
 fn patch_libraries(
     manifest: &mut Map<String, Value>,
     case_insensitive: bool,
-) -> bool {
+    artifacts: &mut Vec<LibraryDownload>,
+) -> Result<(), ()> {
     let Some(libraries) =
         get_field_mut(manifest, "libraries", case_insensitive)
             .and_then(Value::as_array_mut)
     else {
-        return false;
+        return Ok(());
     };
-    let mut changed = false;
     for library in libraries.iter_mut().filter_map(Value::as_object_mut) {
-        let Some(artifact) = get_field(library, "name", case_insensitive)
+        let Some(name) = get_field(library, "name", case_insensitive)
             .and_then(Value::as_str)
-            .and_then(freetype::replacement)
+            .filter(|name| freetype::is_freetype_coordinate(name))
         else {
             continue;
         };
+        let artifact = freetype::replacement(name).ok_or(())?;
+        if !standard_library(library, artifact, case_insensitive) {
+            return Err(());
+        }
         let mut patched = library.clone();
         let download = artifact.download();
         *field(&mut patched, "name", case_insensitive) =
@@ -149,44 +227,101 @@ fn patch_libraries(
         {
             *checksums = json!([download.sha1]);
         }
-        patched.retain(|key, _| {
-            !["hint", "filename", "MMC-hint", "MMC-filename"]
-                .iter()
-                .any(|name| field_matches(key, name, case_insensitive))
-        });
         let downloads =
             object(field(&mut patched, "downloads", case_insensitive));
         patch_download(
             field(downloads, "artifact", case_insensitive),
-            download,
+            &download,
             case_insensitive,
         );
-        if let Some(classifiers) =
-            get_field_mut(downloads, "classifiers", case_insensitive)
-                .and_then(Value::as_object_mut)
-        {
-            for (classifier, data) in classifiers {
-                if let Some(native) =
-                    freetype::replacement_for_classifier(classifier)
-                {
-                    patch_download(data, native.download(), case_insensitive);
-                }
-            }
-        }
         if let Some(target) = artifact.target() {
             restrict_native_rules(&mut patched, target, case_insensitive);
         }
         if patched != *library {
             *library = patched;
-            changed = true;
+            artifacts.push(download);
         }
     }
-    changed
+    Ok(())
+}
+
+fn standard_library(
+    library: &Map<String, Value>,
+    artifact: &freetype::Artifact,
+    case_insensitive: bool,
+) -> bool {
+    let read = |name| {
+        get_field(library, name, case_insensitive)
+            .filter(|value| !value.is_null())
+    };
+    [
+        "hint",
+        "filename",
+        "MMC-hint",
+        "MMC-filename",
+        "natives",
+        "extract",
+    ]
+    .iter()
+    .all(|name| read(name).is_none())
+        && ["downloadable", "include_in_classpath"].iter().all(|name| {
+            read(name).is_none_or(|value| value.as_bool() == Some(true))
+        })
+        && read("downloads")
+            .and_then(Value::as_object)
+            .and_then(|downloads| {
+                get_field(downloads, "classifiers", case_insensitive)
+            })
+            .is_none_or(|classifiers| {
+                classifiers.is_null()
+                    || classifiers.as_object().is_some_and(Map::is_empty)
+            })
+        && read("rules").is_none_or(|rules| {
+            rules.as_array().is_some_and(|rules| {
+                rules
+                    .iter()
+                    .all(|rule| standard_rule(rule, artifact, case_insensitive))
+            })
+        })
+}
+
+fn standard_rule(
+    rule: &Value,
+    artifact: &freetype::Artifact,
+    case_insensitive: bool,
+) -> bool {
+    let Some(rule) = rule.as_object() else {
+        return false;
+    };
+    if get_field(rule, "action", case_insensitive).and_then(Value::as_str)
+        != Some("allow")
+        || get_field(rule, "features", case_insensitive)
+            .is_some_and(|features| !features.is_null())
+    {
+        return false;
+    }
+    let Some(os) =
+        get_field(rule, "os", case_insensitive).filter(|os| !os.is_null())
+    else {
+        return true;
+    };
+    let Some(os) = os.as_object() else {
+        return false;
+    };
+    let fields: Map<String, Value> = ["name", "arch", "version"]
+        .into_iter()
+        .filter_map(|key| {
+            get_field(os, key, case_insensitive)
+                .map(|value| (key.to_owned(), value.clone()))
+        })
+        .collect();
+    serde_json::from_value::<OsRule>(Value::Object(fields))
+        .is_ok_and(|os| artifact.supports_os_rule(&os))
 }
 
 fn patch_download(
     data: &mut Value,
-    download: LibraryDownload,
+    download: &LibraryDownload,
     case_insensitive: bool,
 ) {
     let data = object(data);
@@ -291,6 +426,14 @@ mod tests {
         path
     }
 
+    async fn persist(
+        paths: &[PathBuf],
+        versions_dir: &Path,
+        dialect: Option<LinkedLauncherDialect>,
+    ) -> crate::Result<()> {
+        prepare(paths, versions_dir, dialect).await?.persist().await
+    }
+
     #[tokio::test]
     async fn freetype_persist_updates_managed_version_json_idempotently() {
         let dir = tempfile::tempdir().unwrap();
@@ -307,7 +450,13 @@ mod tests {
             }),
         );
         let paths = std::slice::from_ref(&path);
-        persist(paths, &versions, None).await.unwrap();
+        let repair = prepare(paths, &versions, None).await.unwrap();
+        assert_eq!(repair.downloads().len(), 2);
+        assert!(repair.downloads().iter().any(|download| download.sha1
+            == "134bc57b83e78a7f954a0f078093e319739d42ea"));
+        assert!(repair.downloads().iter().any(|download| download.sha1
+            == "f20ae220999240d484896d839694b02c2a655608"));
+        repair.persist().await.unwrap();
         let bytes = std::fs::read(&path).unwrap();
         let manifest: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(manifest["id"], "26.3");
@@ -340,8 +489,6 @@ mod tests {
                 "launcherExtension": {"custom": 1},
                 "libraries": [{
                     "name": OLD,
-                    "MMC-hint": "local",
-                    "MMC-filename": "old-local.jar",
                     "downloads": {"artifact": {"extension": "keep"}},
                 }, {"name": "org.example:unrelated:1.0.0", "custom": true}],
             }),
@@ -369,8 +516,6 @@ mod tests {
             libraries[0]["downloads"]["artifact"]["sha1"],
             "134bc57b83e78a7f954a0f078093e319739d42ea"
         );
-        assert!(libraries[0].get("MMC-hint").is_none());
-        assert!(libraries[0].get("MMC-filename").is_none());
         assert_eq!(
             libraries[1],
             json!({"name": "org.example:unrelated:1.0.0", "custom": true})
@@ -501,5 +646,70 @@ mod tests {
         let manifest: Value =
             serde_json::from_slice(&std::fs::read(&parent).unwrap()).unwrap();
         assert_eq!(manifest["libraries"][0]["name"], FIXED);
+    }
+
+    #[tokio::test]
+    async fn freetype_persist_skips_repairs_split_across_inheritance_chain() {
+        let dir = tempfile::tempdir().unwrap();
+        let versions = dir.path().join("versions");
+        let parent_manifest = json!({
+            "id": "26.3", "libraries": [{"name": OLD}],
+        });
+        let child_manifest = json!({
+            "id": "modded", "inheritsFrom": "26.3",
+            "libraries": [{"name": format!("{OLD}:natives-windows")}],
+        });
+        let parent = write_manifest(&versions, "26.3", parent_manifest);
+        let child = write_manifest(&versions, "modded", child_manifest);
+        let paths = [parent, child];
+        let original =
+            paths.each_ref().map(|path| std::fs::read(path).unwrap());
+
+        let repair =
+            prepare(&paths, &versions, Some(LinkedLauncherDialect::Hmcl))
+                .await
+                .unwrap();
+        assert!(repair.downloads().is_empty());
+        repair.persist().await.unwrap();
+        assert_eq!(
+            paths.each_ref().map(|path| std::fs::read(path).unwrap()),
+            original
+        );
+    }
+
+    #[tokio::test]
+    async fn freetype_persist_keeps_shared_chain_with_custom_native_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let versions = dir.path().join("versions");
+        let parent = write_manifest(
+            &versions,
+            "26.3",
+            json!({"id":"26.3", "libraries":[{"name":OLD}]}),
+        );
+        let parent_before = std::fs::read(&parent).unwrap();
+        for library in [
+            json!({"name":format!("{OLD}:natives-linux-arm64")}),
+            json!({"name":OLD, "natives":{"linux":"natives-linux"}}),
+            json!({"name":OLD, "MMC-hint":"local"}),
+            json!({"name":format!("{OLD}:natives-windows"), "rules":[{"action":"allow", "os":{"name":"windows", "arch":"aarch64"}}]}),
+        ] {
+            let child = write_manifest(
+                &versions,
+                "custom",
+                json!({"id":"custom", "inheritsFrom":"26.3", "libraries":[library]}),
+            );
+            let child_before = std::fs::read(&child).unwrap();
+            let repair = prepare(
+                &[parent.clone(), child.clone()],
+                &versions,
+                Some(LinkedLauncherDialect::Generic),
+            )
+            .await
+            .unwrap();
+            assert!(repair.downloads().is_empty());
+            repair.persist().await.unwrap();
+            assert_eq!(std::fs::read(&parent).unwrap(), parent_before);
+            assert_eq!(std::fs::read(&child).unwrap(), child_before);
+        }
     }
 }

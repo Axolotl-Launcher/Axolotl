@@ -42,7 +42,7 @@ use serde::Deserialize;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Output, Stdio};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
@@ -2077,6 +2077,56 @@ fn link_project_and_version(
     }
 }
 
+const FREETYPE_REPAIR_BUDGET: Duration = Duration::from_secs(5);
+
+pub(crate) fn freetype_repair_budget(
+    game_version: &str,
+    local_runtime_only: bool,
+) -> Duration {
+    if !local_runtime_only && freetype::affected_game_version(game_version) {
+        FREETYPE_REPAIR_BUDGET
+    } else {
+        Duration::ZERO
+    }
+}
+
+fn freetype_repair_deadline(
+    launch_deadline: tokio::time::Instant,
+    repair_budget: Duration,
+) -> Option<tokio::time::Instant> {
+    if repair_budget.is_zero() {
+        return None;
+    }
+    // Leave time for normal dependency preparation and process startup.
+    let now = tokio::time::Instant::now();
+    let latest = launch_deadline.checked_sub(Duration::from_secs(10))?;
+    (latest > now).then(|| latest.min(now + repair_budget))
+}
+
+async fn run_optional_freetype_step<T>(
+    deadline: tokio::time::Instant,
+    step: &str,
+    work: impl Future<Output = crate::Result<T>>,
+) -> Option<T> {
+    if deadline <= tokio::time::Instant::now() {
+        return None;
+    }
+    match tokio::time::timeout_at(deadline, work).await {
+        Ok(Ok(value)) => Some(value),
+        Ok(Err(error)) => {
+            tracing::warn!(step, %error, "FreeType repair could not finish; continuing launch");
+            None
+        }
+        Err(_) => {
+            tracing::warn!(
+                step,
+                "FreeType repair timed out; continuing launch"
+            );
+            None
+        }
+    }
+}
+
 #[tracing::instrument(skip_all, level = "info")]
 #[allow(clippy::too_many_arguments)]
 pub async fn launch_minecraft(
@@ -2089,6 +2139,7 @@ pub async fn launch_minecraft(
     maximize_window: bool,
     window_title: Option<String>,
     launch_preparation_timeout: u64,
+    launch_deadline: tokio::time::Instant,
     credentials: &Credentials,
     post_exit_hook: Option<String>,
     context: &InstanceLaunchContext,
@@ -2724,71 +2775,107 @@ pub async fn launch_minecraft(
         .as_error());
     }
 
-    // Resolve the FreeType replacement after loader overrides and Java
-    // selection. Publish it to the source manifests only after verification.
-    if !recovery_mode {
-        let game_version = &content_set.game_version;
+    let game_version = &content_set.game_version;
+    if !recovery_mode && freetype::affected_game_version(game_version) {
         let java_arch = &java_version.architecture;
-        let patched = if let Some(libraries) = &mut linked_libraries {
-            let patched = freetype::patch_linked_libraries(
-                game_version,
-                libraries,
-                java_arch,
-            );
+        if pcl_ce.is_some()
+            && let Some(libraries) = &mut linked_libraries
+        {
             // PCL-CE normalizes for the host and then discards library rules.
-            // Select FreeType natives for the JVM even on subsequent launches.
-            let pcl_ce_freetype = pcl_ce.is_some()
-                && freetype::affected_game_version(game_version);
-            if pcl_ce_freetype {
-                libraries.retain(|linked| {
-                    freetype::matches_fixed_native_target(
-                        &linked.library,
-                        java_arch,
-                    )
-                });
-            }
-            if patched || pcl_ce_freetype {
-                version_info.libraries = libraries
-                    .iter()
-                    .map(|linked| linked.library.clone())
-                    .collect();
-            }
-            patched
-        } else {
-            freetype::patch_libraries(
-                game_version,
-                &mut version_info.libraries,
-                java_arch,
-            )
-        };
+            libraries.retain(|linked| {
+                freetype::matches_fixed_native_target(
+                    &linked.library,
+                    java_arch,
+                )
+            });
+            version_info.libraries = libraries
+                .iter()
+                .map(|linked| linked.library.clone())
+                .collect();
+        }
+        if let Some(repair_deadline) = freetype_repair_deadline(
+            launch_deadline,
+            freetype_repair_budget(game_version, local_runtime_only),
+        ) {
+            let mut candidate_linked = linked_libraries.clone();
+            let candidate = if let Some(libraries) = &mut candidate_linked {
+                freetype::patch_linked_libraries(
+                    game_version,
+                    libraries,
+                    java_arch,
+                )
+                .then(|| {
+                    if pcl_ce.is_some() {
+                        libraries.retain(|linked| {
+                            freetype::matches_fixed_native_target(
+                                &linked.library,
+                                java_arch,
+                            )
+                        });
+                    }
+                    libraries
+                        .iter()
+                        .map(|linked| linked.library.clone())
+                        .collect()
+                })
+            } else {
+                let mut libraries = version_info.libraries.clone();
+                freetype::patch_libraries(
+                    game_version,
+                    &mut libraries,
+                    java_arch,
+                )
+                .then_some(libraries)
+            };
+            if let Some(candidate) = candidate {
+                let libraries_dir = runtime.libraries_dir(&state.directories);
+                let repair = download::ensure_launch_freetype(
+                    &state,
+                    &libraries_dir,
+                    &candidate,
+                    game_version,
+                    java_arch,
+                    minecraft_updated,
+                );
+                if run_optional_freetype_step(
+                    repair_deadline,
+                    "prepare libraries",
+                    repair,
+                )
+                .await
+                .is_some()
+                {
+                    version_info.libraries = candidate;
+                    linked_libraries = candidate_linked;
 
-        if patched {
-            tracing::info!(
-                instance = %instance.id,
-                %game_version,
-                %java_arch,
-                "Preparing updated FreeType libraries for launch"
-            );
-            download::ensure_launch_freetype(
-                &state,
-                &runtime.libraries_dir(&state.directories),
-                &version_info.libraries,
-                game_version,
-                java_arch,
-                minecraft_updated,
-                local_runtime_only,
-            )
-            .await?;
-            let versions_dir = direct_launch.as_ref().map_or_else(
-                || state.directories.versions_dir(),
-                |direct| direct.dot_minecraft.join("versions"),
-            );
-            freetype_manifest::persist(
-                &manifest_paths,
-                &versions_dir,
-                direct_launch.as_ref().map(|direct| direct.dialect),
-            )
-            .await?;
+                    let versions_dir = direct_launch.as_ref().map_or_else(
+                        || state.directories.versions_dir(),
+                        |direct| direct.dot_minecraft.join("versions"),
+                    );
+                    let persist = async {
+                        let repair = freetype_manifest::prepare(
+                            &manifest_paths,
+                            &versions_dir,
+                            direct_launch.as_ref().map(|direct| direct.dialect),
+                        )
+                        .await?;
+                        download::ensure_freetype_artifacts(
+                            &state,
+                            &libraries_dir,
+                            repair.downloads(),
+                            game_version,
+                        )
+                        .await?;
+                        repair.persist().await
+                    };
+                    run_optional_freetype_step(
+                        repair_deadline,
+                        "save manifests",
+                        persist,
+                    )
+                    .await;
+                }
+            }
         }
     }
 
@@ -3353,6 +3440,66 @@ pub async fn launch_minecraft(
             },
         )
         .await
+}
+
+#[cfg(test)]
+mod freetype_launch_tests {
+    use super::{
+        freetype_repair_budget, freetype_repair_deadline,
+        run_optional_freetype_step,
+    };
+    use std::time::Duration;
+    use tokio::time::Instant;
+
+    #[tokio::test(start_paused = true)]
+    async fn optional_repair_leaves_time_for_normal_launch() {
+        let now = Instant::now();
+        let launch_deadline = now + Duration::from_secs(12);
+        let budget = freetype_repair_budget("26.3", false);
+        let repair_deadline =
+            freetype_repair_deadline(launch_deadline, budget).unwrap();
+        let result = run_optional_freetype_step::<()>(
+            repair_deadline,
+            "prepare libraries",
+            std::future::pending(),
+        )
+        .await;
+
+        assert!(result.is_none());
+        assert_eq!(Instant::now() - now, Duration::from_secs(2));
+        assert!(freetype_repair_deadline(launch_deadline, budget).is_none());
+    }
+
+    #[test]
+    fn offline_launch_does_not_schedule_freetype_repair() {
+        let budget = freetype_repair_budget("26.3", true);
+        assert!(budget.is_zero());
+        let launch_deadline = Instant::now() + Duration::from_secs(60);
+        assert!(freetype_repair_deadline(launch_deadline, budget).is_none());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn failed_optional_repair_returns_no_replacement() {
+        let now = Instant::now();
+        let repair_deadline = freetype_repair_deadline(
+            now + Duration::from_secs(60),
+            freetype_repair_budget("26.3", false),
+        )
+        .unwrap();
+        assert_eq!(repair_deadline - now, Duration::from_secs(5));
+
+        let result = run_optional_freetype_step::<()>(
+            repair_deadline,
+            "prepare libraries",
+            async {
+                Err(crate::ErrorKind::LauncherError("offline".into()).into())
+            },
+        )
+        .await;
+
+        assert!(result.is_none());
+        assert_eq!(Instant::now(), now);
+    }
 }
 
 #[cfg(test)]

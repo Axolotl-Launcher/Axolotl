@@ -118,12 +118,20 @@ async fn run_with_extra_launch_args_inner(
     .await;
     let _maintenance_guard =
         crate::api::instance::lock_instance_maintenance(instance_id).await;
-    let launch_preparation_timeout =
+    let launch_context =
         crate::state::instances::commands::get_instance_launch_context(
             instance_id,
             &state.pool,
         )
-        .await?
+        .await?;
+    let optional_repair_budget =
+        launch_context.as_ref().map_or(Duration::ZERO, |context| {
+            crate::launcher::freetype_repair_budget(
+                &context.applied_content_set.game_version,
+                offline_mode,
+            )
+        });
+    let launch_preparation_timeout = launch_context
         .and_then(|context| context.launch_overrides.launch_preparation_timeout)
         .unwrap_or(DEFAULT_LAUNCH_PREPARATION_TIMEOUT)
         .clamp(
@@ -150,8 +158,13 @@ async fn run_with_extra_launch_args_inner(
         crate::anti_piracy::ensure_offline_allowed().await?;
     }
 
-    tokio::time::timeout(
-        Duration::from_secs(launch_preparation_timeout),
+    // Keep the configured preparation budget available to the regular launch
+    // even if the optional FreeType repair uses its entire allowance.
+    let preparation_budget = Duration::from_secs(launch_preparation_timeout)
+        + optional_repair_budget;
+    let launch_deadline = tokio::time::Instant::now() + preparation_budget;
+    tokio::time::timeout_at(
+        launch_deadline,
         run_credentials(
             instance_id,
             &default_account,
@@ -160,15 +173,15 @@ async fn run_with_extra_launch_args_inner(
             extra_launch_args,
             gc_intent,
             launch_preparation_timeout,
+            launch_deadline,
         ),
     )
     .await
     .map_err(|_| {
-        crate::ErrorKind::LauncherError(
-            format!(
-                "Minecraft launch preparation timed out after {launch_preparation_timeout} seconds"
-            ),
-        )
+        crate::ErrorKind::LauncherError(format!(
+            "Minecraft launch preparation timed out after {} seconds",
+            preparation_budget.as_secs()
+        ))
         .as_error()
     })?
 }
@@ -182,6 +195,7 @@ async fn run_credentials(
     extra_launch_args: Option<Vec<String>>,
     gc_intent: Option<GcLaunchIntent>,
     launch_preparation_timeout: u64,
+    launch_deadline: tokio::time::Instant,
 ) -> crate::Result<(ProcessMetadata, Option<GcLaunchReport>)> {
     let state = State::get().await?;
     if crate::state::store::recovery_mode::root(&state.pool).is_none()
@@ -381,6 +395,7 @@ async fn run_credentials(
         maximize_window,
         window_title,
         launch_preparation_timeout,
+        launch_deadline,
         credentials,
         post_exit_hook,
         &context,

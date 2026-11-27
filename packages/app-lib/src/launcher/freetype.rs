@@ -6,6 +6,7 @@ use super::local_version::LinkedLibrary;
 
 const LEGACY_COORDINATE: &str = "org.lwjgl:lwjgl-freetype:3.4.3";
 const FIXED_COORDINATE: &str = "org.lwjgl:lwjgl-freetype:3.4.3-mojang-2.15.0";
+const FREETYPE_ARTIFACT: &str = "org.lwjgl:lwjgl-freetype:";
 
 pub(super) struct Artifact {
     classifier: &'static str,
@@ -81,6 +82,35 @@ impl Artifact {
             version: None,
         })
     }
+
+    fn matches_target(&self, os: &Os, arch: &str) -> bool {
+        self.target
+            .as_ref()
+            .is_some_and(|(target_os, target_arch)| {
+                target_os == os && canonical_arch(arch) == *target_arch
+            })
+    }
+
+    pub(super) fn supports_os_rule(&self, os: &OsRule) -> bool {
+        let Some((target_os, target_arch)) = &self.target else {
+            return false;
+        };
+        os.version.is_none()
+            && os
+                .arch
+                .as_deref()
+                .is_none_or(|arch| canonical_arch(arch) == *target_arch)
+            && os.name.as_ref().is_none_or(|name| {
+                matches!(name, Os::Universal)
+                    || name == target_os
+                    || (*target_arch == "aarch64"
+                        && matches!(
+                            (name, target_os),
+                            (Os::WindowsArm64, Os::Windows)
+                                | (Os::OsxArm64, Os::Osx)
+                        ))
+            })
+    }
 }
 
 pub(super) fn patch_libraries(
@@ -91,7 +121,7 @@ pub(super) fn patch_libraries(
     if !should_patch(game_version, java_arch, libraries.iter()) {
         return false;
     }
-    patch_entries(libraries.iter_mut(), |library| library, |_| {});
+    patch_entries(libraries.iter_mut());
     true
 }
 
@@ -100,6 +130,12 @@ pub(super) fn patch_linked_libraries(
     libraries: &mut [LinkedLibrary],
     java_arch: &str,
 ) -> bool {
+    if libraries.iter().any(|linked| {
+        is_freetype_coordinate(&linked.library.name)
+            && (linked.hint.is_some() || linked.filename.is_some())
+    }) {
+        return false;
+    }
     if !should_patch(
         game_version,
         java_arch,
@@ -107,14 +143,7 @@ pub(super) fn patch_linked_libraries(
     ) {
         return false;
     }
-    patch_entries(
-        libraries.iter_mut(),
-        |library| &mut library.library,
-        |library| {
-            library.hint = None;
-            library.filename = None;
-        },
-    );
+    patch_entries(libraries.iter_mut().map(|linked| &mut linked.library));
     true
 }
 
@@ -129,27 +158,64 @@ pub(super) fn matches_fixed_native_target(
     if !supported_java_target(std::env::consts::OS, java_arch) {
         return true;
     }
-    artifact_for_coordinate(&library.name, FIXED_COORDINATE)
-        .and_then(|artifact| artifact.target.as_ref())
-        .is_none_or(|(os, arch)| {
-            os == &Os::native()
-                && match java_arch.to_ascii_lowercase().as_str() {
-                    "amd64" | "x86_64" => *arch == "x86_64",
-                    "arm64" | "aarch64" => *arch == "aarch64",
-                    _ => false,
-                }
-        })
+    artifact_for_coordinate(&library.name, FIXED_COORDINATE).is_none_or(
+        |artifact| {
+            artifact.target.is_none()
+                || artifact.matches_target(&Os::native(), java_arch)
+        },
+    )
 }
 
 fn should_patch<'a>(
     game_version: &str,
     java_arch: &str,
-    mut libraries: impl Iterator<Item = &'a Library>,
+    libraries: impl Iterator<Item = &'a Library>,
 ) -> bool {
-    affected_game_version(game_version)
-        && supported_java_target(std::env::consts::OS, java_arch)
-        && libraries.any(|library| {
-            artifact_for_coordinate(&library.name, LEGACY_COORDINATE).is_some()
+    if !affected_game_version(game_version)
+        || !supported_java_target(std::env::consts::OS, java_arch)
+    {
+        return false;
+    }
+
+    let mut legacy = false;
+    let mut binding = false;
+    let mut native = false;
+    for library in
+        libraries.filter(|library| is_freetype_coordinate(&library.name))
+    {
+        let Some(artifact) = replacement(&library.name) else {
+            return false;
+        };
+        if !standard_library(library, artifact) {
+            return false;
+        }
+        legacy |=
+            artifact_for_coordinate(&library.name, LEGACY_COORDINATE).is_some();
+        binding |= artifact.classifier.is_empty();
+        native |= artifact.matches_target(&Os::native(), java_arch);
+    }
+    legacy && binding && native
+}
+
+fn standard_library(library: &Library, artifact: &Artifact) -> bool {
+    library.natives.is_none()
+        && library.extract.is_none()
+        && library.include_in_classpath
+        && library.downloadable
+        && library
+            .downloads
+            .as_ref()
+            .and_then(|download| download.classifiers.as_ref())
+            .is_none_or(|classifiers| classifiers.is_empty())
+        && library.rules.as_ref().is_none_or(|rules| {
+            rules.iter().all(|rule| {
+                matches!(rule.action, RuleAction::Allow)
+                    && rule.features.is_none()
+                    && rule
+                        .os
+                        .as_ref()
+                        .is_none_or(|os| artifact.supports_os_rule(os))
+            })
         })
 }
 
@@ -167,10 +233,23 @@ pub(super) fn affected_game_version(game_version: &str) -> bool {
 
 fn supported_java_target(os: &str, java_arch: &str) -> bool {
     matches!(
-        (os, java_arch.to_ascii_lowercase().as_str()),
-        ("linux" | "windows" | "macos", "amd64" | "x86_64")
-            | ("windows" | "macos", "aarch64" | "arm64")
+        (os, canonical_arch(java_arch)),
+        ("linux" | "windows" | "macos", "x86_64")
+            | ("windows" | "macos", "aarch64")
     )
+}
+
+fn canonical_arch(arch: &str) -> &str {
+    if arch.eq_ignore_ascii_case("x86_64") || arch.eq_ignore_ascii_case("amd64")
+    {
+        "x86_64"
+    } else if arch.eq_ignore_ascii_case("aarch64")
+        || arch.eq_ignore_ascii_case("arm64")
+    {
+        "aarch64"
+    } else {
+        arch
+    }
 }
 
 fn artifact_for_coordinate(
@@ -195,21 +274,12 @@ pub(super) fn replacement(name: &str) -> Option<&'static Artifact> {
         .or_else(|| artifact_for_coordinate(name, FIXED_COORDINATE))
 }
 
-pub(super) fn replacement_for_classifier(
-    classifier: &str,
-) -> Option<&'static Artifact> {
-    ARTIFACTS.iter().find(|artifact| {
-        artifact.target.is_some() && artifact.classifier == classifier
-    })
+pub(super) fn is_freetype_coordinate(name: &str) -> bool {
+    name.starts_with(FREETYPE_ARTIFACT)
 }
 
-fn patch_entries<'a, T: 'a>(
-    entries: impl Iterator<Item = &'a mut T>,
-    library_of: impl Fn(&mut T) -> &mut Library,
-    reset_local_path: impl Fn(&mut T),
-) {
-    for entry in entries {
-        let library = library_of(entry);
+fn patch_entries<'a>(libraries: impl Iterator<Item = &'a mut Library>) {
+    for library in libraries {
         let Some(artifact) = replacement(&library.name) else {
             continue;
         };
@@ -224,17 +294,9 @@ fn patch_entries<'a, T: 'a>(
             classifiers: None,
         });
         downloads.artifact = Some(artifact.download());
-        if let Some(classifiers) = &mut downloads.classifiers {
-            for (classifier, download) in classifiers {
-                if let Some(native) = replacement_for_classifier(classifier) {
-                    *download = native.download();
-                }
-            }
-        }
         if let Some(target) = artifact.target() {
             restrict_native_rules(library, target);
         }
-        reset_local_path(entry);
     }
 }
 
@@ -349,7 +411,7 @@ mod tests {
             library("org.lwjgl:lwjgl-freetype:3.4.3:natives-linux-arm64"),
         ];
 
-        patch_entries(libraries.iter_mut(), |library| library, |_| {});
+        patch_entries(libraries.iter_mut());
 
         let fixed_path = "org/lwjgl/lwjgl-freetype/3.4.3-mojang-2.15.0/lwjgl-freetype-3.4.3-mojang-2.15.0.jar";
         for fixed in &libraries[..2] {
@@ -396,21 +458,38 @@ mod tests {
     #[test]
     fn freetype_patch_entry_points_skip_unaffected_launches_and_are_idempotent()
     {
-        let mut managed = [library(LEGACY_COORDINATE)];
+        let Some(native) = ARTIFACTS
+            .iter()
+            .find(|native| native.matches_target(&Os::native(), "x86_64"))
+        else {
+            return;
+        };
+        let native =
+            library(&format!("{LEGACY_COORDINATE}:{}", native.classifier));
+        let mut managed = [library(LEGACY_COORDINATE), native.clone()];
         assert!(!patch_libraries("26.4-pre-1", &mut managed, "x86_64"));
         assert_eq!(managed[0].name, LEGACY_COORDINATE);
-        if !supported_java_target(std::env::consts::OS, "x86_64") {
-            return;
-        }
 
         assert!(patch_libraries("26.3", &mut managed, "x86_64"));
         assert!(!patch_libraries("26.3", &mut managed, "x86_64"));
 
-        let mut linked = [LinkedLibrary {
-            library: library(LEGACY_COORDINATE),
-            hint: Some("local".to_owned()),
-            filename: Some("freetype.jar".to_owned()),
-        }];
+        let mut linked =
+            [library(LEGACY_COORDINATE), native].map(|library| LinkedLibrary {
+                library,
+                hint: None,
+                filename: None,
+            });
+        linked[0].hint = Some("local".to_owned());
+        linked[0].filename = Some("freetype.jar".to_owned());
+        assert!(!patch_linked_libraries(
+            "26.4-snapshot-10",
+            &mut linked,
+            "x86_64"
+        ));
+        assert_eq!(linked[0].library.name, LEGACY_COORDINATE);
+        assert_eq!(linked[0].filename.as_deref(), Some("freetype.jar"));
+        linked[0].hint = None;
+        linked[0].filename = None;
         assert!(patch_linked_libraries(
             "26.4-snapshot-10",
             &mut linked,
@@ -424,5 +503,26 @@ mod tests {
         assert_eq!(linked[0].library.name, FIXED_COORDINATE);
         assert!(linked[0].hint.is_none());
         assert!(linked[0].filename.is_none());
+    }
+
+    #[test]
+    fn freetype_patch_skips_incomplete_or_custom_library_sets() {
+        let mut binding_only = [library(LEGACY_COORDINATE)];
+        assert!(!patch_libraries("26.3", &mut binding_only, "x86_64"));
+        let Some(native) = ARTIFACTS
+            .iter()
+            .find(|native| native.matches_target(&Os::native(), "x86_64"))
+        else {
+            return;
+        };
+        let known_native =
+            library(&format!("{LEGACY_COORDINATE}:{}", native.classifier));
+        let mut libraries = [
+            library(LEGACY_COORDINATE),
+            known_native,
+            library("org.lwjgl:lwjgl-freetype:3.4.3:natives-linux-arm64"),
+        ];
+        assert!(!patch_libraries("26.3", &mut libraries, "x86_64"));
+        assert_eq!(libraries[0].name, LEGACY_COORDINATE);
     }
 }

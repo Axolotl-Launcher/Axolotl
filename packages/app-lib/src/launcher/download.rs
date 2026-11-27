@@ -2355,9 +2355,9 @@ pub(super) async fn ensure_launch_freetype(
     game_version: &str,
     java_arch: &str,
     minecraft_updated: bool,
-    local_runtime_only: bool,
 ) -> crate::Result<()> {
     let mut checked = HashSet::new();
+    let mut downloads = Vec::new();
     for library in libraries {
         if !super::freetype::is_patched_library(library)
             || library.rules.as_deref().is_some_and(|rules| {
@@ -2382,41 +2382,49 @@ pub(super) async fn ensure_launch_freetype(
                     library.name
                 ))
             })?;
-        let destination =
-            libraries_dir.join(d::get_path_from_artifact(&library.name)?);
-        let sha1 = Some(artifact.sha1.as_str());
-        let size = Some(artifact.size as u64);
-        if local_runtime_only {
-            if !super::direct_ensure::file_is_current(&destination, sha1, size)
-                .await
-            {
-                return Err(crate::ErrorKind::LauncherError(format!(
-                    "The updated FreeType library {} is missing or invalid. Launch online to repair it.",
-                    library.name
-                ))
-                .into());
-            }
-            continue;
-        }
-        let context = InstallErrorContext::new("update Minecraft FreeType")
-            .minecraft_version(game_version.to_owned())
-            .file_path(library.name.clone())
-            .target_path(destination.display().to_string())
-            .build();
-        download_minecraft_file(
-            st,
-            &artifact.url,
-            sha1,
-            size,
-            &destination,
-            ResourceClass::MinecraftLibrary,
-            ContentValidation::Jar,
-            false,
-            None,
-            context,
-        )
-        .await?;
+        downloads.push(artifact);
     }
+    ensure_freetype_artifacts(st, libraries_dir, downloads, game_version).await
+}
+
+pub(super) async fn ensure_freetype_artifacts<'a>(
+    st: &State,
+    libraries_dir: &Path,
+    artifacts: impl IntoIterator<Item = &'a LibraryDownload>,
+    game_version: &str,
+) -> crate::Result<()> {
+    futures::future::try_join_all(artifacts.into_iter().map(
+        |artifact| async move {
+            let relative = artifact.path.as_deref().ok_or_else(|| {
+                crate::ErrorKind::LauncherError(
+                    "FreeType replacement has no artifact path".into(),
+                )
+            })?;
+            let destination = libraries_dir.join(relative);
+            let sha1 = Some(artifact.sha1.as_str());
+            let size = Some(artifact.size as u64);
+            let context = InstallErrorContext::new("update Minecraft FreeType")
+                .minecraft_version(game_version.to_owned())
+                .file_path(relative.to_owned())
+                .target_path(destination.display().to_string())
+                .build();
+            download_minecraft_file(
+                st,
+                &artifact.url,
+                sha1,
+                size,
+                &destination,
+                ResourceClass::MinecraftLibrary,
+                ContentValidation::Jar,
+                false,
+                None,
+                context,
+            )
+            .await?;
+            Ok::<_, crate::Error>(())
+        },
+    ))
+    .await?;
     Ok(())
 }
 

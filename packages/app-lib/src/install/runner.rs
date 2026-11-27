@@ -430,13 +430,17 @@ pub async fn queue_resource_plan(
         )
         .into());
     }
-    if store::has_unfinished_job_in_transaction(&plan.instance_id, &mut tx)
-        .await?
+    if let Some(blocker) =
+        store::resource_operation_blocker(&plan.instance_id, &mut tx).await?
     {
-        return Err(crate::ErrorKind::InputError(
-            "another task is changing this instance".into(),
-        )
-        .into());
+        use crate::state::store::install_jobs::InstallJobBlocker;
+        let message = match blocker {
+            InstallJobBlocker::Active { id, status } => format!(
+                "INSTANCE_INSTALL_JOB_BUSY {id} {status}. Open the Download Center to view the task before trying again."
+            ),
+            InstallJobBlocker::Unavailable => "INSTANCE_INSTALL_JOB_UNAVAILABLE. The launcher could not read an installation recovery record. Check that the instance storage is available before trying again.".into(),
+        };
+        return Err(crate::ErrorKind::InputError(message).into());
     }
     let id = Uuid::new_v4();
     let mut job = InstallJobState::new(InstallRequest::InstallContentBatch {

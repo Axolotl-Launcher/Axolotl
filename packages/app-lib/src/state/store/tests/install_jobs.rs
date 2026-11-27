@@ -7,7 +7,8 @@ use crate::state::store::content_update_jobs::{
     ContentUpdateJobRecord, ContentUpdateJobs,
 };
 use crate::state::store::install_jobs::{
-    InstallJobRecord, InstallJobScope, InstallJobs, JobFinish,
+    InstallJobBlocker, InstallJobRecord, InstallJobScope, InstallJobs,
+    JobFinish,
 };
 
 fn handle_of(pool: &sqlx::SqlitePool) -> Handle {
@@ -291,6 +292,15 @@ async fn the_guards_see_the_jobs_that_still_occupy_an_instance() {
         InstallJobs::unfinished_in(&mut *connection, "one", &["running"])
             .await
             .unwrap()
+    );
+    assert_eq!(
+        InstallJobs::blocker_in(&mut *connection, "one", &["running"])
+            .await
+            .unwrap(),
+        Some(InstallJobBlocker::Active {
+            id: "running".into(),
+            status: "running".into()
+        }),
     );
     assert!(
         !InstallJobs::unfinished_in(&mut *connection, "one", &["queued"])

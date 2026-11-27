@@ -128,6 +128,16 @@ const details = defineMessages({
         defaultMessage:
             'The instance is not ready for content changes. Wait for installation or other content tasks to finish, then retry.',
     },
+    instanceInstallJob: {
+        id: 'app.resources.feedback.instanceInstallJob.detail',
+        defaultMessage:
+            'Open the Download Center to check this instance’s installation task before trying again. Task ID: {jobId}.',
+    },
+    instanceRecoveryUnavailable: {
+        id: 'app.resources.feedback.instanceRecoveryUnavailable.detail',
+        defaultMessage:
+            'The launcher could not read an installation recovery record. Check that the instance storage is available, then try again.',
+    },
     instanceMissing: {
         id: 'app.resources.feedback.instanceMissing.detail',
         defaultMessage:
@@ -288,6 +298,14 @@ const summaries = defineMessages({
         id: 'app.resources.feedback.instanceBusy.summary',
         defaultMessage: 'The instance is busy.',
     },
+    instanceInstallJob: {
+        id: 'app.resources.feedback.instanceInstallJob.summary',
+        defaultMessage: 'An installation task is using this instance.',
+    },
+    instanceRecoveryUnavailable: {
+        id: 'app.resources.feedback.instanceRecoveryUnavailable.summary',
+        defaultMessage: 'An installation recovery record is unavailable.',
+    },
     instanceMissing: {
         id: 'app.resources.feedback.instanceMissing.summary',
         defaultMessage: 'The instance could not be found.',
@@ -339,7 +357,12 @@ const summaries = defineMessages({
 })
 
 export type ResourceFailureKind = keyof typeof details
-export type ResourceFailureFeedback = { detail: string; summary: string; kind: ResourceFailureKind }
+export type ResourceFailureFeedback = {
+    detail: string
+    summary: string
+    kind: ResourceFailureKind
+    jobId?: string
+}
 
 function message(error: unknown): string {
     return typeof error === 'object' && error !== null && 'message' in error
@@ -349,6 +372,8 @@ function message(error: unknown): string {
 
 export function resourceFailureKind(error: unknown): ResourceFailureKind | null {
     const text = message(error)
+    if (text.includes('INSTANCE_INSTALL_JOB_BUSY')) return 'instanceInstallJob'
+    if (text.includes('INSTANCE_INSTALL_JOB_UNAVAILABLE')) return 'instanceRecoveryUnavailable'
     if (/cancell?ed|resource request canceled/i.test(text)) return 'canceled'
     if (
         /HTTP status Some\(404\)|HTTP 404|release not found|project not found|unknown (release|project)|release is unavailable/i.test(
@@ -474,9 +499,16 @@ export function resourceFailureFeedback(
     fallback: ResourceFailureKind = 'unknown',
 ): ResourceFailureFeedback {
     const kind = resourceFailureKind(error) ?? fallback
+    const jobId =
+        kind === 'instanceInstallJob'
+            ? message(error).match(/INSTANCE_INSTALL_JOB_BUSY ([\da-f-]{36})\b/i)?.[1]
+            : undefined
     return {
         kind,
-        detail: formatMessage(details[kind]),
+        ...(jobId ? { jobId } : {}),
+        detail: jobId
+            ? formatMessage(details.instanceInstallJob, { jobId })
+            : formatMessage(details[kind === 'instanceInstallJob' ? 'instanceBusy' : kind]),
         summary: formatMessage(summaries[kind]),
     }
 }

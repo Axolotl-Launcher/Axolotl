@@ -9,6 +9,7 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { computed, nextTick, onBeforeUnmount, reactive, ref, shallowRef, triggerRef } from 'vue'
+import { useRouter } from 'vue-router'
 
 import type { InstallJobSnapshot } from '@/helpers/install'
 import { refresh_content } from '@/helpers/instance'
@@ -41,6 +42,7 @@ import { indexResourceOperationPreview } from './resource-operation-preview-inde
 
 const { formatMessage } = useVIntl()
 const messages = defineMessages({
+    downloads: { id: 'app.action-bar.downloads', defaultMessage: 'Downloads' },
     invalidPath: {
         id: 'app.resources.operation.invalid-path',
         defaultMessage: 'The file path is invalid or cannot be used for this installation.',
@@ -370,6 +372,8 @@ const queueFailed = ref(false)
 const dependenciesIgnored = ref(false)
 const error = ref<string | null>(null)
 const errorSummary = ref<string | null>(null)
+const blockingJobId = ref<string>()
+const router = useRouter()
 type PreviewName = { title: string; iconUrl: string | null; summary?: string }
 const names = reactive<Record<string, PreviewName>>({})
 function setNames(values: Record<string, PreviewName>) {
@@ -425,6 +429,7 @@ function showFailure(failure: unknown) {
     const feedback = resourceFailureFeedback(failure, formatMessage)
     error.value = feedback.detail
     errorSummary.value = feedback.summary
+    blockingJobId.value = feedback.jobId
 }
 function conflictNotice(issue: PlanIssue, context: ResourceOperationPlan | null): string {
     const detail = issue.conflict
@@ -1007,6 +1012,7 @@ function show(value: OperationInput): Promise<InstallJobSnapshot | null> {
     error.value = null
     errorSummary.value = null
     queueFailed.value = false
+    blockingJobId.value = undefined
     dependenciesIgnored.value = false
     retryAction = null
     worldOptions.value = []
@@ -1344,6 +1350,10 @@ async function cancel() {
     if (generation !== current) return
     await modal.value?.hide()
 }
+async function openBlockingDownload(jobId: string) {
+    await cancel()
+    await router.push({ path: '/downloads', query: { job: jobId } })
+}
 defineExpose({ show, showInstall, showInstallSelection, cancel })
 </script>
 
@@ -1376,6 +1386,13 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
                     </li>
                 </ul>
                 <template v-if="error" #actions>
+                    <Button
+                        v-if="queueFailed && blockingJobId"
+                        :disabled="busy || queueing"
+                        @click="openBlockingDownload(blockingJobId)"
+                    >
+                        {{ formatMessage(messages.downloads) }}
+                    </Button>
                     <Button
                         v-if="retryAction"
                         :disabled="busy || queueing"

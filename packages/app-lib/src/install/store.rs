@@ -5,7 +5,8 @@ use crate::state::store::content_update_jobs::{
     ContentUpdateJobRecord, ContentUpdateJobs,
 };
 use crate::state::store::install_jobs::{
-    InstallJobRecord as StoredJob, InstallJobScope, InstallJobs, JobFinish,
+    InstallJobBlocker, InstallJobRecord as StoredJob, InstallJobScope,
+    InstallJobs, JobFinish,
 };
 use crate::state::store::{Atom, Collection as _, atom, names_a_missing_row};
 use crate::state::{InstanceInstallStage, State};
@@ -211,6 +212,18 @@ pub(crate) async fn has_unfinished_job_in_transaction(
 ) -> crate::Result<bool> {
     let statuses = InstallJobStatus::unfinished();
     InstallJobs::unfinished_in(&mut **tx, instance_id, &statuses).await
+}
+
+pub(crate) async fn resource_operation_blocker(
+    instance_id: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> crate::Result<Option<InstallJobBlocker>> {
+    InstallJobs::blocker_in(
+        &mut **tx,
+        instance_id,
+        &InstallJobStatus::unfinished(),
+    )
+    .await
 }
 
 /// Whether any job still occupies an instance, or still holds a rollback.

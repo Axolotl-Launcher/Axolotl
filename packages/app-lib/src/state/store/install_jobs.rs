@@ -10,6 +10,12 @@ pub(crate) struct InstallJobs;
 /// A job is identified by its own id.
 pub(crate) type InstallJobKey = String;
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum InstallJobBlocker {
+    Active { id: InstallJobKey, status: String },
+    Unavailable,
+}
+
 /// Which jobs a read wants: those in one status, or those of one instance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum InstallJobScope {
@@ -614,6 +620,16 @@ impl InstallJobs {
         instance_id: &str,
         statuses: &[&str],
     ) -> crate::Result<bool> {
+        Ok(Self::blocker_in(exec, instance_id, statuses)
+            .await?
+            .is_some())
+    }
+
+    pub(crate) async fn blocker_in(
+        exec: &mut SqliteConnection,
+        instance_id: &str,
+        statuses: &[&str],
+    ) -> crate::Result<Option<InstallJobBlocker>> {
         if super::recovery_documents::active(exec).await? {
             let keys:Vec<String>=sqlx::query_scalar("SELECT id FROM main.operation_publications WHERE kind='install_jobs' AND instance_id=? AND deleted=0").bind(instance_id).fetch_all(&mut *exec).await?;
             for key in keys {
@@ -637,33 +653,46 @@ impl InstallJobs {
                         )
                         .await
                         .is_err()
-                            || row["status"].as_str().is_some_and(|status| {
-                                statuses.contains(&status)
-                            })
                         {
-                            return Ok(true);
+                            return Ok(Some(InstallJobBlocker::Unavailable));
+                        }
+                        if let Some(status) = row["status"]
+                            .as_str()
+                            .filter(|status| statuses.contains(status))
+                        {
+                            return Ok(Some(InstallJobBlocker::Active {
+                                id: key,
+                                status: status.to_owned(),
+                            }));
                         }
                     }
                     Ok(None) => {}
-                    Err(_) => return Ok(true),
+                    Err(_) => return Ok(Some(InstallJobBlocker::Unavailable)),
                 }
             }
-            return Ok(false);
+            return Ok(None);
         }
 
         let filter = status_filter(statuses);
         let unknown = super::compatibility::unsupported_active_job("");
         let sql = format!(
-            "SELECT EXISTS(SELECT 1 FROM install_jobs WHERE instance_id = ? AND ({filter} OR {unknown}))"
+            "SELECT id, status, ({unknown}) FROM install_jobs WHERE instance_id = ? AND ({filter} OR {unknown}) ORDER BY created, id LIMIT 1"
         );
-        let mut query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql))
-            .bind(instance_id);
+        let mut query = sqlx::query_as::<_, (String, String, bool)>(
+            sqlx::AssertSqlSafe(sql),
+        )
+        .bind(instance_id);
         for status in statuses {
             query = query.bind(*status);
         }
-        let busy: i64 = query.fetch_one(exec).await?;
-
-        Ok(busy != 0)
+        let blocker = query.fetch_optional(exec).await?;
+        Ok(blocker.map(|(id, status, unavailable)| {
+            if unavailable {
+                InstallJobBlocker::Unavailable
+            } else {
+                InstallJobBlocker::Active { id, status }
+            }
+        }))
     }
 
     /// Whether any job is in one of `statuses`, or holds a rollback that has

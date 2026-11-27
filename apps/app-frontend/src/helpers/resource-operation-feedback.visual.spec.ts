@@ -15,12 +15,12 @@ vi.mock('@modrinth/ui', () => ({ defineMessages: (messages: unknown) => messages
 function formatter(locale: 'en-US' | 'zh-CN') {
     const catalog: Record<string, { message?: string; defaultMessage?: string }> =
         locale === 'zh-CN' ? chinese : english
-    return (descriptor: { id: string; defaultMessage?: string }) =>
+    return (descriptor: { id: string; defaultMessage?: string }, values?: Record<string, string>) =>
         String(
             new IntlMessageFormat(
                 catalog[descriptor.id].message ?? descriptor.defaultMessage ?? descriptor.id,
                 locale,
-            ).format(),
+            ).format(values),
         )
 }
 
@@ -80,6 +80,24 @@ it.each(cases)(
         }
     },
 )
+
+it('points to the active download without presenting an unreadable recovery record as a task', () => {
+    const jobId = '5a0f3a4c-dac6-41f3-a751-97fc4cd99530'
+    const active = resourceFailureFeedback(
+        `INSTANCE_INSTALL_JOB_BUSY ${jobId} running`,
+        formatter('en-US'),
+    )
+    expect(active.detail).toContain(jobId)
+    expect(active.jobId).toBe(jobId)
+    expect(active.detail).toContain('Download Center')
+    const unreadable = resourceFailureFeedback(
+        'INSTANCE_INSTALL_JOB_UNAVAILABLE',
+        formatter('en-US'),
+    )
+    expect(unreadable.detail).toContain('instance storage')
+    expect(unreadable.detail).not.toContain('Download Center')
+    expect(unreadable.jobId).toBeUndefined()
+})
 
 it('distinguishes the selected content from an unresolved dependency without inventing a network fault', () => {
     const issue = {

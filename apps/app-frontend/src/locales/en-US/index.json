@@ -13769,6 +13769,12 @@
   "app.resources.feedback.instanceBusy.summary": {
     "message": "The instance is busy."
   },
+  "app.resources.feedback.instanceInstallJob.detail": {
+    "message": "Open the Download Center to check this instance’s installation task before trying again. Task ID: {jobId}."
+  },
+  "app.resources.feedback.instanceInstallJob.summary": {
+    "message": "An installation task is using this instance."
+  },
   "app.resources.feedback.instanceMissing.detail": {
     "message": "The target instance could not be found. Return to the library and select an existing instance."
   },
@@ -13780,6 +13786,12 @@
   },
   "app.resources.feedback.integrity.summary": {
     "message": "The file failed verification."
+  },
+  "app.resources.feedback.instanceRecoveryUnavailable.detail": {
+    "message": "The launcher could not read an installation recovery record. Check that the instance storage is available, then try again."
+  },
+  "app.resources.feedback.instanceRecoveryUnavailable.summary": {
+    "message": "An installation recovery record is unavailable."
   },
   "app.resources.feedback.invalidArtifact.detail": {
     "message": "The selected file is unavailable or its integrity information cannot be verified. Refresh the project or choose another file."

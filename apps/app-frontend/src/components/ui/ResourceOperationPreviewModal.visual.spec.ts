@@ -78,6 +78,7 @@ vi.mock('@/helpers/settings', () => ({
 }))
 vi.mock('@/store/state', () => ({ useTheming: () => ({ getFeatureFlag: () => true }) }))
 vi.mock('@/helpers/worlds', () => ({ get_instance_worlds: vi.fn().mockResolvedValue([]) }))
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn().mockResolvedValue(undefined) }) }))
 vi.mock('@modrinth/ui', () => ({
     createContext: () => [vi.fn(), vi.fn()],
     Admonition: defineComponent({

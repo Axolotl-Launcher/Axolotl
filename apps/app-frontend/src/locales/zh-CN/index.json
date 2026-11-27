@@ -13769,6 +13769,12 @@
   "app.resources.feedback.instanceBusy.summary": {
     "message": "实例暂时忙碌。"
   },
+  "app.resources.feedback.instanceInstallJob.detail": {
+    "message": "请在下载中心查看这个实例的安装任务，然后重试。任务 ID：{jobId}。"
+  },
+  "app.resources.feedback.instanceInstallJob.summary": {
+    "message": "安装任务正在使用此实例。"
+  },
   "app.resources.feedback.instanceMissing.detail": {
     "message": "找不到目标实例，请返回实例库并选择现有实例。"
   },
@@ -13780,6 +13786,12 @@
   },
   "app.resources.feedback.integrity.summary": {
     "message": "文件校验失败。"
+  },
+  "app.resources.feedback.instanceRecoveryUnavailable.detail": {
+    "message": "启动器无法读取一条安装恢复记录。请确认实例存储可用后重试。"
+  },
+  "app.resources.feedback.instanceRecoveryUnavailable.summary": {
+    "message": "一条安装恢复记录不可用。"
   },
   "app.resources.feedback.invalidArtifact.detail": {
     "message": "所选文件不可用，或无法核验其完整性信息。请刷新项目或选择其他文件。"

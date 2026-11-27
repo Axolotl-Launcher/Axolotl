@@ -26,6 +26,8 @@ use url::Url;
 const UPDATE_SERVER_LATEST_URL: &str = "https://update.axlmc.org/latest";
 const UPDATE_SERVER_API: &str = "https://update.axlmc.org/api/versions";
 const UPDATE_ARTIFACT_BASE: &str = "https://dist.axlmc.org/";
+const GITHUB_RELEASE_BASE: &str =
+    "https://github.com/Axolotl-Launcher/Axolotl/releases/download/";
 const UPDATE_NODE_DNS: &str = "saas.sin.fan";
 const UPDATE_NODE_PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 const UPDATE_NODE_PROBE_BYTES: u64 = 4 * 1024 * 1024;
@@ -369,13 +371,26 @@ async fn artifact_signature(asset: &UpdateArtifact) -> Result<String> {
     if let Some(signature) = &asset.signature {
         return decode_artifact_signature(signature.as_bytes());
     }
-    let mut response = theseus::http_client_builder()
+    let client = theseus::http_client_builder()
         .user_agent(launcher_user_agent())
-        .timeout(UPDATE_DOWNLOAD_TIMEOUT)
-        .build()?
-        .get(format!("{}.sig", asset.url))
-        .send()
-        .await?;
+        .timeout(Duration::from_secs(30))
+        .build()?;
+    match download_artifact_signature(&client, &asset.url).await {
+        Ok(signature) => Ok(signature),
+        Err(error) => match github_release_artifact_url(&asset.url) {
+            Some(url) => download_artifact_signature(&client, &url)
+                .await
+                .inspect_err(|failure| tracing::debug!(%error, %failure, "Both update signature routes failed")),
+            None => Err(error),
+        },
+    }
+}
+
+async fn download_artifact_signature(
+    client: &reqwest::Client,
+    url: &Url,
+) -> Result<String> {
+    let mut response = client.get(format!("{url}.sig")).send().await?;
     if !response.status().is_success() {
         return Err(Error::Network("This release has no signed update package. Please update the launcher manually.".into()).into());
     }
@@ -451,6 +466,32 @@ fn update_artifact_url(relative_path: &str) -> Result<Url> {
         );
     }
     Ok(url)
+}
+
+fn github_release_artifact_url(distribution: &Url) -> Option<Url> {
+    let origin = Url::parse(UPDATE_ARTIFACT_BASE).ok()?;
+    if distribution.origin() != origin.origin()
+        || distribution.query().is_some()
+        || distribution.fragment().is_some()
+    {
+        return None;
+    }
+    let mut segments = distribution.path_segments()?;
+    if segments.next()? != "dist" {
+        return None;
+    }
+    let version = segments.next()?;
+    let name = segments.next()?;
+    if segments.next().is_some()
+        || name.is_empty()
+        || !version.as_bytes().first().is_some_and(u8::is_ascii_digit)
+        || !version.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'+')
+        })
+    {
+        return None;
+    }
+    Url::parse(&format!("{GITHUB_RELEASE_BASE}v{version}/{name}")).ok()
 }
 
 /// The Windows updater launches the NSIS installer and exits with
@@ -807,6 +848,7 @@ async fn download_update_artifact(
             let directory = tempfile::tempdir().map_err(Error::Io)?;
             let destination = directory.path().join("update");
             let request = DownloadRequest::new(asset.url.as_str(), ResourceClass::Other)
+                .with_candidate_urls(github_release_artifact_url(&asset.url).map(|url| url.to_string()))
                 .with_integrity(Integrity {
                     size: Some(asset.size),
                     sha256: Some(asset.sha256.clone()),
@@ -1295,9 +1337,10 @@ fn write_package_exclusively(
 mod tests {
     use super::{
         LinuxHost, UPDATE_SERVER_API, UpdateMethod, VersionEntry,
-        dpkg_list_contains, linux_update_method, select_package_artifact,
-        select_portable_artifact, select_update_artifact, update_artifact_url,
-        update_endpoint, verify_update_signature, with_staged_package,
+        dpkg_list_contains, github_release_artifact_url, linux_update_method,
+        select_package_artifact, select_portable_artifact,
+        select_update_artifact, update_artifact_url, update_endpoint,
+        verify_update_signature, with_staged_package,
         write_package_exclusively,
     };
     use base64::{Engine, engine::general_purpose::STANDARD};
@@ -2078,6 +2121,29 @@ mod tests {
             assert_eq!(
                 url.path().trim_start_matches('/'),
                 path.trim_start_matches('/')
+            );
+        }
+    }
+
+    #[test]
+    fn github_fallback_preserves_the_catalog_version_and_artifact_name() {
+        let url = update_artifact_url(
+            "dist/1.11.2-beta.3/Axolotl%20Launcher.nsis.zip",
+        )
+        .unwrap();
+        assert_eq!(
+            github_release_artifact_url(&url).unwrap().as_str(),
+            "https://github.com/Axolotl-Launcher/Axolotl/releases/download/v1.11.2-beta.3/Axolotl%20Launcher.nsis.zip",
+        );
+        for value in [
+            "https://example.test/dist/1.11.2/file.zip",
+            "https://dist.axlmc.org/dist/1.11.2/extra/file.zip",
+            "https://dist.axlmc.org/dist/unversioned/file.zip",
+            "https://dist.axlmc.org/dist/1.11.2/file.zip?key=value",
+        ] {
+            assert!(
+                github_release_artifact_url(&url::Url::parse(value).unwrap())
+                    .is_none()
             );
         }
     }

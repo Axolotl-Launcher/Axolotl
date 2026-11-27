@@ -620,9 +620,7 @@ const pageTitle: MessageDescriptor = settingsPageTitle
                             :id="`settings-category-${activeCategory.id}`"
                             class="settings-content-body min-h-0"
                             :class="[
-                                activeCategory.flushContent
-                                    ? 'h-full'
-                                    : 'mx-auto max-w-5xl px-6 pb-6',
+                                activeCategory.flushContent ? 'h-full' : 'mx-auto max-w-5xl p-6',
                                 isContentLoading ? 'is-loading' : 'is-ready',
                             ]"
                             tabindex="-1"

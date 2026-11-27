@@ -98,6 +98,7 @@ it('locates a linked setting within the requested category', async () => {
             ).toContain('settings-search-result-highlight'),
         )
         expect(wrapper.find('input[type="search"]').element).toHaveProperty('value', '')
+        expect(wrapper.get('#settings-category-content-downloads').classes()).toContain('p-6')
     } finally {
         wrapper.unmount()
         fixture.route = { hash: '#interface', query: {} }

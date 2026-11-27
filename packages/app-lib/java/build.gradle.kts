@@ -17,6 +17,9 @@ providers.gradleProperty("axolotlBuildDir").orNull?.let {
 }
 
 repositories {
+    providers.environmentVariable("AXOLOTL_MAVEN_CENTRAL_MIRROR").orNull?.let { mirror ->
+        maven { url = uri(mirror) }
+    }
     mavenCentral()
 }
 

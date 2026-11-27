@@ -5,8 +5,9 @@ use chrono::{DateTime, Utc};
 use dashmap::DashSet;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
+use std::collections::BTreeSet;
 use std::io::ErrorKind;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
@@ -18,6 +19,11 @@ const DIRTY_POLL_INTERVAL: Duration = Duration::from_secs(1);
 const RECONCILE_INTERVAL: Duration = Duration::from_secs(60);
 
 static DIRTY_INSTANCES: LazyLock<DashSet<String>> = LazyLock::new(DashSet::new);
+
+enum ConfigSyncOutcome {
+    Settled,
+    ProfileMissing(PathBuf),
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct InstanceConfigFile {
@@ -51,7 +57,8 @@ pub(crate) fn mark_dirty(instance_id: impl Into<String>) {
 }
 
 pub(crate) async fn run(state: Arc<State>) {
-    if let Err(error) = reconcile_all(&state).await {
+    let mut deferred_configs = BTreeSet::new();
+    if let Err(error) = reconcile(&state, &mut deferred_configs).await {
         tracing::warn!("Failed to reconcile instance config files: {error}");
     }
 
@@ -67,7 +74,7 @@ pub(crate) async fn run(state: Arc<State>) {
         if state.maintenance_gate.wait_until_resumed().await {
             // One catch-up reconcile per observed pause; the periodic branch
             // below keeps the normal reconcile cadence.
-            if let Err(error) = reconcile_all(&state).await {
+            if let Err(error) = reconcile(&state, &mut deferred_configs).await {
                 tracing::warn!(
                     "Failed to reconcile instance config files: {error}"
                 );
@@ -82,7 +89,7 @@ pub(crate) async fn run(state: Arc<State>) {
                 });
 
                 for instance_id in dirty {
-                    if let Err(error) = sync_instance(&state, &instance_id).await {
+                    if let Err(error) = sync_and_track(&state, &instance_id, &mut deferred_configs).await {
                         tracing::warn!(
                             "Failed to sync instance config for {instance_id}: {error}"
                         );
@@ -90,7 +97,7 @@ pub(crate) async fn run(state: Arc<State>) {
                 }
             }
             _ = reconcile_tick.tick() => {
-                if let Err(error) = reconcile_all(&state).await {
+                if let Err(error) = reconcile(&state, &mut deferred_configs).await {
                     tracing::warn!(
                         "Failed to reconcile instance config files: {error}"
                     );
@@ -100,10 +107,32 @@ pub(crate) async fn run(state: Arc<State>) {
     }
 }
 
-pub(crate) async fn sync_instance(
+async fn sync_and_track(
     state: &State,
     instance_id: &str,
+    deferred_configs: &mut BTreeSet<String>,
 ) -> crate::Result<()> {
+    match publish_and_sync(state, instance_id).await? {
+        ConfigSyncOutcome::Settled => {
+            deferred_configs.remove(instance_id);
+        }
+        ConfigSyncOutcome::ProfileMissing(profile) => {
+            if deferred_configs.insert(instance_id.to_owned()) {
+                tracing::warn!(
+                    instance_id,
+                    path = %profile.display(),
+                    "Instance configuration copy deferred until its directory is available"
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn publish_and_sync(
+    state: &State,
+    instance_id: &str,
+) -> crate::Result<ConfigSyncOutcome> {
     crate::state::store::recovery_mode::ensure_writable(&state.pool)?;
     // Keep the metadata read and file write in the same critical section as
     // deletion, so a sync cannot recreate a file while the profile is removed.
@@ -113,16 +142,24 @@ pub(crate) async fn sync_instance(
     sync_instance_with_dirs(&state.directories, &state.pool, instance_id).await
 }
 
+#[cfg(test)]
+pub(crate) async fn sync_instance(
+    state: &State,
+    instance_id: &str,
+) -> crate::Result<()> {
+    publish_and_sync(state, instance_id).await.map(drop)
+}
+
 async fn sync_instance_with_dirs(
     dirs: &DirectoryInfo,
     pool: &SqlitePool,
     instance_id: &str,
-) -> crate::Result<()> {
+) -> crate::Result<ConfigSyncOutcome> {
     let Some(metadata) =
         super::adapters::sqlite::manifest_rows::metadata(pool, instance_id)
             .await?
     else {
-        return Ok(());
+        return Ok(ConfigSyncOutcome::Settled);
     };
 
     // Directly associated instances have no profile folder of their own and
@@ -132,29 +169,43 @@ async fn sync_instance_with_dirs(
         || metadata.instance.symlink_target.is_some()
         || metadata.instance.game_dir_override.is_some()
     {
-        return Ok(());
+        return Ok(ConfigSyncOutcome::Settled);
     }
 
-    let profile = dirs.instances_dir().join(&metadata.instance.path);
-    let canonical = tokio::fs::canonicalize(&profile).await?;
-    if !canonical
-        .starts_with(tokio::fs::canonicalize(dirs.instances_dir()).await?)
-    {
-        return Ok(());
+    let root = dirs.instances_dir();
+    let profile = root.join(&metadata.instance.path);
+    let canonical = match tokio::fs::canonicalize(&profile).await {
+        Ok(canonical) => canonical,
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            return Ok(ConfigSyncOutcome::ProfileMissing(profile));
+        }
+        Err(error) => {
+            return Err(io::IOError::with_path(error, &profile).into());
+        }
+    };
+    let canonical_root = match tokio::fs::canonicalize(&root).await {
+        Ok(canonical) => canonical,
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            return Ok(ConfigSyncOutcome::ProfileMissing(profile));
+        }
+        Err(error) => return Err(io::IOError::with_path(error, &root).into()),
+    };
+    if !canonical.starts_with(canonical_root) {
+        return Ok(ConfigSyncOutcome::Settled);
     }
     let config_path = config_path(dirs, &metadata.instance.path);
     if tokio::fs::symlink_metadata(&config_path)
         .await
         .is_ok_and(|value| value.file_type().is_symlink())
     {
-        return Ok(());
+        return Ok(ConfigSyncOutcome::Settled);
     }
 
     let temp_path = config_path.with_file_name(CONFIG_FILE_TEMP_NAME);
 
     match io::read(&config_path).await {
         Ok(existing) if config_matches(&metadata, &existing) => {
-            return Ok(());
+            return Ok(ConfigSyncOutcome::Settled);
         }
         Ok(existing) => {
             // This compatibility description is not the recovery authority.
@@ -165,14 +216,14 @@ async fn sync_instance_with_dirs(
                 .and_then(serde_json::Value::as_u64)
                 != Some(u64::from(CONFIG_SCHEMA_VERSION))
             {
-                return Ok(());
+                return Ok(ConfigSyncOutcome::Settled);
             }
             let known =
                 serde_json::to_value(config_file(&metadata, Utc::now()))?;
             if parsed.as_object().is_none_or(|object| {
                 object.keys().any(|key| known.get(key).is_none())
             }) {
-                return Ok(());
+                return Ok(ConfigSyncOutcome::Settled);
             }
         }
         Err(error) if error.kind() == ErrorKind::NotFound => {}
@@ -180,17 +231,41 @@ async fn sync_instance_with_dirs(
     }
 
     let bytes = serde_json::to_vec_pretty(&config_file(&metadata, Utc::now()))?;
-    write_config_file(&config_path, &temp_path, &bytes).await?;
+    if let Err(error) =
+        write_config_file(&config_path, &temp_path, &bytes).await
+    {
+        if error.kind() == ErrorKind::NotFound
+            && matches!(
+                tokio::fs::canonicalize(&profile).await,
+                Err(ref missing) if missing.kind() == ErrorKind::NotFound
+            )
+        {
+            return Ok(ConfigSyncOutcome::ProfileMissing(profile));
+        }
+        return Err(error.into());
+    }
 
-    Ok(())
+    Ok(ConfigSyncOutcome::Settled)
 }
 
+#[cfg(test)]
 pub(crate) async fn reconcile_all(state: &State) -> crate::Result<()> {
-    let mut ids = super::adapters::sqlite::manifest_rows::pending(&state.pool)
-        .await?
-        .into_iter()
-        .map(|(id, _, _)| id)
-        .collect::<std::collections::BTreeSet<_>>();
+    reconcile(state, &mut BTreeSet::new()).await
+}
+
+async fn reconcile(
+    state: &State,
+    deferred_configs: &mut BTreeSet<String>,
+) -> crate::Result<()> {
+    // Recovery revisions can be published in the original data root even
+    // while the optional per-profile copy is unavailable.
+    let mut ids = deferred_configs.clone();
+    ids.extend(
+        super::adapters::sqlite::manifest_rows::pending(&state.pool)
+            .await?
+            .into_iter()
+            .map(|(id, _, _)| id),
+    );
     // A completed publication can lose only its files. Probe heads during the
     // periodic pass and republish from healthy SQL without timestamp chains.
     for id in
@@ -208,7 +283,9 @@ pub(crate) async fn reconcile_all(state: &State) -> crate::Result<()> {
         }
     }
     for instance_id in ids {
-        if let Err(error) = sync_instance(state, &instance_id).await {
+        if let Err(error) =
+            sync_and_track(state, &instance_id, deferred_configs).await
+        {
             tracing::warn!(%error,instance_id,"Recovery publication deferred");
         }
     }
@@ -291,7 +368,7 @@ async fn write_config_file(
     config_path: &Path,
     temp_path: &Path,
     bytes: &[u8],
-) -> crate::Result<()> {
+) -> Result<(), io::IOError> {
     io::write(temp_path, bytes).await?;
 
     let rename_result = io::retry_windows_sharing_violation(
@@ -303,7 +380,7 @@ async fn write_config_file(
 
     if let Err(error) = rename_result {
         let _ = io::remove_file(temp_path).await;
-        return Err(io::IOError::with_path(error, config_path).into());
+        return Err(io::IOError::with_path(error, config_path));
     }
 
     Ok(())
@@ -730,6 +807,42 @@ mod tests {
         assert!(published);
 
         drop(temp);
+    }
+
+    #[tokio::test]
+    async fn a_missing_profile_defers_only_its_compatibility_copy() {
+        let (_temp, dirs) = test_dirs();
+        let pool = test_pool(&dirs).await;
+        let state = crate::state::test_state(dirs, pool.clone()).await.unwrap();
+        let id = "local:deferred-config";
+        let instance_path = "Unavailable Instance";
+        insert_instance(&state.directories, &pool, id, instance_path, "Name")
+            .await;
+        let profile = state.directories.instances_dir().join(instance_path);
+        tokio::fs::remove_dir(&profile).await.unwrap();
+
+        let mut deferred_configs = BTreeSet::new();
+        reconcile(&state, &mut deferred_configs).await.unwrap();
+        assert!(deferred_configs.contains(id));
+        assert!(!profile.exists());
+        assert!(manifest_rows::pending(&pool).await.unwrap().is_empty());
+        assert!(
+            super::super::manifest::head_present(
+                &state.directories.settings_dir,
+                id
+            )
+            .await
+            .unwrap()
+        );
+
+        reconcile(&state, &mut deferred_configs).await.unwrap();
+        assert_eq!(deferred_configs.len(), 1);
+        tokio::fs::create_dir(&profile).await.unwrap();
+        reconcile(&state, &mut deferred_configs).await.unwrap();
+
+        assert!(deferred_configs.is_empty());
+        assert_eq!(read_config(&state.directories, instance_path).name, "Name");
+        assert!(manifest_rows::pending(&pool).await.unwrap().is_empty());
     }
 
     #[tokio::test]

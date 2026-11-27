@@ -93,7 +93,11 @@ impl ResourceService {
         cancel: &CancellationToken,
     ) -> ResourceResult<Vec<RetainedRequirement>> {
         self.retained_requirements_with_failures(
-            selections, installed, local, cancel, false,
+            selections,
+            installed,
+            local,
+            cancel,
+            ResourceOperationIntent::Update,
         )
         .await
         .map(|(requirements, _)| requirements)
@@ -105,8 +109,9 @@ impl ResourceService {
         installed: &[InstalledResource],
         local: &HashMap<InstalledEntryId, LocalModMetadata>,
         cancel: &CancellationToken,
-        allow_source_failures: bool,
+        intent: ResourceOperationIntent,
     ) -> ResourceResult<(Vec<RetainedRequirement>, Vec<String>)> {
+        let allow_source_failures = intent == ResourceOperationIntent::Install;
         let mut failures = Vec::new();
         let changing: HashSet<_> = selections
             .iter()
@@ -258,6 +263,9 @@ impl ResourceService {
                             )
                         })
                     {
+                        let ignore_mod_incompatibility = intent == ResourceOperationIntent::Install
+                            && parent.resource_type == ResourceType::Mod
+                            && dependency.kind == ResourceDependencyKind::Incompatible;
                         let resolved = async {
                             let key = serde_json::to_string(&(
                                 &dependency.target,
@@ -269,13 +277,17 @@ impl ResourceService {
                             {
                                 selection.clone()
                             } else {
-                                let selection = self
+                                let result = self
                                     .dependency_selection(
                                         dependency,
                                         &parent_selection,
                                         cancel,
                                     )
-                                    .await?;
+                                    .await;
+                                let selection = match result {
+                                    Err(error) if ignore_mod_incompatibility && dependency_source_failed(&error) => return Ok(None),
+                                    result => result?,
+                                };
                                 dependency_selections
                                     .insert(key.clone(), selection.clone());
                                 selection
@@ -283,6 +295,9 @@ impl ResourceService {
                             let Some(selection) = selection else {
                                 return Ok(None);
                             };
+                            if ignore_mod_incompatibility && selection.resource_type == ResourceType::Mod {
+                                return Ok(None);
+                            }
                             let exact = if let Some(exact) =
                                 exact_dependencies.get(&key)
                             {
@@ -454,6 +469,12 @@ pub(super) fn local_file_dependency(
     let DependencyTarget::FileName { name } = &dependency.target else {
         return Ok(false);
     };
+    if draft.plan.intent == ResourceOperationIntent::Install
+        && selection.resource_type == ResourceType::Mod
+        && dependency.kind == ResourceDependencyKind::Incompatible
+    {
+        return Ok(true);
+    }
     if !safe_relative_path(name) || name.contains('/') {
         issue(
             &mut draft.plan,

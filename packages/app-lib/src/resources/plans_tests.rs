@@ -1719,102 +1719,63 @@ struct PlanProvider {
 }
 
 #[tokio::test]
-async fn incompatible_roots_are_blocked_in_both_selection_orders() {
+async fn installing_mods_ignores_declared_incompatibilities_in_both_directions()
+{
     let mut a = release("root0000", "1", 'a');
     let b = release("root1111", "1", 'b');
+    let b2 = release("root1111", "2", 'c');
     requires(&mut a, &b, ResourceDependencyKind::Incompatible);
-    let (_directory, service) = service(vec![a.clone(), b.clone()]).await;
-    for roots in [
-        vec![selection("a", &a, None), selection("b", &b, None)],
-        vec![selection("b", &b, None), selection("a", &a, None)],
+    a.artifacts[0].dependencies.push(ArtifactDependency {
+        target: DependencyTarget::FileName {
+            name: "already-installed.jar".into(),
+        },
+        kind: ResourceDependencyKind::Incompatible,
+        version_constraint: None,
+    });
+    let (_directory, service) =
+        service(vec![a.clone(), b.clone(), b2.clone()]).await;
+    for (roots, installed) in [
+        (
+            vec![selection("a", &a, None), selection("b", &b, None)],
+            vec![],
+        ),
+        (
+            vec![selection("b", &b, None), selection("a", &a, None)],
+            vec![],
+        ),
+        (
+            vec![selection("a", &a, None)],
+            vec![installed(&b, "b", "mods/already-installed.jar")],
+        ),
+        (
+            vec![selection("b", &b, None)],
+            vec![installed(&a, "a", "mods/a.jar")],
+        ),
+        (
+            vec![selection("a", &a, None), selection("b", &b2, None)],
+            vec![],
+        ),
+        (
+            vec![selection("a", &a, None)],
+            vec![installed(&b, "b", "mods/existing.jar.disabled")],
+        ),
     ] {
+        let expected_actions = roots.len();
         let plan = service
             .build_operation(
                 draft(roots, ResourceOperationIntent::Install),
                 &target(),
-                &[],
+                &installed,
                 &CancellationToken::new(),
             )
             .await
             .unwrap()
             .plan;
-        assert!(
-            plan.issues
-                .iter()
-                .any(|issue| issue.code == ResourceIssueCode::VersionConflict
-                    && issue.blocking)
-        );
-        let edge = plan
-            .edges
-            .iter()
-            .find(|edge| edge.kind == ResourceDependencyKind::Incompatible)
-            .unwrap();
-        assert_eq!(edge.child.as_str(), "b");
-        let details = plan
-            .issues
-            .iter()
-            .find_map(|issue| issue.conflict.as_ref())
-            .unwrap();
-        assert_eq!(
-            details.reason,
-            ResourceConflictReason::IncompatibleResource
-        );
-        assert_eq!(
-            details.related.as_deref(),
-            b.artifacts[0].file_name.as_deref()
-        );
+        assert_eq!(plan.actions.len(), expected_actions);
+        assert!(plan.issues.is_empty(), "{:?}", plan.issues);
+        assert!(plan.edges.is_empty(), "{:?}", plan.edges);
     }
-    let b2 = release("root1111", "2", 'c');
-    let (_directory2, other) = self::service(vec![a.clone(), b2.clone()]).await;
-    let plan = other
-        .build_operation(
-            draft(
-                vec![selection("a", &a, None), selection("b", &b2, None)],
-                ResourceOperationIntent::Install,
-            ),
-            &target(),
-            &[],
-            &CancellationToken::new(),
-        )
-        .await
-        .unwrap()
-        .plan;
-    assert!(plan.issues.is_empty(), "{:?}", plan.issues);
-    let plan = service
-        .build_operation(
-            draft(
-                vec![selection("a", &a, None)],
-                ResourceOperationIntent::Install,
-            ),
-            &target(),
-            &[installed(&b, "existing", "mods/existing.jar")],
-            &CancellationToken::new(),
-        )
-        .await
-        .unwrap()
-        .plan;
-    assert!(
-        plan.issues
-            .iter()
-            .any(|issue| issue.code == ResourceIssueCode::VersionConflict
-                && issue.blocking)
-    );
-    let plan = service
-        .build_operation(
-            draft(
-                vec![selection("a", &a, None)],
-                ResourceOperationIntent::Install,
-            ),
-            &target(),
-            &[installed(&b, "existing", "mods/existing.jar.disabled")],
-            &CancellationToken::new(),
-        )
-        .await
-        .unwrap()
-        .plan;
-    assert!(plan.issues.is_empty(), "{:?}", plan.issues);
     service.cache().close().await;
-    other.cache().close().await;
 }
 
 #[tokio::test]

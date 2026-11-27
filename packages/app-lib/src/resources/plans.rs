@@ -1606,7 +1606,7 @@ impl ResourceService {
                     installed,
                     &draft.local_metadata,
                     cancel,
-                    draft.plan.intent == ResourceOperationIntent::Install,
+                    draft.plan.intent,
                 )
                 .await
             } {
@@ -2840,6 +2840,14 @@ impl ResourceService {
                         return Err(ResourceError::Canceled);
                     }
                     Err(error) => {
+                        if draft.plan.intent == ResourceOperationIntent::Install
+                            && selection.resource_type == ResourceType::Mod
+                            && dependency.kind
+                                == ResourceDependencyKind::Incompatible
+                            && dependency_source_failed(&error)
+                        {
+                            continue;
+                        }
                         if dependency_source_failed(&error)
                             && (dependency.kind
                                 == ResourceDependencyKind::Required
@@ -2864,6 +2872,13 @@ impl ResourceService {
                         continue;
                     }
                 };
+                if draft.plan.intent == ResourceOperationIntent::Install
+                    && selection.resource_type == ResourceType::Mod
+                    && child.resource_type == ResourceType::Mod
+                    && dependency.kind == ResourceDependencyKind::Incompatible
+                {
+                    continue;
+                }
                 let key = selection_key(&child);
                 let id = resolved
                     .get(&key)

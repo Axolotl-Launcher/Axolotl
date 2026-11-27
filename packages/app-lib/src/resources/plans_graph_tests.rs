@@ -1226,7 +1226,7 @@ async fn final_plan_distinguishes_unknown_candidate_metadata_from_known_identity
 }
 
 #[tokio::test]
-async fn unknown_incompatible_ranges_do_not_block_but_known_matches_do() {
+async fn incompatible_ranges_only_block_known_matches_when_updating_mods() {
     for (constraint, blocked) in [
         ("opaque constraint", false),
         ("[2,)", true),
@@ -1278,7 +1278,7 @@ async fn unknown_incompatible_ranges_do_not_block_but_known_matches_do() {
                 .plan;
             assert_eq!(
                 plan.issues.iter().any(|issue| issue.blocking),
-                blocked,
+                blocked && retained_parent,
                 "{constraint}, retained={retained_parent}: {:?}",
                 plan.issues
             );

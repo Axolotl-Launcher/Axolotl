@@ -140,7 +140,7 @@ impl AnalysisMemo {
                 installed,
                 &draft.local_metadata,
                 cancel,
-                draft.plan.intent == ResourceOperationIntent::Install,
+                draft.plan.intent,
             )
             .await?;
         if value.1.is_empty() {

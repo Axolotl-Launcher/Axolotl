@@ -13511,6 +13511,9 @@
   "app.remote-announcements.view": {
     "message": "View announcement"
   },
+  "app.recovery.records-unavailable": {
+    "message": "{count, plural, one {# recovery record could not be read} other {# recovery records could not be read}}. The launcher kept the original files. Check that your previous and current data directories are available."
+  },
   "app.resources.backups.back": {
     "message": "Back to selection"
   },

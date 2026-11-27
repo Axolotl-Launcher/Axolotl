@@ -13511,6 +13511,9 @@
   "app.remote-announcements.view": {
     "message": "查看公告"
   },
+  "app.recovery.records-unavailable": {
+    "message": "有 {count, plural, other {# 条}}恢复记录无法读取。启动器保留了原始文件。请检查旧数据目录和当前数据目录是否都可访问。"
+  },
   "app.resources.backups.back": {
     "message": "返回选择"
   },

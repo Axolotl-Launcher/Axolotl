@@ -1098,6 +1098,11 @@ async function onImportFileReceived({
 }
 
 const messages = defineMessages({
+    unavailableRecoveryRecords: {
+        id: 'app.recovery.records-unavailable',
+        defaultMessage:
+            '{count, plural, one {# recovery record could not be read} other {# recovery records could not be read}}. The launcher kept the original files. Check that your previous and current data directories are available.',
+    },
     directoryMoveIncompleteTitle: {
         id: 'app.directory-move.incomplete.title',
         defaultMessage: 'Some launcher folders were not moved',
@@ -1715,10 +1720,31 @@ async function setupApp(directoryMoveWarning?: DirectoryMoveWarning | null) {
             supportData: { directoryMoveWarningId: warning.id },
         })
     }
+    await warning_listener(async (e: WarningPayload) => {
+        if (e.kind === 'minecraft_crash') {
+            await minecraftCrashModal.value?.handleWarning(e)
+            return
+        }
+
+        if (e.kind === 'missing_java') {
+            if (e.java_version !== undefined) missingJavaModal.value?.show(e.java_version)
+            return
+        }
+
+        const unavailableRecords = /^RECOVERY_RECORDS_UNAVAILABLE (\d+)$/.exec(e.message)?.[1]
+        addNotification({
+            title: formatMessage(messages.warning),
+            text: unavailableRecords
+                ? formatMessage(messages.unavailableRecoveryRecords, {
+                      count: Number(unavailableRecords),
+                  })
+                : e.message,
+            type: 'warning',
+        })
+    })
     stateInitialized.value = true
     void nextTick(() => {
-        // The first rAF runs before the frame is painted; the second one runs
-        // after that paint, so deferred I/O cannot contend with it.
+        // Let the first populated frame paint and register warning listeners before deferred I/O.
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 invoke('frontend_ready').catch((error) => {
@@ -1768,23 +1794,6 @@ async function setupApp(directoryMoveWarning?: DirectoryMoveWarning | null) {
         document.getElementsByTagName('html')[0].classList.add('windows')
     }
 
-    await warning_listener(async (e: WarningPayload) => {
-        if (e.kind === 'minecraft_crash') {
-            await minecraftCrashModal.value?.handleWarning(e)
-            return
-        }
-
-        if (e.kind === 'missing_java') {
-            if (e.java_version !== undefined) missingJavaModal.value?.show(e.java_version)
-            return
-        }
-
-        addNotification({
-            title: formatMessage(messages.warning),
-            text: e.message,
-            type: 'warning',
-        })
-    })
     await drop_classify_progress_listener((payload: DropClassifyProgressPayload) => {
         if (dropProcessingNotificationId.value === null) return
         const name = payload.currentItem?.split(/[/\\]/).pop() || 'file'

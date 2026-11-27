@@ -1179,12 +1179,13 @@ pub(crate) async fn rebind_copied_history(
 
 pub(crate) async fn interpret_all(
     pool: &sqlx::SqlitePool,
-) -> crate::Result<()> {
+) -> crate::Result<usize> {
     let mut connection = pool.acquire().await?;
     if !active(&mut connection).await? {
-        return Ok(());
+        return Ok(0);
     }
     let keys:Vec<(String,String,Option<String>)>=sqlx::query_as("SELECT kind,id,instance_id FROM main.operation_publications WHERE deleted=0").fetch_all(&mut *connection).await?;
+    let mut unavailable = 0;
     for (kind, key, owner) in keys {
         let interpreted = async {
             let value: Value = read(&mut connection, &kind, &key)
@@ -1199,10 +1200,11 @@ pub(crate) async fn interpret_all(
         }
         .await;
         if let Err(error) = interpreted {
-            tracing::warn!(%kind,%key,?owner,%error,"Record preserved; interpretation failed locally");
+            unavailable += 1;
+            tracing::debug!(%kind,%key,?owner,%error,"Record preserved; interpretation failed locally");
         }
     }
-    Ok(())
+    Ok(unavailable)
 }
 
 /// Rebind only byte-identical immutable records after the content tree moved.
@@ -1643,6 +1645,19 @@ mod tests {
             .into_iter()
             .find(|record| record.1 == key)
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn startup_reports_unreadable_publications_without_tombstoning_them()
+    {
+        let (root, pool, _) = removal_fixture().await;
+        let missing = root.path().join("does-not-exist.json");
+        sqlx::query("INSERT INTO main.operation_publications(kind,id,revision,object_path,sha256) VALUES('install_jobs','missing',1,?,'unavailable')")
+            .bind(missing.to_string_lossy().as_ref()).execute(&pool).await.unwrap();
+        assert_eq!(interpret_all(&pool).await.unwrap(), 1);
+        let deleted: bool = sqlx::query_scalar("SELECT deleted FROM main.operation_publications WHERE id='missing'")
+            .fetch_one(&pool).await.unwrap();
+        assert!(!deleted);
     }
 
     #[tokio::test]

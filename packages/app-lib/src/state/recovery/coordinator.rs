@@ -72,12 +72,12 @@ pub(crate) async fn start(state: Arc<State>) {
                         ).await {
                             tracing::warn!(%error, "Could not rebind history copied with the launcher data directory");
                         }
-                        if let Err(error) = recovery_documents::interpret_all(&worker.pool).await {
-                            tracing::warn!(%error, "Some recovery records remain opaque; other records continue");
-                        }
+                        recovery_documents::interpret_all(&worker.pool).await
                     },
-                    move |()| { complete.send_replace(true); },
-                    async { execute_pending(&worker).await },
+                    move || { complete.send_replace(true); },
+                    |result| async {
+                        tokio::join!(execute_pending(&worker), notify_unavailable(result));
+                    },
                 ).await;
             });
             inspection
@@ -113,14 +113,41 @@ async fn execute_pending(state: &State) {
     }
 }
 
-async fn phases<T, F, G>(interpret: F, report: impl FnOnce(T), execute: G)
-where
+async fn notify_unavailable(result: crate::Result<usize>) {
+    match result {
+        Ok(unavailable) if unavailable > 0 => {
+            tracing::warn!(
+                unavailable,
+                "Some recovery records could not be read; their originals were retained"
+            );
+            if super::super::FRONTEND_READY
+                .wait(Duration::from_secs(60))
+                .await
+            {
+                let _ = crate::event::emit::emit_warning(&format!(
+                    "RECOVERY_RECORDS_UNAVAILABLE {unavailable}"
+                ))
+                .await;
+            }
+        }
+        Ok(_) => {}
+        Err(error) => {
+            tracing::warn!(%error, "Recovery records could not be inspected")
+        }
+    }
+}
+
+async fn phases<T, F, G>(
+    interpret: F,
+    report: impl FnOnce(),
+    execute: impl FnOnce(T) -> G,
+) where
     F: std::future::Future<Output = T>,
     G: std::future::Future<Output = ()>,
 {
     let result = interpret.await;
-    report(result);
-    execute.await;
+    report();
+    execute(result).await;
 }
 
 async fn record_phase<F: std::future::Future>(
@@ -138,10 +165,10 @@ mod tests {
         let (send, receive) = tokio::sync::oneshot::channel();
         let worker = tokio::spawn(phases(
             async { tokio::time::sleep(Duration::from_secs(5)).await },
-            |result| {
-                let _ = send.send(result);
+            || {
+                let _ = send.send(());
             },
-            async { tokio::time::sleep(Duration::from_secs(20)).await },
+            |()| async { tokio::time::sleep(Duration::from_secs(20)).await },
         ));
         record_phase(receive).await.unwrap().unwrap();
         assert_eq!(start.elapsed(), Duration::from_secs(5));
@@ -153,10 +180,10 @@ mod tests {
         let (send, receive) = tokio::sync::oneshot::channel();
         let worker = tokio::spawn(phases(
             async { tokio::time::sleep(Duration::from_secs(30)).await },
-            |result| {
-                let _ = send.send(result);
+            || {
+                let _ = send.send(());
             },
-            async { tokio::time::sleep(Duration::from_secs(20)).await },
+            |()| async { tokio::time::sleep(Duration::from_secs(20)).await },
         ));
         assert!(record_phase(receive).await.is_err());
         worker.await.unwrap();

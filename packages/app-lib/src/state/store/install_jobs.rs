@@ -565,7 +565,7 @@ impl InstallJobs {
                 Ok(_) => {}
                 Err(error) if strict => return Err(error),
                 Err(error) => {
-                    tracing::warn!(key=%selected.key,%error,"Recovery record unavailable; original retained and other records continue")
+                    tracing::debug!(key=%selected.key,%error,"Recovery record unavailable; original retained and other records continue")
                 }
             }
         }

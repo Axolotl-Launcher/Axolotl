@@ -1,9 +1,10 @@
 //! Translation settings and provider adapters.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use futures::{StreamExt, stream};
+use futures::{StreamExt, TryStreamExt, stream};
 use rand::Rng;
 use reqwest::header::{HeaderMap, RETRY_AFTER};
 use reqwest::{RequestBuilder, Response, StatusCode};
@@ -30,6 +31,9 @@ const GOOGLE_TRANSLATE_API_KEY: &str =
     "AIzaSyATBXajvzQLTDHEQbcpq0Ihe0vWDHmO520";
 const MAX_RETRY_DELAY_SECONDS: u64 = 120;
 const MAX_GOOGLE_IP_ATTEMPTS: usize = 40;
+const TRANSLATION_AUTHENTICATION_FAILED: &str =
+    "TRANSLATION_AUTHENTICATION_FAILED";
+static REJECTED_DEEPL_CONFIGURATION: AtomicU64 = AtomicU64::new(0);
 const DEFAULT_AI_SYSTEM_PROMPT: &str = concat!(
     "You are the translation engine for Axolotl Launcher, a Minecraft launcher. ",
     "Translate Minecraft mod, modpack, resource pack, shader pack, data pack, and server descriptions into the requested target language. ",
@@ -456,7 +460,7 @@ async fn checked_json(
             status,
             StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
         ) {
-            "TRANSLATION_AUTHENTICATION_FAILED"
+            TRANSLATION_AUTHENTICATION_FAILED
         } else {
             "TRANSLATION_PROVIDER_FAILED"
         };
@@ -497,22 +501,6 @@ fn decode_basic_entities(value: &str) -> String {
 /// panics when byte 50 lands inside a multi-byte character.
 fn truncate_preview(value: &str, max_chars: usize) -> String {
     value.chars().take(max_chars).collect()
-}
-
-/// Byte-bounded log prefix for sensitive credentials. `max_bytes` is a strict
-/// upper bound: for ASCII credentials (all real DeepL keys) the prefix is
-/// exactly `max_bytes` bytes, matching the historical behaviour; for multi-byte
-/// credentials it can only be shorter (never longer) because the budget is
-/// walked back to a char boundary instead of splitting a character. This is
-/// strictly more conservative than the byte slice it replaces and never panics.
-fn credential_prefix(value: &str, max_bytes: usize) -> String {
-    let mut end = max_bytes.min(value.len());
-    // Always stop on a char boundary, and clamp end to > 0 so usize cannot
-    // underflow: 0 is always a char boundary, but we do not rely on that fact.
-    while end > 0 && !value.is_char_boundary(end) {
-        end -= 1;
-    }
-    value[..end].to_string()
 }
 
 fn provider_language(locale: &str, provider: TranslationProvider) -> String {
@@ -620,28 +608,6 @@ async fn google_translate(
         }
     }
 }
-fn summarize_error_body(body: &str) -> String {
-    let trimmed = body.trim();
-    if trimmed.is_empty() {
-        return "(empty response)".to_string();
-    }
-    if trimmed.starts_with('<') {
-        if let Some(start) = trimmed.find("<title>") {
-            let after = &trimmed[start + 7..];
-            if let Some(end) = after.find("</title>") {
-                let title = after[..end].trim();
-                if !title.is_empty() {
-                    return format!("HTML error page: {title}");
-                }
-            }
-        }
-        "HTML error page (the server may be unreachable or misconfigured)"
-            .to_string()
-    } else {
-        trimmed.to_string()
-    }
-}
-
 async fn deepl_translate(
     segment: &TranslationSegment,
     source_language: &str,
@@ -653,9 +619,6 @@ async fn deepl_translate(
         endpoint = %api_endpoint,
         source = %source_language,
         target = %target_language,
-        api_key_len = %api_key.len(),
-        api_key_prefix =
-            %if api_key.len() > 4 { credential_prefix(api_key, 4) } else { "***".to_string() },
         text_len = %segment.text.len(),
         text_preview = %truncate_preview(&segment.text, 50),
         "Preparing DeepL translation request"
@@ -717,84 +680,32 @@ async fn deepl_translate(
         "Authorization strategy"
     );
 
-    let value: Value = 'translate: {
-        let response = send_with_retry(|| {
+    let response = send_with_retry(|| {
+        client
+            .post(api_endpoint)
+            .header("Authorization", &primary_auth)
+            .header("Content-Type", "application/json")
+            .json(&body)
+    })
+    .await?;
+    let response = if matches!(
+        response.status(),
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
+    ) && let Some(fallback) = fallback_auth
+    {
+        drop(response);
+        send_with_retry(|| {
             client
                 .post(api_endpoint)
-                .header("Authorization", &primary_auth)
+                .header("Authorization", &fallback)
                 .header("Content-Type", "application/json")
                 .json(&body)
         })
-        .await?;
-
-        let status = response.status();
-        tracing::info!(status = %status, "DeepL response status (primary attempt)");
-
-        // Primary succeeded — parse and return
-        if status.is_success() {
-            break 'translate response.json().await.map_err(|e| {
-                tracing::error!(error = %e, "Failed to parse DeepL response JSON");
-                ErrorKind::OtherError(format!("Failed to parse DeepL response: {e}"))
-            })?;
-        }
-
-        // 403 on a custom endpoint → try fallback auth format
-        if status == StatusCode::FORBIDDEN
-            && let Some(ref fallback) = fallback_auth
-        {
-            let error_text = response.text().await.unwrap_or_default();
-            tracing::warn!(
-                error_body = %error_text,
-                "DeepL primary auth rejected, retrying with DeepL-Auth-Key"
-            );
-
-            let retry = send_with_retry(|| {
-                client
-                    .post(api_endpoint)
-                    .header("Authorization", fallback.as_str())
-                    .header("Content-Type", "application/json")
-                    .json(&body)
-            })
-            .await?;
-
-            let retry_status = retry.status();
-            tracing::info!(status = %retry_status, "DeepL response status (fallback attempt)");
-
-            if retry_status.is_success() {
-                break 'translate retry.json().await.map_err(|e| {
-                        tracing::error!(error = %e, "Failed to parse DeepL fallback response JSON");
-                        ErrorKind::OtherError(format!("Failed to parse DeepL response: {e}"))
-                    })?;
-            }
-
-            let retry_error = retry.text().await.unwrap_or_default();
-            tracing::error!(
-                status = %retry_status,
-                error_body = %retry_error,
-                "DeepL fallback also failed"
-            );
-            return Err(ErrorKind::OtherError(format!(
-                "DeepL API error: HTTP {} - {}",
-                retry_status,
-                summarize_error_body(&retry_error)
-            ))
-            .into());
-        }
-
-        // Non-403 error or 403 without fallback
-        let error_text = response.text().await.unwrap_or_default();
-        tracing::error!(
-            status = %status,
-            error_body = %error_text,
-            "DeepL API error response"
-        );
-        return Err(ErrorKind::OtherError(format!(
-            "DeepL API error: HTTP {} - {}",
-            status,
-            summarize_error_body(&error_text)
-        ))
-        .into());
+        .await?
+    } else {
+        response
     };
+    let value = checked_json(response, "DeepL").await?;
 
     tracing::debug!(response = %value, "DeepL response body");
 
@@ -1198,6 +1109,54 @@ async fn cleanup_expired_cache(derived: &DerivedDb) -> crate::Result<()> {
         .await
 }
 
+fn deepl_configuration_fingerprint(endpoint: &str, key: &str) -> u64 {
+    let mut hasher = Sha256::new();
+    hasher.update(endpoint.len().to_le_bytes());
+    hasher.update(endpoint.as_bytes());
+    hasher.update(key.as_bytes());
+    let bytes = hasher.finalize();
+    u64::from_le_bytes(bytes[..8].try_into().unwrap()).max(1)
+}
+
+async fn translate_deepl_segments<F, Fut>(
+    segments: &[TranslationSegment],
+    endpoint: &str,
+    key: &str,
+    send: F,
+) -> crate::Result<Vec<TranslatedSegment>>
+where
+    F: Fn(TranslationSegment) -> Fut,
+    Fut: std::future::Future<Output = crate::Result<TranslatedSegment>>,
+{
+    let Some((first, rest)) = segments.split_first() else {
+        return Ok(Vec::new());
+    };
+    let fingerprint = deepl_configuration_fingerprint(endpoint, key);
+    if REJECTED_DEEPL_CONFIGURATION.load(Ordering::Relaxed) == fingerprint {
+        return Err(ErrorKind::OtherError(format!(
+            "{TRANSLATION_AUTHENTICATION_FAILED}: DeepL credentials were rejected"
+        )).into());
+    }
+    let result: crate::Result<Vec<TranslatedSegment>> = async {
+        // Confirm authentication with one real segment before scheduling the rest.
+        let first = send(first.clone()).await?;
+        let mut translated = stream::iter(rest.iter().cloned())
+            .map(send)
+            .buffer_unordered(4)
+            .try_collect::<Vec<_>>()
+            .await?;
+        translated.push(first);
+        Ok(translated)
+    }
+    .await;
+    if let Err(error) = &result
+        && matches!(&*error.raw, ErrorKind::OtherError(message) if message.starts_with(TRANSLATION_AUTHENTICATION_FAILED))
+    {
+        REJECTED_DEEPL_CONFIGURATION.store(fingerprint, Ordering::Relaxed);
+    }
+    result
+}
+
 async fn translate_uncached(
     http: &reqwest::Client,
     segments: &[TranslationSegment],
@@ -1248,19 +1207,20 @@ async fn translate_uncached(
                 )
                 .into());
             }
-            stream::iter(segments.iter().cloned())
-                .map(|segment| {
+            translate_deepl_segments(
+                segments,
+                api_endpoint,
+                api_key,
+                |segment| {
                     let source = &source;
                     let target = &target;
-                    let api_endpoint = api_endpoint.to_string();
-                    let api_key = api_key.to_string();
                     async move {
                         let text = deepl_translate(
                             &segment,
                             source,
                             target,
-                            &api_endpoint,
-                            &api_key,
+                            api_endpoint,
+                            api_key,
                         )
                         .await?;
                         Ok(TranslatedSegment {
@@ -1268,12 +1228,9 @@ async fn translate_uncached(
                             text,
                         })
                     }
-                })
-                .buffer_unordered(4)
-                .collect::<Vec<crate::Result<TranslatedSegment>>>()
-                .await
-                .into_iter()
-                .collect()
+                },
+            )
+            .await
         }
         TranslationProvider::BiliIndexTranslate => {
             bili_index_translate(segments, |batch| {
@@ -1794,43 +1751,37 @@ mod tests {
         assert_eq!(truncate_preview("hello", 50), "hello");
     }
 
-    #[test]
-    fn credential_prefix_stays_within_byte_budget() {
-        // ASCII keys keep the original byte-based behaviour.
-        assert_eq!(credential_prefix("abc12345", 4), "abc1");
-        // Byte budget never grows: a multi-byte key logs at most 4 bytes and
-        // always ends at a char boundary (may be shorter, never panics).
-        let key = "\u{6e2c}\u{6e2c}\u{6e2c}\u{6e2c}\u{6e2c}";
-        let prefix = credential_prefix(key, 4);
-        assert!(prefix.len() <= 4);
-        assert!(key.is_char_boundary(prefix.len()));
-        assert_eq!(credential_prefix("ab", 4), "ab");
-    }
+    #[tokio::test]
+    async fn invalid_deepl_credentials_only_send_one_segment_across_repeated_batches()
+     {
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
-    #[test]
-    fn credential_prefix_never_exceeds_byte_budget() {
-        // Even with an adversarial byte budget, the prefix never leaks more
-        // than the requested budget, always ends on a char boundary, and never
-        // panics - including budget 0 on multi-byte input.
-        let samples = [
-            "",
-            "abcd1234",
-            "\u{6e2c}",
-            "\u{6e2c}\u{6e2c}\u{6e2c}\u{6e2c}",
-            "a\u{6e2c}b\u{6e2c}",
-        ];
-        for text in samples {
-            // budget 0 must return empty without panicking (regression for the
-            // former end -= 1 underflow exposure).
-            let empty = credential_prefix(text, 0);
-            assert_eq!(empty, "");
-            assert!(text.is_char_boundary(empty.len()));
-            for budget in 1..=8 {
-                let prefix = credential_prefix(text, budget);
-                assert!(prefix.len() <= budget);
-                assert!(text.is_char_boundary(prefix.len()));
+        let calls = AtomicUsize::new(0);
+        let segments = [segment("first", "one"), segment("second", "two")];
+        let send = |_| {
+            calls.fetch_add(1, Ordering::Relaxed);
+            async {
+                Err(ErrorKind::OtherError(format!(
+                    "{TRANSLATION_AUTHENTICATION_FAILED}: DeepL translation failed with HTTP 401"
+                )).into())
             }
+        };
+        let endpoint = "https://deepl-rejection.test/v2/translate";
+        for _ in 0..2 {
+            let error =
+                translate_deepl_segments(&segments, endpoint, "old", &send)
+                    .await
+                    .unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains(TRANSLATION_AUTHENTICATION_FAILED)
+            );
         }
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+        let _ =
+            translate_deepl_segments(&segments, endpoint, "new", send).await;
+        assert_eq!(calls.load(Ordering::Relaxed), 2);
     }
 
     #[test]

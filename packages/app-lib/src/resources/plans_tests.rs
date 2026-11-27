@@ -2586,6 +2586,91 @@ async fn dependency_conflicts_and_foreign_entry_ownership_block_a_plan() {
 }
 
 #[tokio::test]
+async fn automatic_browse_install_matches_the_project_pages_published_release()
+{
+    let mut older = release("3cnkUCbj", "11", 'a');
+    older.version = "1.4.11".into();
+    let mut newer = release("3cnkUCbj", "2", 'b');
+    newer.version = "1.4.2".into();
+    newer.published_at = chrono::DateTime::from_timestamp(12_000, 0);
+    let mut prerelease = release("3cnkUCbj", "13", 'c');
+    prerelease.version = "1.4.13".into();
+    prerelease.channel = ReleaseChannel::Beta;
+    let mut incompatible = release("3cnkUCbj", "14", 'd');
+    incompatible.compatibility.game_versions = vec!["1.21.1".into()];
+
+    let dependency_newer = release("jJfV67b1", "3", 'e');
+    let mut dependency_older = release("jJfV67b1", "2", 'f');
+    dependency_older.published_at = chrono::DateTime::from_timestamp(4_000, 0);
+    newer.artifacts[0].dependencies.push(ArtifactDependency {
+        target: DependencyTarget::Resource {
+            reference: ResourceRef::Source {
+                project: dependency_newer.reference.project.clone(),
+            },
+        },
+        kind: ResourceDependencyKind::Required,
+        version_constraint: None,
+    });
+    let (_directory, service) = service(vec![
+        older.clone(),
+        newer.clone(),
+        prerelease,
+        incompatible,
+        dependency_newer.clone(),
+        dependency_older,
+    ])
+    .await;
+    let cancel = CancellationToken::new();
+    let memo = plans::analysis::AnalysisMemo::default();
+    let mut automatic = selection("root", &newer, None);
+    automatic.release = ReleaseSelection::Automatic;
+    let mut target = target();
+    target.channels.push(ReleaseChannel::Beta);
+
+    let reviewed = service
+        .build_operation_with_memo(
+            draft(vec![automatic], ResourceOperationIntent::Install),
+            &target,
+            &[],
+            &cancel,
+            None,
+            Some(&memo),
+        )
+        .await
+        .unwrap();
+    let actual: Vec<_> = reviewed
+        .plan
+        .actions
+        .iter()
+        .map(|action| &action.target.reference.release)
+        .collect();
+    assert_eq!(actual.len(), 2);
+    assert!(actual.contains(&&newer.reference));
+    assert!(actual.contains(&&dependency_newer.reference));
+
+    let explicit = service
+        .build_operation_with_memo(
+            draft(
+                vec![selection("root", &older, None)],
+                ResourceOperationIntent::Install,
+            ),
+            &target,
+            &[],
+            &cancel,
+            None,
+            Some(&memo),
+        )
+        .await
+        .unwrap();
+    assert_eq!(explicit.plan.actions.len(), 1);
+    assert_eq!(
+        explicit.plan.actions[0].target.reference.release,
+        older.reference
+    );
+    service.cache().close().await;
+}
+
+#[tokio::test]
 async fn a_required_exact_release_pins_an_automatic_batch_root_in_either_order()
 {
     let mut parent = release("root0000", "1", 'a');

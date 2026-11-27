@@ -64,6 +64,7 @@ pub(super) async fn selected_release(
     current: Option<&ResourceRelease>,
     constraints: &[String],
     requirements: &[RetainedRequirement],
+    browse_project: Option<&SourceProjectRef>,
 ) -> ResourceResult<SelectedRelease> {
     let mut constraints = constraints.to_vec();
     constraints.sort();
@@ -75,6 +76,7 @@ pub(super) async fn selected_release(
         current,
         &constraints,
         requirements,
+        browse_project,
     ))?;
     if let Some(value) = memo.and_then(|memo| memo.releases.get(&key)) {
         return Ok(value.clone());
@@ -88,6 +90,7 @@ pub(super) async fn selected_release(
             current,
             &constraints,
             requirements,
+            browse_project,
         )
         .await?;
     if let Some(memo) = memo {
@@ -164,6 +167,8 @@ impl AnalysisMemo {
         preferred: &SourceId,
         requirements: &[RetainedRequirement],
         seeded: &HashMap<SelectionKey, Vec<String>>,
+        intent: ResourceOperationIntent,
+        active_roots: &[SelectionId],
         cancel: &CancellationToken,
     ) -> ResourceResult<()> {
         // Fetch independent root metadata concurrently; graph mutations and
@@ -177,6 +182,8 @@ impl AnalysisMemo {
             .collect();
         stream::iter(selections)
             .map(|mut selection| async move {
+                let browse_project =
+                    browse_install_project(&selection, intent, active_roots);
                 canonical(service, &mut selection, cancel, Some(self)).await?;
                 let local =
                     service.requirements_for(&selection, requirements).await?;
@@ -194,6 +201,7 @@ impl AnalysisMemo {
                     None,
                     constraints,
                     &local,
+                    browse_project.as_ref(),
                 )
                 .await?;
                 Ok::<_, ResourceError>(())
@@ -462,6 +470,7 @@ async fn update_data(
                 None,
                 &[],
                 &[],
+                None,
             )
             .await?;
         } else {

@@ -411,6 +411,44 @@ fn selection_key(selection: &ResourceSelection) -> SelectionKey {
     }
 }
 
+fn browse_install_project(
+    selection: &ResourceSelection,
+    intent: ResourceOperationIntent,
+    active_roots: &[SelectionId],
+) -> Option<SourceProjectRef> {
+    if intent == ResourceOperationIntent::Install
+        && selection.resource_type == ResourceType::Mod
+        && matches!(selection.release, ReleaseSelection::Automatic)
+        && active_roots.contains(&selection.id)
+        && let ResourceRef::Source { project } = &selection.resource
+        && project.source == SourceId::modrinth()
+    {
+        return Some(project.clone());
+    }
+    None
+}
+
+fn select_browse_install_release(
+    releases: &[ResourceRelease],
+    project: &SourceProjectRef,
+) -> Option<(ResourceRelease, ReleaseSelectionBasis)> {
+    // Match the project's default install choice. Updates and dependencies
+    // still use version ordering and the batch can still pin requirements.
+    releases
+        .iter()
+        .filter(|release| &release.reference.project == project)
+        .max_by_key(|release| {
+            let channel = match release.channel {
+                ReleaseChannel::Release => 3,
+                ReleaseChannel::Beta => 2,
+                ReleaseChannel::Alpha => 1,
+                ReleaseChannel::Unknown => 0,
+            };
+            (channel, release.published_at)
+        })
+        .map(|release| (release.clone(), ReleaseSelectionBasis::PublishedAt))
+}
+
 pub fn validate_scope(
     scope: &InstallScope,
     kind: ResourceType,
@@ -1087,6 +1125,7 @@ impl ResourceService {
             current,
             constraints,
             &[],
+            None,
         )
         .await
     }
@@ -1100,6 +1139,7 @@ impl ResourceService {
         current: Option<&ResourceRelease>,
         constraints: &[String],
         requirements: &[RetainedRequirement],
+        browse_project: Option<&SourceProjectRef>,
     ) -> ResourceResult<(
         ResourceRelease,
         ResourceArtifact,
@@ -1113,6 +1153,7 @@ impl ResourceService {
             current,
             constraints,
             requirements,
+            browse_project,
             CachePolicy::UseFresh,
             false,
         )
@@ -1128,6 +1169,7 @@ impl ResourceService {
         current: Option<&ResourceRelease>,
         constraints: &[String],
         requirements: &[RetainedRequirement],
+        browse_project: Option<&SourceProjectRef>,
         policy: CachePolicy,
         require_complete: bool,
     ) -> ResourceResult<(
@@ -1290,9 +1332,17 @@ impl ResourceService {
                     releases = preferred_channels;
                 }
                 loop {
-                    let selected =
-                        select_automatic_release(releases.clone(), preferred)
-                            .ok_or_else(|| {
+                    let selected = browse_project
+                        .and_then(|project| {
+                            select_browse_install_release(&releases, project)
+                        })
+                        .or_else(|| {
+                            select_automatic_release(
+                                releases.clone(),
+                                preferred,
+                            )
+                        })
+                        .ok_or_else(|| {
                             if failures.is_empty() {
                                 return ResourceError::NoCompatibleRelease;
                             }
@@ -1702,6 +1752,8 @@ impl ResourceService {
                 &preferred,
                 &draft.retained_requirements,
                 &seeded.constraints,
+                draft.plan.intent,
+                &draft.plan.active_roots,
                 cancel,
             )
             .await?;
@@ -1765,6 +1817,11 @@ impl ResourceService {
                 }
                 continue;
             }
+            let browse_project = browse_install_project(
+                &selection,
+                draft.plan.intent,
+                &draft.plan.active_roots,
+            );
             let metadata =
                 match analysis::canonical(self, &mut selection, cancel, memo)
                     .await
@@ -1921,6 +1978,7 @@ impl ResourceService {
                     previous_release.as_ref(),
                     &constraints,
                     &requirements,
+                    browse_project.as_ref(),
                 )
                 .await
             } {

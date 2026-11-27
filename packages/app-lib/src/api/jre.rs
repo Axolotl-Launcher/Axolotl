@@ -198,6 +198,7 @@ pub async fn get_java_versions() -> crate::Result<Vec<JavaVersion>> {
 }
 
 async fn register_managed_java_versions(state: &State) -> crate::Result<()> {
+    let _install_guard = JAVA_INSTALL_LOCK.lock().await;
     let documents = documents::Documents::new(state);
     let root = state.directories.java_versions_dir();
     let mut entries = match tokio::fs::read_dir(&root).await {
@@ -216,25 +217,7 @@ async fn register_managed_java_versions(state: &State) -> crate::Result<()> {
             continue;
         }
 
-        let mut candidates = vec![
-            install_root.join("bin").join(jre::JAVA_BIN),
-            install_root.join("Contents/Home/bin").join(jre::JAVA_BIN),
-            install_root
-                .join("jre.bundle/Contents/Home/bin")
-                .join(jre::JAVA_BIN),
-        ];
-        let legacy_pointer = install_root.join("bin");
-        if legacy_pointer.is_file()
-            && let Ok(relative) =
-                tokio::fs::read_to_string(&legacy_pointer).await
-        {
-            let relative = relative.trim();
-            if !relative.is_empty() {
-                candidates.push(install_root.join(relative));
-            }
-        }
-
-        for candidate in candidates {
+        for candidate in managed_java_candidates(&install_root).await {
             let Ok(java) = jre::check_java_at_filepath(&candidate).await else {
                 continue;
             };
@@ -261,6 +244,30 @@ async fn register_managed_java_versions(state: &State) -> crate::Result<()> {
     }
 
     Ok(())
+}
+
+async fn managed_java_candidates(install_root: &Path) -> Vec<PathBuf> {
+    let mut candidates = vec![
+        install_root.join("bin").join(jre::JAVA_BIN),
+        install_root.join("Contents/Home/bin").join(jre::JAVA_BIN),
+        install_root
+            .join("jre.bundle/Contents/Home/bin")
+            .join(jre::JAVA_BIN),
+    ];
+    let legacy_pointer = install_root.join("bin");
+    if legacy_pointer.is_file()
+        && let Ok(relative) = tokio::fs::read_to_string(&legacy_pointer).await
+    {
+        let relative = Path::new(relative.trim());
+        if !relative.as_os_str().is_empty()
+            && relative
+                .components()
+                .all(|component| matches!(component, Component::Normal(_)))
+        {
+            candidates.push(install_root.join(relative));
+        }
+    }
+    candidates
 }
 
 pub async fn get_java_default_versions() -> crate::Result<Vec<JavaVersion>> {
@@ -352,6 +359,127 @@ pub async fn remove_java_default_version(
 pub async fn remove_java_version(path: String) -> crate::Result<()> {
     let state = State::get().await?;
     JavaVersion::delete(&path, &documents::Documents::new(&state)).await
+}
+
+/// Removes a Java installation from the desktop list. External installations
+/// remain on disk; the registration-only tools use `remove_java_version`.
+pub async fn remove_installed_java_version(path: String) -> crate::Result<()> {
+    let state = State::get().await?;
+    let _install_guard = JAVA_INSTALL_LOCK.lock().await;
+    let documents = documents::Documents::new(&state);
+    if !JavaVersion::get_all(&documents)
+        .await?
+        .iter()
+        .any(|java| java.path == path)
+    {
+        return Ok(());
+    }
+    if let Some(install_root) = managed_java_root(
+        &state.directories.java_versions_dir(),
+        Path::new(&path),
+    )
+    .await?
+    {
+        if !state.process_manager.get_all().is_empty()
+            || !crate::api::servers::running_server_ids().is_empty()
+        {
+            return Err(crate::ErrorKind::InputError(
+                "Stop running Minecraft games and servers before uninstalling a managed Java runtime.".into(),
+            ).into());
+        }
+        io::remove_dir_all(install_root).await?;
+    }
+    JavaVersion::delete(&path, &documents).await?;
+    if let Err(error) = DiscoveredJava::remove(&path, &state.derived).await {
+        tracing::warn!(%error, "Could not refresh the Java discovery cache after removing a registration");
+    }
+    Ok(())
+}
+
+async fn managed_java_root(
+    root: &Path,
+    executable: &Path,
+) -> crate::Result<Option<PathBuf>> {
+    use std::io::ErrorKind::NotFound;
+    let canonical_root = match tokio::fs::canonicalize(root).await {
+        Ok(path) => path,
+        Err(error) if error.kind() == NotFound => return Ok(None),
+        Err(error) => return Err(io::IOError::with_path(error, root).into()),
+    };
+    let Ok(relative) = executable
+        .strip_prefix(&canonical_root)
+        .or_else(|_| {
+            executable.strip_prefix(dunce::simplified(&canonical_root))
+        })
+        .or_else(|_| executable.strip_prefix(root))
+    else {
+        return Ok(None);
+    };
+    if relative
+        .components()
+        .any(|component| !matches!(component, Component::Normal(_)))
+        || jre::is_java_install_staging_path(relative)
+    {
+        return Ok(None);
+    }
+    let Some(Component::Normal(name)) = relative.components().next() else {
+        return Ok(None);
+    };
+    let install_root = canonical_root.join(name);
+    let resolved = match tokio::fs::canonicalize(executable).await {
+        Ok(path) => path,
+        Err(error) if error.kind() == NotFound => return Ok(None),
+        Err(error) => {
+            return Err(io::IOError::with_path(error, executable).into());
+        }
+    };
+    if !resolved.starts_with(&install_root)
+        || tokio::fs::canonicalize(&install_root).await? != install_root
+    {
+        return Ok(None);
+    }
+    for candidate in managed_java_candidates(&install_root).await {
+        if tokio::fs::canonicalize(candidate)
+            .await
+            .is_ok_and(|path| path == resolved)
+        {
+            return Ok(Some(install_root));
+        }
+    }
+    Ok(None)
+}
+
+#[cfg(test)]
+#[tokio::test]
+async fn managed_java_removal_only_selects_a_known_owned_installation() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("runtimes");
+    let managed = root.join("vendor-jdk-21");
+    let sibling = root.join("vendor-jdk-17");
+    let staging = root.join(".staged.installing");
+    let external = temp.path().join("external");
+    for install in [&managed, &sibling, &staging, &external] {
+        tokio::fs::create_dir_all(install.join("bin"))
+            .await
+            .unwrap();
+        tokio::fs::write(install.join("bin").join(jre::JAVA_BIN), b"fixture")
+            .await
+            .unwrap();
+    }
+    let exe = managed.join("bin").join(jre::JAVA_BIN);
+    let directory = managed_java_root(&root, &exe).await.unwrap().unwrap();
+    assert_eq!(directory, tokio::fs::canonicalize(&managed).await.unwrap());
+    for unowned in [
+        external.join("bin").join(jre::JAVA_BIN),
+        staging.join("bin").join(jre::JAVA_BIN),
+        managed.join("../vendor-jdk-17/bin").join(jre::JAVA_BIN),
+        managed.join("bin"),
+    ] {
+        assert!(managed_java_root(&root, &unowned).await.unwrap().is_none());
+    }
+    io::remove_dir_all(directory).await.unwrap();
+    assert!(!exe.exists());
+    assert!(sibling.is_dir() && staging.is_dir() && external.is_dir());
 }
 
 const JAVA_RESCAN_DEBOUNCE: Duration = Duration::from_secs(60);

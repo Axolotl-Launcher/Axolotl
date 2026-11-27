@@ -55,6 +55,7 @@ const messages = defineMessages({
 const emit = defineEmits(['changed'])
 const modal = ref(null)
 const loading = ref(false)
+const removing = ref(null)
 const javaVersions = ref([])
 
 const columns = [
@@ -86,16 +87,17 @@ async function show() {
 }
 
 async function removeEntry(javaVersion) {
-    const removed = await remove_java_version(javaVersion.path)
-        .then(() => true)
-        .catch((error) => {
-            handleError(error)
-            return false
-        })
-    if (!removed) return
-
-    javaVersions.value = javaVersions.value.filter((item) => item.path !== javaVersion.path)
-    emit('changed')
+    if (removing.value) return
+    removing.value = javaVersion.path
+    try {
+        await remove_java_version(javaVersion.path)
+        await reload()
+        emit('changed')
+    } catch (error) {
+        handleError(error)
+    } finally {
+        removing.value = null
+    }
 }
 
 defineExpose({ show })
@@ -137,10 +139,16 @@ defineExpose({ show })
                     color="red"
                     interaction="filled"
                     :label="formatMessage(messages.remove)"
+                    :disabled="!!removing"
                     native-type="button"
                     @click="removeEntry(row)"
                 >
-                    <TrashIcon aria-hidden="true" />
+                    <SpinnerIcon
+                        v-if="removing === row.path"
+                        class="animate-spin"
+                        aria-hidden="true"
+                    />
+                    <TrashIcon v-else aria-hidden="true" />
                 </IconButton>
             </template>
             <template #empty-state>

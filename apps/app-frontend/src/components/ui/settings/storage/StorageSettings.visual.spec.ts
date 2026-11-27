@@ -2,11 +2,20 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 
-import { scanStorage, type StorageScanEvent, type StorageTree } from '@/helpers/storage'
+import {
+    cancelStorageScan,
+    scanStorage,
+    type StorageScanEvent,
+    type StorageTree,
+} from '@/helpers/storage'
 
 import StorageSettings from '../StorageSettings.vue'
 
-vi.mock('@/helpers/storage', () => ({ scanStorage: vi.fn(), openStoragePaths: vi.fn() }))
+vi.mock('@/helpers/storage', () => ({
+    cancelStorageScan: vi.fn(async () => {}),
+    scanStorage: vi.fn(),
+    openStoragePaths: vi.fn(),
+}))
 const preview = vi.hoisted(() => ({ usage: async (): Promise<number | null> => null }))
 vi.mock('@/helpers/storage/preview-cache-usage', () => ({
     previewCacheUsage: () => preview.usage(),
@@ -20,7 +29,8 @@ vi.mock('@modrinth/ui', () => ({
     useFormatBytes: () => (size: number) => `${size} bytes`,
     useFormatDateTime: () => (date: Date | number | string) => new Date(date).toISOString(),
     useVIntl: () => ({
-        formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+        formatMessage: (message: { defaultMessage: string }, values?: { count?: number }) =>
+            message.defaultMessage.replace('{count, number}', String(values?.count ?? '')),
     }),
     Button: defineComponent({
         setup:
@@ -110,7 +120,7 @@ it('keeps the cleanup result surface mounted when the metadata category disappea
 it('shows cached results and actual scan progress while refresh is pending', async () => {
     let notify!: (event: StorageScanEvent) => void
     let finish!: (tree: StorageTree) => void
-    vi.mocked(scanStorage).mockImplementationOnce((_force, progress) => {
+    vi.mocked(scanStorage).mockImplementationOnce((_force, _id, progress) => {
         notify = progress!
         return new Promise((resolve) => {
             finish = resolve
@@ -121,12 +131,17 @@ it('shows cached results and actual scan progress while refresh is pending', asy
     await flushPromises()
     expect(wrapper.find('.animate-pulse').exists()).toBe(false)
     notify({ kind: 'cached', tree: snapshot() })
-    notify({ kind: 'progress', completed: 3, total: 16, category: 'meta' })
+    notify({ kind: 'progress', completed: 3, total: 16, category: 'meta', visited: 50 })
     await flushPromises()
     expect(wrapper.text()).toContain('12 bytes')
     expect(wrapper.text()).toContain('Showing the previous scan')
     expect(wrapper.get('progress').attributes('value')).toBe('3')
     expect(wrapper.get('progress').attributes('max')).toBe('16')
+    expect(wrapper.text()).toContain('50 items checked')
+    notify({ kind: 'progress', completed: 3, total: 16, category: 'meta', visited: 100 })
+    await flushPromises()
+    expect(wrapper.get('progress').attributes('value')).toBe('3')
+    expect(wrapper.text()).toContain('100 items checked')
     finish({ ...snapshot(), total: { actual: 20, symlink: 0 } })
     await flushPromises()
     expect(wrapper.text()).toContain('20 bytes')
@@ -136,7 +151,7 @@ it('shows cached results and actual scan progress while refresh is pending', asy
 
 it('shows the preview cache size without waiting for the storage scan', async () => {
     let notify!: (event: StorageScanEvent) => void
-    vi.mocked(scanStorage).mockImplementationOnce((_force, progress) => {
+    vi.mocked(scanStorage).mockImplementationOnce((_force, _id, progress) => {
         notify = progress!
         return new Promise(() => {})
     })
@@ -148,4 +163,44 @@ it('shows the preview cache size without waiting for the storage scan', async ()
     await flushPromises()
     expect(wrapper.text()).toContain('34 bytes')
     expect(wrapper.text()).toContain('Showing the previous scan')
+    const requestId = vi.mocked(scanStorage).mock.calls[0][1]
+    mounted.pop()
+    wrapper.unmount()
+    expect(cancelStorageScan).toHaveBeenCalledWith(requestId)
+})
+
+it('stops the active scan, keeps the previous snapshot, and can scan again', async () => {
+    vi.mocked(scanStorage).mockResolvedValueOnce(snapshot())
+    let notify!: (event: StorageScanEvent) => void
+    let stop!: (tree: null) => void
+    vi.mocked(scanStorage).mockImplementationOnce((_force, _id, progress) => {
+        notify = progress!
+        return new Promise((resolve) => {
+            stop = resolve
+        })
+    })
+    vi.mocked(cancelStorageScan).mockImplementationOnce(async () => stop(null))
+    const wrapper = mount(StorageSettings, { global: { directives: { tooltip: {} } } })
+    mounted.push(wrapper)
+    await flushPromises()
+    const button = (label: string) =>
+        wrapper.findAll('button').find((element) => element.text() === label)!
+    await button('Update').trigger('click')
+    await button('Cancel').trigger('click')
+    await flushPromises()
+    expect(cancelStorageScan).toHaveBeenCalledWith(vi.mocked(scanStorage).mock.calls[1][1])
+    notify({ kind: 'cached', tree: { ...snapshot(), total: { actual: 0, symlink: 0 } } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Storage scan stopped.')
+    expect(wrapper.text()).toContain('12 bytes')
+    expect(wrapper.find('progress').exists()).toBe(false)
+
+    vi.mocked(scanStorage).mockResolvedValueOnce({
+        ...snapshot(),
+        total: { actual: 30, symlink: 0 },
+    })
+    await button('Update').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('30 bytes')
+    expect(wrapper.text()).not.toContain('Storage scan stopped.')
 })

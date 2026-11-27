@@ -100,6 +100,15 @@ async fn scan_reports_completed_areas_and_cache_retains_stale_results_for_displa
         .collect();
     assert_eq!(steps[0].0, 0);
     assert!(steps[0].1 >= 16);
+    assert!(events.iter().any(|event| matches!(
+        event,
+        StorageScanEvent::Progress {
+            completed: 0,
+            category: StorageNodeType::Instances,
+            visited: 1,
+            ..
+        }
+    )));
     let last = steps.last().unwrap();
     assert_eq!(last.0, last.1);
     assert!(
@@ -110,6 +119,8 @@ async fn scan_reports_completed_areas_and_cache_retains_stale_results_for_displa
     assert!(snapshot_is_fresh(&tree));
     tree.scanned_at = Utc::now() - chrono::Duration::hours(1);
     assert!(!snapshot_is_fresh(&tree));
+    assert!(ScanMode::ReuseExisting.reuse(&tree));
+    assert!(!ScanMode::ReuseFresh.reuse(&tree));
     let snapshot = StorageCacheFile {
         version: STORAGE_CACHE_VERSION,
         roots: "current-roots".into(),
@@ -135,6 +146,75 @@ async fn scan_reports_completed_areas_and_cache_retains_stale_results_for_displa
     );
     tree.scanned_at = Utc::now() + chrono::Duration::hours(1);
     assert!(!snapshot_is_fresh(&tree));
+}
+
+#[tokio::test]
+async fn cancellation_can_end_a_scan_waiting_for_the_storage_lock() {
+    let lock = SCAN_LOCK.lock().await;
+    let token = tokio_util::sync::CancellationToken::new();
+    let scan = scan_storage_until_cancelled(false, &|_| {}, token.cancelled());
+    tokio::pin!(scan);
+    assert!(futures::poll!(&mut scan).is_pending());
+
+    token.cancel();
+
+    assert!(scan.await.unwrap().is_none());
+    drop(lock);
+}
+
+#[tokio::test]
+async fn cancellation_during_traversal_keeps_the_previous_snapshot() {
+    let temp = tempfile::tempdir().unwrap();
+    let directories = DirectoryInfo {
+        settings_dir: temp.path().into(),
+        config_dir: temp.path().into(),
+        app_identifier: "test".into(),
+    };
+    let cache = directories.caches_dir().join(STORAGE_CACHE_FILE);
+    fs::create_dir_all(cache.parent().unwrap()).await.unwrap();
+    fs::write(&cache, b"previous scan").await.unwrap();
+    fs::create_dir_all(directories.instances_dir())
+        .await
+        .unwrap();
+    fs::write(directories.instances_dir().join("test.jar"), b"game")
+        .await
+        .unwrap();
+    let token = tokio_util::sync::CancellationToken::new();
+    let prepare = async {
+        let tree = scan_with_directories_progress(
+            &directories,
+            &temp.path().join("backups"),
+            vec![],
+            &|event| {
+                if matches!(
+                    event,
+                    StorageScanEvent::Progress {
+                        completed: 0,
+                        visited: 1,
+                        ..
+                    }
+                ) {
+                    token.cancel();
+                }
+            },
+        )
+        .await?;
+        Ok(PreparedStorageScan::Measured {
+            cache_path: cache.clone(),
+            snapshot: StorageCacheFile {
+                version: STORAGE_CACHE_VERSION,
+                roots: String::new(),
+                tree,
+            },
+        })
+    };
+    assert!(
+        scan_until_cancelled(prepare, token.cancelled())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(fs::read(cache).await.unwrap(), b"previous scan");
 }
 
 #[tokio::test]
@@ -216,7 +296,15 @@ async fn a_link_at_the_scan_root_never_counts_as_owned_bytes() {
     std::os::unix::fs::symlink(&target, &link).unwrap();
     #[cfg(windows)]
     junction::create(&target, &link).unwrap();
-    let node = scan(&link, 2, &HashSet::new(), &mut vec![]).await.unwrap();
+    let node = scan(
+        &link,
+        2,
+        &HashSet::new(),
+        &mut vec![],
+        &mut test_scan_progress(),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         node.size,
         StorageSize {
@@ -239,12 +327,29 @@ async fn scan_errors_do_not_discard_readable_siblings() {
     )
     .unwrap();
     let mut warnings = vec![];
-    let node = scan(&path, 1, &HashSet::new(), &mut warnings)
-        .await
-        .unwrap();
+    let node = scan(
+        &path,
+        1,
+        &HashSet::new(),
+        &mut warnings,
+        &mut test_scan_progress(),
+    )
+    .await
+    .unwrap();
     assert_eq!(node.size.actual, 7);
     #[cfg(unix)]
     assert_eq!(warnings.len(), 1);
+}
+
+fn test_scan_progress() -> ScanProgress<'static> {
+    ScanProgress {
+        emit: &|_| {},
+        completed: 0,
+        total: 1,
+        category: StorageNodeType::Other,
+        visited: 0,
+        last_update: None,
+    }
 }
 
 #[tokio::test]

@@ -1,4 +1,5 @@
 use crate::api::Result;
+use crate::api::search_cancellation::{self, SearchCancellation};
 use serde::Serialize;
 use std::path::PathBuf;
 use tauri::Runtime;
@@ -12,6 +13,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("storage")
         .invoke_handler(tauri::generate_handler![
             storage_scan,
+            storage_scan_cancel,
             storage_cache_clear,
             storage_meta_analyze,
             storage_meta_clean,
@@ -38,14 +40,32 @@ pub struct StorageOpenFailure {
 #[tauri::command]
 pub async fn storage_scan(
     force: bool,
+    request_id: uuid::Uuid,
     on_progress: tauri::ipc::Channel<StorageScanEvent>,
-) -> Result<StorageTree> {
-    Ok(
-        theseus::storage::scan_storage_with_progress(force, &move |event| {
+) -> Result<Option<StorageTree>> {
+    let cancellation =
+        SearchCancellation::register(format!("storage-scan:{request_id}"));
+    Ok(theseus::storage::scan_storage_until_cancelled(
+        force,
+        &move |event| {
             let _ = on_progress.send(event);
-        })
-        .await?,
+        },
+        cancellation.cancelled(),
     )
+    .await?)
+}
+
+#[tracing::instrument(skip_all, level = "info")]
+#[tauri::command]
+pub fn storage_scan_cancel(request_id: uuid::Uuid) {
+    if let Some(pending) =
+        search_cancellation::cancel(&format!("storage-scan:{request_id}"))
+    {
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            pending.expire();
+        });
+    }
 }
 
 #[tracing::instrument(skip_all, level = "info")]

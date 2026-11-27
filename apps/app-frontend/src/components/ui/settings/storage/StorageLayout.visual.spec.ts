@@ -21,6 +21,7 @@ import StorageSettings from '../StorageSettings.vue'
 
 vi.mock('@/helpers/storage', () => ({
     scanStorage: vi.fn(),
+    cancelStorageScan: vi.fn(async () => {}),
     openStoragePaths: vi.fn(),
     analyzeMeta: vi.fn(),
     cleanMeta: vi.fn(),
@@ -95,10 +96,10 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
         external: [],
         warnings: [],
     })
-    const initialSnapshot = await vi.mocked(scanStorage).getMockImplementation()!(false)
+    const initialSnapshot = await vi.mocked(scanStorage).getMockImplementation()!(false, 'initial')
     let finishInitial!: (tree: typeof initialSnapshot) => void
-    vi.mocked(scanStorage).mockImplementationOnce((_force, report) => {
-        report?.({ kind: 'progress', completed: 0, total: 16, category: 'instances' })
+    vi.mocked(scanStorage).mockImplementationOnce((_force, _requestId, report) => {
+        report?.({ kind: 'progress', completed: 0, total: 16, category: 'instances', visited: 0 })
         return new Promise((resolve) => {
             finishInitial = resolve
         })
@@ -209,8 +210,8 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
     }
     const previous = await vi.mocked(scanStorage).mock.results[0].value
     let finishScan!: (tree: typeof previous) => void
-    vi.mocked(scanStorage).mockImplementationOnce((_force, report) => {
-        report?.({ kind: 'progress', completed: 3, total: 16, category: 'meta' })
+    vi.mocked(scanStorage).mockImplementationOnce((_force, _requestId, report) => {
+        report?.({ kind: 'progress', completed: 3, total: 16, category: 'meta', visited: 24 })
         return new Promise((resolve) => {
             finishScan = resolve
         })

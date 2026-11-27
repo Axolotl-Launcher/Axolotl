@@ -7,9 +7,21 @@ export const storageMessages = defineMessages({
         id: 'app.settings.storage.openFolder',
         defaultMessage: 'Open folder in file manager',
     },
-    scanSections: {
-        id: 'app.settings.storage.scanSections',
-        defaultMessage: '{completed} / {total} areas',
+    scanItems: {
+        id: 'app.settings.storage.scanItems',
+        defaultMessage: '{count, number} items checked',
+    },
+    cancellingScan: {
+        id: 'app.settings.storage.cancellingScan',
+        defaultMessage: 'Stopping scan…',
+    },
+    cancelScanFailed: {
+        id: 'app.settings.storage.cancelScanFailed',
+        defaultMessage: 'Could not stop the scan. Try again.',
+    },
+    scanCancelled: {
+        id: 'app.settings.storage.scanCancelled',
+        defaultMessage: 'Storage scan stopped.',
     },
     cachedScanHelp: {
         id: 'app.settings.storage.cachedScanHelp',

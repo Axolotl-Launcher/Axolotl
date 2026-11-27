@@ -5,6 +5,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import {
+    cancelStorageScan,
     type MetaCleanupResult,
     openStoragePaths,
     scanStorage,
@@ -29,10 +30,14 @@ const tree = ref<StorageTree | null>(null)
 const loading = ref(true)
 const lastUpdated = ref<Date | null>(null)
 const scanError = ref(false)
+const scanCancelled = ref(false)
+const cancelling = ref(false)
+const cancelFailed = ref(false)
 const previewBytes = ref<number | null>(null)
 const scanProgress = ref<Extract<StorageScanEvent, { kind: 'progress' }> | null>(null)
 const showingCache = ref(false)
 let requestId = 0
+let activeScanId: string | null = null
 
 const categories = computed(() => tree.value?.categories ?? [])
 
@@ -53,11 +58,17 @@ function sizeTotal(size: StorageSize) {
 }
 
 async function loadStorage(force: boolean) {
+    if (activeScanId) return false
     const current = ++requestId
+    const scanId = crypto.randomUUID()
+    activeScanId = scanId
     loading.value = true
     scanError.value = false
+    scanCancelled.value = false
+    cancelling.value = false
+    cancelFailed.value = false
     scanProgress.value = null
-    showingCache.value = false
+    showingCache.value = tree.value !== null
     // The preview cache size is shown as soon as it is known instead of
     // waiting for the full storage scan.
     void previewCacheUsage()
@@ -66,8 +77,8 @@ async function loadStorage(force: boolean) {
             if (current === requestId) previewBytes.value = previews
         })
     try {
-        const snapshot = await scanStorage(force, (event) => {
-            if (current !== requestId) return
+        const snapshot = await scanStorage(force, scanId, (event) => {
+            if (activeScanId !== scanId || cancelling.value) return
             if (event.kind === 'cached') {
                 tree.value = event.tree
                 showingCache.value = true
@@ -75,6 +86,10 @@ async function loadStorage(force: boolean) {
             } else scanProgress.value = event
         })
         if (current !== requestId) return false
+        if (!snapshot) {
+            scanCancelled.value = true
+            return false
+        }
         tree.value = snapshot
         showingCache.value = false
         lastUpdated.value = snapshot.scannedAt ? new Date(snapshot.scannedAt) : new Date()
@@ -85,7 +100,26 @@ async function loadStorage(force: boolean) {
         console.warn('[storage] Scan failed', error)
         return false
     } finally {
-        if (current === requestId) loading.value = false
+        if (current === requestId) {
+            activeScanId = null
+            loading.value = false
+            cancelling.value = false
+        }
+    }
+}
+
+async function cancelScan() {
+    const scanId = activeScanId
+    if (!scanId || cancelling.value) return
+    cancelling.value = true
+    cancelFailed.value = false
+    try {
+        await cancelStorageScan(scanId)
+    } catch (error) {
+        if (activeScanId !== scanId) return
+        cancelling.value = false
+        cancelFailed.value = true
+        console.warn('[storage] Could not cancel scan', error)
     }
 }
 
@@ -130,6 +164,12 @@ async function updateStorage() {
 onMounted(() => void loadStorage(false))
 onUnmounted(() => {
     requestId += 1
+    if (activeScanId && !cancelling.value) {
+        void cancelStorageScan(activeScanId).catch((error) => {
+            console.warn('[storage] Could not cancel scan', error)
+        })
+    }
+    activeScanId = null
 })
 
 function launcherRouteFor(node: StorageNode, instanceId: string): string | null {
@@ -186,22 +226,22 @@ async function handleAction(node: StorageNode) {
         tabindex="-1"
         class="flex w-full flex-col gap-3 text-[var(--color-text-primary)]"
     >
-        <div v-if="loading" class="flex flex-col gap-2" aria-busy="true">
+        <div v-if="loading" class="flex flex-col gap-2">
             <div
-                class="flex flex-wrap justify-between gap-2 text-sm text-[var(--color-text-tertiary)]"
+                class="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--color-text-tertiary)]"
             >
                 <span
-                    >{{ formatMessage(storageMessages.scanning)
+                    >{{
+                        formatMessage(
+                            cancelling ? storageMessages.cancellingScan : storageMessages.scanning,
+                        )
                     }}<template v-if="scanProgress">
                         · {{ formatMessage(storageLabels[scanProgress.category]) }}</template
                     ></span
                 >
-                <span v-if="scanProgress" class="tabular-nums">{{
-                    formatMessage(storageMessages.scanSections, {
-                        completed: scanProgress.completed,
-                        total: scanProgress.total,
-                    })
-                }}</span>
+                <Button size="2xs" :disabled="cancelling" @click="cancelScan">
+                    {{ formatMessage(storageMessages.cancel) }}
+                </Button>
             </div>
             <ProgressBar
                 :progress="scanProgress?.completed ?? 0"
@@ -210,8 +250,18 @@ async function handleAction(node: StorageNode) {
                 :gradient-border="false"
                 :aria-label="formatMessage(storageMessages.scanning)"
             />
+            <span
+                v-if="scanProgress"
+                class="text-xs tabular-nums text-[var(--color-text-tertiary)]"
+                >{{
+                    formatMessage(storageMessages.scanItems, { count: scanProgress.visited })
+                }}</span
+            >
             <span v-if="showingCache" class="text-xs text-[var(--color-text-tertiary)]">{{
                 formatMessage(storageMessages.cachedScanHelp)
+            }}</span>
+            <span v-if="cancelFailed" role="alert">{{
+                formatMessage(storageMessages.cancelScanFailed)
             }}</span>
         </div>
         <div v-if="loading && !tree" class="flex flex-col gap-4" aria-hidden="true">
@@ -244,6 +294,12 @@ async function handleAction(node: StorageNode) {
         <div v-if="scanError" class="flex items-center justify-between gap-3" role="alert">
             <span>{{ formatMessage(storageMessages.scanFailed) }}</span>
             <Button :loading="loading" @click="updateStorage">{{
+                formatMessage(storageMessages.retry)
+            }}</Button>
+        </div>
+        <div v-if="scanCancelled" class="flex items-center justify-between gap-3" role="status">
+            <span>{{ formatMessage(storageMessages.scanCancelled) }}</span>
+            <Button v-if="!tree" @click="updateStorage">{{
                 formatMessage(storageMessages.retry)
             }}</Button>
         </div>

@@ -17540,6 +17540,12 @@
   "app.settings.storage.cancel": {
     "message": "Cancel"
   },
+  "app.settings.storage.cancelScanFailed": {
+    "message": "Could not stop the scan. Try again."
+  },
+  "app.settings.storage.cancellingScan": {
+    "message": "Stopping scan…"
+  },
   "app.settings.storage.cleanConfirm": {
     "message": "Permanently delete {size} of unused files? Files that are still needed will be kept."
   },
@@ -17771,8 +17777,14 @@
   "app.settings.storage.saves": {
     "message": "Saves"
   },
+  "app.settings.storage.scanCancelled": {
+    "message": "Storage scan stopped."
+  },
   "app.settings.storage.scanFailed": {
     "message": "Storage could not be scanned. The last complete snapshot is kept when available."
+  },
+  "app.settings.storage.scanItems": {
+    "message": "{count, number} items checked"
   },
   "app.settings.storage.scanSections": {
     "message": "{completed} / {total} areas"

@@ -293,6 +293,15 @@
       ]
     },
     {
+      "file": "apps/app/src/api/storage.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "Expire a storage cancellation that arrives before scan registration so the cancel command returns immediately and abandoned request IDs do not accumulate.",
+      "sites": [
+        "storage_scan_cancel: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
       "file": "apps/app/src/api/shortcuts/mod.rs",
       "form": "spawn_blocking",
       "count": 1,

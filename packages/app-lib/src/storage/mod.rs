@@ -1,11 +1,14 @@
 //! Launcher storage snapshots and reference-aware metadata cleanup.
 
 use std::collections::HashSet;
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
+use std::time::{Duration, Instant};
 
 use async_recursion::async_recursion;
 use chrono::{DateTime, Utc};
+use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -13,6 +16,7 @@ use crate::state::DirectoryInfo;
 
 pub const STORAGE_CACHE_VERSION: u32 = 5;
 const STORAGE_CACHE_FILE: &str = "launcher-storage.cbor";
+const SCAN_PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -158,7 +162,46 @@ pub enum StorageScanEvent {
         completed: usize,
         total: usize,
         category: StorageNodeType,
+        visited: usize,
     },
+}
+
+struct ScanProgress<'a> {
+    emit: &'a (dyn Fn(StorageScanEvent) + Send + Sync),
+    completed: usize,
+    total: usize,
+    category: StorageNodeType,
+    visited: usize,
+    last_update: Option<Instant>,
+}
+
+impl ScanProgress<'_> {
+    fn emit(&self) {
+        (self.emit)(StorageScanEvent::Progress {
+            completed: self.completed,
+            total: self.total,
+            category: self.category.clone(),
+            visited: self.visited,
+        });
+    }
+
+    fn start_section(&mut self, completed: usize, category: StorageNodeType) {
+        self.completed = completed;
+        self.category = category;
+        self.last_update = None;
+        self.emit();
+    }
+
+    fn visit(&mut self) {
+        self.visited += 1;
+        let now = Instant::now();
+        if self.last_update.is_none_or(|last| {
+            now.duration_since(last) >= SCAN_PROGRESS_INTERVAL
+        }) {
+            self.last_update = Some(now);
+            self.emit();
+        }
+    }
 }
 
 mod cache;
@@ -191,6 +234,23 @@ fn snapshot_is_fresh(tree: &StorageTree) -> bool {
         .signed_duration_since(tree.scanned_at)
         .num_seconds();
     (0..300).contains(&age)
+}
+
+#[derive(Clone, Copy)]
+enum ScanMode {
+    Force,
+    ReuseFresh,
+    ReuseExisting,
+}
+
+impl ScanMode {
+    fn reuse(self, tree: &StorageTree) -> bool {
+        match self {
+            Self::Force => false,
+            Self::ReuseFresh => snapshot_is_fresh(tree),
+            Self::ReuseExisting => true,
+        }
+    }
 }
 
 fn dirs() -> crate::Result<DirectoryInfo> {
@@ -269,6 +329,7 @@ async fn scan_entry(
     reference: bool,
     visited: &mut HashSet<PathBuf>,
     warnings: &mut Vec<String>,
+    progress: &mut ScanProgress<'_>,
 ) -> Option<StorageNode> {
     if excluded.contains(&ownership_key(path)) {
         return None;
@@ -283,6 +344,7 @@ async fn scan_entry(
             return None;
         }
     };
+    progress.visit();
     let mut node = folder(path, StorageNodeType::Folder);
     node.name = path
         .file_name()
@@ -299,7 +361,8 @@ async fn scan_entry(
             return Some(node);
         }
         if let Some(target_node) =
-            scan_entry(&target, 0, excluded, true, visited, warnings).await
+            scan_entry(&target, 0, excluded, true, visited, warnings, progress)
+                .await
         {
             node.size.symlink = target_node.size.total();
         }
@@ -338,6 +401,7 @@ async fn scan_entry(
                     reference,
                     visited,
                     warnings,
+                    progress,
                 )
                 .await
                 {
@@ -367,10 +431,19 @@ async fn scan(
     depth: usize,
     excluded: &HashSet<PathBuf>,
     warnings: &mut Vec<String>,
+    progress: &mut ScanProgress<'_>,
 ) -> Option<StorageNode> {
     let excluded = excluded.iter().map(|path| ownership_key(path)).collect();
-    scan_entry(path, depth, &excluded, false, &mut HashSet::new(), warnings)
-        .await
+    scan_entry(
+        path,
+        depth,
+        &excluded,
+        false,
+        &mut HashSet::new(),
+        warnings,
+        progress,
+    )
+    .await
 }
 
 fn classify_children(node: &mut StorageNode, category: &StorageNodeType) {
@@ -485,6 +558,62 @@ pub async fn scan_storage_with_progress(
     progress: &(dyn Fn(StorageScanEvent) + Send + Sync),
 ) -> crate::Result<StorageTree> {
     let _scan = SCAN_LOCK.lock().await;
+    let mode = if force {
+        ScanMode::Force
+    } else {
+        ScanMode::ReuseFresh
+    };
+    Ok(prepare_storage_scan(mode, progress).await?.publish().await)
+}
+
+pub async fn scan_storage_until_cancelled(
+    force: bool,
+    progress: &(dyn Fn(StorageScanEvent) + Send + Sync),
+    cancelled: impl Future<Output = ()>,
+) -> crate::Result<Option<StorageTree>> {
+    let mode = if force {
+        ScanMode::Force
+    } else {
+        ScanMode::ReuseExisting
+    };
+    scan_until_cancelled(prepare_storage_scan(mode, progress), cancelled).await
+}
+
+async fn scan_until_cancelled(
+    prepare: impl Future<Output = crate::Result<PreparedStorageScan>>,
+    cancelled: impl Future<Output = ()>,
+) -> crate::Result<Option<StorageTree>> {
+    tokio::pin!(cancelled);
+    let _scan = tokio::select! {
+        biased;
+        _ = &mut cancelled => return Ok(None),
+        scan = SCAN_LOCK.lock() => scan,
+    };
+    let prepared = tokio::select! {
+        biased;
+        _ = &mut cancelled => return Ok(None),
+        scan = prepare => scan?,
+    };
+    if cancelled.as_mut().now_or_never().is_some() {
+        return Ok(None);
+    }
+    // Publish only a complete scan. Do not abandon the temporary cache file
+    // after starting an atomic replacement.
+    Ok(Some(prepared.publish().await))
+}
+
+enum PreparedStorageScan {
+    Cached(StorageTree),
+    Measured {
+        cache_path: PathBuf,
+        snapshot: StorageCacheFile,
+    },
+}
+
+async fn prepare_storage_scan(
+    mode: ScanMode,
+    progress: &(dyn Fn(StorageScanEvent) + Send + Sync),
+) -> crate::Result<PreparedStorageScan> {
     let directories = dirs()?;
     let settings =
         crate::state::Settings::get(&crate::State::get().await?.data).await?;
@@ -500,13 +629,13 @@ pub async fn scan_storage_with_progress(
         identity(&backup).display()
     );
     let cache_path = directories.caches_dir().join(STORAGE_CACHE_FILE);
-    if !force
+    if !matches!(mode, ScanMode::Force)
         && let Ok(bytes) = fs::read(&cache_path).await
         && let Some(tree) = decode_snapshot(&bytes, &roots)
     {
         progress(StorageScanEvent::Cached { tree: tree.clone() });
-        if snapshot_is_fresh(&tree) {
-            return Ok(tree);
+        if mode.reuse(&tree) {
+            return Ok(PreparedStorageScan::Cached(tree));
         }
     }
     let tree = scan_with_directories_progress(
@@ -516,28 +645,48 @@ pub async fn scan_storage_with_progress(
         progress,
     )
     .await?;
-    let cache = StorageCacheFile {
-        version: STORAGE_CACHE_VERSION,
-        roots,
-        tree: tree.clone(),
-    };
-    if let Ok(bytes) = serde_cbor::to_vec(&cache)
-        && let Err(error) = async {
-            fs::create_dir_all(directories.caches_dir()).await?;
-            let temp = cache_path
-                .with_extension(format!("{}.tmp", uuid::Uuid::new_v4()));
-            fs::write(&temp, bytes).await?;
-            let result = fs::rename(&temp, &cache_path).await;
-            if result.is_err() {
-                let _ = fs::remove_file(&temp).await;
+    Ok(PreparedStorageScan::Measured {
+        cache_path,
+        snapshot: StorageCacheFile {
+            version: STORAGE_CACHE_VERSION,
+            roots,
+            tree,
+        },
+    })
+}
+
+impl PreparedStorageScan {
+    async fn publish(self) -> StorageTree {
+        let (cache_path, snapshot) = match self {
+            Self::Cached(tree) => return tree,
+            Self::Measured {
+                cache_path,
+                snapshot,
+            } => (cache_path, snapshot),
+        };
+        if let Ok(bytes) = serde_cbor::to_vec(&snapshot)
+            && let Err(error) = async {
+                if let Some(parent) = cache_path.parent() {
+                    fs::create_dir_all(parent).await?;
+                }
+                let temp = cache_path
+                    .with_extension(format!("{}.tmp", uuid::Uuid::new_v4()));
+                let result = async {
+                    fs::write(&temp, bytes).await?;
+                    fs::rename(&temp, &cache_path).await
+                }
+                .await;
+                if result.is_err() {
+                    let _ = fs::remove_file(&temp).await;
+                }
+                result
             }
-            result
+            .await
+        {
+            tracing::warn!(%error, "Storage snapshot could not be cached");
         }
-        .await
-    {
-        tracing::warn!(%error, "Storage snapshot could not be cached");
+        snapshot.tree
     }
-    Ok(tree)
 }
 
 #[cfg(test)]
@@ -653,12 +802,16 @@ async fn scan_with_directories_progress(
     let mut categories: Vec<StorageNode> = Vec::new();
     let mut claimed = HashSet::new();
     let total_sections = targets.len() + 2;
+    let mut progress = ScanProgress {
+        emit: progress,
+        completed: 0,
+        total: total_sections,
+        category: StorageNodeType::Instances,
+        visited: 0,
+        last_update: None,
+    };
     for (index, (path, kind, depth)) in targets.iter().enumerate() {
-        progress(StorageScanEvent::Progress {
-            completed: index,
-            total: total_sections,
-            category: kind.clone(),
-        });
+        progress.start_section(index, kind.clone());
         if !claimed.insert(ownership_key(path)) {
             continue;
         }
@@ -671,7 +824,7 @@ async fn scan_with_directories_progress(
             .map(|(other, _, _)| other.clone())
             .collect();
         if let Some(mut node) =
-            scan(path, *depth, &excluded, &mut warnings).await
+            scan(path, *depth, &excluded, &mut warnings, &mut progress).await
         {
             node.node_type = kind.clone();
             if !matches!(
@@ -736,17 +889,14 @@ async fn scan_with_directories_progress(
     }
 
     let mut remainder = Vec::new();
-    progress(StorageScanEvent::Progress {
-        completed: targets.len(),
-        total: total_sections,
-        category: StorageNodeType::Other,
-    });
+    progress.start_section(targets.len(), StorageNodeType::Other);
     for root in minimal_roots(vec![
         directories.settings_dir.clone(),
         directories.config_dir.clone(),
         backup.to_path_buf(),
     ]) {
-        if let Some(node) = scan(&root, 2, &claimed, &mut warnings).await
+        if let Some(node) =
+            scan(&root, 2, &claimed, &mut warnings, &mut progress).await
             && node.size.total() > 0
         {
             remainder.extend(node.children.unwrap_or_default());
@@ -765,11 +915,7 @@ async fn scan_with_directories_progress(
         Some(node)
     };
     let mut external = Vec::new();
-    progress(StorageScanEvent::Progress {
-        completed: targets.len() + 1,
-        total: total_sections,
-        category: StorageNodeType::Instance,
-    });
+    progress.start_section(targets.len() + 1, StorageNodeType::Instance);
     let owned = minimal_roots(vec![
         directories.settings_dir.clone(),
         directories.config_dir.clone(),
@@ -785,7 +931,7 @@ async fn scan_with_directories_progress(
     }
     for path in minimal_roots(external_roots) {
         if let Some(mut node) =
-            scan(&path, 2, &HashSet::new(), &mut warnings).await
+            scan(&path, 2, &HashSet::new(), &mut warnings, &mut progress).await
         {
             let matching: Vec<_> = instances.iter().filter(|instance| {
                 crate::launcher::instance_runtime::InstanceRuntimeAdapter::for_instance(&instance.instance, directories).is_ok_and(|runtime| identity(&runtime.game_dir()).starts_with(&path))
@@ -812,11 +958,7 @@ async fn scan_with_directories_progress(
         total += other.size;
     }
     warnings.truncate(100);
-    progress(StorageScanEvent::Progress {
-        completed: total_sections,
-        total: total_sections,
-        category: StorageNodeType::Other,
-    });
+    progress.start_section(total_sections, StorageNodeType::Other);
     Ok(StorageTree {
         version: STORAGE_CACHE_VERSION,
         scanned_at: Utc::now(),

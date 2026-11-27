@@ -127,15 +127,26 @@ export interface CacheCleanupResult {
 
 export type StorageScanEvent =
     | { kind: 'cached'; tree: StorageTree }
-    | { kind: 'progress'; completed: number; total: number; category: StorageNodeType }
+    | {
+          kind: 'progress'
+          completed: number
+          total: number
+          category: StorageNodeType
+          visited: number
+      }
 
 export function scanStorage(
     force: boolean,
+    requestId: string,
     progress?: (event: StorageScanEvent) => void,
-): Promise<StorageTree> {
+): Promise<StorageTree | null> {
     const onProgress = new Channel<StorageScanEvent>()
     onProgress.onmessage = progress ?? (() => {})
-    return invoke('plugin:storage|storage_scan', { force, onProgress })
+    return invoke('plugin:storage|storage_scan', { force, requestId, onProgress })
+}
+
+export function cancelStorageScan(requestId: string): Promise<void> {
+    return invoke('plugin:storage|storage_scan_cancel', { requestId })
 }
 
 export function analyzeMeta(): Promise<MetaAnalysis> {

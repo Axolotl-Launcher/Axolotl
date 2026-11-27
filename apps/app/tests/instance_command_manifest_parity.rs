@@ -1,6 +1,36 @@
 use std::collections::BTreeSet;
 
 #[test]
+fn storage_scan_commands_match_frontend_and_main_window_permissions() {
+    let runtime = runtime_commands(include_str!("../src/api/storage.rs"));
+    assert_eq!(
+        runtime,
+        manifest_commands(include_str!("../build.rs"), "storage")
+    );
+    let frontend = include_str!("../../app-frontend/src/helpers/storage.ts");
+    for command in ["storage_scan", "storage_scan_cancel"] {
+        assert!(runtime.contains(command));
+        assert!(frontend.contains(&format!("plugin:storage|{command}")));
+    }
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["webviews"], serde_json::json!(["main"]));
+    assert!(capability.get("windows").is_none());
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "storage:default")
+    );
+    assert!(
+        include_str!("../src/main.rs")
+            .contains(".plugin(api::storage::init())")
+    );
+}
+
+#[test]
 fn java_selection_commands_match_frontend_and_main_window_permissions() {
     let runtime = runtime_commands(include_str!("../src/api/jre.rs"));
     assert_eq!(

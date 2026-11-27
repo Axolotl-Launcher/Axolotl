@@ -17540,6 +17540,12 @@
   "app.settings.storage.cancel": {
     "message": "取消"
   },
+  "app.settings.storage.cancelScanFailed": {
+    "message": "无法停止扫描，请重试。"
+  },
+  "app.settings.storage.cancellingScan": {
+    "message": "正在停止扫描…"
+  },
   "app.settings.storage.cleanConfirm": {
     "message": "将永久删除 {size} 的闲置文件。仍被使用的文件会保留。"
   },
@@ -17771,8 +17777,14 @@
   "app.settings.storage.saves": {
     "message": "存档"
   },
+  "app.settings.storage.scanCancelled": {
+    "message": "存储扫描已停止。"
+  },
   "app.settings.storage.scanFailed": {
     "message": "无法完成存储扫描，已有的完整统计结果会保留。"
+  },
+  "app.settings.storage.scanItems": {
+    "message": "已检查 {count, number} 个项目"
   },
   "app.settings.storage.scanSections": {
     "message": "{completed} / {total} 个扫描区域"

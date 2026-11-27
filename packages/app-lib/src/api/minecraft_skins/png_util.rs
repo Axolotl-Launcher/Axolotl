@@ -167,6 +167,18 @@ async fn normalize_skin_texture_with_options(
     .read_to_end(&mut texture_data)
     .await?;
 
+    if !is_png(&texture_data) {
+        let message = match texture {
+            UrlOrBlob::Url(url) if url.scheme() != "data" => {
+                "The skin source did not return a PNG image. Check the skin URL or try another image."
+            }
+            _ => {
+                "The selected skin is not a PNG image. Select a PNG skin file."
+            }
+        };
+        return Err(ErrorKind::InputError(message.into()).into());
+    }
+
     let mut png_reader = {
         let mut decoder = png::Decoder::new(Cursor::new(texture_data));
         decoder
@@ -487,6 +499,23 @@ async fn normalize_skin_texture_works() {
             "Pixel data doesn't match for {skin_name}"
         );
     }
+}
+
+#[cfg(test)]
+#[tokio::test]
+async fn preview_distinguishes_non_png_content_from_a_corrupt_png() {
+    let non_png =
+        UrlOrBlob::Blob(Bytes::from_static(b"<html>not a skin</html>"));
+    let error = normalize_skin_texture_for_preview(&non_png)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("Select a PNG skin file"));
+
+    let corrupt_png = UrlOrBlob::Blob(Bytes::from_static(b"\x89PNG\r\n\x1a\n"));
+    let error = normalize_skin_texture_for_preview(&corrupt_png)
+        .await
+        .unwrap_err();
+    assert!(!error.to_string().contains("Select a PNG skin file"));
 }
 
 #[cfg(test)]

@@ -16778,6 +16778,9 @@
   "app.settings.java.manual-add": {
     "message": "手动添加"
   },
+  "app.settings.java.reset-location": {
+    "message": "恢复自动选择"
+  },
   "app.settings.java.scan-anyway": {
     "message": "仍然扫描"
   },

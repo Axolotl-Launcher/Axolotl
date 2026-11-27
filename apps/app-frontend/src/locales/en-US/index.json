@@ -16778,6 +16778,9 @@
   "app.settings.java.manual-add": {
     "message": "Manual Add"
   },
+  "app.settings.java.reset-location": {
+    "message": "Use automatic selection"
+  },
   "app.settings.java.scan-anyway": {
     "message": "Scan Anyway"
   },

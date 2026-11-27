@@ -8,6 +8,8 @@ const backend = vi.hoisted(() => ({
     platform: 'windows',
     settings: {} as Record<string, unknown>,
     patches: [] as Record<string, unknown>[],
+    defaults: [] as { parsed_version: number; path: string }[],
+    removeDefault: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => backend.platform }))
@@ -20,12 +22,12 @@ vi.mock('@/helpers/settings.ts', () => ({
     },
 }))
 vi.mock('@/helpers/jre', () => ({
-    get_java_default_versions: async () => [],
+    get_java_default_versions: async () => backend.defaults,
     find_filtered_jres: vi.fn(),
     get_jre: vi.fn(),
     get_java_selection_info: vi.fn(),
     approve_java_selection: vi.fn(),
-    remove_java_default_version: vi.fn(),
+    remove_java_default_version: backend.removeDefault,
     set_java_default_version: vi.fn(),
     set_java_version: vi.fn(),
 }))
@@ -62,7 +64,11 @@ vi.mock('@modrinth/ui', async () => {
 })
 
 const mounted: ReturnType<typeof mount>[] = []
-afterEach(() => mounted.splice(0).forEach((wrapper) => wrapper.unmount()))
+afterEach(() => {
+    mounted.splice(0).forEach((wrapper) => wrapper.unmount())
+    backend.defaults = []
+    backend.removeDefault.mockClear()
+})
 
 async function openSettings(platform = 'windows', enabled = false) {
     backend.platform = platform
@@ -106,4 +112,20 @@ it.each(['linux', 'macos'])('hides the Windows executable switch on %s', async (
     const wrapper = await openSettings(platform)
     expect(wrapper.find('#settings-target-java-use-console').exists()).toBe(false)
     expect(backend.patches).toEqual([])
+})
+
+it('clears an unavailable default Java without selecting a replacement', async () => {
+    backend.defaults = [{ parsed_version: 21, path: 'C:\\missing\\java.exe' }]
+    const wrapper = await openSettings()
+    const reset = wrapper.get('#reset-java-location-21')
+
+    backend.removeDefault.mockRejectedValueOnce(new Error('write failed'))
+    await reset.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('#reset-java-location-21').exists()).toBe(true)
+
+    await reset.trigger('click')
+    await flushPromises()
+    expect(backend.removeDefault.mock.calls).toEqual([[21], [21]])
+    expect(wrapper.find('#reset-java-location-21').exists()).toBe(false)
 })

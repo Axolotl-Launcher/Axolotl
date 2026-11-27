@@ -11,7 +11,7 @@ import {
 } from '@modrinth/ui'
 import { open } from '@tauri-apps/plugin-dialog'
 import { platform } from '@tauri-apps/plugin-os'
-import { ref, watch } from 'vue'
+import { ref, shallowReactive, watch } from 'vue'
 
 import JavaArgumentsInput from '@/components/ui/JavaArgumentsInput.vue'
 import JavaSelector from '@/components/ui/JavaSelector.vue'
@@ -44,6 +44,10 @@ const messages = defineMessages({
     javaLocation: {
         id: 'app.settings.java.location',
         defaultMessage: 'Java {version} location',
+    },
+    resetJavaLocation: {
+        id: 'app.settings.java.reset-location',
+        defaultMessage: 'Use automatic selection',
     },
     findJava: {
         id: 'app.settings.java.find-java',
@@ -135,7 +139,7 @@ const scanMode = ref('')
 const showDeepScanConfirm = ref(false)
 const downloadJavaModal = ref(null)
 const installedJavaModal = ref(null)
-const defaultSaveQueues = new Map()
+const defaultSaveQueues = shallowReactive(new Map())
 
 const currentPlatform = await platform()
 const supportsHighPerformanceMode = ['windows', 'linux'].includes(currentPlatform)
@@ -325,13 +329,24 @@ async function onJavaDownloaded(job) {
                     {{ formatMessage(messages.javaLocation, { version: javaVersion }) }}
                 </h2>
             </template>
-            <div class="p-4">
+            <div class="flex flex-col items-start gap-3 p-4">
                 <JavaSelector
                     :id="`java-selector-${javaVersion}`"
                     v-model="javaDefaults[javaVersion]"
+                    class="w-full"
                     :version="javaVersion"
                     @commit="saveDefault(javaVersion, $event)"
                 />
+                <Button
+                    v-if="javaDefaults[javaVersion]?.path"
+                    :id="`reset-java-location-${javaVersion}`"
+                    type="outlined"
+                    native-type="button"
+                    :disabled="defaultSaveQueues.has(javaVersion)"
+                    @click="saveDefault(javaVersion, null)"
+                >
+                    {{ formatMessage(messages.resetJavaLocation) }}
+                </Button>
             </div>
         </SettingsSection>
 

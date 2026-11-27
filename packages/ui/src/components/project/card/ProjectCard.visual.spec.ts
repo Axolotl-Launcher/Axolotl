@@ -3,7 +3,7 @@ import { flushPromises } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 import { h } from 'vue'
 
-import { mountThemed } from '../../../test/visual-harness'
+import { mountThemed, waitFor } from '../../../test/visual-harness'
 import { Button } from '../../base'
 import ProjectCard from './ProjectCard.vue'
 
@@ -175,5 +175,44 @@ it('keeps compact server actions on the card row instead of a clipped second row
     } finally {
         wrapper.unmount()
         host.remove()
+    }
+})
+
+it('keeps a local grid banner backdrop when project images are missing or cannot decode', async () => {
+    const brokenImage = 'data:image/png;base64,invalid'
+    const validImage = document.createElement('canvas').toDataURL()
+    const wrapper = await mountThemed(
+        ProjectCard,
+        { layout: 'grid', title: 'Example', banner: brokenImage, iconUrl: brokenImage },
+        'dark',
+    )
+    try {
+        const banner = wrapper.get<HTMLElement>('.bg-project-gradient')
+        await waitFor(() => wrapper.find('svg.avatar').exists(), { label: 'the local avatar' })
+        await waitFor(
+            () =>
+                !banner.find('img').exists() ||
+                banner.get<HTMLImageElement>('img').element.complete,
+            { label: 'the invalid banner to finish loading' },
+        )
+        expect(banner.find('img').exists()).toBe(false)
+        expect(getComputedStyle(banner.element).backgroundImage).toContain('linear-gradient(')
+        const height = banner.element.getBoundingClientRect().height
+        expect(height).toBeGreaterThan(0)
+
+        await wrapper.setProps({ banner: validImage, iconUrl: validImage })
+        await waitFor(() => banner.get<HTMLImageElement>('img').element.naturalWidth > 0, {
+            label: 'the replacement banner',
+        })
+        await waitFor(() => wrapper.get<HTMLImageElement>('img.avatar').element.naturalWidth > 0, {
+            label: 'the replacement avatar',
+        })
+        expect(banner.element.getBoundingClientRect().height).toBe(height)
+
+        await wrapper.setProps({ banner: undefined, iconUrl: undefined })
+        expect(banner.find('img').exists()).toBe(false)
+        expect(wrapper.find('svg.avatar').exists()).toBe(true)
+    } finally {
+        wrapper.unmount()
     }
 })

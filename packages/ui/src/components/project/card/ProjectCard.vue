@@ -105,20 +105,14 @@
                 class="relative bg-project-gradient overflow-clip aspect-[2/1] w-full border-0 border-b-[1px] border-solid border-surface-4"
             >
                 <img
-                    v-if="banner"
+                    v-if="banner && !bannerFailed"
+                    :key="banner"
                     loading="lazy"
                     decoding="async"
                     :src="banner"
                     alt=""
                     class="absolute w-full h-full inset-0 object-cover object-center"
-                />
-                <img
-                    v-else
-                    loading="lazy"
-                    decoding="async"
-                    src="https://cdn-raw.modrinth.com/landing-new/landing.webp"
-                    alt=""
-                    class="absolute w-full h-full inset-0 object-cover object-center opacity-70 scale-[200%]"
+                    @error="bannerFailed = true"
                 />
             </div>
             <div class="p-4 flex flex-col gap-3 grow">
@@ -336,7 +330,7 @@
 import type { ProjectStatus } from '@modrinth/utils'
 import { useElementSize } from '@vueuse/core'
 import dayjs from 'dayjs'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
 import { AutoLink, Avatar } from '../../base'
@@ -410,6 +404,12 @@ const props = defineProps<{
     providers?: ('modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft')[]
     provider?: 'modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft'
 }>()
+
+const bannerFailed = ref(false)
+watch(
+    () => props.banner,
+    () => (bannerFailed.value = false),
+)
 
 const providerLabels = computed(() => {
     if (props.sourceLabel) return [props.sourceLabel]
@@ -669,13 +669,15 @@ const cssColor = computed(() => {
 
 /*noinspection CssUnresolvedCustomProperty*/
 .bg-project-gradient {
-    --_gradient-start: var(--_project-color, #000);
-    --_gradient-end: var(--_project-color, #000);
-    @supports (background-color: oklch(from var(--_project-color, #000) l c h)) {
+    --_gradient-start: var(--_project-color, var(--surface-4));
+    --_gradient-end: var(--_project-color, var(--surface-4));
+    @supports (background-color: oklch(from var(--_project-color, var(--surface-4)) l c h)) {
         --_gradient-start: oklch(
-            from var(--_project-color, #000) calc(l * 0.8) calc(c * 0.8) calc(h + 15)
+            from var(--_project-color, var(--surface-4)) calc(l * 0.8) calc(c * 0.8) calc(h + 15)
         );
-        --_gradient-end: oklch(from var(--_project-color, #000) calc(l * 0.5) calc(c * 0.9) h);
+        --_gradient-end: oklch(
+            from var(--_project-color, var(--surface-4)) calc(l * 0.5) calc(c * 0.9) h
+        );
     }
     background-color: var(--_gradient-start);
     background-image: linear-gradient(

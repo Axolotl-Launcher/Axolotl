@@ -25,6 +25,7 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { useLocalStorage } from '@vueuse/core'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -58,6 +59,7 @@ import AIIcon from './AIIcon.vue'
 const { formatMessage, locale } = useVIntl()
 const { handleError } = injectNotificationManager()
 const router = useRouter()
+const translationHintDismissed = useLocalStorage('axolotl:ai-translation-hint-dismissed', false)
 const emptyState: AIState = {
     settings: { enabled: true },
     catalog_source: '',
@@ -99,6 +101,10 @@ const messages = defineMessages({
     openLanguageTranslation: {
         id: 'app.ai-settings.open-language-translation',
         defaultMessage: 'Open Language & translation',
+    },
+    dismissTranslationHint: {
+        id: 'app.ai-settings.dismiss-translation-hint',
+        defaultMessage: 'Don’t show again',
     },
     masterSwitch: { id: 'app.ai-settings.master-switch', defaultMessage: 'Enable AI features' },
     masterSwitchDescription: {
@@ -877,7 +883,7 @@ onMounted(async () => {
         </aside>
 
         <section v-if="selectedId === 'all'" class="ai-provider-overview">
-            <Admonition type="info">
+            <Admonition v-if="!translationHintDismissed" type="info">
                 <div class="flex flex-col gap-2">
                     <strong class="text-[var(--color-text-primary)]">
                         {{ formatMessage(messages.lookingForTranslation) }}
@@ -885,9 +891,12 @@ onMounted(async () => {
                     <span class="text-sm text-[var(--color-text-tertiary)]">
                         {{ formatMessage(messages.lookingForTranslationDescription) }}
                     </span>
-                    <div>
+                    <div class="flex flex-wrap gap-2">
                         <Button type="outlined" @click="openLanguageTranslationSettings">
                             {{ formatMessage(messages.openLanguageTranslation) }}
+                        </Button>
+                        <Button type="quiet" @click="translationHintDismissed = true">
+                            {{ formatMessage(messages.dismissTranslationHint) }}
                         </Button>
                     </div>
                 </div>

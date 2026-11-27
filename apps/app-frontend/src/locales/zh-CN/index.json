@@ -332,6 +332,9 @@
   "app.ai-settings.disabled-providers": {
     "message": "未启用的供应商"
   },
+  "app.ai-settings.dismiss-translation-hint": {
+    "message": "不再提示"
+  },
   "app.ai-settings.enabled": {
     "message": "已启用"
   },

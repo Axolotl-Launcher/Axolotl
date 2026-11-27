@@ -332,6 +332,9 @@
   "app.ai-settings.disabled-providers": {
     "message": "Disabled providers"
   },
+  "app.ai-settings.dismiss-translation-hint": {
+    "message": "Don’t show again"
+  },
   "app.ai-settings.enabled": {
     "message": "Enabled"
   },

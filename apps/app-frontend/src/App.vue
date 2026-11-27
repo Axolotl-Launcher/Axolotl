@@ -52,7 +52,6 @@ import { listen } from '@tauri-apps/api/event'
 import { Effect, getCurrentWindow } from '@tauri-apps/api/window'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { type as getOsType } from '@tauri-apps/plugin-os'
-import { saveWindowState, StateFlags } from '@tauri-apps/plugin-window-state'
 import {
     computed,
     defineAsyncComponent,
@@ -1999,7 +1998,6 @@ async function showBackupExitModalIfNeeded() {
 async function exitLauncher(force = false) {
     if (!force && (await showBackupExitModalIfNeeded())) return
     allowWindowClose = true
-    await saveWindowState(StateFlags.ALL)
     await invoke('exit_app', { force })
 }
 
@@ -2018,7 +2016,6 @@ async function closeWindowImmediately() {
 async function enterLightweightModeOnClose() {
     closeRequestInProgress.value = true
     try {
-        await saveWindowState(StateFlags.ALL)
         await invoke('lightweight_mode_enter')
     } catch (error) {
         allowWindowClose = false

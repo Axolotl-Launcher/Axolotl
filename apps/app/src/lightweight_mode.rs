@@ -9,6 +9,7 @@ use tauri::{
     window::WindowBuilder,
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 use theseus::prelude::CommandPayload;
 
 mod tray_menu;
@@ -122,6 +123,7 @@ impl LightweightMode {
     }
 
     async fn enter_for_close(&self, app: &AppHandle) -> Result<(), String> {
+        save_window_state_on_main_thread(app).await?;
         self.enter_internal(app, false).await
     }
 
@@ -617,6 +619,24 @@ pub fn lightweight_mode_enter(app: AppHandle) -> Result<(), String> {
         }
     });
     Ok(())
+}
+
+async fn save_window_state_on_main_thread(
+    app: &AppHandle,
+) -> Result<(), String> {
+    let (send, saved) = tokio::sync::oneshot::channel();
+    let handle = app.clone();
+    // The plugin holds its state cache lock while querying native windows.
+    // Running the entire operation on the event loop avoids waiting on it
+    // while a window event is trying to acquire that same lock.
+    app.run_on_main_thread(move || {
+        let _ = send.send(handle.save_window_state(StateFlags::all()));
+    })
+    .map_err(|error| error.to_string())?;
+    saved
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(|error| error.to_string())
 }
 
 fn destroy_main_window(app: &AppHandle) -> Result<(), String> {

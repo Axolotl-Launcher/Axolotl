@@ -42,6 +42,13 @@ export interface OpeningCommand {
     path?: string
 }
 
+export interface DirectoryMoveWarning {
+    id: string
+    source: string
+    destination: string
+    missing_folders: string[]
+}
+
 function startupMark(name: string): number | undefined {
     const entry = performance.getEntriesByName(name, 'mark').at(-1)
     return entry ? Math.round(entry.startTime) : undefined
@@ -51,7 +58,7 @@ export async function initialize_state() {
     const navigation = performance.getEntriesByType('navigation')[0] as
         PerformanceNavigationTiming | undefined
 
-    return await invoke<void>('initialize_state', {
+    return await invoke<DirectoryMoveWarning | null>('initialize_state', {
         frontendTiming: {
             navigationStartUnixMs: Math.round(performance.timeOrigin),
             documentResponseStartMs: Math.round(navigation?.responseStart ?? 0) || undefined,

@@ -148,6 +148,19 @@ it('uses successful initialization to finish migration if the final event is los
     startup.dispose()
 })
 
+it('returns a directory move warning received with successful initialization', async () => {
+    const startup = createStartupProgress()
+    const warning = {
+        id: 'migration-warning',
+        source: 'old-directory',
+        destination: 'new-directory',
+        missing_folders: ['profiles'],
+    }
+
+    await expect(startup.initialize(async () => warning)).resolves.toEqual(warning)
+    startup.dispose()
+})
+
 it('does not revive an active migration from a snapshot arriving after initialization', async () => {
     const snapshot = deferred<Record<string, LoadingBar>>()
     vi.mocked(progress_bars_list).mockReturnValue(snapshot.promise)

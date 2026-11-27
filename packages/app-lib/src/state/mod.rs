@@ -306,6 +306,7 @@ pub(crate) fn curseforge_api_key_override_if_ready() -> Option<String> {
 pub struct State {
     /// Information on the location of files used in the launcher
     pub directories: DirectoryInfo,
+    directory_move_warning: Option<DirectoryMoveWarning>,
 
     /// Semaphore used to limit concurrent network requests and avoid errors
     pub fetch_semaphore: FetchSemaphore,
@@ -840,6 +841,10 @@ impl AutoConcurrencyController {
 }
 
 impl State {
+    pub fn directory_move_warning(&self) -> Option<&DirectoryMoveWarning> {
+        self.directory_move_warning.as_ref()
+    }
+
     /// Records that the launcher shell has rendered its first initialized
     /// frame. Deferred startup work waits for this signal before it starts.
     pub fn mark_frontend_ready() {
@@ -1570,7 +1575,7 @@ impl State {
             )?;
 
         tracing::info!("Initializing directories");
-        if !recovery_mode {
+        let directory_move_warning = if !recovery_mode {
             DirectoryInfo::move_launcher_directory(
                 &mut settings,
                 &data,
@@ -1578,8 +1583,10 @@ impl State {
                 &io_semaphore,
                 &app_identifier,
             )
-            .await?;
-        }
+            .await?
+        } else {
+            None
+        };
 
         let directories =
             DirectoryInfo::init(settings.custom_dir, &app_identifier).await?;
@@ -1667,6 +1674,7 @@ impl State {
                 directories.settings_dir.clone(),
             ),
             directories,
+            directory_move_warning,
             fetch_semaphore,
             download_semaphore,
             io_semaphore,
@@ -1915,6 +1923,7 @@ pub(crate) async fn test_state(
     Ok(Arc::new(State {
         persistence,
         directories,
+        directory_move_warning: None,
         fetch_semaphore: FetchSemaphore(Semaphore::new(8)),
         download_semaphore: FetchSemaphore(Semaphore::new(8)),
         io_semaphore: IoSemaphore(Semaphore::new(8)),

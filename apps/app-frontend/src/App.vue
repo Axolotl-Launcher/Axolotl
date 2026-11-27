@@ -181,7 +181,12 @@ import {
 import { resolveAllBindings } from '@/helpers/shortcut-bindings'
 import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.ts'
 import { createStartupProgress } from '@/helpers/startup-progress'
-import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
+import {
+    type DirectoryMoveWarning,
+    get_opening_command,
+    initialize_state,
+    set_discord_activity,
+} from '@/helpers/state'
 import { applyThemeRuntime, reapplyThemeRuntime } from '@/helpers/theme-pack-runtime'
 import {
     createThemePackPagesRefresher,
@@ -427,7 +432,11 @@ const {
     handleModpackDuplicateCreateAnyway,
     handleModpackDuplicateGoToInstance,
     fileDrop,
-} = setupProviders(notificationManager, popupNotificationManager, stateInitialization)
+} = setupProviders(
+    notificationManager,
+    popupNotificationManager,
+    stateInitialization.then(() => undefined),
+)
 
 const { offline, setSimulatedOffline } = useNetworkStatus()
 watch(
@@ -1089,6 +1098,15 @@ async function onImportFileReceived({
 }
 
 const messages = defineMessages({
+    directoryMoveIncompleteTitle: {
+        id: 'app.directory-move.incomplete.title',
+        defaultMessage: 'Some launcher folders were not moved',
+    },
+    directoryMoveIncompleteBody: {
+        id: 'app.directory-move.incomplete.body',
+        defaultMessage:
+            'The launcher could not find {folders} in {source}. It is now using {destination}.',
+    },
     updateInstalledToastTitle: {
         id: 'app.update.complete-toast.title',
         defaultMessage: 'Version {version} was successfully installed!',
@@ -1556,7 +1574,7 @@ async function applyThemeFromSettings(s: Awaited<ReturnType<typeof getSettings>>
 const queryClient = useQueryClient()
 useInstanceListUpdates(queryClient, handleError)
 
-async function setupApp() {
+async function setupApp(directoryMoveWarning?: DirectoryMoveWarning | null) {
     const initialSettings = await getSettings()
     queryClient.setQueryData(appSettingsKeys.all, initialSettings)
     void downloadManager.start().catch(handleError)
@@ -1678,6 +1696,25 @@ async function setupApp() {
     }
     themeStore.shortcutBindings = resolveAllBindings()
     await localePreparation
+    const warning = directoryMoveWarning
+    if (
+        warning &&
+        !notificationManager
+            .getNotifications()
+            .some((notification) => notification.supportData?.directoryMoveWarningId === warning.id)
+    ) {
+        addNotification({
+            title: formatMessage(messages.directoryMoveIncompleteTitle),
+            text: formatMessage(messages.directoryMoveIncompleteBody, {
+                folders: warning.missing_folders.join(', '),
+                source: warning.source,
+                destination: warning.destination,
+            }),
+            type: 'warning',
+            autoCloseMs: null,
+            supportData: { directoryMoveWarningId: warning.id },
+        })
+    }
     stateInitialized.value = true
     void nextTick(() => {
         // The first rAF runs before the frame is painted; the second one runs
@@ -1899,7 +1936,7 @@ provide('previewUpdateAnnouncement', (version = null) => {
 
 const stateFailed = ref(false)
 stateInitialization
-    .then(() => {
+    .then((directoryMoveWarning) => {
         const scannerSettings = getMissingContentScannerSettings()
         void configureCurseForgeManualDownloadWatcher(
             scannerSettings.enabled,
@@ -1907,7 +1944,7 @@ stateInitialization
         ).catch((error) => {
             console.warn('Failed to configure manual-download watcher', error)
         })
-        setupApp().catch((err) => {
+        setupApp(directoryMoveWarning).catch((err) => {
             startupProgress.dispose()
             stateFailed.value = true
             console.error(err)

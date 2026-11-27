@@ -246,7 +246,7 @@ fn is_skin_editor_referer(
 async fn initialize_state(
     app: tauri::AppHandle,
     frontend_timing: Option<FrontendStartupTiming>,
-) -> api::Result<()> {
+) -> api::Result<Option<theseus::state::DirectoryMoveWarning>> {
     startup_phase("initialize_received");
     if let Some(timing) = frontend_timing {
         tracing::info!(
@@ -369,7 +369,7 @@ async fn initialize_state(
         .allow_directory(state.directories.servers_dir(), true)?;
 
     startup_phase("initialize_completed");
-    Ok(())
+    Ok(state.directory_move_warning().cloned())
 }
 
 #[tracing::instrument(skip_all, level = "info")]

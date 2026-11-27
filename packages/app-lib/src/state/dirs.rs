@@ -35,6 +35,14 @@ pub struct DirectoryInfo {
     pub app_identifier: String,
 }
 
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct DirectoryMoveWarning {
+    pub id: uuid::Uuid,
+    pub source: String,
+    pub destination: String,
+    pub missing_folders: Vec<&'static str>,
+}
+
 async fn create_move_destination<'a>(
     destination: &'a Path,
     created: &mut Vec<&'a Path>,
@@ -145,6 +153,41 @@ async fn prepare_directory_move(
         }
         Err(error) => Err(error.into()),
     }
+}
+
+struct MovePath {
+    old: PathBuf,
+    new: PathBuf,
+    size: u64,
+}
+
+async fn collect_directory_move_paths(
+    source: &Path,
+    destination: &Path,
+    paths: &mut Vec<MovePath>,
+    total_size: &mut u64,
+) -> crate::Result<bool> {
+    if !prepare_directory_move(source, destination).await? {
+        return Ok(false);
+    }
+
+    for entry_path in
+        crate::pack::import::get_all_subfiles(source, false).await?
+    {
+        let relative_path = entry_path.strip_prefix(source)?;
+        let new_path = destination.join(relative_path);
+        let path_size = entry_path.metadata().map(|x| x.len()).unwrap_or(0);
+
+        *total_size += path_size;
+
+        paths.push(MovePath {
+            old: entry_path,
+            new: new_path,
+            size: path_size,
+        });
+    }
+
+    Ok(true)
 }
 
 impl DirectoryInfo {
@@ -445,11 +488,12 @@ impl DirectoryInfo {
         pool: &SqlitePool,
         io_semaphore: &IoSemaphore,
         app_identifier: &str,
-    ) -> crate::Result<()> {
+    ) -> crate::Result<Option<DirectoryMoveWarning>> {
         let app_dir = DirectoryInfo::initial_settings_dir_path(app_identifier)
             .ok_or(crate::ErrorKind::FSError(
                 "Could not find valid config dir".to_string(),
             ))?;
+        let mut directory_move_warning = None;
 
         if let Some(ref prev_custom_dir) = settings.prev_custom_dir {
             let prev_dir = PathBuf::from(prev_custom_dir);
@@ -523,54 +567,21 @@ impl DirectoryInfo {
                     METADATA_FOLDER_NAME,
                 ];
 
-                struct MovePath {
-                    old: PathBuf,
-                    new: PathBuf,
-                    size: u64,
-                }
-
-                async fn add_paths(
-                    source: &Path,
-                    destination: &Path,
-                    paths: &mut Vec<MovePath>,
-                    total_size: &mut u64,
-                ) -> crate::Result<()> {
-                    if !prepare_directory_move(source, destination).await? {
-                        return Ok(());
-                    }
-
-                    for entry_path in
-                        crate::pack::import::get_all_subfiles(source, false)
-                            .await?
-                    {
-                        let relative_path = entry_path.strip_prefix(source)?;
-                        let new_path = destination.join(relative_path);
-                        let path_size =
-                            entry_path.metadata().map(|x| x.len()).unwrap_or(0);
-
-                        *total_size += path_size;
-
-                        paths.push(MovePath {
-                            old: entry_path,
-                            new: new_path,
-                            size: path_size,
-                        });
-                    }
-
-                    Ok(())
-                }
-
                 let mut paths: Vec<MovePath> = vec![];
                 let mut total_size = 0;
+                let mut missing_folders = Vec::new();
 
-                for dir in MOVE_DIRS {
-                    add_paths(
+                for &dir in MOVE_DIRS {
+                    if !collect_directory_move_paths(
                         &prev_dir.join(dir),
                         &move_dir.join(dir),
                         &mut paths,
                         &mut total_size,
                     )
-                    .await?;
+                    .await?
+                    {
+                        missing_folders.push(dir);
+                    }
                     emit_loading(
                         &loader_bar_id,
                         10.0 / (MOVE_DIRS.len() as f64),
@@ -801,6 +812,15 @@ impl DirectoryInfo {
                     &mut *conn,
                 )
                 .await?;
+
+                if !missing_folders.is_empty() {
+                    directory_move_warning = Some(DirectoryMoveWarning {
+                        id: uuid::Uuid::new_v4(),
+                        source: prev_dir.to_string_lossy().into_owned(),
+                        destination: move_dir.to_string_lossy().into_owned(),
+                        missing_folders,
+                    });
+                }
             }
 
             settings.custom_dir = Some(new_dir);
@@ -813,13 +833,16 @@ impl DirectoryInfo {
 
         settings.update_launcher_directory(handle).await?;
 
-        Ok(())
+        Ok(directory_move_warning)
     }
 }
 
 #[cfg(test)]
 mod directory_move_tests {
-    use super::{prepare_directory_move, prepare_move_destination};
+    use super::{
+        collect_directory_move_paths, prepare_directory_move,
+        prepare_move_destination,
+    };
 
     #[tokio::test]
     async fn migration_preflight_creates_a_missing_destination() {
@@ -896,6 +919,44 @@ mod directory_move_tests {
             assert!(destination.is_dir());
         }
         assert!(!missing_root.exists(), "never recreate the old storage");
+    }
+
+    #[tokio::test]
+    async fn move_plan_distinguishes_missing_folders_from_empty_folders() {
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("old");
+        let destination = temp.path().join("new");
+        tokio::fs::create_dir_all(source.join("caches"))
+            .await
+            .unwrap();
+        tokio::fs::create_dir_all(source.join("profiles"))
+            .await
+            .unwrap();
+        let profile = source.join("profiles/instance.json");
+        tokio::fs::write(&profile, b"instance").await.unwrap();
+
+        let mut paths = Vec::new();
+        let mut bytes = 0;
+        let mut missing = Vec::new();
+        for folder in ["caches", "profiles", "meta"] {
+            if !collect_directory_move_paths(
+                &source.join(folder),
+                &destination.join(folder),
+                &mut paths,
+                &mut bytes,
+            )
+            .await
+            .unwrap()
+            {
+                missing.push(folder);
+            }
+        }
+        assert_eq!(missing, ["meta"]);
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].old, profile);
+        assert_eq!(paths[0].new, destination.join("profiles/instance.json"));
+        assert_eq!(bytes, b"instance".len() as u64);
+        assert!(destination.join("meta").is_dir());
     }
 
     #[tokio::test]

@@ -1526,6 +1526,12 @@
   "app.curseforge.network-download-failed.notification-title": {
     "message": "Could not download from CurseForge"
   },
+  "app.directory-move.incomplete.body": {
+    "message": "The launcher could not find {folders} in {source}. It is now using {destination}."
+  },
+  "app.directory-move.incomplete.title": {
+    "message": "Some launcher folders were not moved"
+  },
   "app.direct-link-sync.issues-title": {
     "message": "External Minecraft instances need attention"
   },

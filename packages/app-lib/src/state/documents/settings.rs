@@ -3436,7 +3436,7 @@ mod tests {
         let directory = settings_dir.path().to_string_lossy().into_owned();
         settings.custom_dir = Some(directory.clone());
         settings.prev_custom_dir = Some(directory);
-        crate::state::DirectoryInfo::move_launcher_directory(
+        let warning = crate::state::DirectoryInfo::move_launcher_directory(
             &mut settings,
             &beta_handle,
             &beta,
@@ -3445,6 +3445,7 @@ mod tests {
         )
         .await
         .expect("initializing Beta must not write a Release-only instance ID");
+        assert!(warning.is_none());
         Settings::migrate(&beta_handle).await.unwrap();
         assert_eq!(std::fs::read(&appearance).unwrap(), original);
         assert_eq!(
@@ -3579,7 +3580,7 @@ mod tests {
         expected.custom_dir = Some(directory.clone());
         expected.prev_custom_dir = Some(directory);
 
-        crate::state::DirectoryInfo::move_launcher_directory(
+        let warning = crate::state::DirectoryInfo::move_launcher_directory(
             &mut settings,
             &handle,
             &pool,
@@ -3588,6 +3589,7 @@ mod tests {
         )
         .await
         .expect("directory initialization ignores unrelated snapshot fields");
+        assert!(warning.is_none());
         assert_eq!(
             StoredSettings::get(&handle, &Singleton).await.unwrap(),
             Some(expected)

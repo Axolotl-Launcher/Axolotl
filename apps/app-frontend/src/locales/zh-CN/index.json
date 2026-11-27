@@ -1526,6 +1526,12 @@
   "app.curseforge.network-download-failed.notification-title": {
     "message": "CurseForge 下载失败"
   },
+  "app.directory-move.incomplete.body": {
+    "message": "在 {source} 下找不到以下目录，已跳过迁移：{folders}。启动器现使用 {destination}。"
+  },
+  "app.directory-move.incomplete.title": {
+    "message": "部分启动器目录未迁移"
+  },
   "app.direct-link-sync.issues-title": {
     "message": "外部 Minecraft 实例需要处理"
   },

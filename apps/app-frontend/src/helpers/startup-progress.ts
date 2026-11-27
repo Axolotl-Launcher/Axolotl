@@ -46,7 +46,7 @@ export function createStartupProgress() {
         unlisten = undefined
     }
 
-    async function initialize(initializeState: () => Promise<void>) {
+    async function initialize<T>(initializeState: () => Promise<T>): Promise<T | undefined> {
         const stop = await loading_listener(update).catch((error: unknown) => {
             console.warn('Could not subscribe to startup progress', error)
             return undefined
@@ -81,7 +81,7 @@ export function createStartupProgress() {
                     if (latest) update(latest)
                 })
                 .catch(() => {})
-            await initialization
+            const result = await initialization
             initialized = true
             if (
                 progress.value?.event.type === 'database_migration' &&
@@ -89,6 +89,7 @@ export function createStartupProgress() {
             ) {
                 progress.value = { ...progress.value, fraction: null }
             }
+            return result
         } catch (error) {
             dispose()
             throw error

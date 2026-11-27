@@ -1251,7 +1251,7 @@ impl Process {
             // Safety point after the poll: the poll holds no resource on
             // return, and an exit observed just before the quiesce is still
             // reported. A quiesced detector that saw no exit returns without
-            // one; its reaction task sees the closed queue and logs the loss.
+            // one; the reaction task takes over the child on the main runtime.
             if quiesce.safety_point().is_break() {
                 tracing::info!(
                     %uuid,
@@ -1285,7 +1285,7 @@ impl Process {
             tracing::warn!(
                 %uuid,
                 ?posted,
-                "The process-exit event was not delivered; this instance stays shown as running until a restart"
+                "The process-exit event was not delivered; the reaction task will check the child"
             );
         }
         Ok(())
@@ -1293,7 +1293,6 @@ impl Process {
 
     /// What a stopped detector's last look at the child means. Extracted so
     /// the four outcomes are tested without a real child.
-    #[allow(dead_code)]
     fn classify_stopped_detector<T>(
         result: crate::Result<Option<Option<T>>>,
     ) -> StoppedDetector<T> {
@@ -1302,6 +1301,21 @@ impl Process {
             Ok(Some(None)) => StoppedDetector::StillRunning,
             Ok(None) => StoppedDetector::Missing,
             Err(error) => StoppedDetector::Unavailable(error),
+        }
+    }
+
+    async fn wait_after_detector<T>(
+        mut poll: impl FnMut() -> crate::Result<Option<Option<T>>>,
+    ) -> crate::Result<Option<T>> {
+        loop {
+            match Self::classify_stopped_detector(poll()) {
+                StoppedDetector::StillRunning => {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
+                StoppedDetector::Exited(status) => return Ok(Some(status)),
+                StoppedDetector::Missing => return Ok(None),
+                StoppedDetector::Unavailable(error) => return Err(error),
+            }
         }
     }
 
@@ -1358,27 +1372,22 @@ impl Process {
                 // The detector stopped (quiesce, error or panic) without
                 // reporting an exit. If the child is gone, synthesize the exit
                 // and finish the normal cleanup; that is the in-session
-                // compensation for a lost exit event. If it still runs, the
-                // record cannot be cleaned up and is left with a warning.
-                None => match Self::classify_stopped_detector(
-                    state.process_manager.try_wait(uuid),
-                ) {
-                    StoppedDetector::Exited(status) => {
+                // compensation for a lost exit event. While it still runs,
+                // keep using the original child handle instead of the PID.
+                None => match Self::wait_after_detector(|| {
+                    state.process_manager.try_wait(uuid)
+                })
+                .await
+                {
+                    Ok(Some(status)) => {
                         let manually_killed =
                             state.process_manager.was_manually_killed(uuid);
                         break (status, false, manually_killed, None);
                     }
-                    StoppedDetector::StillRunning => {
-                        tracing::warn!(
-                            instance = %instance_id,
-                            "The process detector stopped without reporting an exit while the game still runs; the instance stays shown as running"
-                        );
-                        return Ok(());
-                    }
-                    StoppedDetector::Missing => {
+                    Ok(None) => {
                         break (ExitStatus::default(), true, false, None);
                     }
-                    StoppedDetector::Unavailable(error) => {
+                    Err(error) => {
                         tracing::warn!(
                             instance = %instance_id,
                             %error,
@@ -1949,6 +1958,18 @@ mod playtime_clock_tests {
 #[cfg(test)]
 mod stopped_detector_tests {
     use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn a_stopped_detector_still_observes_the_game_exit() {
+        let mut outcomes = [None, None, Some(7)].into_iter();
+        let started = tokio::time::Instant::now();
+        let status =
+            Process::wait_after_detector(|| Ok(Some(outcomes.next().unwrap())))
+                .await
+                .unwrap();
+        assert_eq!(status, Some(7));
+        assert_eq!(started.elapsed(), std::time::Duration::from_secs(2));
+    }
 
     #[test]
     fn an_exited_child_is_reported() {

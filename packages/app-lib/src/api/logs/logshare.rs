@@ -103,6 +103,28 @@ struct UploadBody {
     source: String,
 }
 
+impl UploadBody {
+    fn require_log_content(&mut self) -> crate::Result<()> {
+        self.files.retain(|file| !file.content.trim().is_empty());
+        if self
+            .content
+            .as_ref()
+            .is_some_and(|text| text.trim().is_empty())
+        {
+            self.content = None;
+        }
+        if self.files.is_empty() && self.content.is_none() {
+            return Err(no_crash_logs());
+        }
+        Ok(())
+    }
+}
+
+fn no_crash_logs() -> crate::Error {
+    crate::ErrorKind::InputError("No crash logs available to share".into())
+        .into()
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UploadLimits {
@@ -290,11 +312,19 @@ fn source_identifier() -> String {
 async fn prepare_upload(instance_id: &str) -> crate::Result<UploadBody> {
     let settings = get_log_share_settings().await?;
     let logs = collect_crash_logs(instance_id).await?;
+    if logs
+        .sources
+        .iter()
+        .all(|source| source.content.as_str().trim().is_empty())
+    {
+        return Err(no_crash_logs());
+    }
 
     let combined = logs.combined_log.as_str().to_string();
     let files = if settings.multi_file {
         logs.sources
             .iter()
+            .filter(|source| !source.content.as_str().trim().is_empty())
             .map(|source| UploadFile {
                 name: source.name.clone(),
                 content: source.content.as_str().to_string(),
@@ -328,8 +358,9 @@ pub async fn upload_crash(
 }
 
 async fn upload_prepared(
-    prepared: UploadBody,
+    mut prepared: UploadBody,
 ) -> crate::Result<LogShareUploadResponse> {
+    prepared.require_log_content()?;
     let client = request_client().await?;
     let limits: UploadLimits = client
         .get(format!("{LOGSHARE_BASE_URL}/v1/limits"))
@@ -508,18 +539,22 @@ pub async fn delete_log(
 }
 
 pub(super) async fn analyze_snapshot(
-    files: Vec<(String, String)>,
+    mut files: Vec<(String, String)>,
     settings: &LogShareSettings,
     ticket: Option<LogShareUploadResponse>,
     emit: impl Fn(&str, Value) + Send + Sync,
 ) -> crate::Result<super::logagent::CloudResult> {
+    files.retain(|(_, content)| !content.trim().is_empty());
+    if files.is_empty() {
+        return Err(no_crash_logs());
+    }
     let content = files
         .iter()
         .map(|(name, content)| format!("===== {name} =====\n{content}"))
         .collect::<Vec<_>>()
         .join("\n\n");
     let prepared = UploadBody {
-        content: (!settings.multi_file || files.is_empty()).then_some(content),
+        content: (!settings.multi_file).then_some(content),
         files: if settings.multi_file {
             files
                 .into_iter()
@@ -801,6 +836,41 @@ mod tests {
             max_total_bytes: 20 * 1024 * 1024,
             max_request_body_bytes: 32 * 1024 * 1024,
         }
+    }
+
+    #[tokio::test]
+    async fn empty_upload_is_rejected_before_creating_a_network_client() {
+        let result = upload_prepared(UploadBody {
+            content: Some("\n\t".into()),
+            files: vec![UploadFile {
+                name: "latest.log".into(),
+                content: String::new(),
+            }],
+            source: "axolotl/test".into(),
+        })
+        .await;
+        assert!(result.unwrap_err().to_string().contains("No crash logs"));
+    }
+
+    #[test]
+    fn upload_keeps_only_files_with_log_content() {
+        let mut body = UploadBody {
+            content: None,
+            files: vec![
+                UploadFile {
+                    name: "empty.log".into(),
+                    content: String::new(),
+                },
+                UploadFile {
+                    name: "latest.log".into(),
+                    content: "[INFO] game".into(),
+                },
+            ],
+            source: "axolotl/test".into(),
+        };
+        body.require_log_content().unwrap();
+        assert_eq!(body.files.len(), 1);
+        assert_eq!(body.files[0].name, "latest.log");
     }
 
     #[test]

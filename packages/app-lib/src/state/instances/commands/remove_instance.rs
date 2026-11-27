@@ -191,16 +191,14 @@ async fn managed_profile_is_missing(
     match tokio::fs::symlink_metadata(profile).await {
         Ok(_) => Ok(false),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            let parent = tokio::fs::metadata(instances)
+            let _entries = tokio::fs::read_dir(instances)
                 .await
-                .map_err(|error| io::IOError::with_path(error, instances))?;
-            if !parent.is_dir() {
-                return Err(crate::ErrorKind::InputError(
-                    "The instance storage is not an accessible directory"
-                        .into(),
-                )
-                .into());
-            }
+                .map_err(|error| {
+                    crate::ErrorKind::InputError(format!(
+                        "Cannot check the instance storage at {}: {error}. Reconnect the drive or check the launcher data directory in Settings, then try again.",
+                        instances.display()
+                    ))
+                })?;
             Ok(true)
         }
         Err(error) => Err(io::IOError::with_path(error, profile).into()),
@@ -445,11 +443,11 @@ mod tests {
     async fn unavailable_managed_storage_keeps_the_instance_record() {
         let (_temp, state) = state_with_one_instance().await;
         std::fs::remove_dir_all(state.directories.instances_dir()).unwrap();
-        assert!(
-            remove_instance_files_and_state("instance", &state, false)
-                .await
-                .is_err()
-        );
+        let error = remove_instance_files_and_state("instance", &state, false)
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("Reconnect the drive"), "{error}");
         assert!(
             instance_rows::get_instance_by_id("instance", &state.pool)
                 .await

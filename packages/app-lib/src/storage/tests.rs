@@ -315,6 +315,41 @@ async fn a_link_at_the_scan_root_never_counts_as_owned_bytes() {
 }
 
 #[tokio::test]
+async fn shared_link_targets_are_measured_once_without_hiding_reference_bytes()
+{
+    let temp = tempfile::tempdir().unwrap();
+    let target = temp.path().join("target");
+    let root = temp.path().join("scan");
+    fs::create_dir_all(&target).await.unwrap();
+    fs::create_dir_all(&root).await.unwrap();
+    let file_count = SCAN_METADATA_BATCH * 2 + 3;
+    for index in 0..file_count {
+        fs::write(target.join(index.to_string()), [0; 3])
+            .await
+            .unwrap();
+    }
+    for name in ["first", "second"] {
+        let link = root.join(name);
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        #[cfg(windows)]
+        junction::create(&target, &link).unwrap();
+    }
+
+    let mut progress = test_scan_progress();
+    let node = scan(&root, 1, &HashSet::new(), &mut vec![], &mut progress)
+        .await
+        .unwrap();
+    let referenced = (file_count * 3) as u64;
+    assert_eq!(node.size.actual, 0);
+    assert_eq!(node.size.symlink, referenced * 2);
+    let aliases = node.children.unwrap();
+    assert_eq!(aliases.len(), 2);
+    assert!(aliases.iter().all(|alias| alias.size.symlink == referenced));
+    assert_eq!(progress.visited, 4 + file_count);
+}
+
+#[tokio::test]
 async fn scan_errors_do_not_discard_readable_siblings() {
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("files");

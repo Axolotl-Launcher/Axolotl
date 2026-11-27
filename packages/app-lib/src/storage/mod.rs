@@ -1,10 +1,11 @@
 //! Launcher storage snapshots and reference-aware metadata cleanup.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
+use std::{fs::Metadata, io};
 
 use async_recursion::async_recursion;
 use chrono::{DateTime, Utc};
@@ -17,6 +18,7 @@ use crate::state::DirectoryInfo;
 pub const STORAGE_CACHE_VERSION: u32 = 5;
 const STORAGE_CACHE_FILE: &str = "launcher-storage.cbor";
 const SCAN_PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
+const SCAN_METADATA_BATCH: usize = 16;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -319,22 +321,26 @@ fn minimal_roots(paths: Vec<PathBuf>) -> Vec<PathBuf> {
     roots
 }
 
-/// Traverses each owned subtree once. Links are measured as references and never
-/// contribute to the owned byte count, including when the scan starts at a link.
+#[derive(Default)]
+struct ScanTraversal {
+    excluded: HashSet<PathBuf>,
+    active_links: HashSet<PathBuf>,
+    measured_links: HashMap<PathBuf, u64>,
+    links_seen: usize,
+}
+
+/// Links are measured as references and never contribute to owned bytes.
 #[async_recursion]
 async fn scan_entry(
     path: &Path,
+    metadata: io::Result<Metadata>,
     depth: usize,
-    excluded: &HashSet<PathBuf>,
     reference: bool,
-    visited: &mut HashSet<PathBuf>,
+    traversal: &mut ScanTraversal,
     warnings: &mut Vec<String>,
     progress: &mut ScanProgress<'_>,
 ) -> Option<StorageNode> {
-    if excluded.contains(&ownership_key(path)) {
-        return None;
-    }
-    let metadata = match fs::symlink_metadata(path).await {
+    let metadata = match metadata {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return None;
@@ -350,6 +356,7 @@ async fn scan_entry(
         .file_name()
         .map(|name| name.to_string_lossy().into_owned());
     if crate::util::io::is_symlink_or_reparse(&metadata) {
+        traversal.links_seen += 1;
         let target = match fs::canonicalize(path).await {
             Ok(target) => target,
             Err(error) => {
@@ -357,16 +364,42 @@ async fn scan_entry(
                 return Some(node);
             }
         };
-        if !visited.insert(ownership_key(&target)) {
+        let key = ownership_key(&target);
+        if traversal.excluded.contains(&key)
+            || traversal.active_links.contains(&key)
+        {
             return Some(node);
         }
-        if let Some(target_node) =
-            scan_entry(&target, 0, excluded, true, visited, warnings, progress)
-                .await
+        if let Some(&size) = traversal.measured_links.get(&key) {
+            node.size.symlink = size;
+            return Some(node);
+        }
+        traversal.active_links.insert(key.clone());
+        let links_before = traversal.links_seen;
+        let warnings_before = warnings.len();
+        if let Some(target_node) = scan_entry(
+            &target,
+            fs::symlink_metadata(&target).await,
+            0,
+            true,
+            traversal,
+            warnings,
+            progress,
+        )
+        .await
         {
             node.size.symlink = target_node.size.total();
+            // A nested link can reach an active ancestor. Reuse only sizes
+            // whose measurement is independent of the active link chain.
+            if traversal.links_seen == links_before
+                && warnings.len() == warnings_before
+            {
+                traversal
+                    .measured_links
+                    .insert(key.clone(), node.size.symlink);
+            }
         }
-        visited.remove(&ownership_key(&target));
+        traversal.active_links.remove(&key);
         return Some(node);
     }
     if metadata.is_file() {
@@ -391,32 +424,51 @@ async fn scan_entry(
     };
     let mut children = Vec::new();
     let mut count = 0;
+    let mut batch = Vec::with_capacity(SCAN_METADATA_BATCH);
     loop {
-        match entries.next_entry().await {
-            Ok(Some(entry)) => {
-                if let Some(child) = scan_entry(
-                    &entry.path(),
-                    depth.saturating_sub(1),
-                    excluded,
-                    reference,
-                    visited,
-                    warnings,
-                    progress,
-                )
-                .await
-                {
-                    node.size += child.size;
-                    count += child.count.unwrap_or(0);
-                    if depth > 0 && child.size.total() > 0 {
-                        children.push(child);
+        let mut end = None;
+        for _ in 0..SCAN_METADATA_BATCH {
+            match entries.next_entry().await {
+                Ok(Some(entry)) => {
+                    let path = entry.path();
+                    if !traversal.excluded.contains(&ownership_key(&path)) {
+                        batch.push((path, entry));
                     }
                 }
+                result => {
+                    end = Some(result);
+                    break;
+                }
             }
-            Ok(None) => break,
-            Err(error) => {
+        }
+        let measured = futures::future::join_all(batch.drain(..).map(
+            |(path, entry)| async move { (path, entry.metadata().await) },
+        ))
+        .await;
+        for (path, metadata) in measured {
+            if let Some(child) = scan_entry(
+                &path,
+                metadata,
+                depth.saturating_sub(1),
+                reference,
+                traversal,
+                warnings,
+                progress,
+            )
+            .await
+            {
+                node.size += child.size;
+                count += child.count.unwrap_or(0);
+                if depth > 0 && child.size.total() > 0 {
+                    children.push(child);
+                }
+            }
+        }
+        if let Some(end) = end {
+            if let Err(error) = end {
                 warnings.push(format!("{}: {error}", path.display()));
-                break;
             }
+            break;
         }
     }
     node.count = Some(count);
@@ -433,13 +485,19 @@ async fn scan(
     warnings: &mut Vec<String>,
     progress: &mut ScanProgress<'_>,
 ) -> Option<StorageNode> {
-    let excluded = excluded.iter().map(|path| ownership_key(path)).collect();
+    let mut traversal = ScanTraversal {
+        excluded: excluded.iter().map(|path| ownership_key(path)).collect(),
+        ..ScanTraversal::default()
+    };
+    if traversal.excluded.contains(&ownership_key(path)) {
+        return None;
+    }
     scan_entry(
         path,
+        fs::symlink_metadata(path).await,
         depth,
-        &excluded,
         false,
-        &mut HashSet::new(),
+        &mut traversal,
         warnings,
         progress,
     )

@@ -1297,15 +1297,11 @@ watch(
                     formatMessage(messages.hiddenNavItemsDescription)
                 }}</template>
                 <template #control>
-                    <div class="flex w-full flex-col gap-2">
-                        <div
-                            v-for="group in NAV_TREE_GROUPS"
-                            :key="group.id"
-                            class="overflow-hidden rounded-lg border border-solid border-surface-4 bg-surface-3"
-                        >
+                    <div class="flex w-full flex-col divide-y divide-surface-4">
+                        <div v-for="group in NAV_TREE_GROUPS" :key="group.id">
                             <button
                                 type="button"
-                                class="flex w-full items-center justify-between gap-2 border-0 bg-transparent px-3 py-2 text-left text-sm font-semibold text-[var(--color-text-primary)]"
+                                class="flex w-full items-center justify-between gap-2 border-0 bg-transparent px-0 py-2 text-left text-sm font-semibold text-[var(--color-text-primary)]"
                                 :aria-expanded="expandedNavGroups[group.id]"
                                 @click="expandedNavGroups[group.id] = !expandedNavGroups[group.id]"
                             >
@@ -1318,16 +1314,16 @@ watch(
                             </button>
                             <div
                                 v-show="expandedNavGroups[group.id]"
-                                class="flex flex-col gap-px border-t border-solid border-surface-4"
+                                class="flex flex-col gap-px pb-2"
                             >
                                 <label
                                     v-for="item in navItemsInGroup(group.id)"
                                     :key="item.id"
-                                    class="flex items-center justify-between gap-3 px-3 py-2"
+                                    class="flex items-center justify-between gap-3 py-2"
                                     :class="navItemLockReason(item.id) ? 'opacity-60' : ''"
                                 >
                                     <span
-                                        class="text-sm"
+                                        class="min-w-0 break-words text-sm"
                                         :class="
                                             navItemLockReason(item.id)
                                                 ? 'text-[var(--color-text-tertiary)]'
@@ -1339,7 +1335,7 @@ watch(
                                     <span
                                         v-if="navItemLockReason(item.id)"
                                         v-tooltip="formatMessage(navItemLockReason(item.id)!)"
-                                        class="inline-flex"
+                                        class="inline-flex shrink-0"
                                     >
                                         <Toggle
                                             :id="`nav-item-${item.id}`"
@@ -1361,7 +1357,7 @@ watch(
                     </div>
                 </template>
             </SettingsRow>
-            <SettingsRow>
+            <SettingsRow inline-control>
                 <template #label>
                     <span id="settings-target-appearance-show-play-time" tabindex="-1">
                         {{ formatMessage(messages.showPlayTimeTitle) }}
@@ -1383,7 +1379,7 @@ watch(
                     />
                 </template>
             </SettingsRow>
-            <SettingsRow>
+            <SettingsRow inline-control>
                 <template #label>
                     <span id="settings-target-appearance-show-scroll-top" tabindex="-1">
                         {{ formatMessage(messages.showScrollTopTitle) }}

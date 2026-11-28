@@ -241,3 +241,95 @@ it('finds and replaces file text with undo and blocks replacement while busy', a
     expect(editor.getValue()).toBe('alpha beta ALPHA')
     expect(find.props('findMatchCount')).toBe(2)
 }, 30000)
+
+/** Reads a token through a probe so the browser serialises it the same way. */
+function tokenColor(token: string): string {
+    const probe = document.createElement('div')
+    probe.style.backgroundColor = `var(${token})`
+    document.body.append(probe)
+    const color = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    return color
+}
+
+it('draws the completion popup on the app surface tokens', async () => {
+    const wrapper = await mountThemed(
+        CodeEditor,
+        { content: 'a', filePath: 'completion.txt', language: 'plaintext' },
+        'dark',
+        { attrs: { style: 'width: 640px; height: 320px' } },
+    )
+    cleanup.push(() => wrapper.unmount())
+    await waitFor(() => Boolean(wrapper.emitted('ready') || wrapper.emitted('error')), {
+        timeoutMs: 20000,
+        label: 'Monaco editor ready',
+    })
+    expect(wrapper.emitted('error')).toBeUndefined()
+    const [editor, runtime] = wrapper.emitted('ready')![0] as [
+        Monaco.editor.IStandaloneCodeEditor,
+        typeof Monaco,
+    ]
+
+    const provider = runtime.languages.registerCompletionItemProvider('plaintext', {
+        provideCompletionItems: () => ({
+            suggestions: [
+                {
+                    label: 'alpha',
+                    kind: runtime.languages.CompletionItemKind.Field,
+                    insertText: 'alpha',
+                },
+                {
+                    label: 'beta',
+                    kind: runtime.languages.CompletionItemKind.Field,
+                    insertText: 'beta',
+                },
+            ],
+        }),
+    })
+
+    try {
+        editor.setPosition({ lineNumber: 1, column: 2 })
+        editor.focus()
+        await flushPromises()
+        editor.trigger('keyboard', 'editor.action.triggerSuggest', {})
+        await waitFor(
+            () => {
+                const widget = document.querySelector('.suggest-widget')
+                return Boolean(widget && widget.getBoundingClientRect().height > 0)
+            },
+            { timeoutMs: 5000, label: 'suggest widget' },
+        )
+
+        const widget = document.querySelector<HTMLElement>('.suggest-widget')!
+        const surface = getComputedStyle(widget)
+        // `.menu-surface`: a token surface, a strong stroke, the shared radius
+        // and shadow. Monaco leaves the last two undefined on its own.
+        expect(surface.backgroundColor).toBe(tokenColor('--surface-3'))
+        expect(surface.borderTopColor).toBe(tokenColor('--surface-5'))
+        expect(surface.borderRadius).toBe('12px')
+        expect(surface.boxShadow).not.toBe('none')
+
+        const row = widget.querySelector<HTMLElement>('.monaco-list-row.focused')
+        if (!row) throw new Error('the suggest widget did not focus a row')
+        expect(row.getBoundingClientRect().height).toBe(24)
+        expect(getComputedStyle(row).backgroundColor).toBe(tokenColor('--color-brand-highlight'))
+    } finally {
+        editor.trigger('keyboard', 'hideSuggestWidget', {})
+        provider.dispose()
+    }
+}, 30000)
+
+it('draws the editor scrollbars as the app inset pill', async () => {
+    const { wrapper } = await openEditor()
+
+    const slider = wrapper.element.querySelector<HTMLElement>('.scrollbar.vertical > .slider')
+    if (!slider) throw new Error('the editor rendered no vertical scrollbar')
+    const thumb = getComputedStyle(slider)
+
+    // Same token, radius and 3px inset as `::-webkit-scrollbar-thumb`, so the
+    // thumb reads as a 6px pill inside the track rather than a full-width bar.
+    expect(thumb.backgroundColor).toBe(tokenColor('--color-scrollbar'))
+    expect(thumb.borderRadius).toBe('16px')
+    expect(thumb.borderTopWidth).toBe('3px')
+    expect(thumb.backgroundClip).toBe('content-box')
+}, 30000)

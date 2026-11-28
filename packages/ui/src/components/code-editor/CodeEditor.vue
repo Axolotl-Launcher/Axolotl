@@ -49,6 +49,41 @@ function cssVariable(name: string): string {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 }
 
+/**
+ * Monaco parses every entry of `colors` and throws on one it cannot read, so a
+ * token that resolves to nothing (a host that publishes no palette) is dropped
+ * rather than handed over as an empty string.
+ */
+function themeColors(): Monaco.editor.IColors {
+    const colors: Monaco.editor.IColors = {
+        'editor.background': cssVariable('--surface-2'),
+        'editor.foreground': cssVariable('--color-text-default'),
+        'editorGutter.background': cssVariable('--surface-2'),
+        'editorLineNumber.foreground': cssVariable('--color-text-tertiary'),
+        'editor.lineHighlightBackground': cssVariable('--surface-3'),
+        'editorCursor.foreground': cssVariable('--color-brand'),
+        // The completion popup is a floating surface like `.menu-surface`: one
+        // rung above the editor, a strong stroke, and the brand colour for the
+        // selected row and the matched substring. Its radius and shadow are CSS
+        // variables Monaco never defines; `monaco-suggest.css` supplies them.
+        'editorSuggestWidget.background': cssVariable('--surface-3'),
+        'editorSuggestWidget.border': cssVariable('--surface-5'),
+        'editorSuggestWidget.foreground': cssVariable('--color-text-default'),
+        'editorSuggestWidget.selectedForeground': cssVariable('--color-brand'),
+        'editorSuggestWidget.selectedIconForeground': cssVariable('--color-brand'),
+        'editorSuggestWidget.selectedBackground': cssVariable('--surface-4'),
+        'editorSuggestWidget.highlightForeground': cssVariable('--color-brand'),
+        'editorSuggestWidget.focusHighlightForeground': cssVariable('--color-text-primary'),
+        // Every other scrollbar in the app is a pill in `--color-scrollbar`
+        // (`::-webkit-scrollbar-thumb` and the OverlayScrollbars handle); Monaco
+        // ships a translucent grey rectangle instead.
+        'scrollbarSlider.background': cssVariable('--color-scrollbar'),
+        'scrollbarSlider.hoverBackground': cssVariable('--color-scrollbar'),
+        'scrollbarSlider.activeBackground': cssVariable('--color-scrollbar'),
+    }
+    return Object.fromEntries(Object.entries(colors).filter(([, color]) => color))
+}
+
 function applyTheme() {
     if (!monaco) return
     const isLight = document.documentElement.classList.contains('light-mode')
@@ -56,14 +91,7 @@ function applyTheme() {
         base: isLight ? 'vs' : 'vs-dark',
         inherit: true,
         rules: [],
-        colors: {
-            'editor.background': cssVariable('--surface-2'),
-            'editor.foreground': cssVariable('--color-text-default'),
-            'editorGutter.background': cssVariable('--surface-2'),
-            'editorLineNumber.foreground': cssVariable('--color-text-tertiary'),
-            'editor.lineHighlightBackground': cssVariable('--surface-3'),
-            'editorCursor.foreground': cssVariable('--color-brand'),
-        },
+        colors: themeColors(),
     })
     monaco.editor.setTheme('axolotl-studio')
 }
@@ -102,6 +130,10 @@ onMounted(async () => {
             readOnly: props.readOnly,
             renderWhitespace: 'selection',
             scrollBeyondLastLine: false,
+            // Monaco falls back to the editor line height (~19px at 14px on
+            // Windows), which leaves the rows too tight for the popup's radius
+            // and padding. 24px matches the density of the app's list rows.
+            suggestLineHeight: 24,
             theme: 'axolotl-studio',
             ...props.options,
             model: null,

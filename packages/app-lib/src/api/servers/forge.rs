@@ -555,7 +555,9 @@ mod tests {
             routes[0].url,
             format!("{BMCLAPI_BASE_URL}/maven/{UNIVERSAL_PATH}")
         );
-        assert_eq!(routes[1].source, DownloadRouteSource::Official);
+        let fallback = routes.last().expect("official fallback");
+        assert_eq!(fallback.source, DownloadRouteSource::Official);
+        assert_eq!(fallback.url, request.url);
     }
 
     #[test]

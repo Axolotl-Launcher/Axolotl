@@ -124,6 +124,11 @@ impl Deadline {
         Self(Instant::now() + duration)
     }
 
+    /// The earlier of two deadlines, which is the one that binds.
+    pub fn min(self, other: Self) -> Self {
+        Self(self.0.min(other.0))
+    }
+
     pub fn remaining(&self) -> Option<Duration> {
         self.0.checked_duration_since(Instant::now())
     }
@@ -238,6 +243,45 @@ pub enum ExitPolicy {
     MayBeDropped,
 }
 
+/// Why a task was stopped before it could finish.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StopReason {
+    /// The caller's cancellation token fired.
+    Canceled,
+    /// L0 asked the task to reach its next safety point and return.
+    Quiesced,
+    /// The task's deadline expired.
+    Deadline,
+}
+
+impl StopReason {
+    /// The terminal state a stop settles into.
+    ///
+    /// A cancellation is `Canceled`, not `Interrupted`: the install-job model
+    /// persists the two separately, so collapsing them would report the wrong
+    /// state for a job the user stopped.
+    pub fn terminal_state(self) -> TerminalState {
+        match self {
+            Self::Canceled => TerminalState::Canceled,
+            Self::Quiesced | Self::Deadline => TerminalState::Interrupted,
+        }
+    }
+
+    fn error(self) -> TaskError {
+        match self {
+            Self::Canceled => {
+                TaskError::Interrupted("the task was canceled".into())
+            }
+            Self::Quiesced => {
+                TaskError::Interrupted("the task was quiesced".into())
+            }
+            Self::Deadline => {
+                TaskError::Interrupted("the task's deadline expired".into())
+            }
+        }
+    }
+}
+
 /// What a task is given when it runs.
 pub struct TaskContext<'a> {
     pub attempt: Attempt,
@@ -247,20 +291,30 @@ pub struct TaskContext<'a> {
 }
 
 impl TaskContext<'_> {
+    /// The first stop signal that applies, in priority order: an explicit
+    /// cancellation outranks a quiesce, which outranks an expired deadline.
+    pub fn stop_reason(&self) -> Option<StopReason> {
+        if self.cancel.is_cancelled() {
+            return Some(StopReason::Canceled);
+        }
+        if self.quiesce.is_some_and(|quiesce| quiesce.is_requested()) {
+            return Some(StopReason::Quiesced);
+        }
+        if self.deadline.is_some_and(|deadline| deadline.expired()) {
+            return Some(StopReason::Deadline);
+        }
+        None
+    }
+
     /// Breaks when the task should stop: cancelled, quiescing, or out of time.
     ///
     /// Quiesce breaks even for `MustComplete` work so a stalled task lands in
     /// the exit loss list instead of blocking the exit window.
     pub fn checkpoint(&self) -> ControlFlow<()> {
-        if self.cancel.is_cancelled()
-            || self.deadline.is_some_and(|deadline| deadline.expired())
-        {
-            return ControlFlow::Break(());
+        match self.stop_reason() {
+            Some(_) => ControlFlow::Break(()),
+            None => ControlFlow::Continue(()),
         }
-        if self.quiesce.is_some_and(|quiesce| quiesce.is_requested()) {
-            return ControlFlow::Break(());
-        }
-        ControlFlow::Continue(())
     }
 }
 
@@ -344,32 +398,63 @@ pub trait Task: Send + Sync {
 
 /// The scheduler's only entry point. Owns retry and backoff; never owns the
 /// effect, and never writes the durable record.
+///
+/// Retry authority belongs to the task's declared policy. The caller's
+/// [`Attempt::max`] is only an outer bound on the first attempt's numbering;
+/// it does not shorten the policy. A policy that never retries reports the
+/// failure it saw rather than an exhausted-retry state.
+///
+/// Exit paths are distinguished: a cancellation settles as `Canceled`, while
+/// a quiesce or an expired deadline settles as `Interrupted`. Retryable work
+/// that used up its policy settles as `Abandoned` with a `retry_exhausted`
+/// error, whichever of `Failed`/`Interrupted` it stopped at.
 pub async fn execute(
     task: &dyn Task,
     ctx_base: TaskContext<'_>,
 ) -> TaskOutcome {
     let policy = task.retry();
-    let mut attempt = ctx_base.attempt;
+    // The task's own deadline applies when the caller supplied none, and the
+    // earlier of the two applies when both exist.
+    let deadline = match (ctx_base.deadline, task.deadline()) {
+        (Some(caller), Some(declared)) => Some(caller.min(declared)),
+        (Some(caller), None) => Some(caller),
+        (None, declared) => declared,
+    };
+    // The other half of #5: the attempt bound is the policy's, not the
+    // caller's. A caller that passes `Attempt::first(1)` with a nine-attempt
+    // policy must still get nine attempts.
+    let mut attempt = Attempt {
+        n: ctx_base.attempt.n.max(1),
+        max: policy.max_attempts.max(ctx_base.attempt.n.max(1)),
+    };
+    let started = Instant::now();
 
     loop {
-        let ctx = TaskContext {
-            attempt,
-            deadline: ctx_base.deadline,
-            cancel: ctx_base.cancel,
-            quiesce: ctx_base.quiesce,
+        let stopped = || {
+            let ctx = TaskContext {
+                attempt,
+                deadline,
+                cancel: ctx_base.cancel,
+                quiesce: ctx_base.quiesce,
+            };
+            ctx.stop_reason()
         };
 
-        if ctx.checkpoint().is_break() {
+        if let Some(stop) = stopped() {
             return TaskOutcome {
-                state: TerminalState::Interrupted,
-                error: Some(TaskError::Interrupted(
-                    "the task was interrupted before it ran".into(),
-                )),
+                state: stop.terminal_state(),
+                error: Some(stop.error()),
                 attempt,
             };
         }
 
-        if let Some(state) = task.probe(ctx).await {
+        let probe_ctx = TaskContext {
+            attempt,
+            deadline,
+            cancel: ctx_base.cancel,
+            quiesce: ctx_base.quiesce,
+        };
+        if let Some(state) = task.probe(probe_ctx).await {
             return TaskOutcome {
                 state,
                 error: None,
@@ -377,43 +462,148 @@ pub async fn execute(
             };
         }
 
+        // A stop that arrived while the probe ran must not let the effect
+        // start; re-check before committing to it.
+        if let Some(stop) = stopped() {
+            return TaskOutcome {
+                state: stop.terminal_state(),
+                error: Some(stop.error()),
+                attempt,
+            };
+        }
+
         let outcome = task
             .run(TaskContext {
                 attempt,
-                deadline: ctx_base.deadline,
+                deadline,
                 cancel: ctx_base.cancel,
                 quiesce: ctx_base.quiesce,
             })
             .await;
 
+        if outcome.state == TerminalState::Succeeded {
+            return outcome;
+        }
+
+        // `give_up_after` bounds the whole retry sequence, not one attempt: a
+        // policy whose attempts have already outlived it stops here.
+        let out_of_time = policy
+            .give_up_after
+            .is_some_and(|limit| started.elapsed() >= limit);
+        if out_of_time && retryable(&outcome) {
+            return exhausted(outcome);
+        }
+
         let Some(delay) = outcome.next_delay(policy) else {
-            // "Abandoned" means retries actually ran out. A policy that never
-            // retried reports the failure it saw instead.
-            let retries_ran_out = policy.max_attempts > 1
-                && outcome.state == TerminalState::Failed
-                && matches!(
-                    outcome.error.as_ref().map(TaskError::class),
-                    Some(ErrorClass::Retryable)
-                );
-            return if retries_ran_out {
-                TaskOutcome {
-                    state: TerminalState::Abandoned,
-                    ..outcome
-                }
-            } else {
-                outcome
-            };
+            return settle(outcome, policy);
         };
+
+        // A delay that cannot fit in the remaining time is not a retry.
+        let delay_fits = deadline
+            .and_then(|deadline| deadline.remaining())
+            .is_none_or(|left| left > delay);
+        if !delay_fits {
+            return settle(
+                TaskOutcome {
+                    state: TerminalState::Interrupted,
+                    error: Some(TaskError::Interrupted(
+                        "the deadline leaves no room for another attempt"
+                            .into(),
+                    )),
+                    attempt,
+                },
+                policy,
+            );
+        }
 
         let Some(next) = attempt.next() else {
-            return TaskOutcome {
-                state: TerminalState::Abandoned,
-                ..outcome
-            };
+            return settle(outcome, policy);
         };
 
-        tokio::time::sleep(delay).await;
-        attempt = next;
+        // Backoff must be interruptible: a stop during the wait settles now
+        // instead of after the sleep ends.
+        let wait_ctx = TaskContext {
+            attempt,
+            deadline,
+            cancel: ctx_base.cancel,
+            quiesce: ctx_base.quiesce,
+        };
+        match interruptible_sleep(delay, &wait_ctx).await {
+            Ok(()) => attempt = next,
+            Err(stop) => {
+                return TaskOutcome {
+                    state: stop.terminal_state(),
+                    error: Some(stop.error()),
+                    attempt,
+                };
+            }
+        }
+    }
+}
+
+fn retryable(outcome: &TaskOutcome) -> bool {
+    matches!(
+        outcome.error.as_ref().map(TaskError::class),
+        Some(ErrorClass::Retryable) | Some(ErrorClass::Interrupted)
+    )
+}
+
+/// Settle a failed attempt against its policy.
+///
+/// `Abandoned` is reserved for retryable work that actually used up its
+/// retries, and it carries the `retry_exhausted` code. Anything else reports
+/// the state it reached, so a `Permanent` failure stays `Failed` and a policy
+/// that never retried is not relabelled.
+fn settle(outcome: TaskOutcome, policy: RetryPolicy) -> TaskOutcome {
+    let budget_exhausted =
+        policy.max_attempts > 1 && outcome.attempt.n >= policy.max_attempts;
+    if retryable(&outcome) && budget_exhausted {
+        return exhausted(outcome);
+    }
+    outcome
+}
+
+fn exhausted(outcome: TaskOutcome) -> TaskOutcome {
+    TaskOutcome {
+        state: TerminalState::Abandoned,
+        error: Some(TaskError::Retryable(RETRY_EXHAUSTED.into())),
+        attempt: outcome.attempt,
+    }
+}
+
+/// The code an exhausted retry sequence reports. The install model stores it
+/// in `InstallErrorView::code`, so a settled `Abandoned` outcome carries the
+/// distinguishing code rather than the last attempt's message.
+pub const RETRY_EXHAUSTED: &str = "retry_exhausted";
+
+/// Sleep for `delay`, returning early when a stop signal arrives.
+async fn interruptible_sleep(
+    delay: Duration,
+    ctx: &TaskContext<'_>,
+) -> Result<(), StopReason> {
+    if let Some(stop) = ctx.stop_reason() {
+        return Err(stop);
+    }
+    let quiesced = async {
+        match ctx.quiesce {
+            Some(quiesce) => quiesce.requested().await,
+            None => std::future::pending().await,
+        }
+    };
+    let expired = async {
+        match ctx.deadline.and_then(|deadline| deadline.remaining()) {
+            Some(left) => tokio::time::sleep(left).await,
+            None => std::future::pending().await,
+        }
+    };
+    let elapsed = tokio::time::sleep(delay);
+    tokio::pin!(quiesced, expired, elapsed);
+    tokio::select! {
+        biased;
+        () = ctx.cancel.cancelled() => Err(StopReason::Canceled),
+        () = quiesced => Err(StopReason::Quiesced),
+        () = expired => Err(StopReason::Deadline),
+        () = elapsed => Ok(()),
     }
 }
 
@@ -530,7 +720,10 @@ mod tests {
             fail_until: 1,
         };
         let outcome = execute(&task, run_ctx(&cancel)).await;
-        assert_eq!(outcome.state, TerminalState::Interrupted);
+        // A cancellation is `Canceled`; the install model persists it
+        // separately from `Interrupted`, so reporting either for the other
+        // would misdescribe a job the user stopped.
+        assert_eq!(outcome.state, TerminalState::Canceled);
         assert_eq!(runs.load(Ordering::Acquire), 0);
     }
 
@@ -624,6 +817,312 @@ mod tests {
         {
             Box::pin(async { None })
         }
+    }
+
+    // ---- regressions for the 8 review findings ----
+
+    /// A task whose retry sequence has outlived `give_up_after` must stop
+    /// instead of retrying to the attempt bound.
+    struct SlowRetry {
+        id: TaskId,
+        runs: Arc<AtomicU32>,
+    }
+
+    impl Task for SlowRetry {
+        fn id(&self) -> TaskId {
+            self.id.clone()
+        }
+        fn kind(&self) -> TaskKind {
+            TaskKind::Maintenance
+        }
+        fn idempotency_key(&self) -> Option<&IdempotencyKey> {
+            None
+        }
+        fn retry(&self) -> RetryPolicy {
+            RetryPolicy {
+                max_attempts: 9,
+                backoff: &ONE_MILLI,
+                give_up_after: Some(Duration::ZERO),
+            }
+        }
+        fn run<'a>(
+            &'a self,
+            ctx: TaskContext<'a>,
+        ) -> Pin<Box<dyn Future<Output = TaskOutcome> + Send + 'a>> {
+            Box::pin(async move {
+                self.runs.fetch_add(1, Ordering::AcqRel);
+                TaskOutcome::failed(
+                    ctx.attempt,
+                    TaskError::Retryable("still failing".into()),
+                )
+            })
+        }
+        fn probe<'a>(
+            &'a self,
+            _ctx: TaskContext<'a>,
+        ) -> Pin<Box<dyn Future<Output = Option<TerminalState>> + Send + 'a>>
+        {
+            Box::pin(async { None })
+        }
+    }
+
+    /// Finding 1: `give_up_after` bounds the whole retry sequence.
+    #[tokio::test]
+    async fn give_up_after_stops_the_retry_sequence() {
+        let cancel = CancellationToken::new();
+        let runs = Arc::new(AtomicU32::new(0));
+        let task = SlowRetry {
+            id: task_id(),
+            runs: Arc::clone(&runs),
+        };
+        let outcome = execute(&task, run_ctx(&cancel)).await;
+        assert_eq!(outcome.state, TerminalState::Abandoned);
+        assert_eq!(
+            outcome.error,
+            Some(TaskError::Retryable(RETRY_EXHAUSTED.into()))
+        );
+        assert_eq!(
+            runs.load(Ordering::Acquire),
+            1,
+            "a zero give_up_after must not allow a second attempt"
+        );
+    }
+
+    /// Finding 2: a task's declared deadline applies even when the caller
+    /// passed none, and an effect never starts after it expires.
+    struct DeclaresDeadline {
+        id: TaskId,
+        runs: Arc<AtomicU32>,
+    }
+
+    impl Task for DeclaresDeadline {
+        fn id(&self) -> TaskId {
+            self.id.clone()
+        }
+        fn kind(&self) -> TaskKind {
+            TaskKind::Maintenance
+        }
+        fn idempotency_key(&self) -> Option<&IdempotencyKey> {
+            None
+        }
+        fn deadline(&self) -> Option<Deadline> {
+            Some(Deadline::after(Duration::ZERO))
+        }
+        fn run<'a>(
+            &'a self,
+            ctx: TaskContext<'a>,
+        ) -> Pin<Box<dyn Future<Output = TaskOutcome> + Send + 'a>> {
+            Box::pin(async move {
+                self.runs.fetch_add(1, Ordering::AcqRel);
+                TaskOutcome::succeeded(ctx.attempt)
+            })
+        }
+        fn probe<'a>(
+            &'a self,
+            _ctx: TaskContext<'a>,
+        ) -> Pin<Box<dyn Future<Output = Option<TerminalState>> + Send + 'a>>
+        {
+            Box::pin(async { None })
+        }
+    }
+
+    #[tokio::test]
+    async fn a_task_declared_deadline_applies_without_a_caller_one() {
+        let cancel = CancellationToken::new();
+        let runs = Arc::new(AtomicU32::new(0));
+        let task = DeclaresDeadline {
+            id: task_id(),
+            runs: Arc::clone(&runs),
+        };
+        let outcome = execute(&task, run_ctx(&cancel)).await;
+        assert_eq!(outcome.state, TerminalState::Interrupted);
+        assert_eq!(
+            runs.load(Ordering::Acquire),
+            0,
+            "an expired declared deadline must stop the effect"
+        );
+    }
+
+    const LONG: [Duration; 1] = [Duration::from_secs(30)];
+
+    struct SlowBackoff {
+        inner: Flaky,
+    }
+
+    impl Task for SlowBackoff {
+        fn id(&self) -> TaskId {
+            self.inner.id()
+        }
+        fn kind(&self) -> TaskKind {
+            self.inner.kind()
+        }
+        fn idempotency_key(&self) -> Option<&IdempotencyKey> {
+            None
+        }
+        fn retry(&self) -> RetryPolicy {
+            RetryPolicy {
+                max_attempts: 9,
+                backoff: &LONG,
+                give_up_after: None,
+            }
+        }
+        fn run<'a>(
+            &'a self,
+            ctx: TaskContext<'a>,
+        ) -> Pin<Box<dyn Future<Output = TaskOutcome> + Send + 'a>> {
+            self.inner.run(ctx)
+        }
+        fn probe<'a>(
+            &'a self,
+            ctx: TaskContext<'a>,
+        ) -> Pin<Box<dyn Future<Output = Option<TerminalState>> + Send + 'a>>
+        {
+            self.inner.probe(ctx)
+        }
+    }
+
+    /// Finding 4: a stop during backoff settles now, not after the delay.
+    #[tokio::test]
+    async fn cancellation_during_backoff_settles_without_waiting() {
+        let cancel = CancellationToken::new();
+        let runs = Arc::new(AtomicU32::new(0));
+        let task = SlowBackoff {
+            inner: Flaky {
+                id: task_id(),
+                runs: Arc::clone(&runs),
+                fail_until: u32::MAX,
+            },
+        };
+        let trigger = cancel.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            trigger.cancel();
+        });
+        let started = Instant::now();
+        let outcome = execute(&task, run_ctx(&cancel)).await;
+        assert_eq!(outcome.state, TerminalState::Canceled);
+        assert_eq!(runs.load(Ordering::Acquire), 1);
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "the 30-second backoff must not have been awaited"
+        );
+    }
+
+    /// Finding 5: a caller's small `Attempt` must not shorten the policy.
+    #[tokio::test]
+    async fn the_policy_not_the_callers_attempt_bound_governs_retries() {
+        let cancel = CancellationToken::new();
+        let runs = Arc::new(AtomicU32::new(0));
+        let task = Flaky {
+            id: task_id(),
+            runs: Arc::clone(&runs),
+            fail_until: 3,
+        };
+        let ctx = TaskContext {
+            attempt: Attempt::first(1),
+            deadline: None,
+            cancel: &cancel,
+            quiesce: None,
+        };
+        let outcome = execute(&task, ctx).await;
+        assert_eq!(outcome.state, TerminalState::Succeeded);
+        assert_eq!(
+            runs.load(Ordering::Acquire),
+            3,
+            "the task's own three-attempt policy must run, not the caller's one"
+        );
+    }
+
+    /// Finding 6: exhaustion carries the `retry_exhausted` code rather than
+    /// the last attempt's message.
+    #[tokio::test]
+    async fn exhaustion_reports_the_retry_exhausted_code() {
+        let cancel = CancellationToken::new();
+        let runs = Arc::new(AtomicU32::new(0));
+        let task = Flaky {
+            id: task_id(),
+            runs: Arc::clone(&runs),
+            fail_until: u32::MAX,
+        };
+        let outcome = execute(&task, run_ctx(&cancel)).await;
+        assert_eq!(outcome.state, TerminalState::Abandoned);
+        assert_eq!(
+            outcome.error,
+            Some(TaskError::Retryable(RETRY_EXHAUSTED.into()))
+        );
+    }
+
+    /// Finding 7: a canceled task settles as `Canceled`, not `Interrupted`.
+    #[tokio::test]
+    async fn cancellation_settles_as_canceled_not_interrupted() {
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+        let runs = Arc::new(AtomicU32::new(0));
+        let task = Flaky {
+            id: task_id(),
+            runs,
+            fail_until: 1,
+        };
+        let outcome = execute(&task, run_ctx(&cancel)).await;
+        assert_eq!(outcome.state, TerminalState::Canceled);
+    }
+
+    struct AlwaysInterrupted {
+        id: TaskId,
+        runs: Arc<AtomicU32>,
+    }
+
+    impl Task for AlwaysInterrupted {
+        fn id(&self) -> TaskId {
+            self.id.clone()
+        }
+        fn kind(&self) -> TaskKind {
+            TaskKind::Maintenance
+        }
+        fn idempotency_key(&self) -> Option<&IdempotencyKey> {
+            None
+        }
+        fn retry(&self) -> RetryPolicy {
+            RetryPolicy {
+                max_attempts: 3,
+                backoff: &ONE_MILLI,
+                give_up_after: None,
+            }
+        }
+        fn run<'a>(
+            &'a self,
+            ctx: TaskContext<'a>,
+        ) -> Pin<Box<dyn Future<Output = TaskOutcome> + Send + 'a>> {
+            Box::pin(async move {
+                self.runs.fetch_add(1, Ordering::AcqRel);
+                TaskOutcome::failed(
+                    ctx.attempt,
+                    TaskError::Interrupted("the work was interrupted".into()),
+                )
+            })
+        }
+        fn probe<'a>(
+            &'a self,
+            _ctx: TaskContext<'a>,
+        ) -> Pin<Box<dyn Future<Output = Option<TerminalState>> + Send + 'a>>
+        {
+            Box::pin(async { None })
+        }
+    }
+
+    /// Finding 8: interrupted work that used up its policy settles as
+    /// `Abandoned`, not `Interrupted`.
+    #[tokio::test]
+    async fn exhausted_interrupted_work_settles_as_abandoned() {
+        let cancel = CancellationToken::new();
+        let runs = Arc::new(AtomicU32::new(0));
+        let task = AlwaysInterrupted {
+            id: task_id(),
+            runs: Arc::clone(&runs),
+        };
+        let outcome = execute(&task, run_ctx(&cancel)).await;
+        assert_eq!(outcome.state, TerminalState::Abandoned);
+        assert_eq!(runs.load(Ordering::Acquire), 3);
     }
 
     #[test]

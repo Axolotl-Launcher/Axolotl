@@ -22,7 +22,7 @@ afterEach(() =>
         .forEach((fn) => fn()),
 )
 
-async function mountBrowseToolbar() {
+async function mountBrowseToolbar(reserveScrollToTopSpace = false) {
     const debug = vi.spyOn(console, 'debug').mockImplementation(() => {})
     cleanup.push(() => debug.mockRestore())
     const teleports = document.createElement('div')
@@ -90,7 +90,7 @@ async function mountBrowseToolbar() {
             return () =>
                 h(
                     BrowsePageLayout,
-                    {},
+                    { reserveScrollToTopSpace },
                     {
                         'nav-tabs-actions': () =>
                             h(
@@ -210,12 +210,21 @@ it('uses skeletons exclusively during both initial loading and replacement searc
     expect(wrapper.text()).toContain('No results found')
 })
 
+it('uses the full footer width when the scroll-to-top button is disabled', async () => {
+    const { wrapper } = await mountBrowseToolbar()
+    const pagination = wrapper.get('.pagination-after').element
+    expect(pagination.getBoundingClientRect().right).toBeCloseTo(
+        pagination.parentElement!.getBoundingClientRect().right,
+        0,
+    )
+})
+
 it('keeps footer pagination clickable beside the floating scroll-to-top button', async () => {
     const originalViewport = { width: window.innerWidth, height: window.innerHeight }
     onTestFinished(() => page.viewport(originalViewport.width, originalViewport.height))
     await page.viewport(1100, 700)
 
-    const { wrapper, host, context } = await mountBrowseToolbar()
+    const { wrapper, host, context } = await mountBrowseToolbar(true)
     host.classList.add('app-viewport')
     host.style.height = 'calc(100vh - 48px)'
     host.style.overflow = 'auto'

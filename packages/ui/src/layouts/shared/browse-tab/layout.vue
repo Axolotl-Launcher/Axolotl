@@ -23,6 +23,8 @@ import { injectBrowseManager } from './providers/browse-manager'
 import BrowseToolbar from './toolbar.vue'
 import type { BrowseDisplayMode } from './types'
 
+defineProps<{ reserveScrollToTopSpace?: boolean }>()
+
 const ctx = injectBrowseManager()
 // The provider context narrows this to list/grid, but the composable can also
 // produce compact and gallery layouts through the same value.
@@ -442,7 +444,11 @@ const skeletonCount = computed(() => {
         </ProjectCardList>
 
         <div
-            :class="ctx.variant === 'web' ? 'pagination-after mt-3' : 'mt-3 flex justify-end pr-14'"
+            class="mt-3"
+            :class="[
+                ctx.variant === 'web' ? 'pagination-after' : 'flex justify-end',
+                { 'pr-14': reserveScrollToTopSpace },
+            ]"
         >
             <Pagination
                 :page="resultContext?.page ?? ctx.currentPage.value"

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { findCommand, getAllCommands, initializeRegistry } from './commands/registry.ts'
+import type { CommandDefinition } from './commands/types.ts'
 import { buildCommand, getDefaultValues, validateCommand } from './generator.ts'
 import { loadCommandsForVersion, loadManifest } from './loader.ts'
 import { createItemNbtTree, parseNbt, serializeNbtDocument } from './nbt-tree.ts'
+import { activeStepArguments } from './variants.ts'
 
 describe('Java 26 release command syntax', () => {
     it('loads each release without leaking new commands into earlier versions', () => {
@@ -207,21 +209,64 @@ describe('Java 26 release command syntax', () => {
                     item: 'minecraft:stone',
                 }),
             ).toBe(`/item ${action} entity @s container.* with minecraft:stone`)
-        const conditions = findCommand('execute')!.chainCategories!.flatMap(
-            (category) => category.subcommands,
-        )
-        expect(conditions.some((condition) => condition.id === 'if-slots')).toBeTruthy()
-        expect(conditions.some((condition) => condition.id === 'unless-slots')).toBeTruthy()
-        expect(
-            !before.chainCategories!.some((category) =>
-                category.subcommands.some((sub) => sub.id === 'if-slots'),
-            ),
-        ).toBeTruthy()
+        const hasSlotCondition = (command: CommandDefinition) =>
+            command
+                .chainCategories!.flatMap((category) => category.subcommands)
+                .some((subcommand) =>
+                    subcommand.variants?.options.some((option) => option.id === 'slots'),
+                )
+        expect(hasSlotCondition(findCommand('execute')!)).toBeTruthy()
+        expect(hasSlotCondition(before)).toBeFalsy()
         expect(
             !loadCommandsForVersion('26.2')
                 .find((command) => command.id === 'item')!
                 .arguments[0].enumValues!.includes('fill'),
         ).toBeTruthy()
+    })
+
+    it('keeps the 26.3 slots condition on the branch its source picks', () => {
+        initializeRegistry('26.3')
+        const ifStep = findCommand('execute')!
+            .chainCategories!.flatMap((category) => category.subcommands)
+            .find((subcommand) => subcommand.id === 'if')!
+        const slots = ifStep.variants!.options.find((option) => option.id === 'slots')!
+        const fields = (source: string) =>
+            activeStepArguments(ifStep, { condition: 'slots', source, slots: 'container.*' }).map(
+                (arg) => arg.name,
+            )
+        // `if slots block <pos> <slot source>` 与 `if slots entity <targets> <slot source>`
+        expect(slots.template).toBe('if slots {source} {pos} {target} {slots}')
+        expect(fields('block')).toEqual(['source', 'pos', 'slots'])
+        expect(fields('entity')).toEqual(['source', 'target', 'slots'])
+    })
+
+    it('moves the 26.3 items slot wording onto the option it belongs to', () => {
+        const items = (version: string) => {
+            initializeRegistry(version)
+            const ifStep = findCommand('execute')!
+                .chainCategories!.flatMap((category) => category.subcommands)
+                .find((subcommand) => subcommand.id === 'if')!
+            return ifStep.variants!.options.find((option) => option.id === 'items')!
+        }
+        const slotOf = (version: string) =>
+            items(version).arguments.find((argument) => argument.name === 'slot')!
+        expect(slotOf('26.3').displayNameKey).toBe(
+            'app.lab.command-generator.arg.execute.slots.display',
+        )
+        expect(slotOf('26.3').descriptionKey).toBe(
+            'app.lab.command-generator.arg.execute.slot.desc.26',
+        )
+        expect(slotOf('26.2').descriptionKey).toBe(
+            'app.lab.command-generator.arg.execute.if-items.slot.desc',
+        )
+        // 参数表本身没被整张换掉，方块坐标与实体选择器两条分支都还在
+        expect(items('26.3').arguments.map((argument) => argument.name)).toEqual([
+            'source',
+            'pos',
+            'target',
+            'slot',
+            'item',
+        ])
     })
 
     it('provides inline text components in advanced item presets for 26.x', () => {

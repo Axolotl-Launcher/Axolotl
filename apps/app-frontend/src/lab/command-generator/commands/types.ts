@@ -74,6 +74,52 @@ export interface CommandArgument {
     attachToPrevious?: boolean
 }
 
+/**
+ * 旧数据里这个写法曾经用过的子命令 id。
+ *
+ * 合并前每种写法都是一个独立子命令（`positioned-as`），用户预置里存的就是这种 id。
+ * 不填时按 `<子命令 id>-<写法 id>` 推导，`if-biome` 这类就靠这条规则还原。
+ */
+export interface ExecuteChainLegacyOption {
+    id: string
+    /** 旧 id 里顺带编进去的字段，例如 `store-result-score` 的 `mode: 'result'` */
+    values?: Record<string, string | number | boolean>
+}
+
+/**
+ * 一个子命令的一种写法，例如 `positioned as <targets>`。
+ *
+ * 同一行的括号分支（`positioned (<pos>|as <targets>|over <heightmap>)`）参数表
+ * 完全不同，所以模板与参数都挂在这一层，而不是挂在子命令上。
+ */
+export interface ExecuteChainVariantOption {
+    /** 写进步骤 `values[variants.argument]` 的值，例如 `biome` */
+    id: string
+    legacy?: ExecuteChainLegacyOption[]
+    labelKey: string
+    descriptionKey: string
+    template: string
+    arguments: CommandArgument[]
+    sinceVersion?: string
+}
+
+/**
+ * 子命令的写法列表：`if` / `unless` 的条件、`positioned` 的定位方式、
+ * `store` 的存储目标都走这里。
+ *
+ * 步骤里只存 `{ subcommandId: 'if', values: { condition: 'biome' } }`，
+ * 具体写法由编辑区选择，所以一条链里可以有多个同族子命令。
+ */
+export interface ExecuteChainVariants {
+    /** 选择结果写入步骤 `values` 的字段名 */
+    argument: string
+    labelKey: string
+    descriptionKey?: string
+    /** 不填则强制用户选；填了就按这个写法入链 */
+    defaultValue?: string
+    options: ExecuteChainVariantOption[]
+}
+
 export interface ExecuteChainSubcommand {
     id: string
     sinceVersion?: string
@@ -81,12 +127,26 @@ export interface ExecuteChainSubcommand {
     descriptionKey: string
     template: string
     arguments: CommandArgument[]
+    /** 有该字段时，模板与参数取自选中的变体，本层的 template/arguments 留空 */
+    variants?: ExecuteChainVariants
 }
 
 export interface ExecuteChainCategory {
     id: string
     labelKey: string
     subcommands: ExecuteChainSubcommand[]
+}
+
+/**
+ * 对已有写法的一次改动：只列要改的参数，其余字段与参数保持原样。
+ *
+ * 用于语法位置不变、只是某个字段换意思的版本差异（26.3 的 `if items`
+ * 把槽位换成槽位来源），整张参数表照抄一遍容易和基础数据走偏。
+ */
+export interface ExecuteChainOptionPatch {
+    subcommandId: string
+    optionId: string
+    arguments?: Array<Partial<CommandArgument> & { name: string }>
 }
 
 export interface CommandDefinition {
@@ -125,6 +185,16 @@ export interface PatchDataFile {
             categoryId: string
             added?: ExecuteChainSubcommand[]
             patched?: Record<string, Partial<ExecuteChainSubcommand>>
+            /** 往已有子命令的变体列表追加写法，例如 26.3 的 `slots` */
+            addedOptions?: Array<{
+                subcommandId: string
+                option: ExecuteChainVariantOption
+            }>
+            /**
+             * 按参数名改动已有写法里的参数，例如 26.3 把 `if items` 的槽位换成槽位来源。
+             * 语法位置没变，所以只改字段说明，不重写整张参数表。
+             */
+            patchedOptions?: ExecuteChainOptionPatch[]
         }
     >
     sources?: string[]

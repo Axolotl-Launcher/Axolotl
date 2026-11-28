@@ -492,127 +492,132 @@
   "chainPatches": {
     "execute": {
       "categoryId": "conditions",
-      "added": [
+      "addedOptions": [
         {
-          "id": "if-slots",
-          "labelKey": "app.lab.command-generator.execute.if-slots.label",
-          "descriptionKey": "app.lab.command-generator.execute.if-slots.desc",
-          "template": "if slots {source} {target} {slots}",
+          "subcommandId": "if",
+          "option": {
+            "id": "slots",
+            "labelKey": "app.lab.command-generator.execute.condition.kind.slots.label",
+            "descriptionKey": "app.lab.command-generator.execute.if-slots.desc",
+            "template": "if slots {source} {pos} {target} {slots}",
+            "arguments": [
+              {
+                "name": "source",
+                "displayNameKey": "app.lab.command-generator.arg.execute.if-items.source.display",
+                "type": "enum",
+                "required": true,
+                "descriptionKey": "app.lab.command-generator.arg.execute.if-items.source.desc",
+                "enumValues": ["entity", "block"],
+                "defaultValue": "entity"
+              },
+              {
+                "name": "pos",
+                "displayNameKey": "app.lab.command-generator.arg.execute.if-block.pos.display",
+                "type": "coordinates",
+                "required": true,
+                "descriptionKey": "app.lab.command-generator.arg.execute.if-block.pos.desc",
+                "placeholder": "~ ~ ~",
+                "when": {
+                  "source": ["block"]
+                }
+              },
+              {
+                "name": "target",
+                "displayNameKey": "app.lab.command-generator.arg.execute.slots.target.display",
+                "type": "entity-selector",
+                "required": true,
+                "descriptionKey": "app.lab.command-generator.arg.execute.slots.target.desc",
+                "defaultValue": "@s",
+                "when": {
+                  "source": ["entity"]
+                }
+              },
+              {
+                "name": "slots",
+                "displayNameKey": "app.lab.command-generator.arg.execute.slots.display",
+                "type": "string",
+                "required": true,
+                "descriptionKey": "app.lab.command-generator.arg.execute.slots.desc",
+                "defaultValue": "container.*"
+              }
+            ]
+          }
+        },
+        {
+          "subcommandId": "unless",
+          "option": {
+            "id": "slots",
+            "labelKey": "app.lab.command-generator.execute.condition.kind.slots.label",
+            "descriptionKey": "app.lab.command-generator.execute.unless-slots.desc",
+            "template": "unless slots {source} {pos} {target} {slots}",
+            "arguments": [
+              {
+                "name": "source",
+                "displayNameKey": "app.lab.command-generator.arg.execute.if-items.source.display",
+                "type": "enum",
+                "required": true,
+                "descriptionKey": "app.lab.command-generator.arg.execute.if-items.source.desc",
+                "enumValues": ["entity", "block"],
+                "defaultValue": "entity"
+              },
+              {
+                "name": "pos",
+                "displayNameKey": "app.lab.command-generator.arg.execute.if-block.pos.display",
+                "type": "coordinates",
+                "required": true,
+                "descriptionKey": "app.lab.command-generator.arg.execute.if-block.pos.desc",
+                "placeholder": "~ ~ ~",
+                "when": {
+                  "source": ["block"]
+                }
+              },
+              {
+                "name": "target",
+                "displayNameKey": "app.lab.command-generator.arg.execute.slots.target.display",
+                "type": "entity-selector",
+                "required": true,
+                "descriptionKey": "app.lab.command-generator.arg.execute.slots.target.desc",
+                "defaultValue": "@s",
+                "when": {
+                  "source": ["entity"]
+                }
+              },
+              {
+                "name": "slots",
+                "displayNameKey": "app.lab.command-generator.arg.execute.slots.display",
+                "type": "string",
+                "required": true,
+                "descriptionKey": "app.lab.command-generator.arg.execute.slots.desc",
+                "defaultValue": "container.*"
+              }
+            ]
+          }
+        }
+      ],
+      "patchedOptions": [
+        {
+          "subcommandId": "if",
+          "optionId": "items",
           "arguments": [
             {
-              "name": "source",
-              "displayNameKey": "app.lab.command-generator.arg.execute.source.display",
-              "type": "enum",
-              "required": true,
-              "descriptionKey": "app.lab.command-generator.arg.execute.source.desc",
-              "enumValues": ["entity", "block"],
-              "defaultValue": "entity"
-            },
-            {
-              "name": "target",
-              "displayNameKey": "app.lab.command-generator.arg.execute.target.display",
-              "type": "string",
-              "required": true,
-              "descriptionKey": "app.lab.command-generator.arg.execute.target.desc",
-              "defaultValue": "@s"
-            },
-            {
-              "name": "slots",
+              "name": "slot",
               "displayNameKey": "app.lab.command-generator.arg.execute.slots.display",
-              "type": "string",
-              "required": true,
-              "descriptionKey": "app.lab.command-generator.arg.execute.slots.desc",
-              "defaultValue": "container.*"
+              "descriptionKey": "app.lab.command-generator.arg.execute.slot.desc.26"
             }
           ]
         },
         {
-          "id": "unless-slots",
-          "labelKey": "app.lab.command-generator.execute.unless-slots.label",
-          "descriptionKey": "app.lab.command-generator.execute.unless-slots.desc",
-          "template": "unless slots {source} {target} {slots}",
+          "subcommandId": "unless",
+          "optionId": "items",
           "arguments": [
-            {
-              "name": "source",
-              "displayNameKey": "app.lab.command-generator.arg.execute.source.display",
-              "type": "enum",
-              "required": true,
-              "descriptionKey": "app.lab.command-generator.arg.execute.source.desc",
-              "enumValues": ["entity", "block"],
-              "defaultValue": "entity"
-            },
-            {
-              "name": "target",
-              "displayNameKey": "app.lab.command-generator.arg.execute.target.display",
-              "type": "string",
-              "required": true,
-              "descriptionKey": "app.lab.command-generator.arg.execute.target.desc",
-              "defaultValue": "@s"
-            },
-            {
-              "name": "slots",
-              "displayNameKey": "app.lab.command-generator.arg.execute.slots.display",
-              "type": "string",
-              "required": true,
-              "descriptionKey": "app.lab.command-generator.arg.execute.slots.desc",
-              "defaultValue": "container.*"
-            }
-          ]
-        }
-      ],
-      "patched": {
-        "if-items": {
-          "arguments": [
-            {
-              "name": "source",
-              "displayNameKey": "app.lab.command-generator.arg.execute.if-items.source.display",
-              "type": "enum",
-              "required": true,
-              "descriptionKey": "app.lab.command-generator.arg.execute.if-items.source.desc",
-              "enumValues": ["block", "entity"],
-              "defaultValue": "entity"
-            },
-            {
-              "name": "target",
-              "displayNameKey": "app.lab.command-generator.arg.execute.if-items.target.display",
-              "type": "string",
-              "required": true,
-              "descriptionKey": "app.lab.command-generator.arg.execute.if-items.target.desc",
-              "placeholder": "@s"
-            },
             {
               "name": "slot",
-              "displayNameKey": "app.lab.command-generator.arg.execute.if-items.slot.display",
-              "type": "string",
-              "required": true,
-              "descriptionKey": "app.lab.command-generator.arg.execute.slot.desc.26",
-              "placeholder": "container.*",
-              "presets": [
-                {
-                  "labelKey": "app.lab.command-generator.preset.slot.mainhand",
-                  "value": "weapon.mainhand"
-                },
-                {
-                  "labelKey": "app.lab.command-generator.preset.slot.container-all",
-                  "value": "container.*"
-                },
-                {
-                  "labelKey": "app.lab.command-generator.preset.slot.all",
-                  "value": "*"
-                }
-              ]
-            },
-            {
-              "name": "item",
-              "displayNameKey": "app.lab.command-generator.arg.execute.if-items.item.display",
-              "type": "item",
-              "required": true,
-              "descriptionKey": "app.lab.command-generator.arg.execute.if-items.item.desc",
-              "placeholder": "minecraft:diamond"
+              "displayNameKey": "app.lab.command-generator.arg.execute.slots.display",
+              "descriptionKey": "app.lab.command-generator.arg.execute.slot.desc.26"
             }
           ]
         }
-      }
+      ]
     }
   }
 }

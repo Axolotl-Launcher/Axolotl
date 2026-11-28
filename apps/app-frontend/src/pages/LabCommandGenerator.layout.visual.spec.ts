@@ -9,6 +9,7 @@ import { expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { defineComponent, h, ref } from 'vue'
 
+import { saveUserPreset } from '@/lab/command-generator/presets.ts'
 import chinese from '@/locales/zh-CN/index.json'
 import { applyTheme, waitFor } from '@/test/visual-harness'
 
@@ -20,6 +21,41 @@ vi.mock('@/components/lab/command-generator/CommandGeneratorItemPickerModal.vue'
 
 it('keeps the command workspace readable across window widths and themes', async () => {
     localStorage.removeItem('axolotl:command-generator:user-presets')
+    // 一条旧版写法的链，一条新写法：列表里只有前者该被标出来
+    saveUserPreset(
+        '旧版链',
+        'execute',
+        '1.21',
+        {},
+        {
+            executeState: {
+                chain: [
+                    {
+                        subcommandId: 'if-biome',
+                        values: { pos: '~ ~ ~', biome: 'minecraft:plains' },
+                    },
+                ],
+                finalCommand: 'say hi',
+            },
+        },
+    )
+    saveUserPreset(
+        '新版链',
+        'execute',
+        '1.21',
+        {},
+        {
+            executeState: {
+                chain: [
+                    {
+                        subcommandId: 'if',
+                        values: { condition: 'biome', pos: '~ ~ ~', biome: 'minecraft:plains' },
+                    },
+                ],
+                finalCommand: 'say hi',
+            },
+        },
+    )
     const teleports = document.createElement('div')
     teleports.id = 'teleports'
     document.body.append(teleports)
@@ -49,6 +85,13 @@ it('keeps the command workspace readable across window widths and themes', async
         applyTheme('dark')
         await page.viewport(1280, 1400)
         expect(wrapper.text()).toContain('选择一条命令开始')
+        await wrapper.get('.global-presets-button').trigger('click')
+        await flushPromises()
+        expect(wrapper.findAll('.global-preset-item')).toHaveLength(2)
+        expect(wrapper.text()).toContain('旧版')
+        expect(wrapper.findAll('button').filter((button) => button.text() === '迁移')).toHaveLength(
+            1,
+        )
         wrapper.findAllComponents({ name: 'Combobox' })[3].vm.$emit('update:modelValue', 'give')
         await flushPromises()
         const fields = wrapper.findAll('.argument-card input')

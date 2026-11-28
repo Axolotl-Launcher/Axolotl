@@ -8664,6 +8664,26 @@
         "enabled": true
       },
       {
+        "id": "gemini-4-argon",
+        "name": "Gemini 4 Argon",
+        "enabled": true
+      },
+      {
+        "id": "gemini-4-carbon",
+        "name": "Gemini 4 Carbon",
+        "enabled": true
+      },
+      {
+        "id": "gemini-4-hydrogen",
+        "name": "Gemini 4 Hydrogen",
+        "enabled": true
+      },
+      {
+        "id": "gemini-4-neon",
+        "name": "Gemini 4 Neon",
+        "enabled": true
+      },
+      {
         "id": "gpt-5.6-luna",
         "name": "GPT-5.6 Luna",
         "enabled": true

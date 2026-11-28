@@ -2,10 +2,10 @@
     <JavaDetectionModal ref="detectJavaModal" @submit="commitSelection" />
     <div
         :id="props.id"
-        class="flex flex-wrap justify-between items-center gap-2"
+        class="flex w-full min-w-0 flex-wrap items-center gap-2"
         :class="{ compact }"
     >
-        <div class="flex items-center gap-2 w-full min-w-0">
+        <div class="flex min-w-0 grow basis-64 items-center gap-2">
             <StyledInput
                 autocomplete="off"
                 :disabled="props.disabled || selectingJava"
@@ -47,7 +47,7 @@
                 <RefreshCwIcon v-else-if="!props.disabled" class="h-4 w-4" />
             </IconButton>
         </div>
-        <span class="flex items-center gap-2 m-0">
+        <span class="m-0 flex max-w-full flex-wrap items-center gap-2">
             <Button
                 v-if="props.version"
                 v-tooltip="

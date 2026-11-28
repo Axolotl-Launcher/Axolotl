@@ -346,7 +346,6 @@ async function onJavaDownloaded(job) {
                 <JavaSelector
                     :id="`java-selector-${javaVersion}`"
                     v-model="javaDefaults[javaVersion]"
-                    class="w-full"
                     :version="javaVersion"
                     @commit="saveDefault(javaVersion, $event)"
                 />

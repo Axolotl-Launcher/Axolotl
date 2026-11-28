@@ -30,321 +30,29 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
-        id: 'launcher-1.11.2-beta.4',
-        version: '1.11.2-beta.4',
-        publishedAt: '2026-11-27',
+        id: 'launcher-1.11.2',
+        version: '1.11.2',
+        publishedAt: '2026-11-28',
         title: {
-            'en-US': 'Axolotl Launcher 1.11.2-beta.4',
-            'zh-CN': 'Axolotl Launcher 1.11.2-beta.4',
-        },
-        changes: {
-            changed: [
-                {
-                    'en-US':
-                        'Improved storage analysis with per-entry progress and the ability to cancel a scan.',
-                    'zh-CN': '优化存储分析，显示逐项扫描进度并支持取消扫描。',
-                },
-                {
-                    'en-US':
-                        'Improved storage analysis performance by batching metadata reads and reusing link measurements.',
-                    'zh-CN': '优化存储分析速度，批量读取文件信息并复用链接大小计算结果。',
-                },
-                {
-                    'en-US':
-                        'Improved update downloads with a signed GitHub Releases fallback when the distribution source is unavailable.',
-                    'zh-CN':
-                        '优化启动器更新下载，在分发源不可用时回退到带签名校验的 GitHub Releases 更新包。',
-                },
-                {
-                    'en-US':
-                        'Improved instance synchronization by avoiding redundant snapshots and reclaiming old snapshots after startup.',
-                    'zh-CN': '优化实例同步，减少重复快照，并在启动后清理旧快照。',
-                },
-                {
-                    'en-US':
-                        'Improved installation feedback by identifying tasks that block changes to an instance.',
-                    'zh-CN': '优化安装提示，显示阻止实例修改的具体任务。',
-                },
-                {
-                    'en-US':
-                        'Improved external game directory errors with guidance when storage is unavailable.',
-                    'zh-CN': '优化外部游戏目录不可用时的错误提示，说明存储不可访问的情况。',
-                },
-            ],
-            fixed: [
-                {
-                    'en-US':
-                        'Fixed synchronization watchers repeatedly reacting to their own file changes and creating redundant work.',
-                    'zh-CN': '修复同步监视器反复响应自身文件修改，导致重复同步的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed a launcher-managed Java runtime not being removed correctly from settings.',
-                    'zh-CN': '修复无法在设置中正确卸载启动器管理的 Java 运行环境的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed clearing a default Java runtime without making the resulting selection clear.',
-                    'zh-CN': '修复清除默认 Java 运行环境时，操作结果不明确的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed a game process no longer being tracked when the process detector stopped.',
-                    'zh-CN': '修复进程检测器停止后，启动器不再跟踪已运行游戏的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed FreeType repair failures or timeouts blocking Minecraft from launching.',
-                    'zh-CN': '修复 FreeType 修复失败或超时阻止 Minecraft 启动的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed verified FreeType repairs not being persisted before Minecraft starts.',
-                    'zh-CN': '修复已校验的 FreeType 修复结果未在 Minecraft 启动前保存的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed selecting a target version for an instance upgrade after a search returned inconclusive results.',
-                    'zh-CN': '修复实例升级搜索结果无法确定后，无法继续选择目标版本的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed automatic batch installations not honoring explicitly required dependency versions.',
-                    'zh-CN': '修复自动批量安装未遵循明确指定的依赖版本的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed installing mods with declared incompatibilities being blocked by dependency resolution.',
-                    'zh-CN': '修复安装声明了不兼容关系的模组时，被依赖分析阻止的问题。',
-                },
-                {
-                    'en-US':
-                        "Fixed Modrinth browse installations not respecting the project's default selection.",
-                    'zh-CN': '修复从发现页面安装 Modrinth 项目时，未正确使用项目默认选择的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed dragged modpack files not showing a preview of the selected archive.',
-                    'zh-CN': '修复拖入整合包文件时，未预览所选压缩包的问题。',
-                },
-                {
-                    'en-US': 'Fixed NeoForge downloads lacking a ForgeCDN fallback.',
-                    'zh-CN': '修复 NeoForge 下载缺少 ForgeCDN 备用地址的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed failed Linux package updates losing their installation error details.',
-                    'zh-CN': '修复 Linux 包更新失败后，安装错误详情丢失的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed data migration failing when the destination directory had not yet been prepared.',
-                    'zh-CN': '修复数据迁移目标目录尚未准备好时迁移失败的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed data migration omitting folders that could not be copied from its report.',
-                    'zh-CN': '修复数据迁移报告未列出无法复制的文件夹的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed verified recovery history not reconnecting after launcher data was copied.',
-                    'zh-CN': '修复复制启动器数据后，已校验的恢复历史未重新关联的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed unreadable recovery records failing to produce a consolidated startup warning.',
-                    'zh-CN': '修复无法读取的恢复记录未在启动时汇总提示的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed external accounts with missing client tokens not prompting for sign-in.',
-                    'zh-CN': '修复外部账号缺少客户端令牌时未提示重新登录的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed translation requests repeatedly retrying rejected DeepL credentials.',
-                    'zh-CN': '修复 DeepL 凭据被拒绝后，翻译请求仍反复重试的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed skin imports attempting to decode non-PNG sources without explaining the unsupported format.',
-                    'zh-CN': '修复导入非 PNG 皮肤时直接尝试解码，而未说明格式不受支持的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed LogShare accepting uploads that contained no crash log content.',
-                    'zh-CN': '修复 LogShare 接受不含崩溃日志内容的上传请求的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed launcher exit deadlines depending on an unresponsive asynchronous runtime.',
-                    'zh-CN': '修复异步运行时无响应时，启动器退出超时无法生效的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed rapid Home instance selections overwriting one another while settings were being saved.',
-                    'zh-CN': '修复快速切换主页所选实例时，保存操作相互覆盖的问题。',
-                },
-            ],
-        },
-    },
-    {
-        id: 'launcher-1.11.2-beta.3',
-        version: '1.11.2-beta.3',
-        publishedAt: '2026-11-21',
-        title: {
-            'en-US': 'Axolotl Launcher 1.11.2-beta.3',
-            'zh-CN': 'Axolotl Launcher 1.11.2-beta.3',
+            'en-US': 'Axolotl Launcher 1.11.2',
+            'zh-CN': 'Axolotl Launcher 1.11.2',
         },
         changes: {
             added: [
                 {
                     'en-US':
-                        'Added a page-size selector to Favorites and remembered the selected size.',
-                    'zh-CN': '收藏页面新增每页数量选择，并记住所选设置。',
-                },
-            ],
-            changed: [
-                {
-                    'en-US':
-                        'Improved startup and periodic backup performance for libraries with extensive recovery history.',
-                    'zh-CN': '优化包含大量恢复记录时的启动和周期备份速度。',
-                },
-                {
-                    'en-US':
-                        'Improved instance content updates by batching changes displayed in the same frame.',
-                    'zh-CN': '优化实例内容更新，将同一帧内的变化批量显示。',
-                },
-                {
-                    'en-US':
-                        'Improved launcher update downloads by retrying another distribution node when a selected node fails.',
-                    'zh-CN': '优化启动器更新下载，所选分发节点失败时会尝试其他节点。',
-                },
-                {
-                    'en-US':
-                        'Improved game launch by limiting how long it waits for pre-launch memory optimization.',
-                    'zh-CN': '优化游戏启动，限制启动前内存优化的等待时间。',
-                },
-            ],
-            fixed: [
-                {
-                    'en-US':
-                        'Fixed startup remaining on "Finishing migration..." after database migration had completed.',
-                    'zh-CN': '修复数据库迁移完成后，启动界面仍长时间停留在“正在完成迁移…”的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed database lock errors and stalled instance content loading when recovery copies were generated in the background.',
+                        'Added file associations for .litematic, .schem, and .schematic files, with options to open them in Schematic Workshop.',
                     'zh-CN':
-                        '修复后台生成实例恢复副本时，可能出现数据库锁定错误和实例内容加载卡顿的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed startup repeatedly reading waiting installation jobs for each instance.',
-                    'zh-CN': '修复启动时为每个实例重复读取等待中的安装任务的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed room status not refreshing when no local network ports had been detected.',
-                    'zh-CN': '修复尚未检测到局域网端口时，联机房间状态不刷新的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed Terracotta failing to start from its configured location on Windows.',
-                    'zh-CN': '修复 Windows 上 Terracotta 从配置位置启动失败的问题。',
-                },
-                {
-                    'en-US':
-                        "Fixed joining a Terracotta room when the guest address omitted Minecraft's default port.",
-                    'zh-CN':
-                        '修复 Terracotta 客户端地址省略 Minecraft 默认端口时无法加入房间的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed legacy server status checks failing to reuse resolved network addresses.',
-                    'zh-CN': '修复旧版服务器状态检测未复用已解析网络地址的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed Discover search becoming uneditable while filters were loading and carrying an unfinished query into another browse context.',
-                    'zh-CN':
-                        '修复发现页面加载筛选条件时无法编辑搜索，以及未提交的搜索内容被带入其他浏览上下文的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed linked Minecraft instances losing their configured paths when directories were moved or accessed through junctions.',
-                    'zh-CN':
-                        '修复关联的 Minecraft 目录被移动或通过目录联接访问时，实例丢失配置路径的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed Legacy Fabric metadata lookup attempting unsupported fallback sources.',
-                    'zh-CN': '修复 Legacy Fabric 元数据查询尝试使用不受支持的备用来源的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed modpack updates showing the wrong installed release after applying pack overrides.',
-                    'zh-CN': '修复应用整合包覆盖文件后，更新界面显示错误的已安装版本的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed progressing launcher update downloads exhausting the time reserved for other distribution nodes.',
-                    'zh-CN': '修复仍在传输的启动器更新下载耗尽其他分发节点重试时间的问题。',
-                },
-            ],
-        },
-    },
-    {
-        id: 'launcher-1.11.2-beta.3',
-        version: '1.11.2-beta.3',
-        publishedAt: '2026-11-21',
-        title: {
-            'en-US': 'Axolotl Launcher 1.11.2-beta.3',
-            'zh-CN': 'Axolotl Launcher 1.11.2-beta.3',
-        },
-        changes: {
-            changed: [
-                {
-                    'en-US':
-                        'Improved startup and periodic backup performance for libraries with extensive recovery history.',
-                    'zh-CN': '优化包含大量恢复记录时的启动和周期备份速度。',
-                },
-            ],
-            fixed: [
-                {
-                    'en-US':
-                        'Fixed startup remaining on "Finishing migration..." after database migration had completed.',
-                    'zh-CN': '修复数据库迁移完成后，启动界面仍长时间停留在“正在完成迁移…”的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed database lock errors and stalled instance content loading when recovery copies were generated in the background.',
-                    'zh-CN':
-                        '修复后台生成实例恢复副本时，可能出现数据库锁定错误和实例内容加载卡顿的问题。',
-                },
-            ],
-        },
-    },
-    {
-        id: 'launcher-1.11.2-beta.2',
-        version: '1.11.2-beta.2',
-        publishedAt: '2026-11-20',
-        title: {
-            'en-US': 'Axolotl Launcher 1.11.2-beta.2',
-            'zh-CN': 'Axolotl Launcher 1.11.2-beta.2',
-        },
-        changes: {
-            added: [
-                {
-                    'en-US':
-                        'Added file associations for .litematic, .schem, and .schematic files, with options to open schematics in Schematic Workshop.',
-                    'zh-CN':
-                        '新增 .litematic、.schem 和 .schematic 文件关联，支持将投影文件交给投影工坊打开。',
+                        '新增 .litematic、.schem 和 .schematic 文件关联，支持使用投影工坊打开这些文件。',
                 },
                 {
                     'en-US': 'Added document icons for modpack and schematic files.',
                     'zh-CN': '新增整合包和投影文件的文档图标。',
+                },
+                {
+                    'en-US':
+                        'Added a page-size selector to Favorites and remembered the selected size.',
+                    'zh-CN': '收藏页面新增每页数量选择，并记住所选设置。',
                 },
                 {
                     'en-US':
@@ -360,18 +68,34 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             changed: [
                 {
                     'en-US':
-                        'Improved launcher update downloads by testing available distribution nodes and choosing a responsive node.',
-                    'zh-CN': '优化启动器更新下载，测试可用分发节点并选择响应较快的节点。',
+                        'Reworked launcher data storage to separate persistent data from rebuildable caches.',
+                    'zh-CN': '调整启动器数据存储，将需要持久保留的数据与可重新生成的缓存分离。',
                 },
                 {
                     'en-US':
-                        'Improved startup by deferring recovery and maintenance work until after the first frame is displayed.',
-                    'zh-CN': '优化启动过程，将恢复和维护工作延后到首帧显示之后。',
+                        'Improved instance synchronization by avoiding redundant snapshots and reclaiming old snapshots after startup.',
+                    'zh-CN': '优化实例同步，减少重复快照，并在启动后清理旧快照。',
+                },
+                {
+                    'en-US':
+                        'Improved storage analysis with per-entry progress, cancellation, and faster metadata reads.',
+                    'zh-CN': '优化存储分析，显示逐项扫描进度、支持取消，并减少文件信息读取耗时。',
+                },
+                {
+                    'en-US':
+                        'Improved launcher update downloads by testing distribution nodes, retrying another node, and falling back to signed GitHub Releases artifacts.',
+                    'zh-CN':
+                        '优化启动器更新下载，支持测试和切换分发节点，并回退到带签名校验的 GitHub Releases 更新包。',
                 },
                 {
                     'en-US':
                         'Improved instance navigation by reusing detail snapshots and reducing repeated library refreshes.',
                     'zh-CN': '优化实例页面切换，复用实例详情快照并减少实例库重复刷新。',
+                },
+                {
+                    'en-US':
+                        'Improved installation feedback by identifying tasks that block changes to an instance.',
+                    'zh-CN': '优化安装提示，显示阻止实例修改的具体任务。',
                 },
                 {
                     'en-US':
@@ -387,8 +111,10 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                         '修复关联的 PCL CE 实例因版本参数、库文件或运行时依赖选择而无法启动的问题。',
                 },
                 {
-                    'en-US': 'Fixed the Home page failing to load while offline.',
-                    'zh-CN': '修复断网时主页无法加载的问题。',
+                    'en-US':
+                        'Fixed linked Minecraft instances losing their configured paths when directories were moved or accessed through junctions.',
+                    'zh-CN':
+                        '修复关联的 Minecraft 目录被移动或通过目录联接访问时，实例丢失配置路径的问题。',
                 },
                 {
                     'en-US':
@@ -396,24 +122,8 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                     'zh-CN': '修复从旧 Axolotl 数据目录导入非托管实例的问题。',
                 },
                 {
-                    'en-US':
-                        'Fixed loader version catalogs ignoring the configured metadata mirror settings.',
-                    'zh-CN': '修复加载器版本列表未遵循元数据镜像设置的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed NeoForge server libraries not using configured download mirrors.',
-                    'zh-CN': '修复 NeoForge 服务器库文件未使用已配置下载镜像的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed instance log processing continuing to stall after leaving the Logs tab.',
-                    'zh-CN': '修复离开日志页面后，实例日志处理仍可能卡住的问题。',
-                },
-                {
-                    'en-US':
-                        'Fixed installed badges disappearing when clearing the selection on the Favorites page.',
-                    'zh-CN': '修复在收藏页面清除选择时，已安装标记消失的问题。',
+                    'en-US': 'Fixed the Home page failing to load while offline.',
+                    'zh-CN': '修复断网时主页无法加载的问题。',
                 },
                 {
                     'en-US':
@@ -428,35 +138,109 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                 },
                 {
                     'en-US':
-                        'Fixed tray menus and lightweight-mode sessions becoming inconsistent.',
-                    'zh-CN': '修复系统托盘菜单和轻量模式会话状态不一致的问题。',
+                        'Fixed a game process no longer being tracked when the process detector stopped.',
+                    'zh-CN': '修复进程检测器停止后，启动器不再跟踪已运行游戏的问题。',
                 },
                 {
                     'en-US':
-                        'Fixed file association choices not being retained correctly during installation or updates.',
-                    'zh-CN': '修复安装或更新时未正确保留文件关联选择的问题。',
+                        'Fixed FreeType repair failures or timeouts blocking Minecraft from launching.',
+                    'zh-CN': '修复 FreeType 修复失败或超时阻止 Minecraft 启动的问题。',
                 },
                 {
                     'en-US':
-                        'Fixed the first-run setup title bar overlapping macOS window controls.',
-                    'zh-CN': '修复首次启动设置的标题栏与 macOS 窗口控制按钮重叠的问题。',
+                        'Fixed a launcher-managed Java runtime not being removed correctly from settings.',
+                    'zh-CN': '修复无法在设置中正确卸载启动器管理的 Java 运行环境的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed loader version catalogs ignoring the configured metadata mirror settings.',
+                    'zh-CN': '修复加载器版本列表未遵循元数据镜像设置的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed NeoForge downloads and server libraries lacking configured or ForgeCDN fallback routes.',
+                    'zh-CN':
+                        '修复 NeoForge 下载和服务器库文件未使用已配置镜像或 ForgeCDN 备用地址的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed automatic batch installations not honoring explicitly required dependency versions.',
+                    'zh-CN': '修复自动批量安装未遵循明确指定的依赖版本的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed installing mods with declared incompatibilities being blocked by dependency resolution.',
+                    'zh-CN': '修复安装声明了不兼容关系的模组时，被依赖分析阻止的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed room status not refreshing when no local network ports had been detected.',
+                    'zh-CN': '修复尚未检测到局域网端口时，联机房间状态不刷新的问题。',
+                },
+                {
+                    'en-US':
+                        "Fixed Terracotta failing to start on Windows or join a room when the guest address omitted Minecraft's default port.",
+                    'zh-CN':
+                        '修复 Windows 上 Terracotta 启动失败，以及客户端地址省略 Minecraft 默认端口时无法加入房间的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed Discover search becoming uneditable while filters were loading and carrying an unfinished query into another browse context.',
+                    'zh-CN':
+                        '修复发现页面加载筛选条件时无法编辑搜索，以及未提交的搜索内容被带入其他浏览上下文的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed installed badges disappearing when clearing the selection on the Favorites page.',
+                    'zh-CN': '修复在收藏页面清除选择时，已安装标记消失的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed the modpack update dialog showing the wrong installed release after applying pack overrides.',
+                    'zh-CN': '修复应用整合包覆盖文件后，更新界面显示错误的已安装版本的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed dragged modpack files not showing a preview of the selected archive.',
+                    'zh-CN': '修复拖入整合包文件时，未预览所选压缩包的问题。',
+                },
+                {
+                    'en-US': 'Fixed instance log processing stalling after leaving the Logs tab.',
+                    'zh-CN': '修复离开日志页面后，实例日志处理可能卡住的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed data migration failing when the destination directory had not yet been prepared and omitting skipped folders from its report.',
+                    'zh-CN':
+                        '修复数据迁移目标目录尚未准备好时迁移失败，以及迁移报告未列出跳过文件夹的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed verified recovery history not reconnecting after launcher data was copied.',
+                    'zh-CN': '修复复制启动器数据后，已校验的恢复历史未重新关联的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed external accounts with missing client tokens not prompting for sign-in.',
+                    'zh-CN': '修复外部账号缺少客户端令牌时未提示重新登录的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed translation requests repeatedly retrying rejected DeepL credentials.',
+                    'zh-CN': '修复 DeepL 凭据被拒绝后，翻译请求仍反复重试的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed launcher exit deadlines depending on an unresponsive asynchronous runtime.',
+                    'zh-CN': '修复异步运行时无响应时，启动器退出超时无法生效的问题。',
                 },
             ],
-        },
-    },
-    {
-        id: 'launcher-1.11.2-beta.1',
-        version: '1.11.2-beta.1',
-        publishedAt: '2026-11-18',
-        title: {
-            'en-US': 'Axolotl Launcher 1.11.2-Beta.1',
-            'zh-CN': 'Axolotl Launcher 1.11.2-Beta.1',
-        },
-        changes: {
-            changed: [
+            security: [
                 {
-                    'en-US': 'Complete database schema refactor.',
-                    'zh-CN': '完整重构数据库架构。',
+                    'en-US':
+                        'Updated the FreeType library used by Minecraft 26.3 and later, with verified repairs saved before launch.',
+                    'zh-CN':
+                        '更新 Minecraft 26.3 及以上版本使用的 FreeType 库，并在启动前保存已校验的修复结果。',
                 },
             ],
         },

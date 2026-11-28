@@ -1,10 +1,11 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { computed, defineComponent, h, ref, shallowRef } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import Button from '../components/base/buttons/Button.vue'
 import PopoutMenu from '../components/base/PopoutMenu.vue'
+import ScrollToTopButton from '../components/base/ScrollToTopButton.vue'
 import ProjectCardSkeleton from '../components/project/ProjectCardSkeleton.vue'
 import BrowsePageLayout from '../layouts/shared/browse-tab/layout.vue'
 import {
@@ -21,7 +22,7 @@ afterEach(() =>
         .forEach((fn) => fn()),
 )
 
-async function mountBrowseToolbar() {
+async function mountBrowseToolbar(reserveScrollToTopSpace = false) {
     const debug = vi.spyOn(console, 'debug').mockImplementation(() => {})
     cleanup.push(() => debug.mockRestore())
     const teleports = document.createElement('div')
@@ -89,7 +90,7 @@ async function mountBrowseToolbar() {
             return () =>
                 h(
                     BrowsePageLayout,
-                    {},
+                    { reserveScrollToTopSpace },
                     {
                         'nav-tabs-actions': () =>
                             h(
@@ -207,6 +208,50 @@ it('uses skeletons exclusively during both initial loading and replacement searc
     await wrapper.vm.$nextTick()
     expect(wrapper.findAllComponents(ProjectCardSkeleton)).toHaveLength(0)
     expect(wrapper.text()).toContain('No results found')
+})
+
+it('uses the full footer width when the scroll-to-top button is disabled', async () => {
+    const { wrapper } = await mountBrowseToolbar()
+    const pagination = wrapper.get('.pagination-after').element
+    expect(pagination.getBoundingClientRect().right).toBeCloseTo(
+        pagination.parentElement!.getBoundingClientRect().right,
+        0,
+    )
+})
+
+it('keeps footer pagination clickable beside the floating scroll-to-top button', async () => {
+    const originalViewport = { width: window.innerWidth, height: window.innerHeight }
+    onTestFinished(() => page.viewport(originalViewport.width, originalViewport.height))
+    await page.viewport(1100, 700)
+
+    const { wrapper, host, context } = await mountBrowseToolbar(true)
+    host.classList.add('app-viewport')
+    host.style.height = 'calc(100vh - 48px)'
+    host.style.overflow = 'auto'
+    host.style.scrollbarGutter = 'stable'
+    host.style.setProperty('--right-bar-width', '300px')
+    const resultsSpacer = document.createElement('div')
+    resultsSpacer.style.height = '1000px'
+    host.prepend(resultsSpacer)
+
+    const floatingControl = await mountThemed(ScrollToTopButton, {}, 'light', { attachTo: host })
+    cleanup.push(() => floatingControl.unmount())
+    host.scrollTop = host.scrollHeight
+    const scrollToTop = page.getByRole('button', { name: 'Scroll to top' })
+    await expect.element(scrollToTop).toBeVisible()
+
+    const footer = page.elementLocator(wrapper.get('.pagination-after').element)
+    const jumpInput = footer.getByRole('spinbutton', { name: 'Go to page' })
+    const floatingBounds = scrollToTop.element().getBoundingClientRect()
+    const jumpBounds = jumpInput.element().getBoundingClientRect()
+    expect(jumpBounds.bottom).toBeGreaterThan(floatingBounds.top)
+    expect(jumpBounds.top).toBeLessThan(floatingBounds.bottom)
+    expect(jumpBounds.right).toBeLessThan(floatingBounds.left)
+
+    await jumpInput.click()
+    await expect.element(jumpInput).toHaveFocus()
+    await footer.getByRole('button', { name: 'Next Page' }).click()
+    expect(context.setPage).toHaveBeenCalledWith(2)
 })
 
 it('keeps browsing controls usable when the content column shrinks and expands', async () => {

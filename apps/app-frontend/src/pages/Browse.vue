@@ -2527,6 +2527,7 @@ provideBrowseManager({
     <div class="flex flex-col gap-3 p-6">
         <BrowsePageLayout
             v-if="!filtersReady || !isWorldMapBrowse || curseForgeCapability.configured"
+            :reserve-scroll-to-top-space="themeStore.showScrollTop"
         >
             <template #nav-tabs-actions>
                 <Button

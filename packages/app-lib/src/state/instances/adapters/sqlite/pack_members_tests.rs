@@ -280,10 +280,12 @@ async fn unlink_pool() -> SqlitePool {
             unlinked_at INTEGER NOT NULL
         );
         CREATE TABLE install_jobs (
+            id TEXT NOT NULL PRIMARY KEY,
             instance_id TEXT NOT NULL,
             status TEXT NOT NULL,
             kind TEXT NOT NULL DEFAULT 'install_existing_instance',
             state TEXT NOT NULL DEFAULT '{}',
+            created INTEGER NOT NULL,
             finished INTEGER
         );
         CREATE TABLE instance_links (
@@ -362,7 +364,8 @@ async fn unlink_pack_refuses_while_a_job_is_running() {
     let pool = unlink_pool().await;
     pack_managed_instance(&pool).await;
     sqlx::query(
-        "INSERT INTO install_jobs (instance_id, status) VALUES ('instance', 'running')",
+        "INSERT INTO install_jobs (id, instance_id, status, created)
+         VALUES ('running-job', 'instance', 'running', 0)",
     )
     .execute(&pool)
     .await

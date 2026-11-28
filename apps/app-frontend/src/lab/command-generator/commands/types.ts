@@ -6,9 +6,13 @@ export type ArgumentType =
     | 'enum'
     | 'coordinates'
     | 'entity-selector'
+    /** 单个实体 ID（`/summon` 的实体参数），可选可搜索。 */
+    | 'entity-type'
     | 'item'
     | 'block'
     | 'nbt'
+    /** NBT 路径（`/data` 的 path），不是 NBT 文档。 */
+    | 'nbt-path'
     | 'message'
     | 'time'
     | 'gamemode'

@@ -7,6 +7,7 @@ import CommandGeneratorArgument from '@/components/lab/command-generator/Command
 import CommandGeneratorItemNbt from '@/components/lab/command-generator/CommandGeneratorItemNbt.vue'
 import CommandGeneratorNbtAdvanced from '@/components/lab/command-generator/CommandGeneratorNbtAdvanced.vue'
 import CommandGeneratorNbtEditor from '@/components/lab/command-generator/CommandGeneratorNbtEditor.vue'
+import CommandGeneratorNbtPalette from '@/components/lab/command-generator/CommandGeneratorNbtPalette.vue'
 import { initializeRegistry } from '@/lab/command-generator/commands/registry.ts'
 import { buildCommand } from '@/lab/command-generator/generator.ts'
 import { loadCommandsForVersion } from '@/lab/command-generator/loader.ts'
@@ -19,7 +20,7 @@ vi.mock('@/components/lab/command-generator/CommandGeneratorItemPickerModal.vue'
     default: { render: () => null },
 }))
 vi.mock('@modrinth/ui', async () => {
-    const { defineComponent, h } = await import('vue')
+    const { defineComponent, h, ref } = await import('vue')
     return {
         commonMessages: { clearButton: { id: 'button.clear', defaultMessage: 'Clear' } },
         Button: defineComponent({
@@ -35,6 +36,33 @@ vi.mock('@modrinth/ui', async () => {
                         },
                         slots.default?.(),
                     ),
+        }),
+        NewModal: defineComponent({
+            setup: (_, { slots, expose }) => {
+                const visible = ref(false)
+                expose({
+                    show: () => (visible.value = true),
+                    hide: () => (visible.value = false),
+                })
+                return () =>
+                    visible.value
+                        ? h('div', [slots.header?.(), slots.default?.(), slots.actions?.()])
+                        : null
+            },
+        }),
+        Checkbox: defineComponent({
+            props: { modelValue: Boolean, label: String, disabled: Boolean },
+            emits: ['update:modelValue'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h('input', {
+                        type: 'checkbox',
+                        checked: props.modelValue,
+                        disabled: props.disabled,
+                        onChange: (event: Event) =>
+                            emit('update:modelValue', (event.target as HTMLInputElement).checked),
+                    }),
         }),
         Toggle: defineComponent({ render: () => null }),
         StyledInput: defineComponent({
@@ -70,10 +98,15 @@ vi.mock('@modrinth/ui', async () => {
                         ),
                     ),
         }),
+        CodeEditor: defineComponent({ render: () => null }),
+        attachSnbtCompletion: () => ({ dispose: () => {} }),
+        formatSnbt: (value: string) => value,
+        registerSnbt: () => {},
         defineMessages: (messages: unknown) => messages,
         useVIntl: () => ({
             formatMessage: (message: { id: string; defaultMessage?: string }) =>
                 message.defaultMessage ?? message.id,
+            locale: ref('en-US'),
         }),
     }
 })
@@ -414,22 +447,14 @@ it('offers modern gamerule presets without legacy camelCase choices for 26.x', a
     expect(wrapper.get('.result-code').text()).toBe('/gamerule minecraft:keep_inventory true')
 })
 
-it('uses component syntax when adding tags or applying advanced item presets in 26.3', async () => {
+it('writes a manually added tag with component syntax in 26.3', async () => {
     const wrapper = mount(CommandGeneratorNbtAdvanced, {
         props: { kind: 'item', version: '26.3', modelValue: '' },
     })
     wrappers.push(wrapper)
-    await wrapper
-        .findAll('button')
-        .find((button) => button.text() === 'Add root tag')!
-        .trigger('click')
+    await wrapper.get('.nbt-add-root').trigger('click')
+    // 面板里「自己写一个」的路径：节点加在根层，输出按 1.21.5+ 的组件语法
+    wrapper.findComponent(CommandGeneratorNbtPalette).vm.$emit('manual')
+    await flushPromises()
     expect(String(wrapper.emitted('update:modelValue')!.at(-1)![0])).toMatch(/^\[/)
-    await wrapper
-        .findAll('button')
-        .find((button) => button.text() === 'Enchanted item')!
-        .trigger('click')
-    const output = String(wrapper.emitted('update:modelValue')!.at(-1)![0])
-    expect(parseNbt(output).nodes.find((node) => node.name === 'custom_name')!.type).toBe(
-        'compound',
-    )
 })

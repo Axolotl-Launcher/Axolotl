@@ -1,0 +1,3060 @@
+{
+  "schemaVersion": 1,
+  "domain": "item",
+  "retrievedAt": "2026-11-20",
+  "sources": [
+    {
+      "page": "Data component format",
+      "revision": 3903955
+    }
+  ],
+  "fields": [
+    {
+      "key": "additional_trade_cost",
+      "type": "int",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "额外交易花费",
+      "desc": "Used on the gives item of a villager trade to add to the count of the wants item."
+    },
+    {
+      "key": "attack_animation",
+      "type": "compound",
+      "category": "combat",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "攻击动画",
+      "desc": "The swing animation to play when the item is used to attack something"
+    },
+    {
+      "key": "attack_range",
+      "type": "compound",
+      "category": "combat",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "攻击距离",
+      "desc": "Determines the attack range and hitbox margin of a weapon."
+    },
+    {
+      "key": "attribute_modifiers",
+      "category": "combat",
+      "since": "1.20.5",
+      "zh": "属性修饰符",
+      "desc": "A list of attribute modifiers which, if present on an item, may be applied to a player or mob that has equipped the item. If the item is not in the correct equipment slot, it has no effect. The modifiers are removed from the entity once the item is moved out of that slot or is deleted. Any attribute modifiers specified are listed in the item's tooltip (unless hidden).",
+      "forms": [
+        {
+          "type": "list",
+          "element": {
+            "type": "compound"
+          },
+          "editor": "attribute_modifiers"
+        }
+      ]
+    },
+    {
+      "key": "banner_patterns",
+      "category": "basic",
+      "appliesTo": {
+        "ids": [
+          "white_banner",
+          "orange_banner",
+          "magenta_banner",
+          "light_blue_banner",
+          "yellow_banner",
+          "lime_banner",
+          "pink_banner",
+          "gray_banner",
+          "light_gray_banner",
+          "cyan_banner",
+          "purple_banner",
+          "blue_banner",
+          "brown_banner",
+          "green_banner",
+          "red_banner",
+          "black_banner",
+          "shield"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "旗帜图案",
+      "desc": "List of all patterns applied to the banner or the shield. If used on a shield and the minecraft:base_color component is not specified, then white is used as the base banner color.",
+      "forms": [
+        {
+          "type": "list",
+          "element": {
+            "type": "compound",
+            "children": [
+              {
+                "key": "color",
+                "category": "basic",
+                "zh": "颜色",
+                "desc": "Dye color of the section.",
+                "forms": [
+                  {
+                    "type": "string",
+                    "values": "dye_color",
+                    "default": "\"white\""
+                  }
+                ]
+              },
+              {
+                "key": "pattern",
+                "category": "basic",
+                "zh": "图案",
+                "desc": "One banner pattern (an ID, or a new banner pattern definition).",
+                "forms": [
+                  {
+                    "type": "string",
+                    "values": "banner_pattern",
+                    "default": "\"minecraft:cross\"",
+                    "desc": "The pattern ID, for example minecraft:creeper."
+                  },
+                  {
+                    "type": "compound",
+                    "desc": "A new pattern definition: the texture asset and its tooltip translation key.",
+                    "children": [
+                      {
+                        "key": "asset_id",
+                        "type": "string",
+                        "category": "basic",
+                        "zh": "图案资源",
+                        "desc": "The resource location for the texture asset."
+                      },
+                      {
+                        "key": "translation_key",
+                        "type": "string",
+                        "category": "basic",
+                        "zh": "翻译键",
+                        "desc": "The translation key for displaying the banner tooltip."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "key": "base_color",
+      "type": "string",
+      "category": "appearance",
+      "appliesTo": { "ids": ["shield"] },
+      "since": "1.20.5",
+      "zh": "基础颜色",
+      "desc": "The base dye color of the banner applied on a shield. If neither this nor minecraft:banner_patterns is specified, then the shield model will show its normal wooden texture. If the minecraft:banner_patterns component is specified but this component is not, then white is used as the base banner color. If present on a shield item, the item name is overridden as \"<color> Shield\" (e.g. if set to green, the name will be \"Green Shield\")."
+    },
+    {
+      "key": "bees",
+      "type": "list",
+      "elementType": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["beehive", "bee_nest"] },
+      "since": "1.20.5",
+      "zh": "蜜蜂",
+      "desc": "A list of the entities currently in the beehive or bee nest. If present on an item, text is added to the item's tooltip that says how many entries are in the list (e.g. if there are two entries, the tooltip will say \"Bees: 2 / 3\") and each item is considered a full stack for the minecraft:bundle_contents components. Despite the tooltip suggesting there is a maximum of 3 entries, there is no limit to the size of this component.",
+      "children": [
+        {
+          "key": "entity_data",
+          "category": "basic",
+          "zh": "实体数据",
+          "desc": "Must include id tag. The Passengers, Pos, Rotation, and UUID tags are ignored when the entity spawns. May also be written as a plain string holding the entity ID.",
+          "forms": [
+            {
+              "type": "compound",
+              "children": [
+                {
+                  "key": "Air",
+                  "type": "short",
+                  "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+                  "category": "data",
+                  "zh": "氧气值"
+                },
+                {
+                  "key": "CustomName",
+                  "type": "compound",
+                  "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+                  "category": "data",
+                  "zh": "自定义名称"
+                },
+                {
+                  "key": "CustomNameVisible",
+                  "type": "byte",
+                  "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+                  "valueKind": "boolean",
+                  "category": "data",
+                  "zh": "名称始终显示"
+                },
+                {
+                  "key": "data",
+                  "type": "compound",
+                  "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+                  "category": "data",
+                  "zh": "自定义数据"
+                },
+                {
+                  "key": "fall_distance",
+                  "type": "double",
+                  "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+                  "category": "data",
+                  "zh": "下落距离"
+                },
+                {
+                  "key": "Fire",
+                  "type": "short",
+                  "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+                  "category": "data",
+                  "zh": "着火时间"
+                },
+                {
+                  "key": "Glowing",
+                  "type": "byte",
+                  "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+                  "valueKind": "boolean",
+                  "category": "data",
+                  "zh": "发光"
+                },
+                {
+                  "key": "HasVisualFire",
+                  "type": "byte",
+                  "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+                  "valueKind": "boolean",
+                  "category": "data",
+                  "zh": "视觉着火"
+                },
+                {
+                  "key": "id",
+                  "type": "string",
+                  "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+                  "category": "data",
+                  "zh": "实体 ID"
+                },
+                {
+                  "key": "Invulnerable",
+                  "type": "byte",
+                  "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+                  "valueKind": "boolean",
+                  "category": "data",
+                  "zh": "无敌"
+                },
+                {
+                  "key": "invulnerable_time",
+                  "type": "int",
+                  "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+                  "category": "data",
+                  "zh": "无敌时间"
+                },
+                {
+                  "key": "Motion",
+                  "type": "list",
+                  "elementType": "double",
+                  "length": 3,
+                  "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+                  "category": "data",
+                  "zh": "速度"
+                },
+                {
+                  "key": "NoGravity",
+                  "type": "byte",
+                  "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+                  "valueKind": "boolean",
+                  "category": "data",
+                  "zh": "无重力"
+                },
+                {
+                  "key": "OnGround",
+                  "type": "byte",
+                  "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+                  "valueKind": "boolean",
+                  "category": "data",
+                  "zh": "着地"
+                },
+                {
+                  "key": "Passengers",
+                  "type": "list",
+                  "elementType": "compound",
+                  "desc": "The data of the entities that are riding this entity.",
+                  "category": "data",
+                  "zh": "乘客"
+                },
+                {
+                  "key": "PortalCooldown",
+                  "type": "int",
+                  "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+                  "category": "data",
+                  "zh": "传送冷却"
+                },
+                {
+                  "key": "Pos",
+                  "type": "list",
+                  "elementType": "double",
+                  "length": 3,
+                  "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+                  "category": "data",
+                  "zh": "坐标"
+                },
+                {
+                  "key": "Rotation",
+                  "type": "list",
+                  "elementType": "float",
+                  "length": 2,
+                  "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+                  "category": "data",
+                  "zh": "朝向"
+                },
+                {
+                  "key": "Silent",
+                  "type": "byte",
+                  "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+                  "valueKind": "boolean",
+                  "category": "data",
+                  "zh": "静默"
+                },
+                {
+                  "key": "Tags",
+                  "type": "list",
+                  "elementType": "string",
+                  "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+                  "category": "data",
+                  "zh": "计分板标签"
+                },
+                {
+                  "key": "TicksFrozen",
+                  "type": "int",
+                  "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+                  "category": "data",
+                  "zh": "冻结刻数"
+                },
+                {
+                  "key": "UUID",
+                  "type": "int_array",
+                  "desc": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+                  "category": "data",
+                  "zh": "UUID"
+                }
+              ]
+            },
+            {
+              "type": "string",
+              "default": "\"minecraft:bee\"",
+              "desc": "A plain string holding the entity ID."
+            }
+          ]
+        },
+        {
+          "key": "min_ticks_in_hive",
+          "type": "int",
+          "desc": "The minimum amount of time in ticks for this entity to stay in the hive.",
+          "category": "basic",
+          "zh": "最短留巢时间"
+        },
+        {
+          "key": "ticks_in_hive",
+          "type": "int",
+          "desc": "The amount of ticks the entity has stayed in the hive.",
+          "category": "basic",
+          "zh": "留巢时间"
+        }
+      ]
+    },
+    {
+      "key": "block_entity_data",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "方块实体数据",
+      "desc": "Block entity NBT applied when this block is placed. Depending on the block type that this item places, and the block entity ID specified in this component, this component may add a red message to the item's tooltip (for operator players only) warning the player that placing it may result in command execution."
+    },
+    {
+      "key": "block_state",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "方块状态",
+      "desc": "The block state properties to apply when placing this block. When present on an item, regardless of the item type, if the honey_level property is specified as a number from 0 to 5 then a gray \"Honey: <honey_level> / 5\" text is added to the tooltip."
+    },
+    {
+      "key": "block_transformer",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "方块转换器",
+      "desc": "One block transformer (an [String] ID). Define the item's usage within a block. Some blocks have usage that depends on the block, having priority (see interactable blocks), and some items have hardcoded usage."
+    },
+    {
+      "key": "blocks_attacks",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "格挡攻击",
+      "desc": "When present, this item can be used like a shield to block attacks to the holding player."
+    },
+    {
+      "key": "break_sound",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "破坏音效",
+      "desc": "One server-side sound event (an [String] ID, or a new [NBT Compound / JSON Object] server-side sound event definition) to play when the item runs out of durability and breaks."
+    },
+    {
+      "key": "brewing_fuel",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "酿造燃料",
+      "desc": "If present, this item can be consumed for fuel by brewing stands."
+    },
+    {
+      "key": "bucket_entity_data",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": [
+          "bucket",
+          "water_bucket",
+          "lava_bucket",
+          "milk_bucket",
+          "powder_snow_bucket",
+          "axolotl_bucket",
+          "cod_bucket",
+          "salmon_bucket",
+          "pufferfish_bucket",
+          "tropical_fish_bucket",
+          "tadpole_bucket"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "桶内实体数据",
+      "desc": "NBT applied to an entity when placed from this bucket. Only tags below are applied."
+    },
+    {
+      "key": "bundle_contents",
+      "type": "list",
+      "elementType": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": [
+          "bundle",
+          "white_bundle",
+          "orange_bundle",
+          "magenta_bundle",
+          "light_blue_bundle",
+          "yellow_bundle",
+          "lime_bundle",
+          "pink_bundle",
+          "gray_bundle",
+          "light_gray_bundle",
+          "cyan_bundle",
+          "purple_bundle",
+          "blue_bundle",
+          "brown_bundle",
+          "green_bundle",
+          "red_bundle",
+          "black_bundle"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "收纳袋内容",
+      "desc": "The items stored inside this bundle. Adding this component to any item changes that item to occupy 1/16 of the space of a bundle plus any items specified in the component, regardless of how of that item normally fit in a bundle. Shulker boxes with this component are still not able to be placed inside a bundle. If this component is removed from a bundle, it cannot be used by the player and the usual instruction and fullness bar does not appear in the tooltip.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Defaults to 1 if not specified.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        }
+      ]
+    },
+    {
+      "key": "can_break",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "editor": "block_predicates",
+      "zh": "可破坏方块",
+      "desc": "When present, the player holding the item can break the specified blocks in Adventure mode.",
+      "children": [
+        {
+          "key": "blocks",
+          "type": "string",
+          "desc": "Any number of block types (an ID, or a tag with #, or a list of IDs). Test fails if the block is not a matching block type.",
+          "category": "basic",
+          "zh": "方块"
+        },
+        {
+          "key": "state",
+          "type": "compound",
+          "desc": "Tests the block state. Test fails if the block doesn't have matching block state properties.",
+          "category": "basic",
+          "zh": "方块状态"
+        },
+        {
+          "key": "nbt",
+          "type": "compound",
+          "desc": "An NBT compound, represented either as an object or a string containing SNBT. Test fails if the block does not have matching NBT data.",
+          "category": "basic",
+          "zh": "NBT"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Data components to match exactly. Each key in this object is a component ID, and its value is a full component of that type. Test fails if the block doesn't have exactly the same value for every provided component.",
+          "category": "basic",
+          "zh": "数据组件"
+        },
+        {
+          "key": "predicates",
+          "type": "compound",
+          "desc": "Data component predicates to match components loosely. Each key in this object is a component predicate ID, and its value is a component predicate of that type. Test fails if the block's components do not match all predicates.",
+          "category": "basic",
+          "zh": "组件谓词"
+        }
+      ]
+    },
+    {
+      "key": "can_place_on",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "editor": "block_predicates",
+      "zh": "可放置于",
+      "desc": "Determines which blocks that blocks with this component can be placed against in Adventure mode. If defined as a compound, corresponds to [NBT Compound / JSON Object] A single block predicate. Items are listed in the tooltip in the order specified (when viewed in inventory).",
+      "children": [
+        {
+          "key": "blocks",
+          "type": "string",
+          "desc": "Any number of block types (an ID, or a tag with #, or a list of IDs). Test fails if the block is not a matching block type.",
+          "category": "basic",
+          "zh": "方块"
+        },
+        {
+          "key": "state",
+          "type": "compound",
+          "desc": "Tests the block state. Test fails if the block doesn't have matching block state properties.",
+          "category": "basic",
+          "zh": "方块状态"
+        },
+        {
+          "key": "nbt",
+          "type": "compound",
+          "desc": "An NBT compound, represented either as an object or a string containing SNBT. Test fails if the block does not have matching NBT data.",
+          "category": "basic",
+          "zh": "NBT"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Data components to match exactly. Each key in this object is a component ID, and its value is a full component of that type. Test fails if the block doesn't have exactly the same value for every provided component.",
+          "category": "basic",
+          "zh": "数据组件"
+        },
+        {
+          "key": "predicates",
+          "type": "compound",
+          "desc": "Data component predicates to match components loosely. Each key in this object is a component predicate ID, and its value is a component predicate of that type. Test fails if the block's components do not match all predicates.",
+          "category": "basic",
+          "zh": "组件谓词"
+        }
+      ]
+    },
+    {
+      "key": "charged_projectiles",
+      "type": "list",
+      "elementType": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["crossbow"] },
+      "since": "1.20.5",
+      "zh": "已装填弹射物",
+      "desc": "The items loaded as projectiles into this crossbow. If there are item stacks in this component, the item name for item stack is listed in the tooltip of the item as \"Projectile: [<name>]\", and any duplicate item stack entries are grouped together as \"Projectile: N x [<name>]\". If not present, this crossbow is not charged.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Defaults to 1 if not specified.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        }
+      ]
+    },
+    {
+      "key": "compostable",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "可堆肥",
+      "desc": "If present, the item can be used on composters, regardless of the value returned by layers:"
+    },
+    {
+      "key": "consumable",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "可消耗",
+      "desc": "If present, the item can be consumed. Its options can also be modified.",
+      "children": [
+        {
+          "key": "consume_seconds",
+          "type": "float",
+          "desc": "The amount of seconds it takes for a player to consume the item. Defaults to 1.6.",
+          "category": "basic",
+          "zh": "食用耗时"
+        },
+        {
+          "key": "animation",
+          "type": "string",
+          "desc": "The animation used during consumption of the item. Must be one of none, eat, drink, block, bow, spear, crossbow, spyglass, toot_horn, brush, bundle, or trident. Defaults to eat.",
+          "category": "basic",
+          "zh": "食用动画"
+        },
+        {
+          "key": "sound",
+          "type": "string",
+          "desc": "Optional. One server-side sound event (an ID, or a new server-side sound event definition) used during and on completion of the item's consumption. Defaults to entity.generic.eat.",
+          "category": "basic",
+          "zh": "音效"
+        },
+        {
+          "key": "has_consume_particles",
+          "type": "byte",
+          "desc": "Whether consumption particles are emitted while consuming this item. Defaults to true.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "产生粒子"
+        },
+        {
+          "key": "on_consume_effects",
+          "type": "list",
+          "desc": "A list of effects which take place as a result of consuming this item. Optional.",
+          "elementType": "compound",
+          "category": "basic",
+          "zh": "食用效果"
+        }
+      ]
+    },
+    {
+      "key": "container",
+      "type": "list",
+      "elementType": "compound",
+      "category": "inventory",
+      "appliesTo": {
+        "ids": [
+          "shulker_box",
+          "white_shulker_box",
+          "orange_shulker_box",
+          "magenta_shulker_box",
+          "light_blue_shulker_box",
+          "yellow_shulker_box",
+          "lime_shulker_box",
+          "pink_shulker_box",
+          "gray_shulker_box",
+          "light_gray_shulker_box",
+          "cyan_shulker_box",
+          "purple_shulker_box",
+          "blue_shulker_box",
+          "brown_shulker_box",
+          "green_shulker_box",
+          "red_shulker_box",
+          "black_shulker_box"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "容器",
+      "desc": "The items contained in this container's slots. If present on an item, the first 5 item slots in the container are listed in the tooltip, and the number of any extra slots are listed as \"and <N> more...\" underneath (only seen on shulker boxes in normal gameplay or ctrl-middle-clicked containers in creative mode). This component supports up to 256 item slots but, when present on some block entities, the number of slots may be artificially limited based on the number of slots the block needs (e.g. 1 for decorated pots, and 27 for chests).",
+      "children": [
+        {
+          "key": "item",
+          "type": "compound",
+          "desc": "The item stack in this slot.",
+          "category": "inventory",
+          "zh": "物品",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "inventory",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Defaults to 1 if not specified.",
+              "category": "inventory",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "inventory",
+              "zh": "数据组件"
+            }
+          ]
+        },
+        {
+          "key": "slot",
+          "type": "int",
+          "desc": "A slot in this container. Can be from 0 to 255 (inclusive).",
+          "category": "inventory",
+          "zh": "槽位"
+        }
+      ]
+    },
+    {
+      "key": "container_loot",
+      "type": "compound",
+      "category": "inventory",
+      "since": "1.20.5",
+      "zh": "容器战利品表",
+      "desc": "The unresolved loot table and seed of this container item."
+    },
+    {
+      "key": "cooking_fuel",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "烹饪燃料",
+      "desc": "Controls whether an item can be used as smelting fuel and how effective a fuel it is."
+    },
+    {
+      "key": "creative_slot_lock",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "创造槽位锁定",
+      "desc": "Only used internally to lock the informational paper items in the creative inventory. If set, this item cannot be taken out of its slot."
+    },
+    {
+      "key": "custom_data",
+      "type": "string",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "自定义数据",
+      "desc": "Contains key-value pairs of any custom data not used by the game, either as an object or a SNBT string."
+    },
+    {
+      "key": "custom_model_data",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "自定义模型数据",
+      "desc": "A list of values used by items model definitions for model selection and coloring.",
+      "children": [
+        {
+          "key": "floats",
+          "type": "list",
+          "desc": "A list of floats for the range_dispatch model type. Missing values return the fallback model.",
+          "elementType": "float",
+          "category": "basic",
+          "zh": "浮点值"
+        },
+        {
+          "key": "flags",
+          "type": "byte_array",
+          "desc": "A list of booleans for the condition model type. Missing value returns the is_false model.",
+          "category": "basic",
+          "zh": "布尔值"
+        },
+        {
+          "key": "strings",
+          "type": "list",
+          "desc": "A list of strings for the select model type. Missing value returns the fallback model.",
+          "elementType": "string",
+          "category": "basic",
+          "zh": "字符串"
+        },
+        {
+          "key": "colors",
+          "type": "int_array",
+          "desc": "A list of RGB values for the model model type's tints. Missing values return the default value provided by the item model definition. Any provided lists of three floats automatically convert to an integer, so the component is saved as an int array.",
+          "category": "basic",
+          "zh": "颜色"
+        }
+      ]
+    },
+    {
+      "key": "custom_name",
+      "category": "appearance",
+      "since": "1.20.5",
+      "zh": "自定义名称",
+      "desc": "Used to specify an item, block, or entity's custom name. A text component, which may also be written as a plain JSON string.",
+      "forms": [
+        {
+          "type": "string",
+          "desc": "A JSON text component, for example {\"text\":\"Legendary sword\"}."
+        }
+      ]
+    },
+    {
+      "key": "damage",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": [
+          "leather_boots",
+          "copper_boots",
+          "chainmail_boots",
+          "golden_boots",
+          "iron_boots",
+          "diamond_boots",
+          "netherite_boots",
+          "leather_leggings",
+          "copper_leggings",
+          "chainmail_leggings",
+          "golden_leggings",
+          "iron_leggings",
+          "diamond_leggings",
+          "netherite_leggings",
+          "leather_chestplate",
+          "copper_chestplate",
+          "chainmail_chestplate",
+          "golden_chestplate",
+          "iron_chestplate",
+          "diamond_chestplate",
+          "netherite_chestplate",
+          "leather_helmet",
+          "copper_helmet",
+          "chainmail_helmet",
+          "golden_helmet",
+          "iron_helmet",
+          "diamond_helmet",
+          "netherite_helmet",
+          "turtle_helmet",
+          "elytra",
+          "shield",
+          "diamond_sword",
+          "stone_sword",
+          "golden_sword",
+          "netherite_sword",
+          "wooden_sword",
+          "iron_sword",
+          "copper_sword",
+          "diamond_axe",
+          "stone_axe",
+          "golden_axe",
+          "netherite_axe",
+          "wooden_axe",
+          "iron_axe",
+          "copper_axe",
+          "diamond_pickaxe",
+          "stone_pickaxe",
+          "golden_pickaxe",
+          "netherite_pickaxe",
+          "wooden_pickaxe",
+          "iron_pickaxe",
+          "copper_pickaxe",
+          "diamond_shovel",
+          "stone_shovel",
+          "golden_shovel",
+          "netherite_shovel",
+          "wooden_shovel",
+          "iron_shovel",
+          "copper_shovel",
+          "diamond_hoe",
+          "stone_hoe",
+          "golden_hoe",
+          "netherite_hoe",
+          "wooden_hoe",
+          "iron_hoe",
+          "copper_hoe",
+          "bow",
+          "crossbow",
+          "trident",
+          "flint_and_steel",
+          "shears",
+          "brush",
+          "fishing_rod",
+          "carrot_on_a_stick",
+          "warped_fungus_on_a_stick",
+          "mace",
+          "diamond_spear",
+          "stone_spear",
+          "golden_spear",
+          "netherite_spear",
+          "wooden_spear",
+          "iron_spear",
+          "copper_spear"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "伤害",
+      "desc": "The number of uses consumed (not remaining) of the item's durability. Must be a non-negative integer, defaults to 0. If not present, the item cannot take damage. If this component is present on an item, its value is non-zero, the minecraft:max_damage is also present on the item, and the player hovering over the item has advanced tooltips on, then white text is added to the tooltip showing \"Durability: <durability> / <max_damage>\"."
+    },
+    {
+      "key": "damage_resistant",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "抗伤害类型",
+      "desc": "If specified, this item is invulnerable to the specified damage types when in entity form or equipped.",
+      "children": [
+        {
+          "key": "types",
+          "type": "string",
+          "desc": "A damage type tag prefixed with #.",
+          "category": "basic",
+          "zh": "伤害类型"
+        }
+      ]
+    },
+    {
+      "key": "damage_type",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "伤害类型",
+      "desc": "Specifies the damage type this item deals"
+    },
+    {
+      "key": "death_protection",
+      "type": "compound",
+      "category": "combat",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "死亡保护",
+      "desc": "If present, this item protects the holder from dying by restoring a single health point."
+    },
+    {
+      "key": "debug_stick_state",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "调试棒状态",
+      "desc": "The selected block state properties used by this debug stick."
+    },
+    {
+      "key": "dye",
+      "type": "string",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "染料",
+      "desc": "When present on an item, stores the color of dye that this item can be used as for the purpose of crafting recipes and mob or block interactions. Can be one of white, orange, magenta, light_blue, yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, or black."
+    },
+    {
+      "key": "dyed_color",
+      "type": "int",
+      "category": "appearance",
+      "appliesTo": {
+        "ids": [
+          "leather_helmet",
+          "leather_chestplate",
+          "leather_leggings",
+          "leather_boots",
+          "leather_horse_armor"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "染色颜色",
+      "desc": "The RGB color of the tint applied to a dyed item, typically as a result of combining the item with dyes in a minecraft:crafting_dyed type crafting recipe. More generally, this component is used as the minecraft:dye color provider in item model definitions (so only item models that explicitly use this color provider will be tinted). If present on an item, gray text is added to the tooltip showing either an italic \"Dyed\" when advanced tooltips is off, or a non-italic \"Color: #<hex color code>\" instead when advanced tooltips is on. The color is stored as an integer which packs the color's red, green and blue channels using this formula:( Red << 16) + ( Green << 8) + Blue"
+    },
+    {
+      "key": "enchantable",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "可附魔",
+      "desc": "If this and minecraft:enchantments are present on an item, and applicable enchantments are available, the item can be enchanted in an enchanting table.",
+      "children": [
+        {
+          "key": "value",
+          "type": "int",
+          "desc": "Positive integer representing the item's enchantability. A higher value allows enchantments with a higher cost to be picked.",
+          "category": "basic",
+          "zh": "附魔能力"
+        }
+      ]
+    },
+    {
+      "key": "enchantment_glint_override",
+      "type": "byte",
+      "valueKind": "boolean",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "附魔光效覆盖",
+      "desc": "Overrides the enchantment glint effect on this item. When true, this item displays a glint, even without enchantments. When false, this item does not display a glint, even with enchantments."
+    },
+    {
+      "key": "enchantments",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "editor": "enchantments",
+      "zh": "附魔",
+      "desc": "Contains a map of each of this item's enchantments to its enchantment level. This and minecraft:enchantable must exist on an item for it to be able to be enchanted in an enchanting table. If present on an item, the color of the item name is aqua if its rarity is common or uncommon, and light purple if its rarity is rare or epic. If present on an item, the enchantments are listed in the item's tooltip. The order of the enchantments in the tooltip is defined by the #minecraft:tooltip_order enchantment tag."
+    },
+    {
+      "key": "entity_data",
+      "category": "basic",
+      "zh": "实体数据",
+      "desc": "Must include id tag. The Passengers, Pos, Rotation, and UUID tags are ignored when the entity spawns. May also be written as a plain string holding the entity ID.",
+      "forms": [
+        {
+          "type": "compound",
+          "children": [
+            {
+              "key": "Air",
+              "type": "short",
+              "desc": "How much air the entity has, in game ticks. Decreases when unable to breathe (except suffocating in a block). Increases when it can breathe. Being at or below -20 game ticks (while still unable to breathe) on a given game tick causes the entity to immediately lose 1 health to drowning damage. This resets to 0 game ticks. Most mobs can have a maximum of 300 game ticks (15 seconds) of air, while dolphins can reach up to 4800 game ticks (240 seconds), and axolotls have 6000 game ticks (300 seconds).",
+              "category": "data",
+              "zh": "氧气值"
+            },
+            {
+              "key": "CustomName",
+              "type": "compound",
+              "desc": "The custom name text component of this entity. Appears in player death messages and villager trading interfaces, as well as above the entity when the player's cursor is over it. May be empty or not exist. Represents the minecraft:custom_name component.",
+              "category": "data",
+              "zh": "自定义名称"
+            },
+            {
+              "key": "CustomNameVisible",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, and this entity has a custom name, the name always appears above the entity, regardless of where the cursor points. If the entity does not have a custom name, a default name is shown. May not exist.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "名称始终显示"
+            },
+            {
+              "key": "data",
+              "type": "compound",
+              "desc": "Optional arbitrary NBT data. Is removed if empty. Represents the minecraft:custom_data component.",
+              "category": "data",
+              "zh": "自定义数据"
+            },
+            {
+              "key": "fall_distance",
+              "type": "double",
+              "desc": "Distance the entity has fallen. Larger values cause more damage when the entity lands.",
+              "category": "data",
+              "zh": "下落距离"
+            },
+            {
+              "key": "Fire",
+              "type": "short",
+              "desc": "Number of game ticks until the fire is put out. Negative values reflect how long the entity can stand in fire before burning. Default to -20 when not on fire.",
+              "category": "data",
+              "zh": "着火时间"
+            },
+            {
+              "key": "Glowing",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity has a glowing outline.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "发光"
+            },
+            {
+              "key": "HasVisualFire",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity visually appears on fire, even if it is not actually on fire.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "视觉着火"
+            },
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "Namespaced ID of the entity's entity type. Does not exist for entities in the world, only stored entities (such as in data components).",
+              "category": "data",
+              "zh": "实体 ID"
+            },
+            {
+              "key": "Invulnerable",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity should not take damage. This applies to living and nonliving entities alike: mobs should not take damage from any source (including potion effects), and cannot be moved by fishing rods, attacks, explosions, or projectiles, and objects such as vehicles and item frames cannot be destroyed unless their supports are removed. Invulnerable player entities are also ignored by any hostile mobs. Note that these entities can be damaged by players in Creative mode.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "无敌"
+            },
+            {
+              "key": "invulnerable_time",
+              "type": "int",
+              "desc": "Optional, removed if zero or less. When greater than zero, the entity is invulnerable for that many ticks. This behaves the same as setting to true, and the two fields can be enabled or disabled independently. The entity is invulnerable when either is true, is positive, or both. Decreases by one every tick. When a cushion is struck by lightning, the dropped item has this set to 20 game ticks (1 second). When a skeleton trap is triggered, the three newly spawned skeletons and skeleton horses have this set to 60 game ticks (3 seconds).",
+              "category": "data",
+              "zh": "无敌时间"
+            },
+            {
+              "key": "Motion",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current dX, dY, and dZ velocity of the entity in meters per game tick. Only allows between 10.0 and -10.0 (inclusive), else resets to 0.",
+              "category": "data",
+              "zh": "速度"
+            },
+            {
+              "key": "NoGravity",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity does not fall down naturally. Does not exist if set to false. Set to true by striders in lava.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "无重力"
+            },
+            {
+              "key": "OnGround",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, the entity is touching the ground.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "着地"
+            },
+            {
+              "key": "Passengers",
+              "type": "list",
+              "elementType": "compound",
+              "desc": "The data of the entities that are riding this entity.",
+              "category": "data",
+              "zh": "乘客"
+            },
+            {
+              "key": "PortalCooldown",
+              "type": "int",
+              "desc": "The number of game ticks before which the entity may be teleported back through a nether portal. Initially starts at 300 game ticks (15 seconds) after teleportation and counts down to 0.",
+              "category": "data",
+              "zh": "传送冷却"
+            },
+            {
+              "key": "Pos",
+              "type": "list",
+              "elementType": "double",
+              "length": 3,
+              "desc": "List of 3 doubles describing the current X, Y, and Z position (coordinates) of the entity.",
+              "category": "data",
+              "zh": "坐标"
+            },
+            {
+              "key": "Rotation",
+              "type": "list",
+              "elementType": "float",
+              "length": 2,
+              "desc": "List of 2 floats representing the entity's server-side rotation (facing direction). This does not necessarily match with the direction that the mob is looking in on the client's side. The yaw and pitch are stored inverted for most projectile entities.",
+              "category": "data",
+              "zh": "朝向"
+            },
+            {
+              "key": "Silent",
+              "type": "byte",
+              "desc": "1 or 0 (true/false) - if true, this entity is silenced. May not exist.",
+              "valueKind": "boolean",
+              "category": "data",
+              "zh": "静默"
+            },
+            {
+              "key": "Tags",
+              "type": "list",
+              "elementType": "string",
+              "desc": "List of scoreboard tags of this entity. It is not preserved if it is removed.",
+              "category": "data",
+              "zh": "计分板标签"
+            },
+            {
+              "key": "TicksFrozen",
+              "type": "int",
+              "desc": "Optional. How many game ticks the entity has been freezing (by powder snow or effect). Increases while in powder snow or with freezing effect, even partially, up to a maximum of 140 game ticks (7 seconds), and decreases at double speed while not in powder snow. Although this tag is defined for all entities, sulfur cube that has absorbed a block, entities equipped with an item in the tag #freeze_immune_wearables, skeletons, entities in the tag #freeze_immune_entity_types/#immune_to_freezing, and non-living entities are not affected by freezing.",
+              "category": "data",
+              "zh": "冻结刻数"
+            },
+            {
+              "key": "UUID",
+              "type": "int_array",
+              "desc": "This entity's Universally Unique Identifier. The 128-bit UUID is stored as four 32-bit integers, ordered from most to least significant.",
+              "category": "data",
+              "zh": "UUID"
+            }
+          ]
+        },
+        {
+          "type": "string",
+          "default": "\"minecraft:bee\"",
+          "desc": "A plain string holding the entity ID."
+        }
+      ]
+    },
+    {
+      "key": "equippable",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "可装备",
+      "desc": "If present, this item can be equipped in the specified slot.",
+      "children": [
+        {
+          "key": "slot",
+          "type": "string",
+          "desc": "The slot to put the item on. Can be one of head, chest, legs, feet, body, mainhand, offhand, or saddle.",
+          "category": "basic",
+          "zh": "装备槽位"
+        },
+        {
+          "key": "equip_sound",
+          "type": "string",
+          "desc": "Optional. One server-side sound event (an ID, or a new server-side sound event definition) to play when the item is equipped. Defaults to item.armor.equip_generic.",
+          "category": "basic",
+          "zh": "装备音效"
+        },
+        {
+          "key": "asset_id",
+          "type": "string",
+          "desc": "The identifier of the equipment model to use when equipped. The directory this refers to is assets/<namespace>/equipment/<id>.json. If not specified, falls back to rendering as the item itself when in the head slot (if not applicable, the item does not render).",
+          "category": "basic",
+          "zh": "装备模型"
+        },
+        {
+          "key": "allowed_entities",
+          "type": "string",
+          "desc": "Entity ID, Entity Tag, or list of Entity IDs to limit which entities can equip this item. Defaults to all entities.",
+          "category": "basic",
+          "zh": "可装备实体"
+        },
+        {
+          "key": "dispensable",
+          "type": "byte",
+          "desc": "Whether the item can be dispensed by using a dispenser. Defaults to true.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "可发射"
+        },
+        {
+          "key": "swappable",
+          "type": "byte",
+          "desc": "Whether the item can be equipped into the relevant slot by right-clicking. Defaults to true.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "可快捷装备"
+        },
+        {
+          "key": "damage_on_hurt",
+          "type": "byte",
+          "desc": "Whether this item is damaged when the wearing entity is damaged. Defaults to true.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "受伤时损耗"
+        },
+        {
+          "key": "equip_on_interact",
+          "type": "byte",
+          "desc": "Whether this item can be equipped onto a target mob by pressing use on it (as long as this item can be equipped on the target at all). Defaults to false.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "右键装备"
+        },
+        {
+          "key": "camera_overlay",
+          "type": "string",
+          "desc": "The identifier of the overlay texture to use when equipped. The directory this refers to is assets/<namespace>/textures/<id>. Assets which do not exist will use the missing texture, rather than falling back to a default such as the pumpkin overlay.",
+          "category": "basic",
+          "zh": "视角覆盖"
+        },
+        {
+          "key": "can_be_sheared",
+          "type": "byte",
+          "desc": "Whether this item can be unequipped from a target mob by right-clicking with Shears. Defaults to false.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "可剪除"
+        },
+        {
+          "key": "shearing_sound",
+          "type": "string",
+          "desc": "Optional. One server-side sound event (an ID, or a new server-side sound event definition) to play when the item is sheared. Defaults to item.shears.snip.",
+          "category": "basic",
+          "zh": "剪除音效"
+        }
+      ]
+    },
+    {
+      "key": "firework_explosion",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["firework_star"] },
+      "since": "1.20.5",
+      "zh": "烟花爆炸",
+      "desc": "The explosion effect stored by this firework star."
+    },
+    {
+      "key": "fireworks",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["firework_rocket"] },
+      "since": "1.20.5",
+      "editor": "fireworks",
+      "zh": "烟花",
+      "desc": "The flight duration of this firework rocket and the explosion effects it carries."
+    },
+    {
+      "key": "food",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "食物",
+      "desc": "The food stats applied to the mob or player upon consuming this item.",
+      "children": [
+        {
+          "key": "nutrition",
+          "type": "int",
+          "desc": "The number of food points restored by this item when the player eats. The number of health points restored by this item when used to feed cats. Wolfs, nautilus and zombie nautilus restored the twice the value. Must be a non-negative integer.",
+          "category": "basic",
+          "zh": "营养值"
+        },
+        {
+          "key": "saturation",
+          "type": "float",
+          "desc": "The amount of saturation restored by this item when eaten.",
+          "category": "basic",
+          "zh": "饱和度"
+        },
+        {
+          "key": "can_always_eat",
+          "type": "byte",
+          "desc": "If true, this item can be eaten even if the player is not hungry. Defaults to false.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "随时可食用"
+        }
+      ]
+    },
+    {
+      "key": "glider",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "滑翔",
+      "desc": "If present, this item allows living entities to glide (as with elytra) when equipped. If the item is damageable, it will only allow entities to glide if it has minecraft:damage < minecraft:max_damage − 1. Every second while an entity is gliding, the game will select a random equipped glider item that isn't too damaged to function and try to apply one point of durability damage."
+    },
+    {
+      "key": "instrument",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["goat_horn"] },
+      "since": "1.20.5",
+      "zh": "乐器",
+      "desc": "One instrument (an [String] ID, or a new [NBT Compound / JSON Object] instrument definition). If present on an item, the description of the instrument is shown in the item's tooltip as gray text."
+    },
+    {
+      "key": "intangible_projectile",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "无形弹射物",
+      "desc": "If present on an item that can be used as a projectile without breaking upon impact (such as arrows and tridents), the projectile cannot be picked up by a player once fired, unless they are in creative mode. When present on any item, a line of gray text that says \"Intangible\" is added to the item's tooltip."
+    },
+    {
+      "key": "interact_animation",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "交互动画",
+      "desc": "The swing animation to play when the item is used to interact with something."
+    },
+    {
+      "key": "item_model",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "物品模型",
+      "desc": "The identifier of an item model definition. Referencing nonexistent models will cause the missing model to be used."
+    },
+    {
+      "key": "item_name",
+      "type": "compound",
+      "category": "appearance",
+      "since": "1.20.5",
+      "zh": "物品名称",
+      "desc": "The default name of this item, as a text component, present on all items by default. Unlike the minecraft:custom_name component, this name cannot be erased using an anvil, is not italicized, and does not appear in some labels, such as banner markers and item frames."
+    },
+    {
+      "key": "jukebox_playable",
+      "type": "string",
+      "category": "basic",
+      "appliesTo": { "ids": ["jukebox"] },
+      "since": "1.20.5",
+      "zh": "唱片机可播放",
+      "desc": "One jukebox song (an [String] ID) to play when inserted into a jukebox. If present on an item, the item can be inserted into a jukebox to play the specified song. If present on an item, the artist and the title of the song are added to the item's tooltip as gray text."
+    },
+    {
+      "key": "kinetic_weapon",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "动能武器",
+      "desc": "Enables a charge-type attack when using the item where, while being used, the damage is dealt along a ray every tick based on the relative speed of the entities"
+    },
+    {
+      "key": "lock",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "锁",
+      "desc": "An item predicate representing the \"key\" to open this container. If present on a block, players must have an item that passes this predicate in their main hand in order to open the container. If they do not, interacting with the container plays a sound and displays a message in the actionbar."
+    },
+    {
+      "key": "lodestone_tracker",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["compass"] },
+      "since": "1.20.5",
+      "zh": "磁石指针",
+      "desc": "Stores information about the lodestone this compass should point toward. If present on a compass item, the base item name will be overridden as \"Lodestone Compass\". While tracked in a player's inventory, a compass with this component will do active polling to see if the position of its lodestone is loaded, and if it is and the lodestone has been destroyed then this component is removed."
+    },
+    {
+      "key": "lore",
+      "category": "appearance",
+      "since": "1.20.5",
+      "zh": "描述文本",
+      "desc": "List of additional lines to display in this item's tooltip. Has a maximum of 256 lines. Each line is a text component, which may be written as a plain JSON string.",
+      "forms": [
+        {
+          "type": "list",
+          "element": {
+            "type": "string"
+          },
+          "editor": "lore",
+          "length": {
+            "max": 256
+          }
+        }
+      ]
+    },
+    {
+      "key": "map_color",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": { "ids": ["filled_map"] },
+      "since": "1.20.5",
+      "zh": "地图颜色",
+      "desc": "The color code for the minecraft:map_color color provider in item model definitions. Normally used by the minecraft:filled_map item model."
+    },
+    {
+      "key": "map_decorations",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["filled_map"] },
+      "since": "1.20.5",
+      "zh": "地图标记",
+      "desc": "Contains key-value pairs of the icons to display on this filled map."
+    },
+    {
+      "key": "map_id",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": { "ids": ["filled_map"] },
+      "since": "1.20.5",
+      "zh": "地图编号",
+      "desc": "The map data number for this item, representing the shared state holding map contents banner and item frames decoration. When present, add information to the tooltip and change the rendering of the item in hand or in the item frame for map rendering. Only maps (filled_map) and explorer maps can update map content."
+    },
+    {
+      "key": "map_post_processing",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": { "ids": ["filled_map"] },
+      "since": "1.20.5",
+      "zh": "地图后处理",
+      "desc": "Only used internally when this filled map has been duplicated or locked in a crafting table or a cartography table. Can be 0 (lock) or 1 (scale), adding the \"Locked\" line or \"Scale\" line in this item's tooltip, respectively."
+    },
+    {
+      "key": "max_damage",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": [
+          "leather_boots",
+          "copper_boots",
+          "chainmail_boots",
+          "golden_boots",
+          "iron_boots",
+          "diamond_boots",
+          "netherite_boots",
+          "leather_leggings",
+          "copper_leggings",
+          "chainmail_leggings",
+          "golden_leggings",
+          "iron_leggings",
+          "diamond_leggings",
+          "netherite_leggings",
+          "leather_chestplate",
+          "copper_chestplate",
+          "chainmail_chestplate",
+          "golden_chestplate",
+          "iron_chestplate",
+          "diamond_chestplate",
+          "netherite_chestplate",
+          "leather_helmet",
+          "copper_helmet",
+          "chainmail_helmet",
+          "golden_helmet",
+          "iron_helmet",
+          "diamond_helmet",
+          "netherite_helmet",
+          "turtle_helmet",
+          "elytra",
+          "shield",
+          "diamond_sword",
+          "stone_sword",
+          "golden_sword",
+          "netherite_sword",
+          "wooden_sword",
+          "iron_sword",
+          "copper_sword",
+          "diamond_axe",
+          "stone_axe",
+          "golden_axe",
+          "netherite_axe",
+          "wooden_axe",
+          "iron_axe",
+          "copper_axe",
+          "diamond_pickaxe",
+          "stone_pickaxe",
+          "golden_pickaxe",
+          "netherite_pickaxe",
+          "wooden_pickaxe",
+          "iron_pickaxe",
+          "copper_pickaxe",
+          "diamond_shovel",
+          "stone_shovel",
+          "golden_shovel",
+          "netherite_shovel",
+          "wooden_shovel",
+          "iron_shovel",
+          "copper_shovel",
+          "diamond_hoe",
+          "stone_hoe",
+          "golden_hoe",
+          "netherite_hoe",
+          "wooden_hoe",
+          "iron_hoe",
+          "copper_hoe",
+          "bow",
+          "crossbow",
+          "trident",
+          "flint_and_steel",
+          "shears",
+          "brush",
+          "fishing_rod",
+          "carrot_on_a_stick",
+          "warped_fungus_on_a_stick",
+          "mace",
+          "diamond_spear",
+          "stone_spear",
+          "golden_spear",
+          "netherite_spear",
+          "wooden_spear",
+          "iron_spear",
+          "copper_spear"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "最大耐久",
+      "desc": "The maximum amount of damage that this item can take. If not set, this item cannot take damage. Must be a non-zero positive integer. Cannot be combined with minecraft:max_stack_size if it has a value greater than 1 (if the item can be stacked). For the durability bar to appear, the damage component must have a value. Example damage=0."
+    },
+    {
+      "key": "max_stack_size",
+      "type": "int",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "最大堆叠",
+      "desc": "The maximum number of items that can fit in a stack. Must be a positive integer between 1 and 99 (inclusive). If it has a value greater than 1 (if the item can be stacked), cannot be combined with minecraft:max_damage. If this component is removed, it will behave as though it was set to 1."
+    },
+    {
+      "key": "minimum_attack_charge",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "最低攻击蓄力",
+      "desc": "Sets the minimum attack charge on the attack indicator required to attack with this item. Must be a non-negative float between 0.0 and 1.0"
+    },
+    {
+      "key": "mob_visibility",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "生物可见性",
+      "desc": "Represents the visibility percentage provided by an item with the appropriate minecraft:equippable component, modifying the range at which mobs are able to detect an entity."
+    },
+    {
+      "key": "note_block_sound",
+      "type": "string",
+      "category": "basic",
+      "advanced": true,
+      "appliesTo": {
+        "ids": [
+          "zombie_head",
+          "skeleton_skull",
+          "creeper_head",
+          "dragon_head",
+          "wither_skeleton_skull",
+          "piglin_head",
+          "player_head"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "音符盒音效",
+      "desc": "The ID of the sound event played by a note block when this player head is placed above."
+    },
+    {
+      "key": "ominous_bottle_amplifier",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": { "ids": ["ominous_bottle"] },
+      "since": "1.20.5",
+      "zh": "不祥之瓶等级",
+      "desc": "The amplifier of the Bad Omen effect given to the player or mob upon consuming this item (normally an ominous bottle). Must be a non-negative integer from 0 to 4 (inclusive). The duration of the effect is always 120000 ticks (1 hour and 40 minutes at the normal tick rate) and minecraft:potion_duration_scale is ignored. If present on an item, information about the mob effect is added to the tooltip, in the same format as the minecraft:potion_contents component."
+    },
+    {
+      "key": "piercing_weapon",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "穿刺武器",
+      "desc": "Melee attacks using this item damage multiple entities along a ray, instead of only a single entity. Also prevents this item from being used to mine blocks."
+    },
+    {
+      "key": "pot_decorations",
+      "type": "list",
+      "elementType": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["decorated_pot"] },
+      "since": "1.20.5",
+      "zh": "陶罐碎片",
+      "desc": "A map for face to the item stacks (typically pottery sherds or bricks). The faces can be empty. When used on a decorated pot, it defines the items that will be dropped from its faces when broken. If an item has the minecraft:provides_pottery_pattern component, it defines the texture of the corresponding face.",
+      "children": [
+        {
+          "key": "left",
+          "type": "compound",
+          "desc": "The item stack in the left side.",
+          "category": "basic",
+          "zh": "左侧",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "inventory",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Defaults to 1 if not specified.",
+              "category": "inventory",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "inventory",
+              "zh": "数据组件"
+            }
+          ]
+        },
+        {
+          "key": "back",
+          "type": "compound",
+          "desc": "The item stack in the back side.",
+          "category": "basic",
+          "zh": "后侧",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "inventory",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Defaults to 1 if not specified.",
+              "category": "inventory",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "inventory",
+              "zh": "数据组件"
+            }
+          ]
+        },
+        {
+          "key": "right",
+          "type": "compound",
+          "desc": "The item stack in the right side.",
+          "category": "basic",
+          "zh": "右侧",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "inventory",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Defaults to 1 if not specified.",
+              "category": "inventory",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "inventory",
+              "zh": "数据组件"
+            }
+          ]
+        },
+        {
+          "key": "front",
+          "type": "compound",
+          "desc": "The item stack in the front side.",
+          "category": "basic",
+          "zh": "前侧",
+          "children": [
+            {
+              "key": "id",
+              "type": "string",
+              "desc": "The identifier of the item. Must not be minecraft:air.",
+              "category": "inventory",
+              "zh": "物品 ID"
+            },
+            {
+              "key": "count",
+              "type": "int",
+              "desc": "Number of items stacked in this inventory slot. Defaults to 1 if not specified.",
+              "category": "inventory",
+              "zh": "数量"
+            },
+            {
+              "key": "components",
+              "type": "compound",
+              "desc": "Optional map of additional (non-default) data components.",
+              "category": "inventory",
+              "zh": "数据组件"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "potion_contents",
+      "category": "effect",
+      "appliesTo": { "ids": ["potion", "splash_potion", "lingering_potion", "tipped_arrow"] },
+      "since": "1.20.5",
+      "zh": "药水内容",
+      "desc": "The base potion, custom list of mob effects, and custom color contained in this potion, splash potion, lingering potion, tipped arrow, or area effect cloud. When present on an item, the mob effects are listed in the item's tooltip. If this and a minecraft:consumable component are present on an item, consuming the item will apply all of the effects from this component to the player or mob that consumed it.",
+      "forms": [
+        {
+          "type": "compound",
+          "editor": "potion_contents",
+          "children": []
+        },
+        {
+          "type": "string",
+          "default": "\"minecraft:swiftness\"",
+          "desc": "A potion ID; the same as writing {potion: \"<id>\"}."
+        }
+      ]
+    },
+    {
+      "key": "potion_duration_scale",
+      "type": "compound",
+      "category": "effect",
+      "since": "1.20.5",
+      "zh": "药水时长倍率",
+      "desc": "When present on an item or area effect cloud that has the minecraft:potion_contents component, the duration of the applied effects is scaled by this factor."
+    },
+    {
+      "key": "profile",
+      "category": "appearance",
+      "since": "1.20.5",
+      "zh": "玩家档案",
+      "desc": "Provides the textures needed for rendering player models (player head blocks, player head item models, and mannequins) and player face sprites. Each texture can be provided either as the namespaced path to a texture in a resource pack, or from a player profile. A player profile can be specified either as player information whose profile properties must be requested on the fly, or a list of already-resolved profile properties. May also be written as a plain string holding a player name or UUID.",
+      "forms": [
+        {
+          "type": "compound",
+          "children": [
+            {
+              "key": "name",
+              "type": "string",
+              "desc": "Optional. A username, consisting of 0-16 non-whitespace printable ASCII characters (this is more permissive than actual player usernames, which must be 3-16 characters and may only contain letters, numbers, and underscores). If no other profile fields are specified, this is used to dynamically request the profile of a player with that username from Mojang's servers.",
+              "category": "appearance",
+              "zh": "用户名"
+            },
+            {
+              "key": "id",
+              "type": "int_array",
+              "desc": "Optional. A UUID. If no other profile fields are specified, this is used to dynamically request the profile of a player with that UUID from Mojang's servers.",
+              "length": 4,
+              "category": "appearance",
+              "zh": "UUID"
+            },
+            {
+              "key": "properties",
+              "type": "list",
+              "desc": "Optional. A non-empty list of user profile properties. If this is specified, the dynamic profile fields are ignored, and a custom profile with these properties is used instead. If set to an empty list, the field is removed rather than invalidating the whole component.",
+              "elementType": "compound",
+              "children": [
+                {
+                  "key": "name",
+                  "type": "string",
+                  "category": "appearance",
+                  "zh": "名称",
+                  "desc": "The name of the property. Can only be \"textures\"."
+                },
+                {
+                  "key": "value",
+                  "type": "string",
+                  "category": "appearance",
+                  "zh": "值",
+                  "desc": "The texture data json, encoded in base64."
+                },
+                {
+                  "key": "signature",
+                  "type": "string",
+                  "category": "appearance",
+                  "zh": "签名",
+                  "desc": "Optional. Mojang's signature of the value, encoded in base64."
+                }
+              ],
+              "category": "appearance",
+              "zh": "属性"
+            },
+            {
+              "key": "texture",
+              "type": "string",
+              "desc": "Optional. Namespaced path to a player skin texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a player model or skin, overriding the skin texture provided by a profile.",
+              "category": "appearance",
+              "zh": "皮肤"
+            },
+            {
+              "key": "cape",
+              "type": "string",
+              "desc": "Optional. Namespaced path to a cape texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering a cape, overriding the cape texture provided by a profile. This does not affect the elytra texture.",
+              "category": "appearance",
+              "zh": "披风"
+            },
+            {
+              "key": "elytra",
+              "type": "string",
+              "desc": "Optional. Namespaced path to an elytra texture, relative to the textures folder in a resource pack. If specified, this texture is used when rendering an elytra, overriding the elytra texture provided by a profile. This does not affect the cape texture.",
+              "category": "appearance",
+              "zh": "鞘翅"
+            },
+            {
+              "key": "model",
+              "type": "string",
+              "desc": "Optional. The type of player model to use. Either \"wide\" or \"slim\". If specified, this overrides the model type provided by a profile.",
+              "category": "appearance",
+              "zh": "模型"
+            }
+          ]
+        },
+        {
+          "type": "string",
+          "default": "\"jeb_\"",
+          "desc": "A player name or UUID; saved back as a compound."
+        }
+      ]
+    },
+    {
+      "key": "provides_banner_patterns",
+      "category": "basic",
+      "advanced": true,
+      "appliesTo": { "ids": ["banner_pattern"] },
+      "since": "1.20.5",
+      "zh": "提供旗帜图案",
+      "desc": "Any number of banner pattern(s) (an [String] ID, or a [String] tag with #, or an [NBT List / JSON Array] array containing [String] IDs). When present, this item can be placed in the pattern slot of a loom and provides the specified banner patterns.",
+      "forms": [
+        {
+          "type": "string",
+          "default": "\"#minecraft:pattern_item/globe\"",
+          "desc": "A pattern tag (#minecraft:…) or a single pattern ID."
+        },
+        {
+          "type": "list",
+          "element": {
+            "type": "string"
+          },
+          "since": "26.1",
+          "desc": "26.1+: a list of pattern IDs."
+        }
+      ]
+    },
+    {
+      "key": "provides_pottery_pattern",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "提供陶片图案",
+      "desc": "One decorated pot pattern (an [String] ID). When present, this item provides the specified pattern when used in a decorated pot side."
+    },
+    {
+      "key": "provides_trim_material",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "提供盔甲纹饰材料",
+      "desc": "One trim material (an [String] ID, or a new [NBT Compound / JSON Object] trim material definition). When present, this item provides the specified trim material when used in a trimming recipe."
+    },
+    {
+      "key": "rarity",
+      "type": "string",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "稀有度",
+      "desc": "Sets the rarity of this item, which affects the default color of its name. Can be common, uncommon, rare, or epic. If this component does not exist on the item, then common is used."
+    },
+    {
+      "key": "recipes",
+      "type": "list",
+      "elementType": "string",
+      "category": "basic",
+      "appliesTo": { "ids": ["knowledge_book"] },
+      "since": "1.20.5",
+      "zh": "配方",
+      "desc": "The recipes that a player unlocks when this knowledge book is used."
+    },
+    {
+      "key": "repair_cost",
+      "type": "int",
+      "category": "basic",
+      "appliesTo": {
+        "ids": [
+          "leather_boots",
+          "copper_boots",
+          "chainmail_boots",
+          "golden_boots",
+          "iron_boots",
+          "diamond_boots",
+          "netherite_boots",
+          "leather_leggings",
+          "copper_leggings",
+          "chainmail_leggings",
+          "golden_leggings",
+          "iron_leggings",
+          "diamond_leggings",
+          "netherite_leggings",
+          "leather_chestplate",
+          "copper_chestplate",
+          "chainmail_chestplate",
+          "golden_chestplate",
+          "iron_chestplate",
+          "diamond_chestplate",
+          "netherite_chestplate",
+          "leather_helmet",
+          "copper_helmet",
+          "chainmail_helmet",
+          "golden_helmet",
+          "iron_helmet",
+          "diamond_helmet",
+          "netherite_helmet",
+          "turtle_helmet",
+          "elytra",
+          "shield",
+          "diamond_sword",
+          "stone_sword",
+          "golden_sword",
+          "netherite_sword",
+          "wooden_sword",
+          "iron_sword",
+          "copper_sword",
+          "diamond_axe",
+          "stone_axe",
+          "golden_axe",
+          "netherite_axe",
+          "wooden_axe",
+          "iron_axe",
+          "copper_axe",
+          "diamond_pickaxe",
+          "stone_pickaxe",
+          "golden_pickaxe",
+          "netherite_pickaxe",
+          "wooden_pickaxe",
+          "iron_pickaxe",
+          "copper_pickaxe",
+          "diamond_shovel",
+          "stone_shovel",
+          "golden_shovel",
+          "netherite_shovel",
+          "wooden_shovel",
+          "iron_shovel",
+          "copper_shovel",
+          "diamond_hoe",
+          "stone_hoe",
+          "golden_hoe",
+          "netherite_hoe",
+          "wooden_hoe",
+          "iron_hoe",
+          "copper_hoe",
+          "bow",
+          "crossbow",
+          "trident",
+          "flint_and_steel",
+          "shears",
+          "brush",
+          "fishing_rod",
+          "carrot_on_a_stick",
+          "warped_fungus_on_a_stick",
+          "mace",
+          "diamond_spear",
+          "stone_spear",
+          "golden_spear",
+          "netherite_spear",
+          "wooden_spear",
+          "iron_spear",
+          "copper_spear"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "修理花费",
+      "desc": "The number of experience levels to add to the base level cost when repairing, combining, or renaming this item with an anvil. Must be a non-negative integer, defaults to 0."
+    },
+    {
+      "key": "repairable",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "appliesTo": {
+        "ids": [
+          "leather_boots",
+          "copper_boots",
+          "chainmail_boots",
+          "golden_boots",
+          "iron_boots",
+          "diamond_boots",
+          "netherite_boots",
+          "leather_leggings",
+          "copper_leggings",
+          "chainmail_leggings",
+          "golden_leggings",
+          "iron_leggings",
+          "diamond_leggings",
+          "netherite_leggings",
+          "leather_chestplate",
+          "copper_chestplate",
+          "chainmail_chestplate",
+          "golden_chestplate",
+          "iron_chestplate",
+          "diamond_chestplate",
+          "netherite_chestplate",
+          "leather_helmet",
+          "copper_helmet",
+          "chainmail_helmet",
+          "golden_helmet",
+          "iron_helmet",
+          "diamond_helmet",
+          "netherite_helmet",
+          "turtle_helmet",
+          "elytra",
+          "shield",
+          "diamond_sword",
+          "stone_sword",
+          "golden_sword",
+          "netherite_sword",
+          "wooden_sword",
+          "iron_sword",
+          "copper_sword",
+          "diamond_axe",
+          "stone_axe",
+          "golden_axe",
+          "netherite_axe",
+          "wooden_axe",
+          "iron_axe",
+          "copper_axe",
+          "diamond_pickaxe",
+          "stone_pickaxe",
+          "golden_pickaxe",
+          "netherite_pickaxe",
+          "wooden_pickaxe",
+          "iron_pickaxe",
+          "copper_pickaxe",
+          "diamond_shovel",
+          "stone_shovel",
+          "golden_shovel",
+          "netherite_shovel",
+          "wooden_shovel",
+          "iron_shovel",
+          "copper_shovel",
+          "diamond_hoe",
+          "stone_hoe",
+          "golden_hoe",
+          "netherite_hoe",
+          "wooden_hoe",
+          "iron_hoe",
+          "copper_hoe",
+          "bow",
+          "crossbow",
+          "trident",
+          "flint_and_steel",
+          "shears",
+          "brush",
+          "fishing_rod",
+          "carrot_on_a_stick",
+          "warped_fungus_on_a_stick",
+          "mace",
+          "diamond_spear",
+          "stone_spear",
+          "golden_spear",
+          "netherite_spear",
+          "wooden_spear",
+          "iron_spear",
+          "copper_spear"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "可修理",
+      "desc": "Allows the item to be repaired, if damageable, in an anvil using the specified ingredient. Also repairs equipped items in the body slot of a tamed wolf."
+    },
+    {
+      "key": "sign_text_back",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": [
+          "oak_sign",
+          "spruce_sign",
+          "birch_sign",
+          "acacia_sign",
+          "jungle_sign",
+          "dark_oak_sign",
+          "pale_oak_sign",
+          "crimson_sign",
+          "warped_sign",
+          "mangrove_sign",
+          "poplar_sign",
+          "bamboo_sign",
+          "cherry_sign",
+          "oak_hanging_sign",
+          "spruce_hanging_sign",
+          "birch_hanging_sign",
+          "acacia_hanging_sign",
+          "cherry_hanging_sign",
+          "jungle_hanging_sign",
+          "dark_oak_hanging_sign",
+          "pale_oak_hanging_sign",
+          "crimson_hanging_sign",
+          "warped_hanging_sign",
+          "mangrove_hanging_sign",
+          "poplar_hanging_sign",
+          "bamboo_hanging_sign"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "告示牌背面文字",
+      "desc": "The text shown on the back of a sign."
+    },
+    {
+      "key": "sign_text_front",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": [
+          "oak_sign",
+          "spruce_sign",
+          "birch_sign",
+          "acacia_sign",
+          "jungle_sign",
+          "dark_oak_sign",
+          "pale_oak_sign",
+          "crimson_sign",
+          "warped_sign",
+          "mangrove_sign",
+          "poplar_sign",
+          "bamboo_sign",
+          "cherry_sign",
+          "oak_hanging_sign",
+          "spruce_hanging_sign",
+          "birch_hanging_sign",
+          "acacia_hanging_sign",
+          "cherry_hanging_sign",
+          "jungle_hanging_sign",
+          "dark_oak_hanging_sign",
+          "pale_oak_hanging_sign",
+          "crimson_hanging_sign",
+          "warped_hanging_sign",
+          "mangrove_hanging_sign",
+          "poplar_hanging_sign",
+          "bamboo_hanging_sign"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "告示牌正面文字",
+      "desc": "The text shown on the front of a sign."
+    },
+    {
+      "key": "stored_enchantments",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["enchanted_book"] },
+      "since": "1.20.5",
+      "editor": "enchantments",
+      "zh": "存储的附魔",
+      "desc": "Contains a map of inactive enchantments and their levels. Adding this component to any item other than an enchanted book does nothing except add text to the item's tooltip. If this component is removed from an enchanted book, the item can no longer be combined with other enchanted books. If present on an item, the enchantments are listed in the item's tooltip. The order of the enchantments in the tooltip is defined by the #minecraft:tooltip_order enchantment tag."
+    },
+    {
+      "key": "sulfur_cube_content",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "硫磺立方内容",
+      "desc": "The item stored inside the sulfur cube.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Defaults to 1 if not specified.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        }
+      ]
+    },
+    {
+      "key": "suspicious_stew_effects",
+      "type": "list",
+      "elementType": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["suspicious_stew"] },
+      "since": "1.20.5",
+      "zh": "可疑炖菜效果",
+      "desc": "A list of unamplified mob effects given to the player or mob upon consuming this item (normally a suspicious stew). minecraft:potion_duration_scale is ignored. When present on an item, text is added to the item's tooltip only when it is inside of the item selection screen.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The ID of the effect.",
+          "category": "basic",
+          "zh": "效果"
+        },
+        {
+          "key": "duration",
+          "type": "int",
+          "desc": "The duration of the effect in ticks. Defaults to 160.",
+          "category": "basic",
+          "zh": "持续时间"
+        }
+      ]
+    },
+    {
+      "key": "swing_animation",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "挥动动画",
+      "desc": "This component was split into attack_animation and interact_animation in 26.3."
+    },
+    {
+      "key": "tag",
+      "type": "compound",
+      "category": "data",
+      "until": "1.20.4",
+      "zh": "旧版附加数据",
+      "desc": "Item data before 1.20.5, replaced by data components.",
+      "children": [
+        {
+          "key": "display",
+          "type": "compound",
+          "category": "data",
+          "desc": "Display properties.",
+          "children": [
+            {
+              "key": "Name",
+              "type": "string",
+              "category": "data",
+              "zh": "名称",
+              "desc": "The JSON text component to use to display the item."
+            },
+            {
+              "key": "Lore",
+              "type": "list",
+              "elementType": "string",
+              "category": "data",
+              "desc": "List of strings to display as lore for the item."
+            },
+            {
+              "key": "color",
+              "type": "int",
+              "category": "data",
+              "zh": "颜色",
+              "desc": "The color of the leather armor. The tooltip displays \"Dyed\" if advanced tooltips are disabled, otherwise it displays the hexadecimal color value. Color codes are the hex code of the color converted to a decimal number, or can be calculated from the Red, Green and Blue components using this formula: Red<<16 + Green<<8 + Blue."
+            },
+            {
+              "key": "MapColor",
+              "type": "int",
+              "category": "data",
+              "desc": "The color of the markings on the item's texture."
+            }
+          ]
+        },
+        {
+          "key": "HideFlags",
+          "type": "int",
+          "category": "data",
+          "desc": "Bit field determining which parts of the tooltip to hide on an item."
+        },
+        {
+          "key": "CustomModelData",
+          "type": "int",
+          "category": "data",
+          "desc": "A value used in the \"custom_model_data\" item tag in the overrides of item models."
+        },
+        {
+          "key": "AttributeModifiers",
+          "type": "list",
+          "category": "data",
+          "desc": "Contains Attribute Modifiers on this item which modify Attributes of the wearer or holder (if the item is not in the hand or armor slots, it has no effect).",
+          "elementType": "compound"
+        },
+        {
+          "key": "Enchantments",
+          "type": "list",
+          "category": "data",
+          "desc": "Contains enchantments on this item that affect the way the item works.",
+          "elementType": "compound"
+        },
+        {
+          "key": "StoredEnchantments",
+          "type": "list",
+          "category": "data",
+          "desc": "Contains enchantments for enchanted books.",
+          "elementType": "compound"
+        },
+        {
+          "key": "RepairCost",
+          "type": "int",
+          "category": "data",
+          "desc": "Number of experience levels to add to the base level cost when repairing, combining, or renaming this item with an Anvil."
+        },
+        {
+          "key": "CanDestroy",
+          "type": "list",
+          "category": "data",
+          "desc": "The only blocks this item may break when used by a player in adventure mode.",
+          "elementType": "string"
+        },
+        {
+          "key": "CanPlaceOn",
+          "type": "list",
+          "category": "data",
+          "desc": "Determines which blocks that blocks with this tag can be placed against in adventure mode.",
+          "elementType": "string"
+        },
+        {
+          "key": "BlockEntityTag",
+          "type": "compound",
+          "category": "data",
+          "desc": "Block entity NBT tags which are applied when this block is placed."
+        },
+        {
+          "key": "BlockStateTag",
+          "type": "compound",
+          "category": "data",
+          "desc": "A compound where each key is a block state key, and the value is the block state value to force place for this block.",
+          "children": [
+            {
+              "key": "Block state key",
+              "type": "string",
+              "category": "data",
+              "desc": "The block state value of the block to edit, for example, facing: \"east\"."
+            }
+          ]
+        },
+        {
+          "key": "Damage",
+          "type": "int",
+          "category": "data",
+          "desc": "The number of uses consumed (not remaining) of the item's durability."
+        },
+        {
+          "key": "Unbreakable",
+          "type": "byte",
+          "category": "data",
+          "desc": "1 or 0 (true/false) - if true, the item doesn't lose durability when used."
+        },
+        {
+          "key": "custom_potion_effects",
+          "type": "list",
+          "category": "data",
+          "desc": "The custom potion effects (status effects) this potion or tipped arrow has.",
+          "elementType": "compound"
+        },
+        {
+          "key": "Potion",
+          "type": "string",
+          "category": "data",
+          "desc": "The name of the default potion effect. This name differs from the status effect name. For example, the value for an \"Instant Health II\" potion is \"minecraft:strong_healing\". A potion or tipped arrow getting its effects from this tag is named with the proper effect. The default value is \"minecraft:empty\", which gives it the \"Uncraftable\" name."
+        },
+        {
+          "key": "CustomPotionColor",
+          "type": "int",
+          "category": "data",
+          "desc": "The item uses this custom color, and area-of-effect clouds, arrows, and splash and lingering potions use it for their particle effects. This color does not extend, however, to the particles given off by entities who ultimately receive the effect. The numeric color codes are equal to the hex code of the color converted to a decimal number, or can alternatively be calculated from the Red, Green and Blue components using this formula: Red<<16 + Green<<8 + Blue. For positive values larger than 0x00FFFFFF, the top byte is ignored. All negative values produce white."
+        },
+        {
+          "key": "Trim",
+          "type": "compound",
+          "category": "data",
+          "desc": "Properties of Armor Trim.",
+          "children": [
+            {
+              "key": "material",
+              "type": "string",
+              "category": "data",
+              "desc": "The material which decides the color of armor trim."
+            },
+            {
+              "key": "pattern",
+              "type": "string",
+              "category": "data",
+              "desc": "The pattern of armor trim."
+            }
+          ]
+        },
+        {
+          "key": "EntityTag",
+          "type": "compound",
+          "category": "data",
+          "desc": "Stores entity data that is applied to the entity when created."
+        },
+        {
+          "key": "filtered_pages",
+          "type": "compound",
+          "category": "data",
+          "desc": "Only in Realms. The pages shown to players with the profanity filter turned on instead of some of the regular pages. This compound is automatically given a tag named after the page number and set to \"\" when a player with the profanity filter turned off closes a book with that specific page containing one or more blocked words, so players with the filter on cannot see the blocked words. If multiple pages have been edited before the book is closed, only the pages containing blocked words are blanked."
+        },
+        {
+          "key": "pages",
+          "type": "list",
+          "category": "data",
+          "desc": "The list of pages in the book.",
+          "elementType": "string"
+        },
+        {
+          "key": "filtered_title",
+          "type": "string",
+          "category": "data",
+          "desc": "Only in Realms. The title shown to players with the profanity filter turned on instead of the regular title. This tag is automatically set to \"\" when a player with the profanity filter turned off signs a book with a title containing one or more blocked words, so players with the filter on cannot see the blocked words."
+        },
+        {
+          "key": "resolved",
+          "type": "byte",
+          "category": "data",
+          "desc": "Optional. Created and set to 1 when the book (or a book from the stack) is opened for the first time after being created. Used to determine whether to resolve advanced components within JSON, because their values become fixed at that point."
+        },
+        {
+          "key": "generation",
+          "type": "int",
+          "category": "data",
+          "desc": "Optional. The copy tier of the book. 0 = original, 1 = copy of original, 2 = copy of copy, 3 = tattered. If the value is greater than 1, the book cannot be copied. Does not exist for original books. If this tag is missing, it is assumed the book is an original. \"Tattered\" is unused in normal gameplay, and functions identically to the \"copy of copy\" tier."
+        },
+        {
+          "key": "author",
+          "type": "string",
+          "category": "data",
+          "zh": "作者",
+          "desc": "The author of the written book."
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "category": "data",
+          "desc": "The title of the written book. Lower priority than the item name set by tag.display.Name. Cannot be used to open locked containers."
+        },
+        {
+          "key": "Recipes",
+          "type": "list",
+          "category": "data",
+          "zh": "配方列表",
+          "desc": "The list of recipes this book contains.",
+          "elementType": "string"
+        },
+        {
+          "key": "BucketVariantTag",
+          "type": "int",
+          "category": "data",
+          "desc": "The variant data of the tropical fish in the bucket."
+        },
+        {
+          "key": "Items",
+          "type": "list",
+          "elementType": "compound",
+          "category": "data",
+          "zh": "物品列表",
+          "desc": "List of items in the bundle."
+        },
+        {
+          "key": "LodestoneTracked",
+          "type": "byte",
+          "category": "data",
+          "desc": "Optional. 1 or 0 (true/false) - true if the compass is connected to a lodestone. When false, LodestoneDimension and LodestonePos is not automatically removed when the lodestone is destroyed, but the compass still points to that location."
+        },
+        {
+          "key": "LodestoneDimension",
+          "type": "string",
+          "category": "data",
+          "desc": "Optional. The dimension of the lodestone to which the compass is pointing."
+        },
+        {
+          "key": "LodestonePos",
+          "type": "compound",
+          "category": "data",
+          "desc": "Optional. The coordinates of the lodestone to which the compass is pointing.",
+          "children": [
+            {
+              "key": "X",
+              "type": "int",
+              "category": "data",
+              "desc": "x coordinate"
+            },
+            {
+              "key": "Y",
+              "type": "int",
+              "category": "data",
+              "desc": "y coordinate"
+            },
+            {
+              "key": "Z",
+              "type": "int",
+              "category": "data",
+              "desc": "z coordinate"
+            }
+          ]
+        },
+        {
+          "key": "ChargedProjectiles",
+          "type": "list",
+          "category": "data",
+          "desc": "The items this crossbow has charged, normally one entry (three if enchanted with multishot)",
+          "elementType": "compound"
+        },
+        {
+          "key": "Charged",
+          "type": "byte",
+          "category": "data",
+          "desc": "If the crossbow is charged."
+        },
+        {
+          "key": "DebugProperty",
+          "type": "compound",
+          "category": "data",
+          "desc": "A compound where each key is a block ID, and the value is the block state key to edit for that block ID.",
+          "children": [
+            {
+              "key": "Block ID",
+              "type": "string",
+              "category": "data",
+              "desc": "The block state key of the block to edit, for example \"minecraft:oak_fence\": \"east\"."
+            }
+          ]
+        },
+        {
+          "key": "Fireworks",
+          "type": "compound",
+          "category": "data",
+          "desc": "One of these may appear on a firework rocket.",
+          "children": [
+            {
+              "key": "Explosions",
+              "type": "list",
+              "category": "data",
+              "desc": "List of compounds representing each explosion this firework causes.",
+              "elementType": "compound"
+            },
+            {
+              "key": "Flight",
+              "type": "byte",
+              "category": "data",
+              "desc": "Indicates the flight duration of the firework (equals the amount of gunpowder used in crafting the rocket)."
+            }
+          ]
+        },
+        {
+          "key": "Explosion",
+          "type": "compound",
+          "category": "data",
+          "desc": "The explosion effect contributed by this firework star."
+        },
+        {
+          "key": "instrument",
+          "type": "string",
+          "category": "data",
+          "zh": "乐器",
+          "desc": "The identifier of the goat horn variant."
+        },
+        {
+          "key": "map",
+          "type": "int",
+          "category": "data",
+          "desc": "The map number."
+        },
+        {
+          "key": "map_scale_direction",
+          "type": "int",
+          "category": "data",
+          "desc": "Only internally used when scaling a map, after that directly removed: The amount to increase the current map scale by when crafting. Always 1."
+        },
+        {
+          "key": "map_to_lock",
+          "type": "byte",
+          "category": "data",
+          "desc": "1 or 0 (true/false) - true if the map should be locked after being taken out of the cartography table."
+        },
+        {
+          "key": "Decorations",
+          "type": "list",
+          "category": "data",
+          "desc": "A list of optional icons to display on the map.",
+          "elementType": "compound"
+        },
+        {
+          "key": "SkullOwner",
+          "type": "compound",
+          "category": "data",
+          "desc": "The username of the player this is a skull of.",
+          "children": [
+            {
+              "key": "Id",
+              "type": "int_array",
+              "category": "data",
+              "advanced": true,
+              "desc": "UUID of owner, stored as four ints. Optional. Used to update the other tags when the chunk loads or the holder logs in, in case the owner's name has changed."
+            },
+            {
+              "key": "Name",
+              "type": "string",
+              "category": "data",
+              "zh": "名称",
+              "desc": "Username of owner. If missing or empty, the head appears as a Steve head. Otherwise, used to store or retrieve the downloaded skin in the cache. Need not be a valid player name, but must not be all spaces."
+            },
+            {
+              "key": "Properties",
+              "type": "compound",
+              "category": "data",
+              "zh": "属性",
+              "desc": "The skin properties of the head owner.",
+              "children": [
+                {
+                  "key": "textures",
+                  "type": "list",
+                  "category": "data",
+                  "desc": "The individual texture entries of the head owner, each holding a Base64-encoded JSON object in Value.",
+                  "elementType": "compound"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "effects",
+          "type": "list",
+          "category": "data",
+          "desc": "The status effects this suspicious stew has.",
+          "elementType": "compound"
+        }
+      ]
+    },
+    {
+      "key": "tool",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "工具",
+      "desc": "If set, this item is considered as a tool.",
+      "children": [
+        {
+          "key": "default_mining_speed",
+          "type": "float",
+          "desc": "The default mining speed of this tool, used if no rules override it. Defaults to 1.0.",
+          "category": "basic",
+          "zh": "默认挖掘速度"
+        },
+        {
+          "key": "damage_per_block",
+          "type": "int",
+          "desc": "The amount of durability to remove each time a block is broken with this tool. Must be a non-negative integer. Defaults to 1.",
+          "category": "basic",
+          "zh": "每方块耐久消耗"
+        },
+        {
+          "key": "can_destroy_blocks_in_creative",
+          "type": "byte",
+          "desc": "Whether players can break blocks while holding this tool in Creative mode. Defaults to true.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "创造模式可破坏方块"
+        },
+        {
+          "key": "rules",
+          "type": "list",
+          "desc": "A list of rules for the blocks that this tool has a special behavior with. If a field is overridden by multiple matched rules, the one that comes first in the list is chosen.",
+          "elementType": "compound",
+          "children": [
+            {
+              "key": "blocks",
+              "type": "string",
+              "desc": "The blocks to match with. Can be a block ID or a block tag with a #, or a list of block IDs.",
+              "category": "basic",
+              "zh": "方块"
+            },
+            {
+              "key": "speed",
+              "type": "float",
+              "desc": "If the blocks match, overrides the default mining speed. Optional.",
+              "category": "basic",
+              "zh": "挖掘速度"
+            },
+            {
+              "key": "correct_for_drops",
+              "type": "byte",
+              "desc": "If the blocks match, overrides whether or not this tool is considered correct to mine at its most efficient speed, and to drop items if the block's loot table requires it. If not set by any rules, defaults to false. Optional.",
+              "valueKind": "boolean",
+              "category": "basic",
+              "zh": "正确掉落"
+            }
+          ],
+          "category": "basic",
+          "zh": "规则"
+        }
+      ]
+    },
+    {
+      "key": "tooltip_display",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "提示框显示",
+      "desc": "Allows the tooltips provided specifically by any given item component to be suppressed.",
+      "children": [
+        {
+          "key": "hide_tooltip",
+          "type": "byte",
+          "desc": "If true, the item has no tooltip when hovered.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "隐藏提示框"
+        },
+        {
+          "key": "hidden_components",
+          "type": "list",
+          "desc": "The tooltips provided by any component in this list are hidden. If that component provides no tooltip, it has no effect.",
+          "elementType": "string",
+          "category": "basic",
+          "zh": "隐藏的组件"
+        }
+      ]
+    },
+    {
+      "key": "tooltip_style",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "提示框样式",
+      "desc": "The identifier of the custom sprites for the tooltip background and frame which references textures /assets/<namespace>/textures/gui/sprites/tooltip/<id>_background and /assets/<namespace>/textures/gui/sprites/tooltip/<id>_frame. Instead of falling back to the default value, invalid specifications will use the missing texture."
+    },
+    {
+      "key": "trim",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": {
+        "ids": [
+          "leather_boots",
+          "copper_boots",
+          "chainmail_boots",
+          "golden_boots",
+          "iron_boots",
+          "diamond_boots",
+          "netherite_boots",
+          "leather_leggings",
+          "copper_leggings",
+          "chainmail_leggings",
+          "golden_leggings",
+          "iron_leggings",
+          "diamond_leggings",
+          "netherite_leggings",
+          "leather_chestplate",
+          "copper_chestplate",
+          "chainmail_chestplate",
+          "golden_chestplate",
+          "iron_chestplate",
+          "diamond_chestplate",
+          "netherite_chestplate",
+          "leather_helmet",
+          "copper_helmet",
+          "chainmail_helmet",
+          "golden_helmet",
+          "iron_helmet",
+          "diamond_helmet",
+          "netherite_helmet",
+          "turtle_helmet"
+        ]
+      },
+      "since": "1.20.5",
+      "zh": "盔甲纹饰",
+      "desc": "Contains the trim applied to this armor piece. If present on an item, information about the armor trim is added to the item's tooltip.",
+      "children": [
+        {
+          "key": "pattern",
+          "type": "string",
+          "desc": "One trim pattern (an ID, or a new trim pattern definition).",
+          "category": "basic",
+          "zh": "纹饰图案"
+        },
+        {
+          "key": "material",
+          "type": "string",
+          "desc": "One trim material (an ID, or a new trim material definition).",
+          "category": "basic",
+          "zh": "纹饰材质"
+        }
+      ]
+    },
+    {
+      "key": "unbreakable",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "无法破坏",
+      "desc": "If present on an item, the item cannot lose durability, its durability bar is hidden, and a blue \"Unbreakable\" text is added to its tooltip."
+    },
+    {
+      "key": "use_cooldown",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "使用冷却",
+      "desc": "If present, this item applies a use cooldown to all items of the same type when it has been used.",
+      "children": [
+        {
+          "key": "seconds",
+          "type": "float",
+          "desc": "The use cooldown duration in seconds.",
+          "category": "basic",
+          "zh": "冷却秒数"
+        },
+        {
+          "key": "cooldown_group",
+          "type": "string",
+          "desc": "The unique identifier to identify this cooldown group. If present, the item is included in a use cooldown group and no longer shares cooldowns with its base item type, but instead with any other items that are part of the same use cooldown group. Optional.",
+          "category": "basic",
+          "zh": "冷却组"
+        }
+      ]
+    },
+    {
+      "key": "use_effects",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "使用效果",
+      "desc": "Defines the vibrations and player movement penalties when an item with a continuous use action is being used."
+    },
+    {
+      "key": "use_remainder",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "使用后残留",
+      "desc": "If present, replaces the item with a remainder item if its stack count has decreased after use.",
+      "children": [
+        {
+          "key": "id",
+          "type": "string",
+          "desc": "The identifier of the item. Must not be minecraft:air.",
+          "category": "inventory",
+          "zh": "物品 ID"
+        },
+        {
+          "key": "count",
+          "type": "int",
+          "desc": "Number of items stacked in this inventory slot. Defaults to 1 if not specified.",
+          "category": "inventory",
+          "zh": "数量"
+        },
+        {
+          "key": "components",
+          "type": "compound",
+          "desc": "Optional map of additional (non-default) data components.",
+          "category": "inventory",
+          "zh": "数据组件"
+        }
+      ]
+    },
+    {
+      "key": "villager_food",
+      "type": "compound",
+      "category": "basic",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "村民食物",
+      "desc": "If present, villagers will be able to pick up and eat the item."
+    },
+    {
+      "key": "waxed",
+      "type": "compound",
+      "category": "basic",
+      "since": "1.20.5",
+      "zh": "已打蜡",
+      "desc": "If present, the block's contents are waxed. Does not apply to blocks with separate waxed variants; for those, use the appropriate block_state instead."
+    },
+    {
+      "key": "weapon",
+      "type": "compound",
+      "category": "combat",
+      "advanced": true,
+      "since": "1.20.5",
+      "zh": "武器",
+      "desc": "If present, the item acts as a weapon. For attack damage see the attribute_modifiers component."
+    },
+    {
+      "key": "writable_book_content",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["writable_book"] },
+      "since": "1.20.5",
+      "zh": "书与笔内容",
+      "desc": "The contents of this book and quill. Adding this component to any item other than a writable_book does nothing. If this component is removed from a writable_book item, attempting to use the item will still swing the arm and increment its used statistic, but no UI will appear."
+    },
+    {
+      "key": "written_book_content",
+      "type": "compound",
+      "category": "basic",
+      "appliesTo": { "ids": ["written_book"] },
+      "since": "1.20.5",
+      "zh": "成书内容",
+      "desc": "The contents and metadata of this written book. Adding this component to any item other than a written_book does nothing except add text to the item tooltip. If this component is removed from a written_book item, attempting to use the item will still swing the arm and increment its used statistic, but no UI will appear.",
+      "children": [
+        {
+          "key": "pages",
+          "type": "list",
+          "desc": "A list of the pages in the book.",
+          "category": "basic",
+          "zh": "书页",
+          "elementType": "string"
+        },
+        {
+          "key": "title",
+          "type": "compound",
+          "desc": "The title of this written book. Overrides the base item name. If set to an empty string, it is ignored and does not override the base item name.",
+          "category": "basic",
+          "zh": "标题",
+          "children": [
+            {
+              "key": "raw",
+              "type": "string",
+              "desc": "The plain text title. Has a maximum length of 32 characters.",
+              "category": "basic",
+              "zh": "原始文本"
+            },
+            {
+              "key": "filtered",
+              "type": "string",
+              "desc": "The filtered title. Optional. Shown only to players with chat filter enabled, instead of .",
+              "category": "basic",
+              "zh": "过滤后文本"
+            }
+          ]
+        },
+        {
+          "key": "author",
+          "type": "string",
+          "desc": "The author of this written book. This is shown in the item tooltip.",
+          "category": "basic",
+          "zh": "作者"
+        },
+        {
+          "key": "generation",
+          "type": "int",
+          "desc": "The number of times this written book has been copied. 0 = original, 1 = copy of original, 2 = copy of copy, 3 = tattered. Defaults to 0. If the value is greater than 1, the book cannot be copied. If specified, this is shown in the item tooltip.",
+          "category": "basic",
+          "zh": "副本等级"
+        },
+        {
+          "key": "resolved",
+          "type": "byte",
+          "desc": "If true, the text components have already been resolved by the server. If false, they are resolved either when the book is opened by an operator, when the book is placed into a lectern by an operator, or when the item stack is written to a lectern's Book tag by a command. Defaults to false.",
+          "valueKind": "boolean",
+          "category": "basic",
+          "zh": "已解析"
+        }
+      ]
+    }
+  ]
+}

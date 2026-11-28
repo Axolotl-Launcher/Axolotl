@@ -18,29 +18,44 @@ import { getCurrentVersion } from '@/lab/command-generator/commands/registry.ts'
 import type { ArgumentPreset, CommandArgument } from '@/lab/command-generator/commands/types.ts'
 import advancementsData from '@/lab/command-generator/data/advancements.json'
 import effectsData from '@/lab/command-generator/data/effects.json'
+import entitiesData from '@/lab/command-generator/data/entities.json'
+import type { NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
 import type { SlotDisplay } from '@/lab/recipe-generator/display'
 import { getSlotDisplay } from '@/lab/recipe-generator/display'
 import { buildSlotContext } from '@/lab/recipe-generator/slot-context'
 import type { JavaVersionId, SlotValue } from '@/lab/recipe-generator/types'
 import { loadVersionResources, TEXTURE_ATLAS } from '@/lab/shared/minecraft/resources'
 
+import CommandGeneratorEntitySelector from './CommandGeneratorEntitySelector.vue'
 import CommandGeneratorItemPickerModal from './CommandGeneratorItemPickerModal.vue'
 import CommandGeneratorNbtEditor from './CommandGeneratorNbtEditor.vue'
+import CommandGeneratorNbtPath from './CommandGeneratorNbtPath.vue'
+import CommandGeneratorOptionPickerModal, {
+    type PickerGroup,
+} from './CommandGeneratorOptionPickerModal.vue'
 
 const props = defineProps<{
     arg: CommandArgument
     modelValue: string | number | boolean | undefined
     version?: string
     forceDataComponents?: boolean
+    /** NBT 面板的目录域与目标 ID（由父组件从同命令的其它参数派生）。 */
+    nbtDomain?: NbtDomain
+    nbtTargetId?: string
+    /** 路径编辑器的上下文，`/data` 由 targetType 决定。 */
+    pathDomain?: NbtDomain
+    pathTargetId?: string
 }>()
 
 const fieldId = useId()
 
 const emit = defineEmits<{
     'update:modelValue': [value: string | number | boolean]
+    /** 选择器里的 `type=` 变化，父组件据此收窄同命令的 NBT 面板。 */
+    'update:nbt-target': [targetId: string | undefined]
 }>()
 
-const { formatMessage } = useVIntl()
+const { formatMessage, locale } = useVIntl()
 
 const messages = defineMessages({
     argRequired: {
@@ -90,6 +105,22 @@ const messages = defineMessages({
     pickAdvancement: {
         id: 'app.lab.command-generator.advancement-picker.button',
         defaultMessage: 'Pick advancement',
+    },
+    pickEntity: {
+        id: 'app.lab.command-generator.entity-picker.button',
+        defaultMessage: 'Pick entity',
+    },
+    entityPickerTitle: {
+        id: 'app.lab.command-generator.entity-picker.title',
+        defaultMessage: 'Pick an entity type',
+    },
+    entityPickerSearch: {
+        id: 'app.lab.command-generator.entity-picker.search',
+        defaultMessage: 'Search by name or ID',
+    },
+    entityPickerEmpty: {
+        id: 'app.lab.command-generator.entity-picker.empty',
+        defaultMessage: 'No entity matches.',
     },
 })
 
@@ -198,7 +229,26 @@ const GAMERULE_DEFAULT_PRESETS: ArgumentPreset[] = [
 
 const isNumber = computed(() => props.arg.type === 'number' || props.arg.type === 'integer')
 const isNbt = computed(() => props.arg.supportsNbtEditor === true)
+const isNbtPath = computed(() => props.arg.type === 'nbt-path')
 const isItem = computed(() => props.arg.type === 'item')
+const isEntityType = computed(() => props.arg.type === 'entity-type')
+
+const isChinese = computed(() => locale.value.toLowerCase().startsWith('zh'))
+const entityOptions = entitiesData.entities as Array<{ id: string; en?: string; zh?: string }>
+
+/** `/summon` 的实体参数：用弹窗按中英文名挑，输入框仍可手写数据包实体 ID。 */
+const entityPickerGroups = computed<PickerGroup[]>(() => [
+    {
+        id: 'entities',
+        options: entityOptions.map((entry) => ({
+            id: entry.id,
+            label: entry.id,
+            detail: isChinese.value ? entry.zh : entry.en,
+            keywords: `${entry.id} ${entry.en ?? ''} ${entry.zh ?? ''}`,
+        })),
+    },
+])
+
 const isBlock = computed(() => props.arg.type === 'block')
 const isEffect = computed(() => props.arg.type === 'effect')
 const isAdvancement = computed(() => props.arg.type === 'advancement')
@@ -225,6 +275,8 @@ const enumOptions = computed<ComboboxOption<string>[]>(() =>
 
 const itemPickerRef =
     useTemplateRef<InstanceType<typeof CommandGeneratorItemPickerModal>>('itemPickerRef')
+const entityPickerRef =
+    useTemplateRef<InstanceType<typeof CommandGeneratorOptionPickerModal>>('entityPickerRef')
 
 const mergedPresets = computed<ArgumentPreset[]>(() => {
     const custom = props.arg.presets ?? []
@@ -312,6 +364,14 @@ function openItemPicker() {
 }
 
 function onItemPicked(id: string) {
+    emit('update:modelValue', id)
+}
+
+function openEntityPicker(event: MouseEvent) {
+    entityPickerRef.value?.show(event)
+}
+
+function onEntityPicked(id: string) {
     emit('update:modelValue', id)
 }
 
@@ -641,12 +701,23 @@ function coordinateModeLabel(mode: CoordinateMode): string {
                 </button>
             </div>
         </div>
+        <CommandGeneratorNbtPath
+            v-if="isNbtPath"
+            :model-value="String(modelValue ?? '')"
+            :version="version"
+            :domain="pathDomain"
+            :target-id="pathTargetId"
+            :aria-label="formatDynamic(arg.displayNameKey, arg.name)"
+            @update:model-value="onTextInput"
+        />
         <CommandGeneratorNbtEditor
-            v-if="isNbt"
+            v-else-if="isNbt"
             :model-value="String(modelValue ?? '')"
             :kind="arg.nbtKind"
             :version="version"
             :force-data-components="forceDataComponents"
+            :domain="nbtDomain"
+            :target-id="nbtTargetId"
             @update:model-value="emit('update:modelValue', $event)"
         />
         <Combobox
@@ -703,6 +774,28 @@ function coordinateModeLabel(mode: CoordinateMode): string {
                 }}
             </Button>
         </div>
+        <div v-else-if="isEntityType" class="flex min-w-0 flex-1 gap-2">
+            <StyledInput
+                :id="fieldId"
+                class="min-w-0 flex-1"
+                :aria-label="formatDynamic(arg.displayNameKey, arg.name)"
+                :placeholder="arg.placeholder ?? 'minecraft:zombie'"
+                :spellcheck="false"
+                :model-value="String(modelValue ?? '')"
+                @update:model-value="onTextInput(String($event ?? ''))"
+            />
+            <Button type="outlined" @click="openEntityPicker">
+                {{ formatMessage(messages.pickEntity) }}
+            </Button>
+        </div>
+        <CommandGeneratorEntitySelector
+            v-else-if="arg.type === 'entity-selector'"
+            :model-value="String(modelValue ?? '')"
+            :version="version"
+            :aria-label="formatDynamic(arg.displayNameKey, arg.name)"
+            @update:model-value="onTextInput"
+            @update:nbt-target="emit('update:nbt-target', $event)"
+        />
         <StyledInput
             v-else-if="isMixedCoordinates && mixedAsEntity"
             :id="fieldId"
@@ -787,6 +880,15 @@ function coordinateModeLabel(mode: CoordinateMode): string {
                 >+{{ hiddenPresetCount }}</Button
             >
         </div>
+        <CommandGeneratorOptionPickerModal
+            v-if="isEntityType"
+            ref="entityPickerRef"
+            :title="formatMessage(messages.entityPickerTitle)"
+            :search-placeholder="formatMessage(messages.entityPickerSearch)"
+            :empty-text="formatMessage(messages.entityPickerEmpty)"
+            :groups="entityPickerGroups"
+            @pick="onEntityPicked"
+        />
         <CommandGeneratorItemPickerModal
             v-if="isItem || isBlock || isEffect || isAdvancement"
             ref="itemPickerRef"

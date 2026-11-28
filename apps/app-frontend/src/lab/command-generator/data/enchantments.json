@@ -1,0 +1,233 @@
+{
+  "retrievedAt": "2026-11-20",
+  "source": "vanilla en_us.json / zh_cn.json",
+  "versionSource": "Minecraft Wiki: Enchantment#History, Java Edition 24w03a (sweeping renamed to sweeping_edge)",
+  "enchantments": [
+    {
+      "id": "aqua_affinity",
+      "en": "Aqua Affinity",
+      "zh": "水下速掘"
+    },
+    {
+      "id": "bane_of_arthropods",
+      "en": "Bane of Arthropods",
+      "zh": "节肢杀手"
+    },
+    {
+      "id": "binding_curse",
+      "en": "Curse of Binding",
+      "zh": "绑定诅咒"
+    },
+    {
+      "id": "blast_protection",
+      "en": "Blast Protection",
+      "zh": "爆炸保护"
+    },
+    {
+      "id": "breach",
+      "en": "Breach",
+      "zh": "破甲",
+      "since": "1.21"
+    },
+    {
+      "id": "channeling",
+      "en": "Channeling",
+      "zh": "引雷"
+    },
+    {
+      "id": "density",
+      "en": "Density",
+      "zh": "致密",
+      "since": "1.21"
+    },
+    {
+      "id": "depth_strider",
+      "en": "Depth Strider",
+      "zh": "深海探索者"
+    },
+    {
+      "id": "efficiency",
+      "en": "Efficiency",
+      "zh": "效率"
+    },
+    {
+      "id": "feather_falling",
+      "en": "Feather Falling",
+      "zh": "摔落缓冲"
+    },
+    {
+      "id": "fire_aspect",
+      "en": "Fire Aspect",
+      "zh": "火焰附加"
+    },
+    {
+      "id": "fire_protection",
+      "en": "Fire Protection",
+      "zh": "火焰保护"
+    },
+    {
+      "id": "flame",
+      "en": "Flame",
+      "zh": "火矢"
+    },
+    {
+      "id": "fortune",
+      "en": "Fortune",
+      "zh": "时运"
+    },
+    {
+      "id": "frost_walker",
+      "en": "Frost Walker",
+      "zh": "冰霜行者"
+    },
+    {
+      "id": "impaling",
+      "en": "Impaling",
+      "zh": "穿刺"
+    },
+    {
+      "id": "infinity",
+      "en": "Infinity",
+      "zh": "无限"
+    },
+    {
+      "id": "knockback",
+      "en": "Knockback",
+      "zh": "击退"
+    },
+    {
+      "id": "looting",
+      "en": "Looting",
+      "zh": "抢夺"
+    },
+    {
+      "id": "loyalty",
+      "en": "Loyalty",
+      "zh": "忠诚"
+    },
+    {
+      "id": "luck_of_the_sea",
+      "en": "Luck of the Sea",
+      "zh": "海之眷顾"
+    },
+    {
+      "id": "lunge",
+      "en": "Lunge",
+      "zh": "突进",
+      "since": "1.21.11"
+    },
+    {
+      "id": "lure",
+      "en": "Lure",
+      "zh": "饵钓"
+    },
+    {
+      "id": "mending",
+      "en": "Mending",
+      "zh": "经验修补"
+    },
+    {
+      "id": "multishot",
+      "en": "Multishot",
+      "zh": "多重射击"
+    },
+    {
+      "id": "piercing",
+      "en": "Piercing",
+      "zh": "穿透"
+    },
+    {
+      "id": "power",
+      "en": "Power",
+      "zh": "力量"
+    },
+    {
+      "id": "projectile_protection",
+      "en": "Projectile Protection",
+      "zh": "弹射物保护"
+    },
+    {
+      "id": "protection",
+      "en": "Protection",
+      "zh": "保护"
+    },
+    {
+      "id": "punch",
+      "en": "Punch",
+      "zh": "冲击"
+    },
+    {
+      "id": "quick_charge",
+      "en": "Quick Charge",
+      "zh": "快速装填"
+    },
+    {
+      "id": "respiration",
+      "en": "Respiration",
+      "zh": "水下呼吸"
+    },
+    {
+      "id": "riptide",
+      "en": "Riptide",
+      "zh": "激流"
+    },
+    {
+      "id": "sharpness",
+      "en": "Sharpness",
+      "zh": "锋利"
+    },
+    {
+      "id": "silk_touch",
+      "en": "Silk Touch",
+      "zh": "精准采集"
+    },
+    {
+      "id": "smite",
+      "en": "Smite",
+      "zh": "亡灵杀手"
+    },
+    {
+      "id": "soul_speed",
+      "en": "Soul Speed",
+      "zh": "灵魂疾行"
+    },
+    {
+      "id": "sweeping",
+      "en": "Sweeping Edge",
+      "zh": "横扫之刃",
+      "until": "1.20.4"
+    },
+    {
+      "id": "sweeping_edge",
+      "en": "Sweeping Edge",
+      "zh": "横扫之刃",
+      "since": "1.20.5"
+    },
+    {
+      "id": "swift_sneak",
+      "en": "Swift Sneak",
+      "zh": "迅捷潜行"
+    },
+    {
+      "id": "thorns",
+      "en": "Thorns",
+      "zh": "荆棘"
+    },
+    {
+      "id": "unbreaking",
+      "en": "Unbreaking",
+      "zh": "耐久"
+    },
+    {
+      "id": "vanishing_curse",
+      "en": "Curse of Vanishing",
+      "zh": "消失诅咒"
+    },
+    {
+      "id": "wind_burst",
+      "en": "Wind Burst",
+      "zh": "风爆",
+      "since": "1.21"
+    }
+  ]
+}

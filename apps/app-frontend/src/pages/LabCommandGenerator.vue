@@ -44,6 +44,7 @@ import {
     validateCommand,
 } from '@/lab/command-generator/generator.ts'
 import { loadManifest } from '@/lab/command-generator/loader.ts'
+import type { NbtDomain } from '@/lab/command-generator/nbt/schema.ts'
 import {
     applyPresetToValues,
     deleteUserPreset,
@@ -51,6 +52,7 @@ import {
     saveUserPreset,
     type UserPreset,
 } from '@/lab/command-generator/presets.ts'
+import { nbtTargetFromSelector } from '@/lab/command-generator/selector/serialize.ts'
 
 const { formatMessage, locale } = useVIntl()
 
@@ -357,6 +359,74 @@ const uiArguments = computed<CommandArgument[]>(() => {
     }
     return [...nonNbt, ...nbt]
 })
+
+/**
+ * NBT 面板的上下文：同一个命令里，实体选择器的 `type=` 或 `/summon` 的实体 ID
+ * 决定「哪些字段适用」。物品侧同理，用 `item` 参数的值作为组件上下文。
+ */
+const nbtContext = computed<{ entity?: string; item?: string }>(() => {
+    const args = uiArguments.value
+    const context: { entity?: string; item?: string } = {}
+
+    const selector = args.find((arg) => arg.type === 'entity-selector')
+    if (selector) {
+        const value = values.value[selector.name]
+        if (typeof value === 'string') context.entity = nbtTargetFromSelector(value)
+    }
+
+    const entityType = args.find((arg) => arg.type === 'entity-type')
+    if (!context.entity && entityType) {
+        const value = values.value[entityType.name]
+        if (typeof value === 'string' && value.trim()) {
+            context.entity = value.trim().replace(/^minecraft:/, '')
+        }
+    }
+
+    const item = args.find((arg) => arg.type === 'item')
+    if (item) {
+        const value = values.value[item.name]
+        if (typeof value === 'string' && value.trim()) {
+            context.item = value.trim().replace(/^minecraft:/, '')
+        }
+    }
+
+    return context
+})
+
+/**
+ * 路径编辑器的上下文。`/data` 的 `targetType` 决定看哪份目录：
+ * `block` 看方块实体，`entity` 看实体（`target` 是选择器时还能收窄），
+ * `storage` 是命令存储，没有字段目录。
+ */
+const pathContext = computed<{ domain?: NbtDomain; targetId?: string }>(() => {
+    const targetType = values.value['targetType']
+    if (targetType === 'block') return { domain: 'block_entity' }
+    if (targetType === 'storage') return {}
+    if (targetType !== undefined && targetType !== 'entity') return {}
+
+    const target = values.value['target']
+    if (typeof target !== 'string' || !target.trim()) return { domain: 'entity' }
+    return { domain: 'entity', targetId: nbtTargetFromSelector(target) }
+})
+
+/**
+ * NBT 面板的目录域。
+ *
+ * `item` / `entity` 参数自己就说明了域；`generic`（`/data` 的 `value`）没有
+ * 固定指向，只能跟着同一命令的 `targetType` 走：`block` 查方块实体、`entity`
+ * 查实体，`storage` 没有字段目录，面板就不筛选。
+ */
+function nbtDomainFor(arg: CommandArgument): NbtDomain | undefined {
+    if (arg.nbtKind === 'entity') return 'entity'
+    if (arg.nbtKind === 'item') return 'item'
+    return pathContext.value.domain
+}
+
+function nbtTargetFor(arg: CommandArgument): string | undefined {
+    if (arg.nbtKind === 'entity') return nbtContext.value.entity
+    if (arg.nbtKind === 'item') return nbtContext.value.item
+    return pathContext.value.targetId
+}
 
 const permissionName = computed(() => {
     if (!currentCommand.value) return ''
@@ -831,6 +901,10 @@ async function openWiki() {
                                     :arg="arg"
                                     :version="selectedVersion"
                                     :force-data-components="forceDataComponents"
+                                    :nbt-domain="nbtDomainFor(arg)"
+                                    :nbt-target-id="nbtTargetFor(arg)"
+                                    :path-domain="pathContext.domain"
+                                    :path-target-id="pathContext.targetId"
                                 />
                             </details>
                             <CommandGeneratorArgument
@@ -839,6 +913,10 @@ async function openWiki() {
                                 :arg="arg"
                                 :version="selectedVersion"
                                 :force-data-components="forceDataComponents"
+                                :nbt-domain="nbtDomainFor(arg)"
+                                :nbt-target-id="nbtTargetFor(arg)"
+                                :path-domain="pathContext.domain"
+                                :path-target-id="pathContext.targetId"
                             />
                         </template>
                     </div>

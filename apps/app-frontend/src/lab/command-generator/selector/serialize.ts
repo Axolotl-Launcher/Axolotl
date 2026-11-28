@@ -1,0 +1,191 @@
+/**
+ * 目标选择器的拼装与编辑。
+ *
+ * 选择器参数的顺序不影响语义，但影响可读性。这里固定成 wiki 汇总表的顺序
+ * （空间 → 计分板 → 物种 → 实体数据 → 玩家数据 → 数量），
+ * 用户手写的未知参数排到最后并保持原有先后。
+ */
+
+import {
+    argumentsForVariable,
+    SELECTOR_ARGUMENTS,
+    selectorArgumentSpec,
+    type SelectorVariable,
+} from './arguments.ts'
+import { formatNumericRange, type NumericRange, parseSelector } from './parse.ts'
+
+export interface SelectorArgument {
+    key: string
+    /** 值，含 `!` 前缀。 */
+    value: string
+}
+
+export interface SelectorDraft {
+    variable: SelectorVariable
+    arguments: SelectorArgument[]
+}
+
+const ORDER = new Map(SELECTOR_ARGUMENTS.map((spec, index) => [spec.key, index]))
+
+function orderOf(key: string): number {
+    return ORDER.get(key) ?? SELECTOR_ARGUMENTS.length
+}
+
+/** 把草稿拼成 `@e[type=zombie,limit=3]`。没有参数时只输出变量。 */
+export function serializeSelector(draft: SelectorDraft): string {
+    const args = draft.arguments.filter((argument) => argument.key.trim())
+    if (args.length === 0) return `@${draft.variable}`
+    const ordered = args
+        .map((argument, index) => ({ argument, index }))
+        .sort(
+            (left, right) =>
+                orderOf(left.argument.key) - orderOf(right.argument.key) ||
+                left.index - right.index,
+        )
+        .map(({ argument }) => argument)
+    const body = ordered.map((argument) => `${argument.key}=${argument.value}`).join(',')
+    return `@${draft.variable}[${body}]`
+}
+
+/** 从已有文本得到可编辑的草稿；认不出的参数原样带过来。 */
+export function draftFromSelector(text: string): SelectorDraft | undefined {
+    const parsed = parseSelector(text)
+    if (!parsed) return undefined
+    return {
+        variable: parsed.variable,
+        arguments: parsed.arguments.map((argument) => ({
+            key: argument.key,
+            value: argument.value,
+        })),
+    }
+}
+
+/** 设置一个参数：已有同名参数时替换第一个，否则追加。 */
+export function setArgument(draft: SelectorDraft, key: string, value: string): SelectorDraft {
+    const existing = draft.arguments.findIndex((argument) => argument.key === key)
+    if (existing === -1) {
+        return { ...draft, arguments: [...draft.arguments, { key, value }] }
+    }
+    const next = [...draft.arguments]
+    next[existing] = { key, value }
+    return { ...draft, arguments: next }
+}
+
+export function removeArgument(draft: SelectorDraft, key: string, index?: number): SelectorDraft {
+    if (index === undefined) {
+        return { ...draft, arguments: draft.arguments.filter((argument) => argument.key !== key) }
+    }
+    return { ...draft, arguments: draft.arguments.filter((_, position) => position !== index) }
+}
+
+export function toggleNegated(value: string): string {
+    return value.startsWith('!') ? value.slice(1) : `!${value}`
+}
+
+/** `@e[]` / `@e[ ]` → `@e`：括号里什么都不剩时不必留着。 */
+function dropEmptyBrackets(text: string): string {
+    return text.replace(/\[\s*\]\s*$/, '')
+}
+
+/**
+ * 就地删掉原文里的第 `index` 个参数，返回新文本。
+ *
+ * 按 `partStart` / `partEnd`（整个 `key=value` 段）删，而不是按值的区间：值可以是
+ * 空的（刚添加的 `@e[distance=]`），那时值区间长度为 0，按它删会什么都不做。
+ * 删掉最后一个参数后连方括号一起去掉，选择器就回到「没有任何筛选条件」的 `@e`。
+ */
+export function removeArgumentText(text: string, index: number): string {
+    const argument = parseSelector(text)?.arguments[index]
+    if (!argument) return text
+
+    let start = argument.partStart
+    let end = argument.partEnd
+    const trailingComma = /^\s*,\s*/.exec(text.slice(end))
+    if (trailingComma) {
+        // 后面还有参数：连同它后面的逗号和空白一起删
+        end += trailingComma[0].length
+    } else {
+        // 它是最后一个：改删前面那个逗号，顺带把逗号前的空白收掉
+        const before = text.slice(0, start)
+        const leadingComma = /,\s*$/.exec(before)
+        if (leadingComma) {
+            start = before.slice(0, before.length - leadingComma[0].length).trimEnd().length
+        }
+    }
+
+    return dropEmptyBrackets(`${text.slice(0, start)}${text.slice(end)}`)
+}
+
+/**
+ * 选择器里第 `index` 个 `nbt` 的值，供 NBT 编辑器读取。
+ *
+ * 编辑器只认 SNBT，不认选择器的 `!` 取反标记，所以前缀在这里剥掉；
+ * 写回时由 `setNbtValue` 按 `negated` 补回去。
+ */
+export function nbtValueOf(text: string, index: number): string | undefined {
+    const argument = parseSelector(text)?.arguments[index]
+    if (!argument || argument.key !== 'nbt') return undefined
+    return argument.negated ? argument.value.slice(1) : argument.value
+}
+
+/** 所有 `nbt` 参数的下标：它可以重复出现，卡片要能区分同名的几条。 */
+export function nbtArgumentIndexes(text: string): number[] {
+    return (parseSelector(text)?.arguments ?? [])
+        .map((argument, index) => (argument.key === 'nbt' ? index : -1))
+        .filter((index) => index !== -1)
+}
+
+/**
+ * 把编辑好的 SNBT 写回第 `index` 个 `nbt` 参数。
+ *
+ * 只替换值的区间：其它参数的写法、顺序与空白都保持原样。值为空时删掉整个
+ * 参数——`nbt=` 没有值游戏会拒绝，留着它只会生成一条跑不通的命令。
+ */
+export function setNbtValue(text: string, index: number, value: string): string {
+    const argument = parseSelector(text)?.arguments[index]
+    if (!argument || argument.key !== 'nbt') return text
+    const trimmed = value.trim()
+    if (!trimmed) return removeArgumentText(text, index)
+    const next = argument.negated ? `!${trimmed}` : trimmed
+    return `${text.slice(0, argument.start)}${next}${text.slice(argument.end)}`
+}
+
+/** 区间值：`10`、`8..16`、`..10`、`10..`。 */
+export function rangeValue(range: NumericRange, negated = false): string {
+    const text = formatNumericRange(range)
+    return negated ? `!${text}` : text
+}
+
+/** 该变量下允许出现的参数名，用于在卡片里隐藏不合法的项。 */
+export function allowedKeys(variable: SelectorVariable): Set<string> {
+    return new Set(argumentsForVariable(variable).map((spec) => spec.key))
+}
+
+/**
+ * 从选择器推导 NBT 面板的实体上下文。
+ *
+ * 只有 `type=<单个实体>` 能确定字段集合；`type=!zombie`、实体类型标签
+ * （`#minecraft:undead`）和 `@a` 这类只看玩家的变量都退回通用字段。
+ */
+export function nbtTargetFromSelector(text: string): string | undefined {
+    const parsed = parseSelector(text)
+    if (!parsed) return undefined
+    if (parsed.variable === 'a' || parsed.variable === 'p' || parsed.variable === 'r') {
+        return 'player'
+    }
+    const types = parsed.arguments.filter((argument) => argument.key === 'type')
+    if (types.length !== 1) return undefined
+    const [type] = types
+    if (type.negated) return undefined
+    const value = type.value.trim()
+    if (!value || value.startsWith('#') || value.includes(',')) return undefined
+    return value.replace(/^minecraft:/, '')
+}
+
+/** 玩家专属参数会让非玩家目标被排除，UI 用它提示「这会把 @e 收窄成玩家」。 */
+export function filtersToPlayers(draft: SelectorDraft): boolean {
+    return draft.arguments.some((argument) => {
+        const spec = selectorArgumentSpec(argument.key)
+        return spec?.playersOnly === true
+    })
+}

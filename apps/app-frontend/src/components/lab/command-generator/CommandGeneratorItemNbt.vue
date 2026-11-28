@@ -12,16 +12,24 @@ import { computed, ref, watch } from 'vue'
 
 import { commandCatalogMessage } from '@/lab/command-generator/catalog-messages'
 import {
-    mergeItemNbt,
-    type NbtTagNode,
-    parseNbt,
-    quoteSnbt,
-} from '@/lab/command-generator/nbt-tree.ts'
+    readTextComponent,
+    textComponentJson,
+    textComponentNodes,
+    textComponentSnbt,
+} from '@/lab/command-generator/nbt/text-component.ts'
+import { mergeItemNbt, type NbtTagNode, parseNbt } from '@/lab/command-generator/nbt-tree.ts'
 
 interface EnchantEntry {
     key: number
     id: string
     level: number
+}
+
+/** 一行描述：`format` 是原始文本组件，编辑时只换文字，颜色之类的字段留着。 */
+interface LoreEntry {
+    key: number
+    text: string
+    format: NbtTagNode[]
 }
 
 interface EnchantDefinition {
@@ -318,7 +326,9 @@ const enchantOptions = computed<ComboboxOption<string>[]>(() =>
 )
 
 const name = ref('')
-const lore = ref<string[]>([])
+/** 名称的原始文本组件，用来在改文字时保住 `color`、`bold` 这些字段。 */
+const nameFormat = ref<NbtTagNode[]>([])
+const lore = ref<LoreEntry[]>([])
 const enchantments = ref<EnchantEntry[]>([])
 const unbreakable = ref(false)
 let nextKey = 1
@@ -384,12 +394,16 @@ function serializeLegacy(): string {
 
     const displayParts: string[] = []
     if (name.value.trim()) {
-        displayParts.push(`Name:'${escapeSnbt(JSON.stringify({ text: name.value }), "'")}'`)
+        const json = textComponentJson(textComponentNodes(nameFormat.value, name.value))
+        displayParts.push(`Name:'${escapeSnbt(json, "'")}'`)
     }
-    const cleanLore = lore.value.map((l) => l.trim()).filter(Boolean)
+    const cleanLore = lore.value.filter((entry) => entry.text.trim())
     if (cleanLore.length) {
         const loreItems = cleanLore
-            .map((l) => `'${escapeSnbt(JSON.stringify({ text: l }), "'")}'`)
+            .map((entry) => {
+                const json = textComponentJson(textComponentNodes(entry.format, entry.text.trim()))
+                return `'${escapeSnbt(json, "'")}'`
+            })
             .join(',')
         displayParts.push(`Lore:[${loreItems}]`)
     }
@@ -413,20 +427,22 @@ function serializeDataComponents(): string {
     const parts: string[] = []
 
     if (name.value.trim()) {
+        const nodes = textComponentNodes(nameFormat.value, name.value)
         parts.push(
             useInlineText.value
-                ? `custom_name={text:${quoteSnbt(name.value)}}`
-                : `custom_name='${escapeSnbt(JSON.stringify({ text: name.value }), "'")}'`,
+                ? `custom_name=${textComponentSnbt(nodes)}`
+                : `custom_name='${escapeSnbt(textComponentJson(nodes), "'")}'`,
         )
     }
-    const cleanLore = lore.value.map((l) => l.trim()).filter(Boolean)
+    const cleanLore = lore.value.filter((entry) => entry.text.trim())
     if (cleanLore.length) {
         const loreItems = cleanLore
-            .map((l) =>
-                useInlineText.value
-                    ? `{text:${quoteSnbt(l)}}`
-                    : `'${escapeSnbt(JSON.stringify({ text: l }), "'")}'`,
-            )
+            .map((entry) => {
+                const nodes = textComponentNodes(entry.format, entry.text.trim())
+                return useInlineText.value
+                    ? textComponentSnbt(nodes)
+                    : `'${escapeSnbt(textComponentJson(nodes), "'")}'`
+            })
             .join(',')
         parts.push(`lore=[${loreItems}]`)
     }
@@ -494,6 +510,7 @@ watch(
 
 function parseSnbt(snbtStr: string): void {
     name.value = ''
+    nameFormat.value = []
     lore.value = []
     enchantments.value = []
     unbreakable.value = false
@@ -504,24 +521,18 @@ function parseSnbt(snbtStr: string): void {
         const { nodes, components } = parseNbt(snbtStr)
         const find = (list: NbtTagNode[], key: string) =>
             list.find((node) => node.name.replace(/^minecraft:/, '') === key)
-        const readText = (node?: NbtTagNode): string => {
-            if (node?.type === 'compound')
-                return String(find(node.children ?? [], 'text')?.value ?? '')
-            if (!node || node.type !== 'string') return ''
-            try {
-                const parsed = JSON.parse(String(node.value))
-                return typeof parsed === 'string'
-                    ? parsed
-                    : typeof parsed?.text === 'string'
-                      ? parsed.text
-                      : ''
-            } catch {
-                return useInlineText.value ? String(node.value) : ''
-            }
-        }
         const display = components ? nodes : (find(nodes, 'display')?.children ?? [])
-        name.value = readText(find(display, components ? 'custom_name' : 'Name'))
-        lore.value = (find(display, components ? 'lore' : 'Lore')?.children ?? []).map(readText)
+        const nameComponent = readTextComponent(find(display, components ? 'custom_name' : 'Name'))
+        name.value = nameComponent.text
+        nameFormat.value = nameComponent.nodes
+        const loreComponents = (find(display, components ? 'lore' : 'Lore')?.children ?? []).map(
+            (node) => readTextComponent(node),
+        )
+        lore.value = loreComponents.map((component) => ({
+            key: nextKey++,
+            text: component.text,
+            format: component.nodes,
+        }))
         const ench = find(nodes, components ? 'enchantments' : 'Enchantments')?.children ?? []
         enchantments.value = components
             ? (find(ench, 'levels')?.children ?? ench).map((node) => ({
@@ -545,7 +556,7 @@ function parseSnbt(snbtStr: string): void {
 // ============ 编辑操作 ============
 
 function addLore() {
-    lore.value.push('')
+    lore.value.push({ key: nextKey++, text: '', format: [] })
 }
 
 function removeLore(index: number) {
@@ -599,14 +610,15 @@ function setEnchantLevel(index: number, level: number) {
             }}</label>
             <div class="lore-list flex min-w-0 flex-col gap-2">
                 <div
-                    v-for="(_, i) in lore"
-                    :key="i"
+                    v-for="(entry, i) in lore"
+                    :key="entry.key"
                     class="lore-row flex min-w-0 items-center gap-2"
                 >
                     <input
-                        v-model="lore[i]"
                         class="text-input w-full min-w-0 rounded-xl border-0 bg-surface-4 px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:ring-4 focus:ring-brand-shadow"
                         :placeholder="formatMessage(messages.lorePlaceholder)"
+                        :value="entry.text"
+                        @input="entry.text = ($event.target as HTMLInputElement).value"
                     />
                     <Button
                         v-tooltip="formatMessage(messages.removeLore)"
